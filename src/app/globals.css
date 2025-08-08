@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+/* === Custom Theme Colors for Architect of Personality === */
+:root {
+  --color-primary: #7C5CFC;
+  --color-primary-2: #9F7CFF;
+  --bg: #0D0F1A;
+  --surface: #121420;
+  --text: #E9ECF1;
+  --text-2: #AAB1C2;
+  --accent-blue: #5B9DFF;
+  --accent-green: #2BD4A4;
+  --accent-pink: #FF6FCF;
+  --accent-yellow: #F6C945;
+  --accent-red: #FF6B6B;
+}
+
+[data-theme="light"] {
+  --bg: #FFF;
+  --surface: #F6F7FB;
+  --text: #182033;
+  --text-2: #5B6785;
+}
+
+/* === Tailwind Defaults === */
+@import "tailwindcss";
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
