@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 
 /** body: { user_id, day, scores: Array<{domain:string, score:number}> } */
 export async function POST(req: Request) {
+    const { supabase } = await createSupabaseServerClient(req);
     const { user_id, day, scores } = await req.json();
     const rows = scores.map((s: { domain: string; score: number }) => ({
         user_id,
