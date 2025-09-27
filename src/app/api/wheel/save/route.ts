@@ -1,19 +1,53 @@
-import { NextResponse } from 'next/server';
+// RU: bulk-save за неделю. НЕ заменяет твой /api/wheel, а дополняет.
+// POST /api/wheel/save { week:'YYYY-Www', items:[{ area:'Health', score:0..10 }] }
+
+import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
-/** body: { user_id, day, scores: Array<{domain:string, score:number}> } */
-export async function POST(req: Request) {
-    const { user_id, day, scores } = await req.json();
-    const rows = scores.map((s: { domain: string; score: number }) => ({
-        user_id,
-        day,
-        ...s,
-    }));
+// ↓ ДОБАВЛЕНО: единый способ получить user_id
+import { requireUserFromReq } from '@/lib/auth';
 
-    const { error } = await supabase.from('wheel_scores').upsert(rows, {
-        onConflict: 'user_id,day,domain',
-    });
+const DEV_UID =
+    process.env.NODE_ENV !== 'production'
+        ? (process.env.NEXT_PUBLIC_DEV_USER_ID || '11111111-1111-1111-1111-111111111111')
+        : null;
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    return NextResponse.json({ ok: true });
+function getUserId(req: NextRequest) {
+    return req.headers.get('x-user-id') || DEV_UID;
+}
+
+export async function POST(req: NextRequest) {
+    // ↓ ДОБАВЛЕНО: сначала пробуем Supabase JWT, иначе старый dev-фоллбек
+    let userId: string | null = null;
+    try { userId = (await requireUserFromReq(req)).id; } catch { }
+    if (!userId) userId = getUserId(req) as string | null;
+
+    if (!userId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+    const b = await req.json().catch(() => ({}));
+    const week = String(b?.week ?? '');
+    const items = Array.isArray(b?.items) ? b.items : [];
+
+    if (!/^\d{4}-W\d{2}$/.test(week)) return NextResponse.json({ error: 'bad_week' }, { status: 400 });
+    if (!items.length) return NextResponse.json({ error: 'items_required' }, { status: 400 });
+
+    const rows = [];
+    for (const it of items) {
+        const area = String(it?.area ?? '').trim();
+        const score = Number(it?.score);
+        if (!area) return NextResponse.json({ error: 'area_required' }, { status: 400 });
+        if (!Number.isInteger(score) || score < 0 || score > 10) {
+            return NextResponse.json({ error: 'score_0_10' }, { status: 400 });
+        }
+        rows.push({ user_id: userId, week, area, score, updated_at: new Date().toISOString() });
+    }
+
+    const { data, error } = await supabase
+        .from('wheel_scores')
+        .upsert(rows, { onConflict: 'user_id,week,area' })
+        .select('id, area, score, week, updated_at')
+        .order('area', { ascending: true });
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ items: data ?? [] });
 }

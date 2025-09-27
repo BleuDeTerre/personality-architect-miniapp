@@ -1,0 +1,5 @@
+ignoredBuiltDependencies:
+  - keccak
+
+onlyBuiltDependencies:
+  - bigint-buffer
