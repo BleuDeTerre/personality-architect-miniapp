@@ -19,15 +19,15 @@
     "sonner": "^2.0.7",
     "viem": "^2.37.6",
     "x402-fetch": "^0.6.0",
-    "x402-next": "^0.6.0",
-    "zod": "^4.0.15"
+    "x402-next": "^0.6.5",
+    "zod": "^3.25.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@types/node": "^20.19.17",
+    "@types/react": "^19.1.15",
+    "@types/react-dom": "^19.1.9",
     "eslint": "^9",
     "eslint-config-next": "15.4.6",
     "openai": "^5.23.0",
