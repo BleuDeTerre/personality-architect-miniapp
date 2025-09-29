@@ -1,38 +1,58 @@
+// src/lib/auth.ts
+// Валидируем только реальный Bearer-токен. Никаких DEV-заглушек.
+
 import { createClient } from '@supabase/supabase-js';
 
 export type UserAuth = { id: string };
 
-// RU: DEV-хелпер для серверных хэндлеров и страниц
-export function getUserIdDev(): string {
-    if (process.env.NODE_ENV !== 'production') {
-        const dev = process.env.NEXT_PUBLIC_DEV_UUID;
-        if (dev) return dev;
-    }
-    throw new Error('unauthorized');
-}
-
-// RU: Требует авторизацию из заголовка Authorization: Bearer ...
+/**
+ * Достаёт Bearer из заголовка и проверяет в Supabase.
+ * Ошибка -> "unauthorized". Никаких фоллбеков.
+ */
 export async function requireUserFromReq(req: Request): Promise<UserAuth> {
+    // Берём токен из Authorization: Bearer <jwt>
+    const raw = req.headers.get('authorization') || '';
+    const m = raw.match(/^Bearer\s+(.+)$/i);
+    if (!m) throw new Error('unauthorized');
+    const accessToken = m[1].trim();
+    if (!accessToken) throw new Error('unauthorized');
+
+    // Валидируем токен через anon-клиент с прокинутым заголовком
     const supa = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { global: { headers: { Authorization: req.headers.get('authorization') ?? '' } } }
+        { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
     );
-    const { data } = await supa.auth.getUser();
-    const uid = data?.user?.id;
-    if (uid) return { id: uid };
-    // DEV fallback
-    return { id: getUserIdDev() };
+
+    const { data, error } = await supa.auth.getUser();
+    if (error || !data?.user?.id) throw new Error('unauthorized');
+
+    return { id: data.user.id };
 }
 
-// RU: Удобный серверный хелпер (без доступа к Request)
-export async function requireUser(): Promise<UserAuth> {
-    // В edge-хэндлерах без req нельзя проверить JWT — используем DEV в non-prod
-    return { id: getUserIdDev() };
+/**
+ * Вариант без Request, если уже есть токен.
+ * Удобно для server actions/внутренних вызовов.
+ */
+export async function requireUserFromToken(accessToken: string): Promise<UserAuth> {
+    if (!accessToken) throw new Error('unauthorized');
+
+    const supa = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
+    );
+
+    const { data, error } = await supa.auth.getUser();
+    if (error || !data?.user?.id) throw new Error('unauthorized');
+
+    return { id: data.user.id };
 }
 
-// RU: Списание одного pro-кредита (минимальная заглушка для дев)
+/**
+ * Заглушка платежа оставлена, но в проде замени на безопасный RPC
+ * (security definer + проверка auth.uid()).
+ */
 export async function chargeProCredit(_userId: string, _opts: { reason: string }) {
-    // В проде — вызвать RPC или обновить таблицу остатков
-    return;
+    return; // TODO: вызвать безопасный RPC consume_credit(...)
 }

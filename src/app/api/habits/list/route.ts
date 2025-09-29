@@ -1,23 +1,25 @@
-import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+// src/app/api/habits/list/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { requireUserFromReq } from '@/lib/auth';
+import { createUserServerClient } from '@/lib/supabase';
 
-export async function GET(req: Request) {
-    const { searchParams } = new URL(req.url);
-    const user_id = searchParams.get('user_id');
+export async function GET(req: NextRequest) {
+    try {
+        const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+        if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-    if (!user_id) {
-        return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
+        const { id: userId } = await requireUserFromReq(req);
+        const supa = createUserServerClient(token);
+
+        const { data, error } = await supa
+            .from('habits')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+        if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+        return NextResponse.json(data ?? []);
+    } catch {
+        return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     }
-
-    const { data, error } = await supabase
-        .from('habits')
-        .select('*')
-        .eq('user_id', user_id)
-        .order('created_at', { ascending: false });
-
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json(data);
 }

@@ -1,12 +1,13 @@
-// /api/share/preview
-// RU: HTML-страница с meta-тегами Farcaster Miniapp Preview
-
+// src/app/api/share/preview/route.ts
 import { NextRequest } from 'next/server';
 
 export const runtime = 'edge';
 
 function escapeAttr(s: string) {
-    return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    return s
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;');
 }
 
 function getOrigin(req: NextRequest) {
@@ -24,7 +25,8 @@ export async function GET(req: NextRequest) {
     const image = url.searchParams.get('image') ?? `${origin}/share/images/${kind}.png`;
 
     const actionUrl = (() => {
-        if (kind === 'monthly' && month) return `${origin}/insight/monthly?month=${encodeURIComponent(month)}`;
+        if (kind === 'monthly' && month)
+            return `${origin}/insight/monthly?month=${encodeURIComponent(month)}`;
         if (kind === 'weekly') return `${origin}/insight/weekly`;
         if (kind === 'habit') return `${origin}/insight/habit`;
         return origin;
@@ -39,7 +41,10 @@ export async function GET(req: NextRequest) {
                 type: 'launch_miniapp',
                 url: actionUrl,
                 name: process.env.NEXT_PUBLIC_APP_NAME ?? 'Habits',
-                splashImageUrl: process.env.NEXT_PUBLIC_APP_SPLASH_IMAGE_URL ?? (process.env.NEXT_PUBLIC_APP_ICON_URL ?? `${origin}/icon-1024.png`),
+                splashImageUrl:
+                    process.env.NEXT_PUBLIC_APP_SPLASH_IMAGE_URL ??
+                    process.env.NEXT_PUBLIC_APP_ICON_URL ??
+                    `${origin}/icon-1024.png`,
                 splashBackgroundColor: process.env.NEXT_PUBLIC_APP_SPLASH_BG ?? '#000000',
             },
         },
@@ -51,10 +56,17 @@ export async function GET(req: NextRequest) {
   <meta charset="utf-8" />
   <title>${escapeAttr(title)}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="fc:miniapp" content="${escapeAttr(JSON.stringify(miniapp))}" />
+
+  <!-- Farcaster Miniapp -->
+  <meta name="fc:miniapp" content='${JSON.stringify(miniapp)}' />
+
+  <!-- OpenGraph -->
+  <meta property="og:type" content="website" />
   <meta property="og:title" content="${escapeAttr(title)}" />
   <meta property="og:image" content="${escapeAttr(image)}" />
   <meta property="og:url" content="${escapeAttr(actionUrl)}" />
+
+  <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
 </head>
 <body>

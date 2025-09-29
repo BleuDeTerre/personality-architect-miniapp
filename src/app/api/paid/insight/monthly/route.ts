@@ -1,18 +1,18 @@
-// RU: платный эндпойнт (x402). Генерит месячный инсайт.
+// src/app/api/insight/monthly/route.ts
+// Платный эндпойнт (x402). Генерит месячный инсайт.
+export const runtime = 'edge';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { withX402 } from '@/lib/x402Client';
-import { requireUser } from '@/lib/auth';
+import { requireUserFromReq } from '@/lib/auth';
 import { OpenAI } from 'openai';
 import { monthBoundsUTC, loadMonthlyRows, rollupMonthly } from '@/lib/insightMonthly';
 
-export const runtime = 'edge';
-
-// RU: сборка полезной нагрузки
+// Сборка полезной нагрузки
 async function buildInsight(userId: string, start: Date, end: Date) {
     const rows = await loadMonthlyRows(userId, start, end);
     const { items, totals } = rollupMonthly(rows);
 
-    // RU: короткое резюме на EN
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
     const summaryPrompt = [
         `Create a monthly habit report.`,
@@ -35,16 +35,18 @@ async function buildInsight(userId: string, start: Date, end: Date) {
         totals,
         items,
         summary: chat.choices[0]?.message?.content ?? '',
-        cachedUntil: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(), // RU: кэш 7д
+        cachedUntil: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
     };
 }
 
 export const GET = withX402(async (req: NextRequest) => {
-    const user = await requireUser();
+    // авторизация по Bearer из запроса
+    const user = await requireUserFromReq(req);
+
     const { searchParams } = new URL(req.url);
     const { start, end } = monthBoundsUTC(searchParams.get('month') ?? undefined);
 
-    // RU: тут можно вставить persist-кэш (ai_reports) по ключу userId+month+'monthly'
+    // при желании добавь persist-кэш (ai_reports) по ключу userId+month+'monthly'
     const payload = await buildInsight(user.id, start, end);
     return NextResponse.json(payload);
 }, { sku: '/api/paid/insight/monthly' });

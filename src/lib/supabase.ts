@@ -1,16 +1,18 @@
 // src/lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
 
-// Клиент Supabase, использует публичный anon key (клиентский)
+// Публичный клиент (anon). Без токена. Работает через RLS.
 export const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,           // URL
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!       // anon key
 );
 
-// Серверный клиент с сервисным ключом для админ-операций (обходит RLS). Не использовать на клиенте!
-export function createServerClient() {
+// Серверный клиент с прокинутым JWT пользователя.
+// НИКАКИХ service-role. Только Authorization заголовок.
+export function createUserServerClient(accessToken: string) {
     return createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
     );
 }
