@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";                 // + берем JWT из cookie
+import { cookies } from "next/headers";
 import CreditsBadge from "@/components/CreditsBadge";
 import ClientToaster from "@/components/ClientToaster";
 import BuyProButton from "@/components/BuyProButton";
@@ -10,8 +10,9 @@ import BuyProButton from "@/components/BuyProButton";
 type _Search = { page?: string; limit?: string; endpoint?: string };
 
 // клиент действует от имени пользователя по его JWT
-function userClient() {
-    const jwt = cookies().get("sb-access-token")?.value;
+async function userClient() {
+    const cookieStore = await cookies();
+    const jwt = cookieStore.get("sb-access-token")?.value;
     if (!jwt) throw new Error("unauthorized");
     return createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,7 +22,7 @@ function userClient() {
 }
 
 export default async function PaidHistoryPage({ searchParams }: { searchParams?: Promise<any> }) {
-    const supa = userClient();
+    const supa = await userClient();
 
     const sp = (await searchParams?.then?.(v => v).catch?.(() => ({}))) || ({} as any);
     const limit = Math.min(Math.max(parseInt(sp?.limit || "20"), 1), 100);
@@ -35,7 +36,7 @@ export default async function PaidHistoryPage({ searchParams }: { searchParams?:
         .from("paid_events")
         .select("created_at, endpoint, amount_usd, status, meta, tx_hash", { count: "exact" })
         .order("created_at", { ascending: false })
-        .range(from, to);                     // RLS ограничит user_id = auth.uid()
+        .range(from, to); // RLS ограничит user_id = auth.uid()
 
     if (endpoint) q = q.eq("endpoint", endpoint);
 
