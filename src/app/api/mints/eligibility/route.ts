@@ -5,15 +5,14 @@ import { requireUserFromReq, createUserServerClient } from '@/lib/auth';
 // GET /api/mints/eligibility?code=FIRST_LOG
 export async function GET(req: NextRequest) {
   try {
-    // JWT из заголовка/куки и клиент под пользователем
-    const jwt = requireUserFromReq(req);
-    const supa = createUserServerClient(jwt);
+    const { token } = await requireUserFromReq(req);   // ← await и берём token
+    const supa = createUserServerClient(token);
 
     const url = new URL(req.url);
     const code = url.searchParams.get('code')?.toUpperCase();
     if (!code) return NextResponse.json({ error: 'code required' }, { status: 400 });
 
-    // badge_eligibility: SECURITY DEFINER, использует auth.uid() внутри
+    // SECURITY DEFINER: использует auth.uid() внутри
     const { data, error } = await supa.rpc('badge_eligibility', { p_code: code });
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
