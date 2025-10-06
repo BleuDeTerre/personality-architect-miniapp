@@ -2,8 +2,7 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUserFromReq } from '@/lib/auth';
-import { createUserServerClient } from '@/lib/supabase';
+import { requireUserFromReq, createUserServerClient } from '@/lib/auth'; // ← берём jwt-клиент отсюда
 import crypto from 'crypto';
 
 // sha256(JSON.stringify(obj))
@@ -26,23 +25,25 @@ async function generateReport(date: string, highAccuracy: boolean) {
 }
 
 async function withTimeout<T>(p: Promise<T>, ms: number, fallback: () => T): Promise<T> {
-    let timer: NodeJS.Timeout;
+    let timer: NodeJS.Timeout | undefined;
     const to = new Promise<T>((resolve) => {
         timer = setTimeout(() => resolve(fallback()), ms);
     });
     const res = await Promise.race([p, to]);
-    // @ts-expect-error
     clearTimeout(timer);
     return res as T;
 }
 
 export async function POST(req: NextRequest) {
     try {
-        // 1) авторизация
-        const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-        if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-        const { id: userId } = await requireUserFromReq(req);
-        const supa = createUserServerClient(token);
+        // 1) авторизация: берём JWT из заголовка/куки и создаём user-клиент
+        const jwt = requireUserFromReq(req);                 // строка JWT или ошибка
+        const supa = createUserServerClient(jwt);
+
+        // узнаём userId надёжно через Supabase по этому JWT
+        const { data: u, error: uerr } = await supa.auth.getUser();
+        if (uerr || !u?.user?.id) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+        const userId = u.user.id;
 
         // 2) входные
         const body = await req.json().catch(() => ({}));
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
             const { data: hit, error } = await supa
                 .from('ai_reports')
                 .select('content, cached_until')
-                .eq('user_id', userId)
+                .eq('user_id', userId)        // RLS всё равно ограничит, но оставим явный фильтр
                 .eq('endpoint', endpoint)
                 .eq('input_hash', inputHash)
                 .gt('cached_until', new Date().toISOString())
@@ -83,10 +84,10 @@ export async function POST(req: NextRequest) {
             })
         );
 
-        // 5) сохранить кэш (через RLS, только свои строки)
+        // 5) сохранить кэш (под RLS, строго свои строки)
         await supa.from('ai_reports').upsert(
             {
-                user_id: userId,
+                user_id: userId,            // политика WITH CHECK (user_id = auth.uid()) пройдёт
                 endpoint,
                 input: key,
                 input_hash: inputHash,

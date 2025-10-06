@@ -1,17 +1,13 @@
 // src/app/api/events/log/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUserFromReq } from '@/lib/auth';
-import { createUserServerClient } from '@/lib/supabase';
+import { requireUserFromReq, createUserServerClient } from '@/lib/auth';
 
 // POST /api/events/log
 // { name: string, status?: string, path?: string, amount_cents?: number, props?: object }
 export async function POST(req: NextRequest) {
     try {
-        const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-        if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
-        const { id: uid } = await requireUserFromReq(req);
-        const supa = createUserServerClient(token);
+        const jwt = requireUserFromReq(req);            // берём JWT из заголовка/куки
+        const supa = createUserServerClient(jwt);       // клиент под пользователем
 
         const b = await req.json().catch(() => ({}));
         const name = String(b?.name || '').trim();
@@ -22,7 +18,7 @@ export async function POST(req: NextRequest) {
         const amount = Number.isFinite(b?.amount_cents) ? Number(b.amount_cents) : null;
         const props = (b?.props && typeof b.props === 'object') ? b.props : {};
 
-        // ВАЖНО: log_event должен внутри использовать auth.uid(), а не внешний параметр user_id
+        // ВАЖНО: log_event использует auth.uid() внутри (SECURITY DEFINER)
         const { error } = await supa.rpc('log_event', {
             p_name: name,
             p_status: status,
