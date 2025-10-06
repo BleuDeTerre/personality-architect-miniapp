@@ -1,22 +1,37 @@
+// src/app/api/x402/facilitator/route.ts
 import type { NextRequest } from 'next/server';
-import * as X402 from 'x402-next';
 
 export const runtime = 'nodejs';
 
-const factory =
-  (X402 as any).facilitatorHandler ||
-  (X402 as any).createFacilitator ||
-  (X402 as any).facilitator;
+async function getFactory() {
+  const mod: any = await import('x402-next').catch(() => null);
+  if (!mod) return null;
 
-if (!factory) {
-  throw new Error('x402-next: facilitator export not found');
+  const f =
+    mod?.facilitatorHandler ||
+    mod?.createFacilitator ||
+    mod?.facilitator ||
+    mod?.default?.facilitator ||
+    mod?.default?.createFacilitator ||
+    mod?.default?.facilitatorHandler ||
+    (typeof mod?.default === 'function' ? mod.default : null);
+
+  return typeof f === 'function' ? f : null;
 }
 
-const handler = factory({
-  recipient: process.env.X402_RECIPIENT!,
-  network: process.env.X402_NETWORK || 'base-sepolia',
-});
-
 export async function POST(req: NextRequest) {
-  return handler(req);
+  const factory = await getFactory();
+  if (!factory) {
+    return new Response(JSON.stringify({ error: 'x402 facilitator export not found' }), {
+      status: 500,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  const handler = factory({
+    recipient: process.env.X402_RECIPIENT!,
+    network: process.env.X402_NETWORK || 'base-sepolia',
+  });
+
+  return handler(req as any);
 }

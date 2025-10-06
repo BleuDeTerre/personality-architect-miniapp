@@ -1,20 +1,17 @@
 // src/app/api/referal/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUserFromReq } from '@/lib/auth';
-import { createUserServerClient } from '@/lib/supabase';
+import { requireUserFromReq, createUserServerClient } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
     try {
         // авторизация
-        const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-        if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-        const { id: userId } = await requireUserFromReq(req);
+        const { id: _userId, token } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
         const body = await req.json().catch(() => ({}));
         let code = String(body?.code || '').trim().toLowerCase();
 
-        // если не передан в теле — пробуем из куки
+        // если не передан в теле — пробуем из куки (NextRequest.cookies доступен синхронно)
         if (!code) {
             const c = req.cookies.get('refcode')?.value;
             if (c) code = c.trim().toLowerCase();
