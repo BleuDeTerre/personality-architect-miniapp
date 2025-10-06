@@ -3,21 +3,23 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-export type UserAuth = { id: string };
+export type UserAuth = { id: string; token: string };
+
+/** Достаёт Bearer из заголовка Authorization. */
+export function getAuthTokenFromReq(req: Request): string | null {
+    const raw = req.headers.get('authorization') || '';
+    const m = raw.match(/^Bearer\s+(.+)$/i);
+    return m?.[1]?.trim() || null;
+}
 
 /**
  * Достаёт Bearer из заголовка и проверяет в Supabase.
  * Ошибка -> "unauthorized". Никаких фоллбеков.
  */
 export async function requireUserFromReq(req: Request): Promise<UserAuth> {
-    // Берём токен из Authorization: Bearer <jwt>
-    const raw = req.headers.get('authorization') || '';
-    const m = raw.match(/^Bearer\s+(.+)$/i);
-    if (!m) throw new Error('unauthorized');
-    const accessToken = m[1].trim();
+    const accessToken = getAuthTokenFromReq(req);
     if (!accessToken) throw new Error('unauthorized');
 
-    // Валидируем токен через anon-клиент с прокинутым заголовком
     const supa = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -27,7 +29,7 @@ export async function requireUserFromReq(req: Request): Promise<UserAuth> {
     const { data, error } = await supa.auth.getUser();
     if (error || !data?.user?.id) throw new Error('unauthorized');
 
-    return { id: data.user.id };
+    return { id: data.user.id, token: accessToken };
 }
 
 /**
@@ -46,7 +48,16 @@ export async function requireUserFromToken(accessToken: string): Promise<UserAut
     const { data, error } = await supa.auth.getUser();
     if (error || !data?.user?.id) throw new Error('unauthorized');
 
-    return { id: data.user.id };
+    return { id: data.user.id, token: accessToken };
+}
+
+/** Клиент Supabase, действующий от имени пользователя по его JWT. */
+export function createUserServerClient(accessToken: string) {
+    return createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
+    );
 }
 
 /**
