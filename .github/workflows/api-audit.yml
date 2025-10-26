@@ -1,0 +1,58 @@
+name: API Audit
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm i --frozen-lockfile
+
+      # Запрет анонимного SDK в /api
+      - name: ban supabase sdk imports in /api
+        run: |
+          set -e
+          ! grep -R "from '@supabase/supabase-js'" src/app/api || (echo "supabase-js import in /api is forbidden"; exit 1)
+
+      # requireUserFromReq присутствует в /api
+      - name: requireUserFromReq presence
+        run: |
+          set -e
+          grep -R "requireUserFromReq" src/app/api >/dev/null || (echo "requireUserFromReq missing in /api"; exit 1)
+
+      # paid: нет consume_credit
+      - name: paid must NOT consume_credit
+        run: |
+          set -e
+          ! grep -R "consume_credit" src/app/api/paid || (echo "consume_credit found in paid"; exit 1)
+
+      # pro: может consume_credit
+      - name: pro may consume_credit
+        run: echo "ok"
+
+      # запрет чтения user_id из входа
+      - name: no user_id from input
+        run: |
+          set -e
+          ! grep -R "user_id.*(body\|query\|searchParams)" src/app/api || (echo "user_id read from input"; exit 1)
+
+      # paid/insight/route.ts пишет в paid_events (минимальная проверка строки)
+      - name: paid events insert present
+        run: |
+          set -e
+          grep -R "src/app/api/paid/insight" -n | cat
+          grep -R "paid_events" src/app/api/paid/insight || (echo "paid_events insert missing in paid/insight"; exit 1)
+
+      # все /api runtime=nodejs
+      - name: runtime nodejs
+        run: |
+          set -e
+          MISSING=$(find src/app/api -name route.ts -print0 | xargs -0 grep -L "export const runtime = 'nodejs'")
+          test -z "$MISSING" || (echo "runtime missing in:"; echo "$MISSING"; exit 1)
