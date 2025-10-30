@@ -2,9 +2,9 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { OpenAI } from 'openai';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { openaiClient, pickModel } from '@/lib/aiModel';
 
 export async function GET(req: NextRequest) {
     try {
@@ -14,15 +14,12 @@ export async function GET(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        // 1) Тренды колеса (RPC должен использовать auth.uid() внутри)
         const { data: trends, error: trendErr } = await supa.rpc('get_wheel_trend', {});
         if (trendErr) return NextResponse.json({ error: trendErr.message }, { status: 500 });
 
-        // 2) Активные цели (RPC тоже через auth.uid() внутри)
         const { data: goals, error: goalsErr } = await supa.rpc('get_goals_active', {});
         if (goalsErr) return NextResponse.json({ error: goalsErr.message }, { status: 500 });
 
-        // 3) Свежий weekly rollup только своего пользователя
         const { data: ws, error: wsErr } = await supa
             .from('weekly_summaries')
             .select('iso_week, summary')
@@ -31,8 +28,11 @@ export async function GET(req: NextRequest) {
             .limit(1);
         if (wsErr) return NextResponse.json({ error: wsErr.message }, { status: 500 });
 
-        // 4) Генерация советов
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+        const sp = new URL(req.url).searchParams;
+        const deep = sp.get('deep') === '1';
+        const openai = openaiClient();
+        const model = pickModel({ deep });
+
         const sys =
             'You are a habits and well-being coach. Respond concisely in English. Provide 3–5 concrete suggestions for improvements and tiny steps for this week.';
         const userMsg = [
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
         ].join('\n');
 
         const chat = await openai.chat.completions.create({
-            model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+            model,
             temperature: 0.2,
             messages: [{ role: 'system', content: sys }, { role: 'user', content: userMsg }],
         });

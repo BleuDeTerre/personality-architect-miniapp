@@ -1,3 +1,4 @@
+import { openaiClient, pickModel } from '@/lib/aiModel';
 // src/app/api/paid/habit-review/route.ts
 export const runtime = 'nodejs';
 
@@ -88,6 +89,11 @@ export async function POST(req: NextRequest) {
                 done_7d: countMap.get(h.id) ?? 0,
             }));
         }
+
+        // AI init на будущее (deep можно передавать из body)
+        const deep = false;
+        const _openai = openaiClient();
+        const _model = pickModel({ deep });
 
         const payload = {
             kind: 'habit_review',

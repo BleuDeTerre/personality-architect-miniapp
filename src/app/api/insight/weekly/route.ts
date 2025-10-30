@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 // src/app/api/insight/weekly/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
@@ -7,7 +8,7 @@ function isoWeekToRange(week: string) {
     const [y, w] = week.split('-W').map(Number);
     if (!y || !w) throw new Error('bad_week_format');
     const jan4 = new Date(Date.UTC(y, 0, 4));
-    const jan4Day = jan4.getUTCDay() || 7;
+    const jan4Day = (jan4.getUTCDay() || 7);
     const week1Mon = new Date(jan4);
     week1Mon.setUTCDate(jan4.getUTCDate() - (jan4Day - 1));
     const start = new Date(week1Mon);
@@ -49,10 +50,7 @@ export async function GET(req: NextRequest) {
             .gte('date', start)
             .lte('date', end);
 
-        const [{ data: wheel, error: wErr }, { data: logs, error: hErr }] = await Promise.all([
-            wheelQ,
-            habitsQ,
-        ]);
+        const [{ data: wheel, error: wErr }, { data: logs, error: hErr }] = await Promise.all([wheelQ, habitsQ]);
 
         if (wErr) return NextResponse.json({ error: wErr.message }, { status: 500 });
         if (hErr) return NextResponse.json({ error: hErr.message }, { status: 500 });

@@ -1,38 +1,42 @@
-// src/app/api/pro/insight/monthly/route.ts
-// Pro-эндпойнт. Списывает кредит. Без x402.
-export const runtime = 'edge';
+export const runtime = 'nodejs';
+// Pro-эндпойнт: месячный отчёт. Списывает кредит. Без x402.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { OpenAI } from 'openai';
 import { monthBoundsUTC, loadMonthlyRows, rollupMonthly } from '@/lib/insightMonthly';
+import { openaiClient, pickModel } from '@/lib/aiModel';
 
 export async function GET(req: NextRequest) {
     try {
-        // авторизация
+        // авторизация и клиент
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        // списываем кредит
+        // списываем кредит (только после auth)
         const { data: ok, error: consumeErr } = await supa.rpc('consume_credit', { p_period: 'pro-monthly' });
         if (consumeErr) return NextResponse.json({ error: consumeErr.message }, { status: 500 });
         if (!ok) return NextResponse.json({ error: 'no credits', code: 'NO_CREDITS' }, { status: 402 });
 
-        // период
-        const { searchParams } = new URL(req.url);
-        const { start, end } = monthBoundsUTC(searchParams.get('month') ?? undefined);
+        // входные: month=YYYY-MM, deep=0|1
+        const sp = new URL(req.url).searchParams;
+        const monthStr = sp.get('month');
+        const deep = sp.get('deep') === '1';
+        const base: Date | undefined = monthStr ? new Date(`${monthStr}-01T00:00:00Z`) : undefined;
+        const { start, end } = monthBoundsUTC(base);
 
         // данные
-        const rows = await loadMonthlyRows(userId, start, end);
+        const rows = await loadMonthlyRows(supa, userId, start, end);
         const { items, totals } = rollupMonthly(rows);
 
         // генерация summary
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+        const openai = openaiClient();
+        const model = pickModel({ deep });
+
         const chat = await openai.chat.completions.create({
-            model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+            model,
             temperature: 0.2,
             messages: [
                 { role: 'system', content: 'You are a habit analyst. Be concise and practical. Output in English.' },
@@ -53,9 +57,10 @@ export async function GET(req: NextRequest) {
             totals,
             items,
             summary: chat.choices[0]?.message?.content ?? '',
+            model,
             cachedUntil: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
         });
     } catch (e: any) {
-        return NextResponse.json({ error: e?.message || 'unauthorized' }, { status: 401 });
+        return NextResponse.json({ error: e?.message || 'internal' }, { status: 500 });
     }
 }

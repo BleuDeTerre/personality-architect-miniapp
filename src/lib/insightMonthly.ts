@@ -1,56 +1,63 @@
-// RU: общая логика месячного отчёта — границы, выборка, агрегация
-import { supabase } from "@/lib/supabase";
+// src/lib/insightMonthly.ts
+import { createUserServerClient } from '@/lib/supabase';
 
-export function monthBoundsUTC(monthIso?: string) {
-    const now = new Date();
-    const [y, m] = (
-        monthIso ??
-        `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`
-    )
-        .split("-")
-        .map(Number);
-    const start = new Date(Date.UTC(y, m - 1, 1));
-    const end = new Date(Date.UTC(y, m, 1)); // exclusive
-    return { start, end };
+// Границы месяца в UTC
+export function monthBoundsUTC(d = new Date()) {
+  const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+  const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
+  return { start, end };
 }
 
-export type HabitRow = { date: string; is_completed: boolean };
+// Одна запись лога содержит дату события "выполнено"
+export type HabitRow = { date: string };
 
-// ⚡️ Исправлено: убрали createServerClient
-export async function loadMonthlyRows(userId: string, start: Date, end: Date) {
-    const { data, error } = await supabase
-        .from("habit_logs")
-        .select("date, is_completed")
-        .eq("user_id", userId)
-        .gte("date", start.toISOString().slice(0, 10))
-        .lt("date", end.toISOString().slice(0, 10));
+export async function loadMonthlyRows(
+  supa: ReturnType<typeof createUserServerClient>,
+  userId: string,
+  start: Date,
+  end: Date
+) {
+  // Берём только дату. Столбца is_completed нет и не нужен.
+  const { data, error } = await supa
+    .from('habit_logs')
+    .select('date') // <— только date
+    .eq('user_id', userId)
+    .gte('date', start.toISOString().slice(0, 10))
+    .lt('date', end.toISOString().slice(0, 10));
 
-    if (error) throw error;
-    return (data ?? []) as HabitRow[];
+  if (error) throw error;
+  return data as HabitRow[];
 }
 
+// Агрегация: каждая строка = 1 выполненный чек
 export function rollupMonthly(rows: HabitRow[]) {
-    const byDay = new Map<string, { done: number; total: number }>();
-    for (const r of rows) {
-        const cur = byDay.get(r.date) ?? { done: 0, total: 0 };
-        cur.total += 1;
-        if (r.is_completed) cur.done += 1;
-        byDay.set(r.date, cur);
-    }
-    const items = [...byDay.entries()]
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([day, v]) => ({ day, completed: v.done, total: v.total }));
+  const byDay: Record<string, { total: number; completed: number }> = {};
 
-    const agg = items.reduce(
-        (s, i) => ({ c: s.c + i.completed, t: s.t + i.total }),
-        { c: 0, t: 0 }
-    );
-    const totals = {
-        days: new Set(items.map((i) => i.day)).size,
-        habits_total: agg.t,
-        completed: agg.c,
-        rate_pct: Number(((agg.c / Math.max(1, agg.t)) * 100).toFixed(1)),
-    };
+  for (const r of rows) {
+    const k = r.date;
+    byDay[k] ||= { total: 0, completed: 0 };
+    // Логи — это только завершения, значит +1 и в total, и в completed
+    byDay[k].completed += 1;
+    byDay[k].total += 1;
+  }
 
-    return { items, totals };
+  const items = Object.entries(byDay)
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map(([day, v]) => ({ day, completed: v.completed, total: v.total }));
+
+  const totals = items.reduce(
+    (acc, it) => ({
+      days: acc.days + 1,
+      habits_total: acc.habits_total + it.total,
+      completed: acc.completed + it.completed,
+      rate_pct: 0,
+    }),
+    { days: 0, habits_total: 0, completed: 0, rate_pct: 0 }
+  );
+
+  totals.rate_pct = totals.habits_total
+    ? Math.round((100 * totals.completed) / totals.habits_total)
+    : 0;
+
+  return { items, totals };
 }

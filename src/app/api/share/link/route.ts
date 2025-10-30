@@ -1,5 +1,5 @@
 // src/app/api/share/link/route.ts
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';

@@ -1,9 +1,9 @@
+export const runtime = 'nodejs';
 // src/app/api/insight/habit/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 
-// Нормализация даты
 function normDate(s?: string | null) {
     const d = (s || '').slice(0, 10);
     return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : new Date().toISOString().slice(0, 10);
@@ -21,14 +21,12 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const date = normDate(searchParams.get('date'));
 
-        // 1) все привычки пользователя
         const { data: habits, error: hErr } = await supa
             .from('habits')
             .select('id, title, target_days_per_week')
             .eq('user_id', userId);
         if (hErr) return NextResponse.json({ error: hErr.message }, { status: 500 });
 
-        // 2) логи за день
         const { data: logs, error: lErr } = await supa
             .from('habit_logs')
             .select('habit_id, value, note')
@@ -36,7 +34,6 @@ export async function GET(req: NextRequest) {
             .eq('date', date);
         if (lErr) return NextResponse.json({ error: lErr.message }, { status: 500 });
 
-        // 3) формируем статистику
         const byId = new Map<string, { id: string; title: string; target: number }>(
             (habits ?? []).map((h) => [h.id, { id: h.id, title: h.title, target: h.target_days_per_week }])
         );

@@ -1,13 +1,16 @@
+export const runtime = 'nodejs';
+
 // src/app/api/events/log/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUserFromReq, createUserServerClient } from '@/lib/auth';
+import { requireUserFromReq } from '@/lib/auth';
+import { createUserServerClient } from '@/lib/supabase';
 
 // POST /api/events/log
 // { name: string, status?: string, path?: string, amount_cents?: number, props?: object }
 export async function POST(req: NextRequest) {
     try {
-        const { id: _uid, token } = await requireUserFromReq(req); // await + token
-        const supa = createUserServerClient(token);                // ожидает string
+        const { token } = await requireUserFromReq(req);
+        const supa = createUserServerClient(token);
 
         const b = await req.json().catch(() => ({}));
         const name = String(b?.name || '').trim();
@@ -18,7 +21,7 @@ export async function POST(req: NextRequest) {
         const amount = Number.isFinite(b?.amount_cents) ? Number(b.amount_cents) : null;
         const props = (b?.props && typeof b.props === 'object') ? b.props : {};
 
-        // SECURITY DEFINER функция использует auth.uid() внутри
+        // SECURITY DEFINER: использует auth.uid() внутри
         const { error } = await supa.rpc('log_event', {
             p_name: name,
             p_status: status,

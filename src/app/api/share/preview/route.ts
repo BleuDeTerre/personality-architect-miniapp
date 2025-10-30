@@ -1,7 +1,7 @@
 // src/app/api/share/preview/route.ts
 import { NextRequest } from 'next/server';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 function escapeAttr(s: string) {
     return s

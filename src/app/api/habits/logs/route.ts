@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 // src/app/api/habits/logs/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';

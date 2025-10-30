@@ -1,11 +1,12 @@
-// src/app/api/paid/habit/route.ts
+import { openaiClient, pickModel } from '@/lib/aiModel';
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUserFromReq, createUserServerClient } from '@/lib/auth';
+import { requireUserFromReq } from '@/lib/auth';
+import { createUserServerClient } from '@/lib/supabase';
+import { requireX402 } from '@/lib/x402Guard';
 import crypto from 'crypto';
 
-// sha256(JSON.stringify(obj))
 function hashInput(obj: unknown) {
     return crypto.createHash('sha256').update(JSON.stringify(obj)).digest('hex');
 }
@@ -36,16 +37,14 @@ async function withTimeout<T>(p: Promise<T>, ms: number, fallback: () => T): Pro
 
 export async function POST(req: NextRequest) {
     try {
-        // 1) авторизация: берём JWT и создаём user-клиент
-        const { token } = await requireUserFromReq(req);     // ← await + token:string
-        const supa = createUserServerClient(token);
+        await requireX402(req, 'insight_habit');
 
-        // узнаём userId по JWT
+        const { token } = await requireUserFromReq(req);
+        const supa = createUserServerClient(token);
         const { data: u, error: uerr } = await supa.auth.getUser();
         if (uerr || !u?.user?.id) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
         const userId = u.user.id;
 
-        // 2) входные
         const body = await req.json().catch(() => ({}));
         const date = String(body?.date || new Date().toISOString().slice(0, 10));
         const highAccuracy = !!body?.highAccuracy;
@@ -56,7 +55,11 @@ export async function POST(req: NextRequest) {
         const inputHash = hashInput(key);
         const cachedUntil = new Date(Date.now() + CACHE_DAYS * 864e5).toISOString();
 
-        // 3) кэш
+        // AI init (опционально)
+        const deep = !!body?.deep;
+        const _openai = openaiClient();
+        const _model = pickModel({ deep });
+
         {
             const { data: hit, error } = await supa
                 .from('ai_reports')
@@ -72,7 +75,6 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 4) генерация с таймаутом
         const report = await withTimeout(
             generateReport(date, highAccuracy),
             12_000,
@@ -84,7 +86,6 @@ export async function POST(req: NextRequest) {
             })
         );
 
-        // 5) сохранить кэш (под RLS)
         await supa.from('ai_reports').upsert(
             {
                 user_id: userId,
@@ -97,7 +98,6 @@ export async function POST(req: NextRequest) {
             { onConflict: 'user_id,endpoint,input_hash' }
         );
 
-        // 6) лог платного события
         await supa.from('paid_events').insert({
             user_id: userId,
             endpoint,
@@ -106,7 +106,6 @@ export async function POST(req: NextRequest) {
             meta: { cachedUntil },
         });
 
-        // 7) аудит
         const preview =
             typeof report.summary === 'string'
                 ? report.summary.slice(0, 280)
@@ -122,7 +121,6 @@ export async function POST(req: NextRequest) {
             cost_usd: null,
         });
 
-        // 8) ответ
         return NextResponse.json({ ...report, cachedUntil });
     } catch (e: any) {
         return NextResponse.json({ error: e?.message || 'unauthorized' }, { status: 401 });

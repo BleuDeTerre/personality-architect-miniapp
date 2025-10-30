@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 // src/app/api/wheel/save/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';

@@ -1,3 +1,4 @@
+import { openaiClient, pickModel } from '@/lib/aiModel';
 // src/app/api/insight/weekly/route.ts
 export const runtime = 'nodejs';
 
@@ -47,6 +48,11 @@ export async function POST(req: NextRequest) {
         const key = { week_start, highAccuracy };
         const input_hash = sha(key);
         const cached_until = new Date(Date.now() + CACHE_DAYS * 864e5).toISOString();
+
+        // AI init (опционально, на будущее)
+        const deep = !!body?.deep;
+        const _openai = openaiClient();
+        const _model = pickModel({ deep });
 
         // кэш
         {

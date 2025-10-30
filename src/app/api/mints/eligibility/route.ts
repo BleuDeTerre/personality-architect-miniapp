@@ -1,16 +1,19 @@
+export const runtime = 'nodejs';
+
 // src/app/api/mints/eligibility/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUserFromReq, createUserServerClient } from '@/lib/auth';
+import { requireUserFromReq } from '@/lib/auth';
+import { createUserServerClient } from '@/lib/supabase';
 
 // GET /api/mints/eligibility?code=FIRST_LOG
 export async function GET(req: NextRequest) {
   try {
-    const { token } = await requireUserFromReq(req);   // ← await и берём token
+    const { token } = await requireUserFromReq(req);
     const supa = createUserServerClient(token);
 
     const url = new URL(req.url);
     const code = url.searchParams.get('code')?.toUpperCase();
-    if (!code) return NextResponse.json({ error: 'code required' }, { status: 400 });
+    if (!code) return NextResponse.json({ error: 'code_required' }, { status: 400 });
 
     // SECURITY DEFINER: использует auth.uid() внутри
     const { data, error } = await supa.rpc('badge_eligibility', { p_code: code });
