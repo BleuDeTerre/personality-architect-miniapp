@@ -20,7 +20,7 @@ export async function loadMonthlyRows(
   // Берём только дату. Столбца is_completed нет и не нужен.
   const { data, error } = await supa
     .from('habit_logs')
-    .select('date') // <— только date
+    .select('date,is_completed:completed') // <— только date
     .eq('user_id', userId)
     .gte('date', start.toISOString().slice(0, 10))
     .lt('date', end.toISOString().slice(0, 10));
