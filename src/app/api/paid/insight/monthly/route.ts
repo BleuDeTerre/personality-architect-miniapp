@@ -1,13 +1,12 @@
+// src/app/api/paid/insight/monthly/route.ts
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withX402 } from '@/lib/x402Client';
-import { requireUserFromReq } from '@/lib/auth';
-import { createUserServerClient } from '@/lib/supabase';
+import { requireUserFromReq, createUserServerClient } from '@/lib/auth';
 import { monthBoundsUTC, loadMonthlyRows, rollupMonthly } from '@/lib/insightMonthly';
 import { openaiClient, pickModel } from '@/lib/aiModel';
 
-// --- твоя существующая логика генерации инсайта ---
 async function buildInsight(
     supa: ReturnType<typeof createUserServerClient>,
     userId: string,
@@ -20,7 +19,6 @@ async function buildInsight(
 
     const openai = openaiClient();
     const model = pickModel({ deep });
-
     const chat = await openai.chat.completions.create({
         model,
         temperature: 0.2,
@@ -48,33 +46,17 @@ async function buildInsight(
     };
 }
 
-// --- общий обработчик, переиспользуемый и для байпаса, и для x402 ---
-async function coreMonthly(req: NextRequest) {
-    const { id: userId } = await requireUserFromReq(req);
-    const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
+export const GET = withX402(async (req: NextRequest) => {
+    // ВАЖНО: берём и userId, и token из нового auth.ts
+    const { id: userId, token } = await requireUserFromReq(req);
     const supa = createUserServerClient(token);
 
     const sp = new URL(req.url).searchParams;
-    const monthStr = sp.get('month'); // 'YYYY-MM'
+    const monthStr = sp.get('month'); // YYYY-MM
     const deep = sp.get('deep') === '1';
-    const base: Date | undefined = monthStr ? new Date(`${monthStr}-01T00:00:00Z`) : undefined;
+    const base = monthStr ? new Date(`${monthStr}-01T00:00:00Z`) : undefined;
     const { start, end } = monthBoundsUTC(base);
 
     const payload = await buildInsight(supa, userId, start, end, deep);
     return NextResponse.json(payload);
-}
-
-// --- экспорт с байпасом для DEV ---
-export const GET = async (req: NextRequest) => {
-    // DEV-байпас: разрешаем тест без реального x402-профа
-    if (req.headers.get('x-402-allow')) {
-        try {
-            return await coreMonthly(req);
-        } catch (e: any) {
-            return NextResponse.json({ error: 'internal', detail: String(e?.message || e) }, { status: 500 });
-        }
-    }
-    // Продакшен-ветка: строго с оплатой/кредитами
-    const guarded = withX402(coreMonthly, { sku: '/api/paid/insight/monthly' });
-    return guarded(req);
-};
+}, { sku: '/api/paid/insight/monthly' });
