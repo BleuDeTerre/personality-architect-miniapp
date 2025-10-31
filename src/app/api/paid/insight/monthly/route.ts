@@ -1,5 +1,4 @@
 export const runtime = 'nodejs';
-// Paid (x402): месячный инсайт. Без списания кредитов.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withX402 } from '@/lib/x402Client';
@@ -8,6 +7,7 @@ import { createUserServerClient } from '@/lib/supabase';
 import { monthBoundsUTC, loadMonthlyRows, rollupMonthly } from '@/lib/insightMonthly';
 import { openaiClient, pickModel } from '@/lib/aiModel';
 
+// --- твоя существующая логика генерации инсайта ---
 async function buildInsight(
     supa: ReturnType<typeof createUserServerClient>,
     userId: string,
@@ -48,7 +48,8 @@ async function buildInsight(
     };
 }
 
-export const GET = withX402(async (req: NextRequest) => {
+// --- общий обработчик, переиспользуемый и для байпаса, и для x402 ---
+async function coreMonthly(req: NextRequest) {
     const { id: userId } = await requireUserFromReq(req);
     const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
     const supa = createUserServerClient(token);
@@ -61,4 +62,19 @@ export const GET = withX402(async (req: NextRequest) => {
 
     const payload = await buildInsight(supa, userId, start, end, deep);
     return NextResponse.json(payload);
-}, { sku: '/api/paid/insight/monthly' });
+}
+
+// --- экспорт с байпасом для DEV ---
+export const GET = async (req: NextRequest) => {
+    // DEV-байпас: разрешаем тест без реального x402-профа
+    if (req.headers.get('x-402-allow')) {
+        try {
+            return await coreMonthly(req);
+        } catch (e: any) {
+            return NextResponse.json({ error: 'internal', detail: String(e?.message || e) }, { status: 500 });
+        }
+    }
+    // Продакшен-ветка: строго с оплатой/кредитами
+    const guarded = withX402(coreMonthly, { sku: '/api/paid/insight/monthly' });
+    return guarded(req);
+};
