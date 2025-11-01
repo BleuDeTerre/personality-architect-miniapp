@@ -2,31 +2,27 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { paymentMiddleware } from 'x402-next';
-import { PRICES_USD } from './src/lib/pricing';
 
+// ---- цены (строки формата $X.XX) ----
+const X402_PRICING: Record<string, { price: string; config?: Record<string, any> }> = {
+  '/api/paid/ping': { price: '$0.01', config: { description: 'Ping' } },
+  '/api/paid/insight/weekly': { price: '$0.25', config: { description: 'Weekly insight' } },
+  '/api/paid/insight/habit': { price: '$0.15', config: { description: 'Habit insight' } },
+  '/api/paid/insight/monthly': { price: '$0.35', config: { description: 'Monthly insight' } },
+  '/api/paid/credits/pro-monthly': { price: '$4.99', config: { description: 'Pro credits pack' } },
+};
+
+// ---- ENV ----
 const PAID_ENABLED = process.env.PAID_ENABLED === 'true';
 const REQUIRE_PLAN = process.env.REQUIRE_PLAN === 'true';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const RECIPIENT = process.env.X402_RECIPIENT!;
-const FACILITATOR = process.env.X402_FACILITATOR!;
+
+const RECIPIENT = (process.env.X402_RECIPIENT || '') as `0x${string}`;
+const FACILITATOR = process.env.X402_FACILITATOR || ''; // base-sepolia: https://x402.org/facilitator
 const NETWORK = process.env.X402_NETWORK || 'base-sepolia';
 
-// Карта платных эндпойнтов для x402 чеков
-const paidMap = {
-  '/api/paid/insight/weekly': { price: PRICES_USD['/api/paid/insight/weekly'], config: { description: 'Weekly insight' } },
-  '/api/paid/insight/habit': { price: PRICES_USD['/api/paid/insight/habit'], config: { description: 'Habit insight' } },
-  '/api/paid/insight/monthly': { price: PRICES_USD['/api/paid/insight/monthly'], config: { description: 'Monthly insight' } },
-  '/api/paid/credits/pro-monthly': { price: PRICES_USD['/api/paid/credits/pro-monthly'], config: { description: 'Pro credits pack' } },
-};
-
-// Обёртка x402
-const paid = (paymentMiddleware as any)(paidMap, {
-  recipient: RECIPIENT,
-  facilitatorUrl: FACILITATOR,
-  network: NETWORK,
-});
-
+// ---- утилиты ----
 function setSecurityHeaders(res: NextResponse) {
   res.headers.set('X-Frame-Options', 'DENY');
   res.headers.set('X-Content-Type-Options', 'nosniff');
@@ -34,21 +30,16 @@ function setSecurityHeaders(res: NextResponse) {
   res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   return res;
 }
-
 function sanitizeHeaders(req: NextRequest) {
   const h = new Headers(req.headers);
   h.delete('x-user-id');
   return h;
 }
-
 function extractJWT(req: NextRequest): string | null {
   const auth = req.headers.get('authorization');
   if (auth?.startsWith('Bearer ')) return auth.slice(7);
-  const cookie = req.cookies.get('sb-access-token')?.value;
-  return cookie || null;
+  return req.cookies.get('sb-access-token')?.value ?? null;
 }
-
-// Проверка активного плана через Supabase REST под JWT пользователя (RLS делает user_id = auth.uid())
 async function hasActivePlan(jwt: string) {
   const url = `${SUPABASE_URL}/rest/v1/user_plans?select=plan,plan_until,active&active=is.true&limit=1`;
   const r = await fetch(url, {
@@ -58,24 +49,26 @@ async function hasActivePlan(jwt: string) {
   if (!r.ok) return false;
   const rows = await r.json();
   if (!Array.isArray(rows) || rows.length === 0) return false;
-  // Доп.проверка срока
   const until = rows[0]?.plan_until ? Date.parse(rows[0].plan_until) : 0;
   return Number.isFinite(until) ? until > Date.now() : true;
 }
 
+// ⬇⬇⬇ ВАЖНО: порядок аргументов — сначала pricing, затем options
+const paid = (paymentMiddleware as any)(
+  X402_PRICING,
+  { recipient: RECIPIENT, facilitatorUrl: FACILITATOR, network: NETWORK }
+);
+
+// ---- основная миддлварь ----
 export default async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
-  const cleanHeaders = sanitizeHeaders(req);
 
-  // Прод: блокируем попытки подмены пользователя
   if (process.env.NODE_ENV === 'production' && req.headers.get('x-user-id')) {
     return new NextResponse(JSON.stringify({ error: 'forbidden' }), {
-      status: 403,
-      headers: { 'content-type': 'application/json' },
+      status: 403, headers: { 'content-type': 'application/json' },
     });
   }
 
-  // Платные роуты: сначала даём проход по активному плану (если REQUIRE_PLAN=true), иначе требуем x402
   if (path.startsWith('/api/paid/')) {
     if (!PAID_ENABLED) {
       return NextResponse.json({ error: 'payments disabled' }, { status: 503 });
@@ -84,25 +77,19 @@ export default async function middleware(req: NextRequest) {
     if (REQUIRE_PLAN) {
       const jwt = extractJWT(req);
       if (jwt && (await hasActivePlan(jwt))) {
-        const res = NextResponse.next({ request: { headers: cleanHeaders } });
-        return setSecurityHeaders(res);
+        return setSecurityHeaders(NextResponse.next({ request: { headers: sanitizeHeaders(req) } }));
       }
-      // если плана нет, продолжаем в x402
     }
 
-    const res = await paid(req); // x402 проверка и чек
-    return setSecurityHeaders(res);
+    const res = await paid(req);
+    return setSecurityHeaders(res as NextResponse);
   }
 
-  // Остальные /api/**
   if (path.startsWith('/api/')) {
-    const res = NextResponse.next({ request: { headers: cleanHeaders } });
-    return setSecurityHeaders(res);
+    return setSecurityHeaders(NextResponse.next({ request: { headers: sanitizeHeaders(req) } }));
   }
 
-  // Неподходящие пути — как есть
-  return NextResponse.next({ request: { headers: cleanHeaders } });
+  return NextResponse.next({ request: { headers: sanitizeHeaders(req) } });
 }
 
-// Применяем только к API
 export const config = { matcher: ['/api/:path*'] };

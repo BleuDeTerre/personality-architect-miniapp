@@ -4,7 +4,6 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { postPaidJSON } from '@/lib/x402Client';
 
 // Конфиг пакетов Pro
 const PACKS = {
@@ -32,24 +31,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Unknown pack' }, { status: 400 });
         }
 
-        // 3. Берём деньги через x402 (передаём userId, для связки транзакции с пользователем)
-        await postPaidJSON('/api/paid/credits/' + pack, { userId });
-
-        // 4. Начисляем кредиты (RPC должен внутри использовать auth.uid())
-        const expires = new Date(Date.now() + cfg.days * 864e5).toISOString();
-        const { error } = await supa.rpc('add_credits', {
-            p_period: pack,
-            p_amount: cfg.credits,
-            p_expires_at: expires,
-        });
-        if (error) throw error;
-
-        return NextResponse.json({
-            ok: true,
-            pack,
-            credits: cfg.credits,
-            expires,
-        });
+        // 3. Возвращаем 402 для оплаты через клиент
+        return NextResponse.json(
+            { error: 'payment_required', sku: '/api/paid/credits/' + pack },
+            { status: 402 }
+        );
     } catch (e: any) {
         return NextResponse.json({ error: e?.message || 'purchase failed' }, { status: 500 });
     }

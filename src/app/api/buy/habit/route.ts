@@ -2,7 +2,6 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { postPaidJSON } from '@/lib/x402Client';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 
@@ -41,13 +40,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json(j);
         }
 
-        // 5) Если кредитов нет — платим через x402 и идём на /api/paid/...
-        const resp = await postPaidJSON('/api/paid/insight/habit', {
-            userId, // здесь мы сами прокидываем свой userId, а на стороне paid-роута ещё раз проверяется токен
-            date,
-            highAccuracy,
-        });
-        return NextResponse.json(resp);
+        // 5) Если кредитов нет — возвращаем 402 для оплаты через клиент
+        return NextResponse.json(
+            { error: 'payment_required', sku: '/api/paid/insight/habit' },
+            { status: 402 }
+        );
     } catch (e: any) {
         return NextResponse.json({ error: e?.message || 'buy failed' }, { status: 500 });
     }

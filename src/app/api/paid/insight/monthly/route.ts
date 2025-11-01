@@ -47,16 +47,36 @@ async function buildInsight(
 }
 
 export const GET = withX402(async (req: NextRequest) => {
-    // ВАЖНО: берём и userId, и token из нового auth.ts
-    const { id: userId, token } = await requireUserFromReq(req);
-    const supa = createUserServerClient(token);
+    try {
+        const { id: userId, token } = await requireUserFromReq(req);
+        const supa = createUserServerClient(token);
 
-    const sp = new URL(req.url).searchParams;
-    const monthStr = sp.get('month'); // YYYY-MM
-    const deep = sp.get('deep') === '1';
-    const base = monthStr ? new Date(`${monthStr}-01T00:00:00Z`) : undefined;
-    const { start, end } = monthBoundsUTC(base);
+        // жесткое списание кредита перед работой
+        const { error: rpcErr } = await supa.rpc('consume_credit', { reason: 'insight_monthly' });
+        if (rpcErr) {
+            const s = String(rpcErr.message || '');
+            const status = s.includes('NO_CREDITS') ? 402 : 400;
+            return NextResponse.json({ error: s, code: 'CREDIT_FAIL' }, { status });
+        }
 
-    const payload = await buildInsight(supa, userId, start, end, deep);
-    return NextResponse.json(payload);
+        const sp = new URL(req.url).searchParams;
+        const monthStr = sp.get('month');
+        const deep = sp.get('deep') === '1';
+        const base = monthStr ? new Date(`${monthStr}-01T00:00:00Z`) : undefined;
+        const { start, end } = monthBoundsUTC(base);
+
+        const payload = await buildInsight(supa, userId, start, end, deep);
+
+        // помечаем оплату для savedUsd
+        await supa
+            .from('paid_events')
+            .update({ endpoint: 'insight/monthly', meta: { used_credit: true } })
+            .eq('user_id', userId)
+            .eq('reason', 'insight_monthly')
+            .gte('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+
+        return NextResponse.json(payload, { status: 200 });
+    } catch (e: any) {
+        return NextResponse.json({ error: String(e?.message || 'internal') }, { status: 500 });
+    }
 }, { sku: '/api/paid/insight/monthly' });
