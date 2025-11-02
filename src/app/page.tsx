@@ -1,7 +1,13 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import Link from "next/link";
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const NAVIGATION = [
   { href: '/habits', label: 'Habits', icon: '✅', desc: 'Track your daily habits' },
@@ -14,9 +20,54 @@ const NAVIGATION = [
 ];
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState<{ current_streak: number; best_streak: number; last_completed: string | null } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const authHeaders = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session?.access_token ?? ''}`,
+    };
+  }, []);
+
   useEffect(() => {
     sdk.actions.ready();
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      const ctx = await (sdk as any).context?.getFrameContext?.();
+      const fid = ctx?.user?.fid as number | undefined;
+      if (!fid) return;
+
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) {
+        const res = await fetch('/api/auth/farcaster-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fid }),
+        });
+        const { access_token } = await res.json();
+        if (access_token) {
+          await supabase.auth.setSession({ access_token, refresh_token: '' });
+        }
+      }
+
+      // Load stats
+      try {
+        setLoading(true);
+        const hdrs = await authHeaders();
+        const res = await fetch('/api/habits/stats', { headers: hdrs });
+        if (res.ok) {
+          const data = await res.json();
+          setStats(data);
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [authHeaders]);
 
   return (
     <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-6 max-w-4xl mx-auto">
@@ -44,8 +95,36 @@ export default function DashboardPage() {
       </div>
 
       <div className="mt-12 p-4 bg-[#1A1B2E] border border-[#8B5CF6] rounded-lg">
-        <h3 className="font-semibold mb-2 text-[#8B5CF6]">Quick Stats</h3>
-        <p className="text-sm text-[#AAB1C2]">Complete some habits to see your stats here.</p>
+        <h3 className="font-semibold mb-4 text-[#8B5CF6]">Quick Stats</h3>
+        {loading ? (
+          <div className="grid grid-cols-3 gap-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="animate-pulse">
+                <div className="h-8 bg-[#2A2B3E] rounded w-16 mb-1"></div>
+                <div className="h-4 bg-[#2A2B3E] rounded w-20"></div>
+              </div>
+            ))}
+          </div>
+        ) : stats ? (
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <div className="text-2xl font-bold text-[#2BD4A4]">{stats.current_streak}</div>
+              <div className="text-xs text-[#AAB1C2]">Current streak</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-[#8B5CF6]">{stats.best_streak}</div>
+              <div className="text-xs text-[#AAB1C2]">Best streak</div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-[#E9ECF1]">
+                {stats.last_completed ? new Date(stats.last_completed).toLocaleDateString() : 'Never'}
+              </div>
+              <div className="text-xs text-[#AAB1C2]">Last activity</div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-[#AAB1C2]">Complete some habits to see your stats here.</p>
+        )}
       </div>
     </div>
   );

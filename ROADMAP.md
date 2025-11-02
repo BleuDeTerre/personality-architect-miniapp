@@ -49,12 +49,12 @@
 - Animations & transitions (basic done with pulse)
 
 ### Функциональные улучшения
-- **Habit templates** - предустановленные популярные привычки
-- **Habit categories** - Health, Learning, Productivity, etc.
-- **Quick actions** - быстрые действия на dashboard
+- ~~**Habit templates**~~ ✅ **СДЕЛАНО** - 10 популярных привычек с иконками
+- ~~**Habit categories**~~ ✅ **СДЕЛАНО** - Через templates (Health, Learning, Growth, Focus)
+- ~~**Quick actions**~~ ✅ **СДЕЛАНО** - Stats на dashboard с auto-load
 - **Onboarding flow** - guided tour для новых пользователей
 - **Search & filters** - поиск по привычкам и целям
-- **Export data** - JSON/CSV export для всех данных
+- ~~**Export data**~~ ✅ **СДЕЛАНО** - JSON/CSV export из /profile
 - **Calendar view** - календарное отображение streaks
 
 ### Mobile & PWA
@@ -69,15 +69,15 @@
 
 ### Conversational AI
 - **Chat interface** - диалог с AI коучем
-- **Personalized coaching** - персональные советы на основе данных
+- ~~**Personalized coaching**~~ ✅ **Частично** - CoachBlock компонент есть, использует Wheel trends + Goals
 - **Embeddings search** - семантический поиск по логам
 - **Context-aware responses** - AI понимает историю пользователя
 
 ### Personal Insights
-- **Facts extraction** - автоматическое извлечение паттернов
-  - "You're most productive on Wednesdays"
-  - "Exercise correlates with better sleep"
-  - "Meditation improves focus days"
+- ~~**Facts extraction**~~ ✅ **СДЕЛАНО** - AI endpoint /api/analytics/facts
+  - Анализ частоты привычек
+  - День недели с наибольшей активностью
+  - Топ-5 самых частых привычек
 - **LLM personalization** - Fine-tune на данных пользователя
 - **Sentiment analysis** - анализ настроения через логи
 - **Predictive modeling** - ML для прогнозирования успеха

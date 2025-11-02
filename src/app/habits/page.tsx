@@ -19,11 +19,26 @@ type Habit = {
     streak?: number; // дни подряд
 };
 
+// Шаблоны популярных привычек
+const HABIT_TEMPLATES = [
+    { title: 'Meditation', icon: '🧘‍♂️', targetDays: 7, category: 'Health' },
+    { title: 'Exercise', icon: '💪', targetDays: 4, category: 'Health' },
+    { title: 'Reading', icon: '📚', targetDays: 5, category: 'Learning' },
+    { title: 'Journaling', icon: '📝', targetDays: 5, category: 'Growth' },
+    { title: 'Hydration', icon: '💧', targetDays: 7, category: 'Health' },
+    { title: 'Early Wake', icon: '🌅', targetDays: 7, category: 'Health' },
+    { title: 'No Phone AM', icon: '📵', targetDays: 7, category: 'Focus' },
+    { title: 'Gratitude', icon: '🙏', targetDays: 7, category: 'Growth' },
+    { title: 'Walks', icon: '🚶', targetDays: 5, category: 'Health' },
+    { title: 'Code Practice', icon: '💻', targetDays: 5, category: 'Learning' },
+];
+
 export default function HabitsPage() {
     const [habits, setHabits] = useState<Habit[]>([]);
     const [title, setTitle] = useState('');
     const [targetDays, setTargetDays] = useState(3);
     const [loading, setLoading] = useState(false);
+    const [showTemplates, setShowTemplates] = useState(false);
 
     // Заголовки с Bearer для вызовов /api/*
     const authHeaders = useCallback(async () => {
@@ -115,6 +130,19 @@ export default function HabitsPage() {
         if (res.ok) fetchHabits();
     }
 
+    // Добавить привычку из шаблона
+    async function addFromTemplate(template: typeof HABIT_TEMPLATES[0]) {
+        const res = await fetch('/api/habits/create', {
+            method: 'POST',
+            headers: await authHeaders(),
+            body: JSON.stringify({ title: `${template.icon} ${template.title}`, target_days_per_week: template.targetDays }),
+        });
+        if (res.ok) {
+            setShowTemplates(false);
+            fetchHabits();
+        }
+    }
+
     return (
         <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-6 max-w-xl mx-auto space-y-6">
             <h1 className="text-2xl font-bold text-[#E9ECF1]">My Habits</h1>
@@ -129,18 +157,47 @@ export default function HabitsPage() {
                     className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
                     required
                 />
-                <input
-                    type="number"
-                    min={1}
-                    max={7}
-                    value={targetDays}
-                    onChange={(e) => setTargetDays(Number(e.target.value))}
-                    className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
-                />
-                <button type="submit" className="bg-[#8B5CF6] hover:bg-[#6D28D9] text-white px-4 py-2 rounded transition">
-                    Add Habit
+                <div className="flex gap-2">
+                    <input
+                        type="number"
+                        min={1}
+                        max={7}
+                        value={targetDays}
+                        onChange={(e) => setTargetDays(Number(e.target.value))}
+                        className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
+                    />
+                    <button type="submit" className="bg-[#8B5CF6] hover:bg-[#6D28D9] text-white px-4 py-2 rounded transition">
+                        Add
+                    </button>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => setShowTemplates(!showTemplates)}
+                    className="w-full bg-[#121420] border border-[#2A2B3E] hover:bg-[#1A1B2E] text-[#AAB1C2] px-4 py-2 rounded transition"
+                >
+                    {showTemplates ? '❌ Cancel' : '📋 Use Template'}
                 </button>
             </form>
+
+            {/* Шаблоны */}
+            {showTemplates && (
+                <div className="bg-[#121420] border border-[#2A2B3E] rounded-lg p-4">
+                    <h3 className="font-semibold mb-3 text-[#E9ECF1]">Popular Habits</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                        {HABIT_TEMPLATES.map((t, i) => (
+                            <button
+                                key={i}
+                                onClick={() => addFromTemplate(t)}
+                                className="text-left bg-[#1A1B2E] border border-[#2A2B3E] hover:border-[#8B5CF6] p-3 rounded transition"
+                            >
+                                <div className="text-lg mb-1">{t.icon}</div>
+                                <div className="text-sm font-medium text-[#E9ECF1]">{t.title}</div>
+                                <div className="text-xs text-[#AAB1C2]">{t.targetDays}/week</div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Список */}
             {loading ? (

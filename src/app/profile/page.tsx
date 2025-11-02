@@ -197,6 +197,47 @@ export default function ProfilePage() {
                 </div>
             </section>
 
+            {/* Export Data */}
+            <section className="mb-6 bg-white/10 p-4 rounded-lg">
+                <h2 className="text-xl font-semibold mb-3">Export Data</h2>
+                <div className="flex gap-2">
+                    <button
+                        onClick={async () => {
+                            const hdrs = await authHeaders();
+                            const res = await fetch('/api/export/data?format=json', { headers: hdrs });
+                            if (res.ok) {
+                                const blob = await res.blob();
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.json`;
+                                a.click();
+                            }
+                        }}
+                        className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
+                    >
+                        📥 Download JSON
+                    </button>
+                    <button
+                        onClick={async () => {
+                            const hdrs = await authHeaders();
+                            const res = await fetch('/api/export/data?format=csv', { headers: hdrs });
+                            if (res.ok) {
+                                const blob = await res.blob();
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.csv`;
+                                a.click();
+                            }
+                        }}
+                        className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
+                    >
+                        📊 Download CSV
+                    </button>
+                </div>
+            </section>
+
             {/* SDK Sign In and context debug */}
             <button
                 onClick={signin}
