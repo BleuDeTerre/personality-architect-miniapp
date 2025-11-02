@@ -3,6 +3,8 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { sendMint } from '@/lib/zora';
+import { getBadge } from '@/lib/badges';
 
 export async function POST(req: NextRequest) {
     try {
@@ -54,8 +56,30 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'not_eligible', reason: row.reason }, { status: 403 });
         }
 
-        // плейсхолдер минта
-        const tx = `0x${crypto.randomUUID().replace(/-/g, '').slice(0, 64)}`;
+        // Получаем badge для tokenId
+        const badgeMeta = getBadge(badge as any);
+        if (!badgeMeta) return NextResponse.json({ error: 'badge_not_found' }, { status: 400 });
+
+        // Реальный минт через Zora
+        let tx: string;
+        let status: 'success' | 'pending' | 'failed' = 'success';
+        try {
+            const result = await sendMint({
+                to: to as `0x${string}`,
+                tokenId: badgeMeta.tokenId,
+                quantity: BigInt(1),
+            });
+            tx = result.hash;
+        } catch (mintErr: any) {
+            status = 'failed';
+            await supa.rpc('log_event', {
+                p_name: 'mint.error',
+                p_status: 'error',
+                p_path: '/api/mint',
+                p_props: { badge, msg: String(mintErr?.message ?? mintErr) }
+            });
+            return NextResponse.json({ error: 'mint_failed', detail: String(mintErr?.message ?? mintErr) }, { status: 500 });
+        }
 
         const { data: ins, error } = await supa
             .from('mints')
@@ -63,7 +87,7 @@ export async function POST(req: NextRequest) {
                 user_id: uid,
                 badge_code: badge,
                 to_address: to,
-                status: 'success',
+                status: status,
                 chain_id: 8453,
                 tx_hash: tx,
                 token_id: null

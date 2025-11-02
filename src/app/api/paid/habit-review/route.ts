@@ -72,14 +72,14 @@ export async function POST(req: NextRequest) {
         if (ids.length) {
             const { data: logs } = await supa
                 .from('habit_logs')
-                .select('habit_id,date,completed')
+                .select('habit_id,date,value')
                 .in('habit_id', ids)
                 .gte('date', since7)
                 .lte('date', today);
 
             const countMap = new Map<string, number>();
             (logs ?? []).forEach((l) => {
-                if (l.completed) countMap.set(l.habit_id, (countMap.get(l.habit_id) ?? 0) + 1);
+                if (l.value === true) countMap.set(l.habit_id, (countMap.get(l.habit_id) ?? 0) + 1);
             });
 
             perHabit = (habits ?? []).map((h) => ({
@@ -90,16 +90,39 @@ export async function POST(req: NextRequest) {
             }));
         }
 
-        // AI init на будущее (deep можно передавать из body)
+        // AI review
         const deep = false;
-        const _openai = openaiClient();
-        const _model = pickModel({ deep });
+        const openai = openaiClient();
+        const model = pickModel({ deep });
+
+        const habitDetails = perHabit.map(h =>
+            `${h.title}: ${h.done_7d}/${h.target_days_per_week * 7} done (target: ${h.target_days_per_week}/week)`
+        ).join('\n');
+
+        const chat = await openai.chat.completions.create({
+            model,
+            temperature: 0.2,
+            messages: [
+                { role: 'system', content: 'You are a habit coach. Be encouraging and specific. Output in English.' },
+                {
+                    role: 'user',
+                    content: [
+                        `Review my habits for the week ${period_start} to ${today}:`,
+                        habitDetails || 'No habits tracked yet.',
+                        `Provide a brief analysis (2-3 sentences) and 3 specific recommendations.`,
+                    ].join('\n\n'),
+                },
+            ],
+        });
+
+        const note = chat.choices[0]?.message?.content ?? 'No review available.';
 
         const payload = {
             kind: 'habit_review',
             period: { start: period_start, end: today },
             habits: perHabit,
-            note: 'Placeholder. The real LLM summary will be added later.',
+            note,
+            model,
         };
 
         await supa.from('ai_reports').upsert(

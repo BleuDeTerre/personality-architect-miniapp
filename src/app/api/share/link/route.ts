@@ -39,8 +39,8 @@ export async function GET(req: NextRequest) {
     // 5) Лог под RLS (вставка разрешена политикой: with check user_id = auth.uid())
     await supa.from('events_log').insert({
         user_id: user.id,
-        event: 'share_link_generated',
-        meta: { kind, month, title },
+        name: 'share_link_generated',
+        props: { kind, month, title },
     });
 
     return NextResponse.json({ url: compose.toString() });

@@ -97,11 +97,36 @@ export async function POST(req: NextRequest) {
         const scores = (wheel ?? []).map((x) => Number(x.score) || 0);
         const avg_wheel_7d = scores.length ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)) : 0;
 
+        // AI summary
+        const { openaiClient, pickModel } = await import('@/lib/aiModel');
+        const openai = openaiClient();
+        const model = pickModel({ deep: false });
+
+        const chat = await openai.chat.completions.create({
+            model,
+            temperature: 0.2,
+            messages: [
+                { role: 'system', content: 'You are a habit analyst. Be concise and practical. Output in English.' },
+                {
+                    role: 'user',
+                    content: [
+                        `Weekly habit overview for ${period_start} to ${today}.`,
+                        `You completed ${completed_total_7d} habit logs across ${active_days_7d} active days.`,
+                        `Average Wheel of Life score: ${avg_wheel_7d}/10.`,
+                        `Provide 3-4 bullet insights and 2 actionable recommendations.`,
+                    ].join('\n'),
+                },
+            ],
+        });
+
+        const summary = chat.choices[0]?.message?.content ?? 'No insights available.';
+
         const payload = {
             kind: 'ai_insight',
             period: { start: period_start, end: today },
             metrics: { completed_total_7d, active_days_7d, avg_wheel_7d },
-            insight: 'Placeholder. The real LLM summary will be added later.',
+            insight: summary,
+            model,
         };
 
         await db.from('ai_reports').upsert(

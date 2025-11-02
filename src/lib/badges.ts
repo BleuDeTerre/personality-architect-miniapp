@@ -1,6 +1,6 @@
 // RU: каталог доступных бейджей. tokenId задаём заранее в вашей коллекции 1155.
 export type Badge = {
-    slug: 'FIRST_LOG' | 'STREAK_7' | 'STREAK_30' | 'WHEEL_70' | 'WHEEL_80' | 'CONSISTENT_21' | 'SHARE_3';
+    slug: 'FIRST_LOG' | 'STREAK_7' | 'STREAK_30' | 'STREAK_60' | 'STREAK_100' | 'STREAK_365' | 'WHEEL_70' | 'WHEEL_80' | 'CONSISTENT_21' | 'SHARE_3';
     title: string;          // EN
     description: string;    // EN
     tokenId: bigint;        // RU: токен в вашем 1155 контракте
@@ -11,6 +11,9 @@ export const BADGES: Badge[] = [
     { slug: 'FIRST_LOG', title: 'First Log', description: 'Logged your first habit.', tokenId: BigInt(1), image: '/share/images/badges.png' },
     { slug: 'STREAK_7', title: 'Streak 7', description: '7-day habit streak.', tokenId: BigInt(2), image: '/share/images/badges.png' },
     { slug: 'STREAK_30', title: 'Streak 30', description: '30-day habit streak.', tokenId: BigInt(3), image: '/share/images/badges.png' },
+    { slug: 'STREAK_60', title: 'Streak 60', description: '60-day habit streak.', tokenId: BigInt(8), image: '/share/images/badges.png' },
+    { slug: 'STREAK_100', title: 'Streak 100', description: '100-day habit streak.', tokenId: BigInt(9), image: '/share/images/badges.png' },
+    { slug: 'STREAK_365', title: 'Streak 365', description: '365-day habit streak!', tokenId: BigInt(10), image: '/share/images/badges.png' },
     { slug: 'WHEEL_70', title: 'Wheel 70', description: 'Reached 70/100 on Wheel of Life.', tokenId: BigInt(4), image: '/share/images/badges.png' },
     { slug: 'WHEEL_80', title: 'Wheel 80', description: 'Reached 80/100 on Wheel of Life.', tokenId: BigInt(5), image: '/share/images/badges.png' },
     { slug: 'CONSISTENT_21', title: 'Consistent 21', description: '21 days of consistent tracking.', tokenId: BigInt(6), image: '/share/images/badges.png' },

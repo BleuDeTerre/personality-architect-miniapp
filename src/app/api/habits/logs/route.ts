@@ -14,14 +14,28 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const date = (searchParams.get('date') || '').slice(0, 10);
-    if (!date) return NextResponse.json({ error: 'date_required' }, { status: 400 });
+    const fromDate = (searchParams.get('from') || '').slice(0, 10);
+    const toDate = (searchParams.get('to') || '').slice(0, 10);
+    const habitId = searchParams.get('habit_id');
 
-    const { data, error } = await supa
+    let query = supa
       .from('habit_logs')
       .select('id, habit_id, date, value, note')
-      .eq('user_id', userId)
-      .eq('date', date)
-      .order('created_at', { ascending: false });
+      .eq('user_id', userId);
+
+    if (date) {
+      query = query.eq('date', date);
+    } else if (fromDate && toDate) {
+      query = query.gte('date', fromDate).lte('date', toDate);
+    } else {
+      return NextResponse.json({ error: 'date_or_range_required' }, { status: 400 });
+    }
+
+    if (habitId) {
+      query = query.eq('habit_id', habitId);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ items: data ?? [] });
