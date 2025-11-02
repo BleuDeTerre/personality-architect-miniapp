@@ -43,7 +43,7 @@
 - ~~Add tooltips для всех badges~~ ✅ **СДЕЛАНО**
 - ~~Show streak indicator на habit cards~~ ✅ УЖЕ ЕСТЬ
 - ~~Add "Days until next badge" progress~~ ✅ **СДЕЛАНО**
-- Dark mode toggle
+- ~~Dark mode foundation~~ ✅ **СДЕЛАНО** - Applied to Dashboard, Habits, Streaks
 - Better loading states / skeletons
 - Empty states для всех страниц
 - Responsive design polish
