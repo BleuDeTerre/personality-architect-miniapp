@@ -116,8 +116,8 @@ export default function HabitsPage() {
     }
 
     return (
-        <div className="p-6 max-w-xl mx-auto space-y-6">
-            <h1 className="text-2xl font-bold">My Habits</h1>
+        <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-6 max-w-xl mx-auto space-y-6">
+            <h1 className="text-2xl font-bold text-[#E9ECF1]">My Habits</h1>
 
             {/* Форма добавления */}
             <form onSubmit={addHabit} className="space-y-2">
@@ -126,7 +126,7 @@ export default function HabitsPage() {
                     placeholder="Habit title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="border p-2 w-full rounded"
+                    className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
                     required
                 />
                 <input
@@ -135,34 +135,33 @@ export default function HabitsPage() {
                     max={7}
                     value={targetDays}
                     onChange={(e) => setTargetDays(Number(e.target.value))}
-                    className="border p-2 w-full rounded"
+                    className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
                 />
-                <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
+                <button type="submit" className="bg-[#8B5CF6] hover:bg-[#6D28D9] text-white px-4 py-2 rounded transition">
                     Add Habit
                 </button>
             </form>
 
             {/* Список */}
             {loading ? (
-                <p>Loading...</p>
+                <p className="text-[#AAB1C2]">Loading...</p>
             ) : (
                 <ul className="space-y-2">
                     {habits.map((h) => (
-                        <li key={h.id} className="flex justify-between items-center border p-2 rounded">
+                        <li key={h.id} className="bg-[#121420] border border-[#2A2B3E] flex justify-between items-center p-3 rounded">
                             <div className="flex items-center">
-                                <span className={h.is_completed ? 'line-through text-gray-500' : ''}>
+                                <span className={h.is_completed ? 'line-through text-[#5B6785]' : 'text-[#E9ECF1]'}>
                                     {h.title}
                                 </span>
-                                <span className="text-sm text-gray-400 ml-2">
+                                <span className="text-sm text-[#AAB1C2] ml-2">
                                     ({h.target_days_per_week} days/week)
                                 </span>
-                                {/* Стрик 🔥Xd */}
-                                <span className="text-sm text-gray-500 ml-3">🔥 {h.streak ?? 0}d</span>
+                                <span className="text-sm text-[#8B5CF6] ml-3">🔥 {h.streak ?? 0}d</span>
                             </div>
 
                             <button
                                 onClick={() => markComplete(h.id, h.is_completed)}
-                                className={`px-3 py-1 rounded ${h.is_completed ? 'bg-green-500 text-white' : 'bg-gray-300'}`}
+                                className={`px-3 py-1 rounded transition ${h.is_completed ? 'bg-[#2BD4A4] text-white' : 'bg-[#2A2B3E] text-[#E9ECF1] hover:bg-[#3A3B4E]'}`}
                                 aria-label={h.is_completed ? 'Completed today' : 'Mark as done today'}
                             >
                                 {h.is_completed ? '✔' : 'Mark'}
