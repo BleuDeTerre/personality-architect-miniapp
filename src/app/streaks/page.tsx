@@ -95,17 +95,17 @@ export default function StreaksPage() {
     // Цвет для квадратика по интенсивности
     function getIntensity(date: string): string {
         const dayLogs = logMap.get(date);
-        if (!dayLogs || dayLogs.size === 0) return 'bg-gray-100';
+        if (!dayLogs || dayLogs.size === 0) return 'bg-gray-700';
 
         let count = 0;
         dayLogs.forEach((val) => { if (val) count++; });
         const intensity = count / (selectedHabit === 'all' ? habits.length : 1);
 
-        if (intensity >= 0.8) return 'bg-green-600';
-        if (intensity >= 0.6) return 'bg-green-500';
-        if (intensity >= 0.4) return 'bg-green-400';
-        if (intensity >= 0.2) return 'bg-green-300';
-        return 'bg-green-200';
+        if (intensity >= 0.8) return 'bg-green-500';
+        if (intensity >= 0.6) return 'bg-green-600';
+        if (intensity >= 0.4) return 'bg-green-700';
+        if (intensity >= 0.2) return 'bg-green-900';
+        return 'bg-gray-700';
     }
 
     // Считаем сколько дней до следующего streak badge
@@ -141,33 +141,33 @@ export default function StreaksPage() {
     }, [days]);
 
     return (
-        <div className="p-6 max-w-6xl mx-auto space-y-6">
-            <h1 className="text-2xl font-bold">Streaks Analytics</h1>
+        <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-6 max-w-6xl mx-auto space-y-6">
+            <h1 className="text-2xl font-bold text-[#E9ECF1]">Streaks Analytics</h1>
 
             {/* Stats карточки */}
             {!loading && (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="border rounded-lg p-4">
-                        <div className="text-sm text-gray-600">Current Streak</div>
-                        <div className="text-3xl font-bold text-green-600">{stats.current_streak}</div>
-                        <div className="text-xs text-gray-500">days</div>
+                    <div className="bg-[#121420] border border-[#2A2B3E] rounded-lg p-4">
+                        <div className="text-sm text-[#AAB1C2]">Current Streak</div>
+                        <div className="text-3xl font-bold text-[#2BD4A4]">{stats.current_streak}</div>
+                        <div className="text-xs text-[#AAB1C2]">days</div>
                     </div>
-                    <div className="border rounded-lg p-4">
-                        <div className="text-sm text-gray-600">Best Streak</div>
-                        <div className="text-3xl font-bold text-purple-600">{stats.best_streak}</div>
-                        <div className="text-xs text-gray-500">days</div>
+                    <div className="bg-[#121420] border border-[#2A2B3E] rounded-lg p-4">
+                        <div className="text-sm text-[#AAB1C2]">Best Streak</div>
+                        <div className="text-3xl font-bold text-[#8B5CF6]">{stats.best_streak}</div>
+                        <div className="text-xs text-[#AAB1C2]">days</div>
                     </div>
-                    <div className="border rounded-lg p-4">
-                        <div className="text-sm text-gray-600">Last Activity</div>
-                        <div className="text-lg font-semibold">
+                    <div className="bg-[#121420] border border-[#2A2B3E] rounded-lg p-4">
+                        <div className="text-sm text-[#AAB1C2]">Last Activity</div>
+                        <div className="text-lg font-semibold text-[#E9ECF1]">
                             {stats.last_completed ? new Date(stats.last_completed).toLocaleDateString() : 'Never'}
                         </div>
                     </div>
                     {nextBadgeDays !== null && (
-                        <div className="border rounded-lg p-4 bg-blue-50">
-                            <div className="text-sm text-gray-600">Next Badge</div>
-                            <div className="text-3xl font-bold text-blue-600">{nextBadgeDays}</div>
-                            <div className="text-xs text-gray-500">days remaining</div>
+                        <div className="bg-[#1A1B2E] border border-[#8B5CF6] rounded-lg p-4">
+                            <div className="text-sm text-[#8B5CF6]">Next Badge</div>
+                            <div className="text-3xl font-bold text-[#8B5CF6]">{nextBadgeDays}</div>
+                            <div className="text-xs text-[#AAB1C2]">days remaining</div>
                         </div>
                     )}
                 </div>
@@ -175,11 +175,11 @@ export default function StreaksPage() {
 
             {/* Фильтр по привычке */}
             <div className="flex items-center gap-4">
-                <label className="font-medium">Habit:</label>
+                <label className="font-medium text-[#E9ECF1]">Habit:</label>
                 <select
                     value={selectedHabit}
                     onChange={(e) => setSelectedHabit(e.target.value)}
-                    className="border p-2 rounded"
+                    className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 rounded"
                 >
                     <option value="all">All Habits</option>
                     {habits.map(h => (
@@ -189,14 +189,14 @@ export default function StreaksPage() {
             </div>
 
             {loading ? (
-                <div>Loading...</div>
+                <div className="text-[#AAB1C2]">Loading...</div>
             ) : (
                 <>
                     {/* Легенда */}
-                    <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-4 text-sm text-[#AAB1C2]">
                         <span>Less</span>
                         <div className="flex gap-1">
-                            {['bg-gray-100', 'bg-green-200', 'bg-green-400', 'bg-green-500', 'bg-green-600'].map((c, i) => (
+                            {['bg-gray-700', 'bg-green-900', 'bg-green-700', 'bg-green-600', 'bg-green-500'].map((c, i) => (
                                 <div key={i} className={`w-3 h-3 rounded ${c}`} />
                             ))}
                         </div>
@@ -220,7 +220,7 @@ export default function StreaksPage() {
                         </div>
                     </div>
 
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-[#AAB1C2]">
                         Last 365 days • Each square is one day
                     </div>
                 </>
