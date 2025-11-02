@@ -166,7 +166,11 @@ export default function ProfilePage() {
                         const reason = eligMap[b.slug]?.reason ?? '';
                         const canMint = el && st === 'none';
                         return (
-                            <div key={b.slug} className="border border-white/30 rounded-xl p-3 bg-white/10 flex flex-col gap-2">
+                            <div
+                                key={b.slug}
+                                className="border border-white/30 rounded-xl p-3 bg-white/10 flex flex-col gap-2 transition hover:bg-white/15"
+                                title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
+                            >
                                 <div className="flex items-start gap-3">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
@@ -183,6 +187,7 @@ export default function ProfilePage() {
                                     onClick={() => mint(b.slug)}
                                     disabled={loading || busyCode === b.slug || !canMint}
                                     className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
+                                    title={!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT'}
                                 >
                                     {busyCode === b.slug ? 'Minting…' : st === 'success' ? '✅ Minted' : 'Mint'}
                                 </button>
