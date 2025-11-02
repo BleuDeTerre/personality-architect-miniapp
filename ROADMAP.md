@@ -44,10 +44,9 @@
 - ~~Show streak indicator на habit cards~~ ✅ УЖЕ ЕСТЬ
 - ~~Add "Days until next badge" progress~~ ✅ **СДЕЛАНО**
 - ~~Dark mode foundation~~ ✅ **СДЕЛАНО** - Applied to Dashboard, Habits, Streaks
-- Better loading states / skeletons
-- Empty states для всех страниц
+- ~~Loading skeletons & empty states~~ ✅ **СДЕЛАНО** - Pulse animations added
 - Responsive design polish
-- Animations & transitions
+- Animations & transitions (basic done with pulse)
 
 ### Функциональные улучшения
 - **Habit templates** - предустановленные популярные привычки
