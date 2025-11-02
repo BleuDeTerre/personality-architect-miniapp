@@ -4,24 +4,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { sdk } from '@farcaster/miniapp-sdk';
+import { BADGES } from '@/lib/badges';
 
 // Supabase client
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-// Planned badges
-const BADGES = [
-    { code: 'FIRST_LOG', label: 'First Log' },
-    { code: 'STREAK_7', label: '7-day Streak' },
-    { code: 'STREAK_30', label: '30-day Streak' },
-    { code: 'WHEEL_70', label: 'Wheel ≥ 7.0' },
-    { code: 'WHEEL_80', label: 'Wheel ≥ 8.0' },
-    { code: 'CONSISTENT_21', label: '21 Consistent' },
-    { code: 'IMPROVE_10', label: '10 Improves' },
-    { code: 'SHARE_3', label: '3 Shares' },
-];
 
 type MintStatus = 'none' | 'pending' | 'success' | 'failed';
 
@@ -77,10 +66,10 @@ export default function ProfilePage() {
     const refreshEligibility = useCallback(async () => {
         const entries = await Promise.all(
             BADGES.map(async b => {
-                const r = await fetch(`/api/mints/eligibility?code=${b.code}`, { headers: await authHeaders() });
-                if (!r.ok) return [b.code, { eligible: false, reason: 'error' }] as const;
+                const r = await fetch(`/api/mints/eligibility?code=${b.slug}`, { headers: await authHeaders() });
+                if (!r.ok) return [b.slug, { eligible: false, reason: 'error' }] as const;
                 const j = await r.json();
-                return [b.code, { eligible: !!j.eligible, reason: String(j.reason || '') }] as const;
+                return [b.slug, { eligible: !!j.eligible, reason: String(j.reason || '') }] as const;
             })
         );
         setEligMap(Object.fromEntries(entries));
@@ -128,13 +117,13 @@ export default function ProfilePage() {
     }, [refreshMints, refreshEligibility]);
 
     // Mint button
-    async function mint(code: string) {
-        setBusyCode(code);
+    async function mint(slug: string) {
+        setBusyCode(slug);
         try {
             const r = await fetch('/api/mints/mint', {
                 method: 'POST',
                 headers: await authHeaders(),
-                body: JSON.stringify({ code }),
+                body: JSON.stringify({ code: slug }),
             });
             const j = await r.json();
             if (!r.ok) {
@@ -169,29 +158,33 @@ export default function ProfilePage() {
 
             {/* Badges with Mint buttons */}
             <section className="mb-6">
-                <h2 className="text-xl font-semibold mb-3">Badges</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <h2 className="text-xl font-semibold mb-3">Badges Gallery</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {BADGES.map(b => {
-                        const st = statusMap[b.code] ?? 'none';
-                        const el = eligMap[b.code]?.eligible ?? false;
-                        const reason = eligMap[b.code]?.reason ?? '';
+                        const st = statusMap[b.slug] ?? 'none';
+                        const el = eligMap[b.slug]?.eligible ?? false;
+                        const reason = eligMap[b.slug]?.reason ?? '';
                         const canMint = el && st === 'none';
                         return (
-                            <div key={b.code} className="border border-white/30 rounded-xl p-3 bg-white/10 flex items-center justify-between">
-                                <div>
-                                    <div className="font-medium">{b.label}</div>
-                                    <div className="text-xs text-white/70">{b.code}</div>
-                                    <div className="text-xs mt-1">
-                                        Status: <span className="font-mono">{st}</span>
-                                        {!el && <span className="ml-2 opacity-80">({reason})</span>}
+                            <div key={b.slug} className="border border-white/30 rounded-xl p-3 bg-white/10 flex flex-col gap-2">
+                                <div className="flex items-start gap-3">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                                    <div className="flex-1">
+                                        <div className="font-medium">{b.title}</div>
+                                        <div className="text-xs text-white/70">{b.description}</div>
+                                        <div className="text-xs mt-1">
+                                            Status: <span className="font-mono">{st}</span>
+                                            {!el && <span className="ml-2 opacity-80">({reason})</span>}
+                                        </div>
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => mint(b.code)}
-                                    disabled={loading || busyCode === b.code || !canMint}
-                                    className={`px-4 py-2 rounded-xl border-2 transition ${canMint ? 'bg:white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
+                                    onClick={() => mint(b.slug)}
+                                    disabled={loading || busyCode === b.slug || !canMint}
+                                    className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
                                 >
-                                    {busyCode === b.code ? 'Minting…' : st === 'success' ? 'Minted' : 'Mint'}
+                                    {busyCode === b.slug ? 'Minting…' : st === 'success' ? '✅ Minted' : 'Mint'}
                                 </button>
                             </div>
                         );

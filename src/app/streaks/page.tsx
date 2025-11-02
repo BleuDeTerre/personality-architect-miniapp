@@ -11,11 +11,13 @@ const supabase = createClient(
 
 type Habit = { id: string; title: string };
 type Log = { habit_id: string; date: string; value: boolean };
+type Stats = { current_streak: number; best_streak: number; last_completed: string | null };
 
 export default function StreaksPage() {
     const [habits, setHabits] = useState<Habit[]>([]);
     const [selectedHabit, setSelectedHabit] = useState<string>('all');
     const [logs, setLogs] = useState<Log[]>([]);
+    const [stats, setStats] = useState<Stats>({ current_streak: 0, best_streak: 0, last_completed: null });
     const [loading, setLoading] = useState(false);
 
     const authHeaders = useCallback(async () => {
@@ -37,6 +39,24 @@ export default function StreaksPage() {
         }
         return dates.reverse();
     }, []);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const hdrs = await authHeaders();
+            const [hRes, lRes, statsRes] = await Promise.all([
+                fetch('/api/habits/list', { headers: hdrs }).then(r => r.json()),
+                fetch('/api/habits/logs?from=' + days[0] + '&to=' + days[days.length - 1] + (selectedHabit !== 'all' ? '&habit_id=' + selectedHabit : ''), { headers: hdrs }).then(r => r.json()),
+                fetch('/api/habits/stats', { headers: hdrs }).then(r => r.json()),
+            ]);
+
+            setHabits(Array.isArray(hRes) ? hRes : []);
+            setLogs(Array.isArray(lRes.items) ? lRes.items : []);
+            setStats(statsRes);
+        } finally {
+            setLoading(false);
+        }
+    }, [authHeaders, days, selectedHabit]);
 
     // Загружаем данные
     useEffect(() => {
@@ -60,23 +80,7 @@ export default function StreaksPage() {
 
             await fetchData();
         })();
-    }, [selectedHabit]);
-
-    async function fetchData() {
-        setLoading(true);
-        try {
-            const hdrs = await authHeaders();
-            const [hRes, lRes] = await Promise.all([
-                fetch('/api/habits/list', { headers: hdrs }).then(r => r.json()),
-                fetch('/api/habits/logs?from=' + days[0] + '&to=' + days[days.length - 1] + (selectedHabit !== 'all' ? '&habit_id=' + selectedHabit : ''), { headers: hdrs }).then(r => r.json()),
-            ]);
-
-            setHabits(Array.isArray(hRes) ? hRes : []);
-            setLogs(Array.isArray(lRes.items) ? lRes.items : []);
-        } finally {
-            setLoading(false);
-        }
-    }
+    }, [fetchData]);
 
     // Создаем мапу: дата -> { habit_id -> completed }
     const logMap = useMemo(() => {
@@ -130,7 +134,29 @@ export default function StreaksPage() {
 
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-6">
-            <h1 className="text-2xl font-bold">Streaks Heatmap</h1>
+            <h1 className="text-2xl font-bold">Streaks Analytics</h1>
+
+            {/* Stats карточки */}
+            {!loading && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="border rounded-lg p-4">
+                        <div className="text-sm text-gray-600">Current Streak</div>
+                        <div className="text-3xl font-bold text-green-600">{stats.current_streak}</div>
+                        <div className="text-xs text-gray-500">days</div>
+                    </div>
+                    <div className="border rounded-lg p-4">
+                        <div className="text-sm text-gray-600">Best Streak</div>
+                        <div className="text-3xl font-bold text-purple-600">{stats.best_streak}</div>
+                        <div className="text-xs text-gray-500">days</div>
+                    </div>
+                    <div className="border rounded-lg p-4">
+                        <div className="text-sm text-gray-600">Last Activity</div>
+                        <div className="text-lg font-semibold">
+                            {stats.last_completed ? new Date(stats.last_completed).toLocaleDateString() : 'Never'}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Фильтр по привычке */}
             <div className="flex items-center gap-4">

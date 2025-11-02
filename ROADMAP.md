@@ -103,10 +103,11 @@
 
 ### 📊 Insights & Analytics
 
-13. **Streaks analytics page**
-   - Current streak, best streak, total days
-   - Heatmap (как GitHub contributions)
-   - Streak calendar view
+13. ~~**Streaks analytics page**~~ ✅ **СДЕЛАНО**
+   - ✅ Current streak, best streak, last activity
+   - ✅ Heatmap (GitHub style)
+   - ✅ Stats карточки
+   - Calendar view можно добавить потом
 
 14. **Habit correlations**
    - AI анализ: какие привычки связаны
@@ -210,10 +211,14 @@
 7. ✅ Добавить Goals UI
 8. ✅ Weekly summaries generation
 
-### Phase 3: Enhanced Badges (2-3 недели)
+### Phase 3: Enhanced Badges (2-3 недели) ✅ **ЗАВЕРШЕНО**
 9-12. Добавить новые badges (streaks, categories)
-13. Streaks analytics page
-14. Badge gallery/explorer
+13. ✅ Streaks analytics page
+14. ✅ Badge gallery/explorer
+   - ✅ Обновлен /profile с галереей бейджей
+   - ✅ Используются актуальные бейджи из lib/badges
+   - ✅ Показываются изображения, статусы, eligibility
+   - ✅ Grid layout с responsive design
 
 ### Phase 4: Advanced Analytics (3-4 недели)
 15-16. Predictive & comparative insights
