@@ -144,7 +144,18 @@ export default function HabitsPage() {
 
             {/* Список */}
             {loading ? (
-                <p className="text-[#AAB1C2]">Loading...</p>
+                <div className="space-y-2">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="bg-[#121420] border border-[#2A2B3E] p-3 rounded animate-pulse">
+                            <div className="h-5 bg-[#2A2B3E] rounded w-3/4"></div>
+                        </div>
+                    ))}
+                </div>
+            ) : habits.length === 0 ? (
+                <div className="text-center py-12 text-[#AAB1C2]">
+                    <div className="text-lg mb-2">No habits yet</div>
+                    <div className="text-sm">Add your first habit above!</div>
+                </div>
             ) : (
                 <ul className="space-y-2">
                     {habits.map((h) => (

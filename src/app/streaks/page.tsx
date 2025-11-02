@@ -145,7 +145,16 @@ export default function StreaksPage() {
             <h1 className="text-2xl font-bold text-[#E9ECF1]">Streaks Analytics</h1>
 
             {/* Stats карточки */}
-            {!loading && (
+            {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="bg-[#121420] border border-[#2A2B3E] rounded-lg p-4 animate-pulse">
+                            <div className="h-4 bg-[#2A2B3E] rounded w-20 mb-2"></div>
+                            <div className="h-10 bg-[#2A2B3E] rounded w-16"></div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="bg-[#121420] border border-[#2A2B3E] rounded-lg p-4">
                         <div className="text-sm text-[#AAB1C2]">Current Streak</div>
