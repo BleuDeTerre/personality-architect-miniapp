@@ -140,9 +140,42 @@ export default function StreaksPage() {
         return weeks;
     }, [days]);
 
+    // Share to Farcaster
+    async function shareToFarcaster() {
+        if (!stats.current_streak && !stats.best_streak) {
+            alert('Complete some habits to share!');
+            return;
+        }
+        try {
+            const hdrs = await authHeaders();
+            const qs = new URLSearchParams({
+                kind: 'streaks',
+                text: `🔥 I've maintained a ${stats.current_streak}-day streak! Best: ${stats.best_streak} days.`,
+                title: 'My Streaks Progress',
+            });
+            const r = await fetch(`/api/share/link?${qs.toString()}`, { headers: hdrs });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const { url } = await r.json();
+            window.open(url, '_blank', 'noopener,noreferrer');
+        } catch (e) {
+            console.error('Failed to share:', e);
+            alert('Failed to open share dialog');
+        }
+    }
+
     return (
         <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-6 max-w-6xl mx-auto space-y-6">
-            <h1 className="text-2xl font-bold text-[#E9ECF1]">Streaks Analytics</h1>
+            <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-[#E9ECF1]">Streaks Analytics</h1>
+                {!loading && (stats.current_streak > 0 || stats.best_streak > 0) && (
+                    <button
+                        onClick={shareToFarcaster}
+                        className="bg-[#8B5CF6] hover:bg-[#6D28D9] text-white px-4 py-2 rounded-lg transition flex items-center gap-2"
+                    >
+                        <span>🎉 Share</span>
+                    </button>
+                )}
+            </div>
 
             {/* Stats карточки */}
             {loading ? (

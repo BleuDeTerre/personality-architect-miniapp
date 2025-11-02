@@ -15,6 +15,8 @@ const NAVIGATION = [
   { href: '/goals', label: 'Goals', icon: '🎯', desc: 'Set & track goals' },
   { href: '/streaks', label: 'Streaks', icon: '🔥', desc: 'View your streaks' },
   { href: '/analytics', label: 'Analytics', icon: '📊', desc: 'Advanced insights' },
+  { href: '/leaderboard', label: 'Leaderboard', icon: '🏅', desc: 'Top performers' },
+  { href: '/chat', label: 'AI Coach', icon: '🤖', desc: 'Chat with your coach' },
   { href: '/profile', label: 'Badges', icon: '🏆', desc: 'Your badges & mints' },
   { href: '/pricing', label: 'Pricing', icon: '💰', desc: 'Upgrade your plan' },
 ];
@@ -22,6 +24,7 @@ const NAVIGATION = [
 export default function DashboardPage() {
   const [stats, setStats] = useState<{ current_streak: number; best_streak: number; last_completed: string | null } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const authHeaders = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -70,11 +73,33 @@ export default function DashboardPage() {
   }, [authHeaders]);
 
   return (
-    <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] bg-clip-text text-transparent">
+    <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-4 sm:p-6 max-w-4xl mx-auto">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-2 bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] bg-clip-text text-transparent">
         Personality Architect
       </h1>
-      <p className="text-[#AAB1C2] mb-8">Build better habits, track your progress, achieve your goals.</p>
+      <p className="text-[#AAB1C2] mb-6 sm:mb-8 text-sm sm:text-base">Build better habits, track your progress, achieve your goals.</p>
+
+      {/* Onboarding */}
+      {!loading && stats && stats.current_streak === 0 && (
+        <div className="mb-6 bg-gradient-to-br from-[#8B5CF6] to-[#6D28D9] rounded-lg p-4 sm:p-6 border border-[#A78BFA]">
+          <h2 className="text-xl sm:text-2xl font-bold mb-2">🎉 Welcome to Personality Architect!</h2>
+          <p className="mb-4 text-white/90 text-sm sm:text-base">Get started by creating your first habit or setting a goal.</p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link
+              href="/habits"
+              className="bg-white text-[#8B5CF6] px-4 py-2 rounded-lg font-semibold hover:bg-white/90 transition text-center"
+            >
+              Create First Habit →
+            </Link>
+            <Link
+              href="/goals"
+              className="bg-white/20 text-white px-4 py-2 rounded-lg border border-white/30 hover:bg-white/30 transition text-center"
+            >
+              Set a Goal →
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {NAVIGATION.map(item => (

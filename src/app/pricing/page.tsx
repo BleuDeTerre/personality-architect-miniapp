@@ -137,10 +137,10 @@ export default function PricingPage() {
     };
 
     return (
-        <div className="p-6 max-w-6xl mx-auto">
+        <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-6 max-w-6xl mx-auto">
             <div className="text-center mb-12">
-                <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
-                <p className="text-gray-600 text-lg">
+                <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] bg-clip-text text-transparent">Choose Your Plan</h1>
+                <p className="text-[#AAB1C2] text-lg">
                     Upgrade to unlock powerful insights and analytics
                 </p>
             </div>
@@ -154,31 +154,31 @@ export default function PricingPage() {
                         <div
                             key={plan.id}
                             className={`border-2 rounded-lg p-8 ${plan.popular
-                                    ? 'border-blue-500 shadow-xl scale-105'
-                                    : 'border-gray-200'
-                                } ${isCurrent ? 'bg-blue-50' : 'bg-white'}`}
+                                ? 'border-[#8B5CF6] shadow-xl scale-105 bg-gradient-to-br from-[#121420] to-[#1A1B2E]'
+                                : 'border-[#2A2B3E]'
+                                } ${isCurrent ? 'bg-[#1A1B2E] border-[#8B5CF6]' : 'bg-[#121420]'}`}
                         >
                             {plan.popular && (
-                                <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-4">
+                                <div className="bg-[#8B5CF6] text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-4">
                                     MOST POPULAR
                                 </div>
                             )}
 
-                            <h2 className="text-2xl font-bold mb-2">{plan.name}</h2>
+                            <h2 className="text-2xl font-bold mb-2 text-[#E9ECF1]">{plan.name}</h2>
                             <div className="mb-6">
-                                <span className="text-4xl font-bold">
+                                <span className="text-4xl font-bold text-[#8B5CF6]">
                                     ${plan.price}
                                 </span>
                                 {plan.price > 0 && (
-                                    <span className="text-gray-600">/{plan.period}</span>
+                                    <span className="text-[#AAB1C2]">/{plan.period}</span>
                                 )}
                             </div>
 
                             <ul className="space-y-3 mb-8">
                                 {plan.features.map((feature, idx) => (
                                     <li key={idx} className="flex items-start">
-                                        <span className="text-green-500 mr-2">✓</span>
-                                        <span className="text-sm">{feature}</span>
+                                        <span className="text-[#2BD4A4] mr-2">✓</span>
+                                        <span className="text-sm text-[#E9ECF1]">{feature}</span>
                                     </li>
                                 ))}
                             </ul>
@@ -187,10 +187,10 @@ export default function PricingPage() {
                                 onClick={() => handleUpgrade(plan.id)}
                                 disabled={isCurrent || loading || plan.id === 'free'}
                                 className={`w-full py-3 rounded-lg font-semibold transition ${isCurrent
-                                        ? 'bg-gray-300 cursor-not-allowed'
-                                        : plan.popular
-                                            ? 'bg-blue-500 text-white hover:bg-blue-600'
-                                            : 'bg-gray-800 text-white hover:bg-gray-900'
+                                    ? 'bg-[#2A2B3E] cursor-not-allowed text-[#AAB1C2]'
+                                    : plan.popular
+                                        ? 'bg-[#8B5CF6] text-white hover:bg-[#6D28D9]'
+                                        : 'bg-[#2A2B3E] text-white hover:bg-[#3A3B4E]'
                                     }`}
                             >
                                 {isCurrent
@@ -207,8 +207,8 @@ export default function PricingPage() {
             </div>
 
             <div className="mt-16 text-center">
-                <h3 className="text-2xl font-bold mb-4">All plans include:</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-gray-600">
+                <h3 className="text-2xl font-bold mb-4 text-[#E9ECF1]">All plans include:</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-[#AAB1C2]">
                     <div>✓ Secure Farcaster authentication</div>
                     <div>✓ NFT badge minting on Base</div>
                     <div>✓ Export & share your data</div>
@@ -216,7 +216,7 @@ export default function PricingPage() {
             </div>
 
             <div className="mt-12 text-center">
-                <Link href="/" className="text-blue-500 hover:underline">
+                <Link href="/" className="text-[#8B5CF6] hover:underline">
                     ← Back to Dashboard
                 </Link>
             </div>

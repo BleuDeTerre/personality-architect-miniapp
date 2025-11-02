@@ -154,17 +154,17 @@ export default function GoalsPage() {
     }
 
     return (
-        <div className="p-6 max-w-xl mx-auto space-y-6">
-            <h1 className="text-2xl font-bold">My Goals</h1>
+        <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-6 max-w-xl mx-auto space-y-6">
+            <h1 className="text-2xl font-bold text-[#E9ECF1]">My Goals</h1>
 
             {/* Форма добавления */}
-            <form onSubmit={(e) => { e.preventDefault(); addGoal(); }} className="space-y-2 border p-4 rounded-lg">
+            <form onSubmit={(e) => { e.preventDefault(); addGoal(); }} className="space-y-2 border border-[#2A2B3E] bg-[#121420] p-4 rounded-lg">
                 <input
                     type="text"
                     placeholder="Goal title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="border p-2 w-full rounded"
+                    className="bg-[#0D0F1A] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
                     required
                 />
                 <div className="grid grid-cols-2 gap-2">
@@ -173,14 +173,14 @@ export default function GoalsPage() {
                         placeholder="Metric (e.g., days, reps)"
                         value={metric}
                         onChange={(e) => setMetric(e.target.value)}
-                        className="border p-2 w-full rounded"
+                        className="bg-[#0D0F1A] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
                     />
                     <input
                         type="number"
                         placeholder="Target"
                         value={target}
                         onChange={(e) => setTarget(e.target.value)}
-                        className="border p-2 w-full rounded"
+                        className="bg-[#0D0F1A] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
                     />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -189,17 +189,17 @@ export default function GoalsPage() {
                         placeholder="Unit"
                         value={unit}
                         onChange={(e) => setUnit(e.target.value)}
-                        className="border p-2 w-full rounded"
+                        className="bg-[#0D0F1A] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
                     />
                     <input
                         type="date"
                         placeholder="Due date"
                         value={dueDate}
                         onChange={(e) => setDueDate(e.target.value)}
-                        className="border p-2 w-full rounded"
+                        className="bg-[#0D0F1A] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
                     />
                 </div>
-                <button type="submit" disabled={loading} className="bg-blue-500 text-white px-4 py-2 rounded w-full disabled:opacity-50">
+                <button type="submit" disabled={loading} className="bg-[#8B5CF6] hover:bg-[#6D28D9] text-white px-4 py-2 rounded w-full disabled:opacity-50 transition">
                     {loading ? 'Adding...' : 'Add Goal'}
                 </button>
             </form>
@@ -212,12 +212,12 @@ export default function GoalsPage() {
                         placeholder="🔍 Search goals..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="flex-1 border p-2 rounded"
+                        className="flex-1 bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 rounded"
                     />
                     <select
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value as any)}
-                        className="border p-2 rounded"
+                        className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 rounded"
                     >
                         <option value="all">All</option>
                         <option value="active">Active</option>
@@ -229,7 +229,7 @@ export default function GoalsPage() {
 
             {/* Список */}
             {loading && goals.length === 0 ? (
-                <p>Loading...</p>
+                <p className="text-[#AAB1C2]">Loading...</p>
             ) : (
                 <ul className="space-y-2">
                     {goals
@@ -241,17 +241,17 @@ export default function GoalsPage() {
                             return matchesSearch && matchesFilter;
                         })
                         .map((g) => (
-                            <li key={g.id} className="flex justify-between items-start border p-4 rounded-lg">
+                            <li key={g.id} className="flex justify-between items-start border border-[#2A2B3E] bg-[#121420] p-4 rounded-lg">
                                 {editingId === g.id ? (
                                     <div className="flex-1 space-y-2">
                                         <input
                                             type="text"
                                             value={g.title}
                                             onChange={(e) => setGoals(goals.map(goal => goal.id === g.id ? { ...goal, title: e.target.value } : goal))}
-                                            className="border p-2 w-full rounded"
+                                            className="bg-[#0D0F1A] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
                                         />
                                         {g.due_date && (
-                                            <div className="text-xs text-gray-500">
+                                            <div className="text-xs text-[#AAB1C2]">
                                                 Due: {new Date(g.due_date).toLocaleDateString()}
                                             </div>
                                         )}
@@ -259,13 +259,13 @@ export default function GoalsPage() {
                                             <button
                                                 onClick={() => updateGoal(g)}
                                                 disabled={loading}
-                                                className="bg-green-500 text-white px-3 py-1 rounded text-sm"
+                                                className="bg-[#2BD4A4] hover:bg-[#24C997] text-white px-3 py-1 rounded text-sm transition"
                                             >
                                                 Save
                                             </button>
                                             <button
                                                 onClick={() => setEditingId(null)}
-                                                className="bg-gray-300 px-3 py-1 rounded text-sm"
+                                                className="bg-[#2A2B3E] hover:bg-[#3A3B4E] text-[#E9ECF1] px-3 py-1 rounded text-sm transition"
                                             >
                                                 Cancel
                                             </button>
@@ -273,20 +273,20 @@ export default function GoalsPage() {
                                     </div>
                                 ) : (
                                     <div className="flex-1">
-                                        <div className={`font-medium ${g.status === 'completed' ? 'line-through text-gray-500' : ''}`}>
+                                        <div className={`font-medium text-[#E9ECF1] ${g.status === 'completed' ? 'line-through text-[#5B6785]' : ''}`}>
                                             {g.title}
                                         </div>
                                         {g.metric && g.target && (
-                                            <div className="text-sm text-gray-600">
+                                            <div className="text-sm text-[#AAB1C2]">
                                                 {g.target} {g.unit || g.metric}
                                             </div>
                                         )}
                                         {g.due_date && (
-                                            <div className="text-xs text-gray-500 mt-1">
+                                            <div className="text-xs text-[#AAB1C2] mt-1">
                                                 Due: {new Date(g.due_date).toLocaleDateString()}
                                             </div>
                                         )}
-                                        <div className="text-xs text-gray-400 mt-1">
+                                        <div className="text-xs text-[#AAB1C2] mt-1">
                                             {g.status}
                                         </div>
                                     </div>
@@ -295,21 +295,21 @@ export default function GoalsPage() {
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => toggleStatus(g)}
-                                            className={`px-3 py-1 rounded text-sm ${g.status === 'completed' ? 'bg-green-500 text-white' : 'bg-gray-300'}`}
+                                            className={`px-3 py-1 rounded text-sm transition ${g.status === 'completed' ? 'bg-[#2BD4A4] text-white hover:bg-[#24C997]' : 'bg-[#2A2B3E] text-[#E9ECF1] hover:bg-[#3A3B4E]'}`}
                                             disabled={loading}
                                         >
                                             {g.status === 'completed' ? '✓' : '⏳'}
                                         </button>
                                         <button
                                             onClick={() => setEditingId(g.id)}
-                                            className="px-3 py-1 rounded text-sm bg-blue-300"
+                                            className="px-3 py-1 rounded text-sm bg-[#8B5CF6] text-white hover:bg-[#6D28D9] transition"
                                             disabled={loading}
                                         >
                                             Edit
                                         </button>
                                         <button
                                             onClick={() => deleteGoal(g.id)}
-                                            className="px-3 py-1 rounded text-sm bg-red-300"
+                                            className="px-3 py-1 rounded text-sm bg-[#FF6B6B] hover:bg-[#E65A5A] text-white transition"
                                             disabled={loading}
                                         >
                                             Delete
@@ -322,7 +322,7 @@ export default function GoalsPage() {
             )}
 
             {goals.length === 0 && !loading && (
-                <div className="text-center text-gray-500 py-8">
+                <div className="text-center text-[#AAB1C2] py-8">
                     No goals yet. Add your first goal above!
                 </div>
             )}

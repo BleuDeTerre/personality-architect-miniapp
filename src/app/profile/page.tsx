@@ -200,7 +200,7 @@ export default function ProfilePage() {
             {/* Export Data */}
             <section className="mb-6 bg-white/10 p-4 rounded-lg">
                 <h2 className="text-xl font-semibold mb-3">Export Data</h2>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     <button
                         onClick={async () => {
                             const hdrs = await authHeaders();
@@ -234,6 +234,23 @@ export default function ProfilePage() {
                         className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
                     >
                         📊 Download CSV
+                    </button>
+                    <button
+                        onClick={async () => {
+                            const hdrs = await authHeaders();
+                            const res = await fetch('/api/export/ical', { headers: hdrs });
+                            if (res.ok) {
+                                const blob = await res.blob();
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `habits.ics`;
+                                a.click();
+                            }
+                        }}
+                        className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
+                    >
+                        📅 Download iCal
                     </button>
                 </div>
             </section>

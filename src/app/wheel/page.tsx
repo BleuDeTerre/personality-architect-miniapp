@@ -135,12 +135,12 @@ export default function WheelPage() {
     }
 
     return (
-        <div className="p-6 max-w-4xl mx-auto space-y-6">
+        <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-6 max-w-4xl mx-auto space-y-6">
             <div className="flex items-center justify-between gap-3">
-                <h1 className="text-2xl font-bold">Wheel of Life — {week} · avg {avg.toFixed(1)}</h1>
+                <h1 className="text-2xl font-bold text-[#E9ECF1]">Wheel of Life — {week} · avg {avg.toFixed(1)}</h1>
                 <button
                     onClick={loadTrends}
-                    className="text-sm px-3 py-2 border rounded"
+                    className="text-sm px-3 py-2 border border-[#2A2B3E] bg-[#121420] text-[#E9ECF1] rounded hover:bg-[#1A1B2E] transition"
                     disabled={trendsLoading}
                 >
                     {trendsLoading ? 'Refreshing…' : 'Refresh trends'}
@@ -149,18 +149,18 @@ export default function WheelPage() {
 
             <div className="space-y-4">
                 <div>
-                    <label className="block mb-1 font-medium">Week</label>
+                    <label className="block mb-1 font-medium text-[#E9ECF1]">Week</label>
                     <input
                         type="week"
                         value={week}
                         onChange={(e) => setWeek(e.target.value)}
-                        className="border p-2 w-full rounded"
+                        className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
                     />
                 </div>
 
                 {items.map((it, i) => (
                     <div key={`${it.area}-${i}`} className="flex items-center justify-between">
-                        <label className="w-1/2">
+                        <label className="w-1/2 text-[#E9ECF1]">
                             {AREAS[i]?.icon ?? '•'} {it.area}
                         </label>
                         <input
@@ -169,7 +169,7 @@ export default function WheelPage() {
                             max={10}
                             value={it.score}
                             onChange={(e) => setScore(i, Number(e.target.value))}
-                            className="border p-2 w-20 rounded"
+                            className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-20 rounded"
                             required
                         />
                     </div>
@@ -178,7 +178,7 @@ export default function WheelPage() {
                 <button
                     onClick={saveWeek}
                     disabled={loading}
-                    className="bg-purple-500 text-white px-4 py-2 rounded"
+                    className="bg-[#8B5CF6] hover:bg-[#6D28D9] text-white px-4 py-2 rounded transition"
                 >
                     {loading ? 'Saving…' : 'Save week'}
                 </button>
@@ -197,47 +197,47 @@ export default function WheelPage() {
 
             {/* RU: коуч-блок на основе трендов/роллапов */}
             <div className="space-y-2">
-                <h2 className="text-lg font-semibold">Coach</h2>
+                <h2 className="text-lg font-semibold text-[#E9ECF1]">Coach</h2>
                 <CoachBlock />
             </div>
 
             {/* RU: табличка трендов по областям (avg4/avg12 и дельты) */}
             <div className="space-y-2">
-                <h2 className="text-lg font-semibold">Trends</h2>
+                <h2 className="text-lg font-semibold text-[#E9ECF1]">Trends</h2>
                 <div className="overflow-x-auto">
-                    <table className="min-w-full border rounded">
-                        <thead className="bg-neutral-50 text-sm">
+                    <table className="min-w-full border border-[#2A2B3E] rounded">
+                        <thead className="bg-[#121420] text-sm text-[#E9ECF1]">
                             <tr>
-                                <th className="text-left p-2 border">Area</th>
-                                <th className="text-right p-2 border">Last</th>
-                                <th className="text-right p-2 border">Avg 4w</th>
-                                <th className="text-right p-2 border">Avg 12w</th>
-                                <th className="text-right p-2 border">Δ 4w</th>
-                                <th className="text-right p-2 border">Δ 12w</th>
+                                <th className="text-left p-2 border border-[#2A2B3E]">Area</th>
+                                <th className="text-right p-2 border border-[#2A2B3E]">Last</th>
+                                <th className="text-right p-2 border border-[#2A2B3E]">Avg 4w</th>
+                                <th className="text-right p-2 border border-[#2A2B3E]">Avg 12w</th>
+                                <th className="text-right p-2 border border-[#2A2B3E]">Δ 4w</th>
+                                <th className="text-right p-2 border border-[#2A2B3E]">Δ 12w</th>
                             </tr>
                         </thead>
-                        <tbody className="text-sm">
+                        <tbody className="text-sm text-[#E9ECF1] bg-[#121420]">
                             {trends.map((t) => (
                                 <tr key={t.area}>
-                                    <td className="p-2 border">{t.area}</td>
-                                    <td className="p-2 border text-right">{t.last?.toFixed?.(1) ?? t.last}</td>
-                                    <td className="p-2 border text-right">{t.avg4?.toFixed?.(1) ?? t.avg4}</td>
-                                    <td className="p-2 border text-right">{t.avg12?.toFixed?.(1) ?? t.avg12}</td>
-                                    <td className={`p-2 border text-right ${t.delta4 < 0 ? 'text-red-600' : t.delta4 > 0 ? 'text-green-600' : ''}`}>
+                                    <td className="p-2 border border-[#2A2B3E]">{t.area}</td>
+                                    <td className="p-2 border border-[#2A2B3E] text-right">{t.last?.toFixed?.(1) ?? t.last}</td>
+                                    <td className="p-2 border border-[#2A2B3E] text-right">{t.avg4?.toFixed?.(1) ?? t.avg4}</td>
+                                    <td className="p-2 border border-[#2A2B3E] text-right">{t.avg12?.toFixed?.(1) ?? t.avg12}</td>
+                                    <td className={`p-2 border border-[#2A2B3E] text-right ${t.delta4 < 0 ? 'text-red-400' : t.delta4 > 0 ? 'text-green-400' : ''}`}>
                                         {t.delta4?.toFixed?.(1) ?? t.delta4}
                                     </td>
-                                    <td className={`p-2 border text-right ${t.delta12 < 0 ? 'text-red-600' : t.delta12 > 0 ? 'text-green-600' : ''}`}>
+                                    <td className={`p-2 border border-[#2A2B3E] text-right ${t.delta12 < 0 ? 'text-red-400' : t.delta12 > 0 ? 'text-green-400' : ''}`}>
                                         {t.delta12?.toFixed?.(1) ?? t.delta12}
                                     </td>
                                 </tr>
                             ))}
                             {!trends.length && (
-                                <tr><td colSpan={6} className="p-3 text-center text-neutral-500">No trend data yet</td></tr>
+                                <tr><td colSpan={6} className="p-3 text-center text-[#AAB1C2]">No trend data yet</td></tr>
                             )}
                         </tbody>
                     </table>
                 </div>
-                <p className="text-xs text-neutral-500">
+                <p className="text-xs text-[#AAB1C2]">
                     Δ — change vs previous window. Positive is improvement, negative is decline.
                 </p>
             </div>

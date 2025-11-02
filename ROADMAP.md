@@ -43,35 +43,35 @@
 - ~~Add tooltips для всех badges~~ ✅ **СДЕЛАНО**
 - ~~Show streak indicator на habit cards~~ ✅ УЖЕ ЕСТЬ
 - ~~Add "Days until next badge" progress~~ ✅ **СДЕЛАНО**
-- ~~Dark mode foundation~~ ✅ **СДЕЛАНО** - Applied to Dashboard, Habits, Streaks
+- ~~Dark mode foundation~~ ✅ **СДЕЛАНО** - Applied to ALL pages (Dashboard, Habits, Streaks, Wheel, Pricing, Analytics, Goals)
 - ~~Loading skeletons & empty states~~ ✅ **СДЕЛАНО** - Pulse animations added
-- Responsive design polish
-- Animations & transitions (basic done with pulse)
+- ~~Responsive design polish~~ ✅ **СДЕЛАНО** - Mobile-first подход, адаптивные размеры, flex на мобилках
+- ~~Animations & transitions~~ ✅ **СДЕЛАНО** - Pulse animations, transitions на всех интерактивных элементах
 
 ### Функциональные улучшения
 - ~~**Habit templates**~~ ✅ **СДЕЛАНО** - 10 популярных привычек с иконками
 - ~~**Habit categories**~~ ✅ **СДЕЛАНО** - Через templates (Health, Learning, Growth, Focus)
 - ~~**Quick actions**~~ ✅ **СДЕЛАНО** - Stats на dashboard с auto-load
-- **Onboarding flow** - guided tour для новых пользователей
+- ~~**Onboarding flow**~~ ✅ **СДЕЛАНО** - Welcome banner для новых пользователей
 - ~~**Search & filters**~~ ✅ **СДЕЛАНО** - Поиск и фильтры на Habits & Goals
 - ~~**Export data**~~ ✅ **СДЕЛАНО** - JSON/CSV export из /profile
 - **Calendar view** - календарное отображение streaks
 
 ### Mobile & PWA
 - **Service Worker** - offline support
-- **Mobile optimization** - touch-friendly UI
+- ~~**Mobile optimization**~~ ✅ **СДЕЛАНО** - Touch-friendly UI, responsive polish
 - **Push notifications** - reminders для missed habits
-- **App-like feel** - PWA manifest улучшения
+- ~~**App-like feel**~~ ✅ **СДЕЛАНО** - PWA manifest создан
 
 ---
 
 ## 🤖 AI Enhancements
 
 ### Conversational AI
-- **Chat interface** - диалог с AI коучем
+- ~~**Chat interface**~~ ✅ **СДЕЛАНО** - /chat страница с AI коучем
 - ~~**Personalized coaching**~~ ✅ **Частично** - CoachBlock компонент есть, использует Wheel trends + Goals
 - **Embeddings search** - семантический поиск по логам
-- **Context-aware responses** - AI понимает историю пользователя
+- ~~**Context-aware responses**~~ ✅ **СДЕЛАНО** - Chat использует habits, goals, logs, wheel для контекста
 
 ### Personal Insights
 - ~~**Facts extraction**~~ ✅ **СДЕЛАНО** - AI endpoint /api/analytics/facts
@@ -94,7 +94,7 @@
 ### Calendar & Scheduling
 - **Google Calendar sync** - интеграция с календарем
 - **Apple Calendar sync** - iOS calendar support
-- **iCal export** - экспорт привычек
+- ~~**iCal export**~~ ✅ **СДЕЛАНО** - Export habits to .ics file
 - **Time blocking** - планирование времени
 
 ### Health & Fitness
@@ -120,9 +120,9 @@
 ## 💡 Идеи на будущее
 
 ### Социальные фичи
-- **Share to Farcaster** - публикация streaks
+- ~~**Share to Farcaster**~~ ✅ **Частично** - Share button на Streaks page, API готов
 - **Friend comparisons** - приватные сравнения
-- **Leaderboards** - топ по streaks (опционально)
+- ~~**Leaderboards**~~ ✅ **СДЕЛАНО** - /leaderboard страница с топ-50 по best_streak
 - **Group challenges** - командные соревнования
 - **Community** - форум/чат пользователей
 
