@@ -231,7 +231,32 @@ export default function StreaksPage() {
             </div>
 
             {loading ? (
-                <div className="text-[#AAB1C2]">Loading...</div>
+                <div className="space-y-4">
+                    <div className="flex items-center gap-4 text-sm text-[#AAB1C2] animate-pulse">
+                        <div className="h-4 bg-[#2A2B3E] rounded w-12"></div>
+                        <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map(i => (
+                                <div key={i} className="w-3 h-3 rounded bg-[#2A2B3E]"></div>
+                            ))}
+                        </div>
+                        <div className="h-4 bg-[#2A2B3E] rounded w-12"></div>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <div className="flex gap-1 min-w-max">
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((weekIdx) => (
+                                <div key={weekIdx} className="flex flex-col gap-1">
+                                    {[1, 2, 3, 4, 5, 6, 7].map((dayIdx) => (
+                                        <div
+                                            key={`${weekIdx}-${dayIdx}`}
+                                            className="w-3 h-3 rounded-sm bg-[#2A2B3E] animate-pulse"
+                                        />
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="h-4 bg-[#2A2B3E] rounded w-48 animate-pulse"></div>
+                </div>
             ) : (
                 <>
                     {/* Легенда */}

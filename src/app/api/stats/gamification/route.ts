@@ -13,12 +13,13 @@ export async function GET(req: NextRequest) {
         const supa = createUserServerClient(token);
 
         // Получаем статистику пользователя
-        const [habitsRes, logsRes, statsRes, badgesRes, wheelRes] = await Promise.all([
+        const [habitsRes, logsRes, statsRes, badgesRes, wheelRes, xpRes] = await Promise.all([
             supa.from('habits').select('id').eq('user_id', userId),
             supa.from('habit_logs').select('id').eq('user_id', userId).eq('value', true),
             supa.rpc('get_habit_streak', { p_user: userId }),
             supa.from('mints').select('badge_code').eq('user_id', userId).eq('status', 'success'),
             supa.from('wheel_scores').select('week').eq('user_id', userId),
+            supa.rpc('get_user_total_xp', { p_user_id: userId }).single(),
         ]);
 
         const totalHabits = habitsRes.data?.length || 0;
@@ -31,12 +32,16 @@ export async function GET(req: NextRequest) {
         const uniqueWeeks = new Set((wheelRes.data ?? []).map((w: any) => w.week).filter(Boolean));
         const weeklyCompleted = uniqueWeeks.size;
 
+        // Получаем общий XP из таблицы xp_events
+        const totalXP = xpRes.data || 0;
+
         return NextResponse.json({
             totalHabits,
             totalLogs,
             totalStreak,
             badgesEarned,
             weeklyCompleted,
+            totalXP, // Добавляем общий XP
         });
     } catch (e: any) {
         return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

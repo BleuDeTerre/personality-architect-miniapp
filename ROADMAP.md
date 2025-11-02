@@ -45,43 +45,65 @@
 - ✅ iCal export
 - ✅ Share to Farcaster
 - ✅ Calendar view (Streaks heatmap 365 days)
-- ✅ Gamification (XP, Levels, Progress bar)
+- ✅ **Gamification** - полная система геймификации:
+  - ✅ XP система (начисление и расчет)
+  - ✅ Уровни (10 уровней с именами)
+  - ✅ Прогресс-бары до следующего уровня
+  - ✅ История XP событий (таблица xp_events)
+  - ✅ Бонусы XP (первое выполнение дня, недельный streak, все привычки дня)
+  - ✅ Достижения (10 достижений с автоматической разблокировкой)
+  - ✅ Daily Quests (ежедневные задания с прогрессом)
+  - ✅ Анимации при получении уровня и достижений
+  - ✅ Toast уведомления при получении XP
+- ✅ **Push notifications** - напоминания о пропущенных привычках:
+  - ✅ Web Push API интеграция (работает как standalone web app)
+  - ✅ Автоматическая отправка через Vercel Cron (ежедневно в 20:00 UTC)
+  - ✅ Проверка пропущенных привычек за сегодня и вчера
+  - ✅ Настройки push-уведомлений в профиле
+  - ✅ VAPID ключи и подписки
+  - ⚠️ Примечание: В Farcaster Mini App работает через внутренние уведомления Farcaster
 
 ---
 
-## 🚀 После запуска приложения
+## 📝 Technical Notes
+
+### Database
+- Все необходимые таблицы созданы и работают
+- RPC функции для analytics и streaks
+- Badge eligibility rules реализованы
+- Таблица xp_events для истории XP
+- Таблица push_subscriptions для push-уведомлений
+
+### Backend
+- X402 payment middleware работает
+- OpenAI integration настроена
+- Supabase RPC для всех операций
+- Push notifications система (web-push + VAPID)
+- Gamification система (XP бонусы, достижения, уровни)
+- Vercel Cron для автоматических задач
+
+### Frontend
+- Dashboard с навигацией ✅
+- Responsive design базовый ✅
+- Dark mode настроен - Farcaster/Base style ✅
+- Loading skeletons & empty states ✅
+- Анимации level up и достижений ✅
+- Toast уведомления (sonner) ✅
+
+---
+
+## 🚀 Что еще реализовать сейчас, либо после запуска приложения
 
 Функции для добавления после MVP релиза и получения первой обратной связи от пользователей.
 
 ### UI/UX Improvements
-- **Service Worker** - offline support
-- **Push notifications** - reminders для missed habits
+- Улучшения UI/UX на основе обратной связи
 
 ### AI Enhancements
 - **Embeddings search** - семантический поиск по логам
 - **LLM personalization** - Fine-tune на данных пользователя
 - **Sentiment analysis** - анализ настроения через логи
-- **Predictive modeling** - ML для прогнозирования успеха
-- **Voice coaching** - AI коуч через голос (эксперимент)
-- **Image recognition** - авто-логирование по фото
 - **Natural language logs** - свободный текст вместо чекбоксов
-
-### Календарь & Планирование
-- **Google Calendar sync** - интеграция с календарем
-- **Apple Calendar sync** - iOS calendar support
-- **Time blocking** - планирование времени
-
-### Здоровье & Фитнес
-- **Apple Health** - импорт данных о здоровье
-- **Google Fit** - Android fitness integration
-- **Strava** - спортивные активности
-- **Sleep tracking** - интеграция со sleep apps
-
-### Продуктивность
-- **Todoist** - синхронизация задач
-- **Notion** - экспорт в Notion
-- **Obsidian** - интеграция с заметками
-- **Slack/Teams** - team reminders
 
 ### Социальные функции
 - **Friend comparisons** - приватные сравнения
@@ -101,44 +123,47 @@
 - **Lifetime plan** - пожизненный доступ
 
 ### Gamification
-- **Achievements** - расширенные достижения
-- **Daily quests** - ежедневные задания
+- Расширение системы достижений (новые категории, редкие достижения)
+- Сезонные события и специальные квесты
+- Система рейтингов и соревнований
 
 ### Экспериментальные
 - **Habit marketplaces** - покупка/продажа привычек
 - **NFT wearables** - динамические NFT бейджи
-- **AR badges** - виртуальные награды в AR
 - **DAO governance** - community voting
 - **Cross-app habits** - интеграция с другими apps
 
 ### Web3 & Crypto
 - **Wallet Connect** - подключение кошельков
 - **On-chain badges** - просмотр NFT на Base
-- **Cross-chain support** - другие сети кроме Base
 - **ENS integration** - показ ENS имен
 
 ---
 
-## 📝 Technical Notes
+## Идеи
 
-### Database
-- Все необходимые таблицы созданы и работают
-- RPC функции для analytics и streaks
-- Badge eligibility rules реализованы
+### UI/UX Improvements
+- **Service Worker** - offline support
 
-### Backend
-- X402 payment middleware работает
-- OpenAI integration настроена
-- Supabase RPC для всех операций
+### Календарь & Планирование
+- **Google Calendar sync** - интеграция с календарем
+- **Apple Calendar sync** - iOS calendar support
+- **Time blocking** - планирование времени
 
-### Frontend
-- Dashboard с навигацией ✅
-- Responsive design базовый ✅
-- Dark mode настроен - Farcaster/Base style
-- Loading skeletons & empty states
-- PWA manifest базовый
+### Здоровье & Фитнес
+- **Apple Health** - импорт данных о здоровье
+- **Google Fit** - Android fitness integration
+- **Strava** - спортивные активности
+- **Sleep tracking** - интеграция со sleep apps
 
----
+### Продуктивность
+- **Todoist** - синхронизация задач
+- **Notion** - экспорт в Notion
+- **Obsidian** - интеграция с заметками
+- **Slack/Teams** - team reminders
+
+
+--- 
 
 **Главное**: Приложение готово к продакшену с полным набором MVP функционала! 
 Следующий этап - сбор обратной связи от пользователей и добавление фич из раздела "🚀 После запуска".

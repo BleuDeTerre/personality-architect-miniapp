@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { sdk } from '@farcaster/miniapp-sdk';
+import LevelUpAnimation from '@/components/LevelUpAnimation';
+import AchievementAnimation from '@/components/AchievementAnimation';
 
 // Инициализация Supabase клиента
 const supabase = createClient(
@@ -41,6 +43,8 @@ export default function HabitsPage() {
     const [showTemplates, setShowTemplates] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterCompleted, setFilterCompleted] = useState<'all' | 'completed' | 'active'>('all');
+    const [levelUpState, setLevelUpState] = useState<{ level: number } | null>(null);
+    const [achievementState, setAchievementState] = useState<{ id: string; title: string; icon: string; xpReward: number; description: string; category: string; rarity: string } | null>(null);
 
     // Заголовки с Bearer для вызовов /api/*
     const authHeaders = useCallback(async () => {
@@ -124,12 +128,64 @@ export default function HabitsPage() {
 
     // Отметить выполненной/снять отметку за сегодня
     async function markComplete(id: string, current?: boolean) {
-        const res = await fetch('/api/habits/log', {
+        const res = await fetch('/api/habits/logs', {
             method: 'POST',
             headers: await authHeaders(),
-            body: JSON.stringify({ habit_id: id, done: !current }),
+            body: JSON.stringify({
+                habit_id: id,
+                date: new Date().toISOString().slice(0, 10),
+                value: !current,
+            }),
         });
-        if (res.ok) fetchHabits();
+
+        if (res.ok) {
+            const data = await res.json();
+            fetchHabits();
+
+            // Показываем уведомления о полученном XP
+            if (data.xp_earned > 0 && data.xp_events) {
+                const { toast } = await import('sonner');
+
+                // Показываем анимацию достижений (если есть)
+                if (data.achievements_unlocked && data.achievements_unlocked.length > 0) {
+                    const firstAchievement = data.achievements_unlocked[0];
+                    const { ACHIEVEMENTS } = await import('@/lib/achievements');
+                    const fullAchievement = ACHIEVEMENTS.find(a => a.id === firstAchievement.id);
+
+                    if (fullAchievement) {
+                        setAchievementState({
+                            id: fullAchievement.id,
+                            title: fullAchievement.title,
+                            icon: fullAchievement.icon,
+                            xpReward: fullAchievement.xpReward,
+                            description: fullAchievement.description,
+                            category: fullAchievement.category,
+                            rarity: fullAchievement.rarity,
+                        });
+                    }
+                }
+
+                // Показываем анимацию повышения уровня
+                if (data.level_up) {
+                    const levelEvent = data.xp_events.find((e: any) => e.type === 'level_up');
+                    if (levelEvent && levelEvent.metadata?.level) {
+                        // Задержка перед показом level up, если есть достижение
+                        setTimeout(() => {
+                            setLevelUpState({ level: levelEvent.metadata.level });
+                        }, data.achievements_unlocked?.length > 0 ? 3500 : 0);
+                    }
+                }
+
+                // Показываем уведомление о полученном XP
+                const xpGained = data.xp_events.filter((e: any) => e.type !== 'level_up' && e.type !== 'achievement');
+                if (xpGained.length > 0) {
+                    toast.success(`+${data.xp_earned} XP`, {
+                        description: xpGained.map((e: any) => e.description).join(', '),
+                        duration: 3000,
+                    });
+                }
+            }
+        }
     }
 
     // Добавить привычку из шаблона
@@ -147,6 +203,26 @@ export default function HabitsPage() {
 
     return (
         <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-6 max-w-xl mx-auto space-y-6">
+            {achievementState && (
+                <AchievementAnimation
+                    achievement={{
+                        id: achievementState.id,
+                        title: achievementState.title,
+                        icon: achievementState.icon,
+                        xpReward: achievementState.xpReward,
+                        description: achievementState.description,
+                        category: achievementState.category as any,
+                        rarity: achievementState.rarity as any,
+                    }}
+                    onComplete={() => setAchievementState(null)}
+                />
+            )}
+            {levelUpState && (
+                <LevelUpAnimation
+                    level={levelUpState.level}
+                    onComplete={() => setLevelUpState(null)}
+                />
+            )}
             <h1 className="text-2xl font-bold text-[#E9ECF1]">My Habits</h1>
 
             {/* Форма добавления */}

@@ -7,6 +7,7 @@ export type UserStats = {
     totalStreak: number;
     badgesEarned: number;
     weeklyCompleted: number;
+    totalXP?: number; // Общий XP из таблицы xp_events (опционально для обратной совместимости)
 };
 
 export function calculateXP(stats: UserStats): number {
@@ -65,4 +66,22 @@ export function getLevelColor(level: number): string {
     if (level < 8) return 'text-pink-400';
     return 'text-yellow-400';
 }
+
+// XP бонусы
+export const XP_REWARDS = {
+    habit_log: 5, // Базовый XP за лог привычки
+    bonus_first_day: 10, // Бонус за первое выполнение дня
+    bonus_weekly_streak: 25, // Бонус за недельный streak (7 дней)
+    bonus_all_habits: 50, // Бонус за выполнение всех активных привычек дня
+    achievement: 0, // Устанавливается индивидуально для каждого достижения
+    level_up: 0, // Бонус за повышение уровня (обычно 0, но можно настроить)
+} as const;
+
+export type XPEventType =
+    | 'habit_log'
+    | 'bonus_first_day'
+    | 'bonus_weekly_streak'
+    | 'bonus_all_habits'
+    | 'achievement'
+    | 'level_up';
 

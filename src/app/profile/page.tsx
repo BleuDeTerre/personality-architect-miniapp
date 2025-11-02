@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { BADGES } from '@/lib/badges';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
+import PushNotificationSettings from '@/components/PushNotificationSettings';
 
 // Supabase client
 const supabase = createClient(
@@ -153,8 +154,8 @@ export default function ProfilePage() {
         } catch (e) { console.error(e); }
     };
 
-    // Calculate XP and level
-    const xp = gamificationStats ? calculateXP(gamificationStats) : 0;
+    // Calculate XP and level - используем totalXP из таблицы xp_events, если доступен
+    const xp = gamificationStats?.totalXP ?? (gamificationStats ? calculateXP(gamificationStats) : 0);
     const level = calculateLevel(xp);
     const progress = getLevelProgress(xp, level);
     const nextLevelXP = xpForNextLevel(level);
@@ -256,6 +257,11 @@ export default function ProfilePage() {
                         })}
                     </div>
                 )}
+            </section>
+
+            {/* Push Notifications Settings */}
+            <section className="mb-6">
+                <PushNotificationSettings />
             </section>
 
             {/* Export Data */}

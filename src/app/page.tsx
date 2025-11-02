@@ -4,6 +4,8 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import Link from "next/link";
 import { createClient } from '@supabase/supabase-js';
 import { calculateXP, calculateLevel, getLevelProgress, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
+import DailyQuests from '@/components/DailyQuests';
+import Achievements from '@/components/Achievements';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -75,7 +77,8 @@ export default function DashboardPage() {
     })();
   }, [authHeaders]);
 
-  const xp = gamificationStats ? calculateXP(gamificationStats) : 0;
+  // Используем totalXP из таблицы xp_events, если доступен, иначе рассчитываем
+  const xp = gamificationStats?.totalXP ?? (gamificationStats ? calculateXP(gamificationStats) : 0);
   const level = calculateLevel(xp);
   const progress = getLevelProgress(xp, level);
   const levelName = getLevelName(level);
@@ -89,7 +92,18 @@ export default function DashboardPage() {
       <p className="text-[#AAB1C2] mb-6 sm:mb-8 text-sm sm:text-base">Build better habits, track your progress, achieve your goals.</p>
 
       {/* Level Progress */}
-      {gamificationStats && (
+      {loading && !gamificationStats ? (
+        <div className="mb-6 bg-[#121420] border border-[#2A2B3E] rounded-lg p-4 animate-pulse">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="h-6 bg-[#2A2B3E] rounded w-24"></div>
+              <div className="h-4 bg-[#2A2B3E] rounded w-16"></div>
+            </div>
+            <div className="h-4 bg-[#2A2B3E] rounded w-20"></div>
+          </div>
+          <div className="h-2 bg-[#2A2B3E] rounded-full"></div>
+        </div>
+      ) : gamificationStats ? (
         <div className="mb-6 bg-[#121420] border border-[#2A2B3E] rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
@@ -105,7 +119,7 @@ export default function DashboardPage() {
             ></div>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Onboarding */}
       {!loading && stats && stats.current_streak === 0 && (
@@ -146,6 +160,33 @@ export default function DashboardPage() {
           </Link>
         ))}
       </div>
+
+      {/* Daily Quests & Achievements */}
+      {loading ? (
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="p-4 bg-[#1A1B2E] border border-[#2A2B3E] rounded-lg animate-pulse">
+            <div className="h-6 bg-[#2A2B3E] rounded w-32 mb-3"></div>
+            <div className="space-y-2">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-16 bg-[#2A2B3E] rounded"></div>
+              ))}
+            </div>
+          </div>
+          <div className="p-4 bg-[#1A1B2E] border border-[#2A2B3E] rounded-lg animate-pulse">
+            <div className="h-6 bg-[#2A2B3E] rounded w-32 mb-3"></div>
+            <div className="grid grid-cols-2 gap-3">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-24 bg-[#2A2B3E] rounded"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <DailyQuests />
+          <Achievements />
+        </div>
+      )}
 
       <div className="mt-12 p-4 bg-[#1A1B2E] border border-[#8B5CF6] rounded-lg">
         <h3 className="font-semibold mb-4 text-[#8B5CF6]">Quick Stats</h3>

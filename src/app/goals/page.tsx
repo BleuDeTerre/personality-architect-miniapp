@@ -229,7 +229,14 @@ export default function GoalsPage() {
 
             {/* Список */}
             {loading && goals.length === 0 ? (
-                <p className="text-[#AAB1C2]">Loading...</p>
+                <div className="space-y-3">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="bg-[#121420] border border-[#2A2B3E] rounded-lg p-4 animate-pulse">
+                            <div className="h-6 bg-[#2A2B3E] rounded w-3/4 mb-2"></div>
+                            <div className="h-4 bg-[#2A2B3E] rounded w-1/2"></div>
+                        </div>
+                    ))}
+                </div>
             ) : (
                 <ul className="space-y-2">
                     {goals

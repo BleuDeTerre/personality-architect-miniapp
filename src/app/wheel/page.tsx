@@ -158,22 +158,33 @@ export default function WheelPage() {
                     />
                 </div>
 
-                {items.map((it, i) => (
-                    <div key={`${it.area}-${i}`} className="flex items-center justify-between">
-                        <label className="w-1/2 text-[#E9ECF1]">
-                            {AREAS[i]?.icon ?? '•'} {it.area}
-                        </label>
-                        <input
-                            type="number"
-                            min={0}
-                            max={10}
-                            value={it.score}
-                            onChange={(e) => setScore(i, Number(e.target.value))}
-                            className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-20 rounded"
-                            required
-                        />
+                {loading ? (
+                    <div className="space-y-3">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
+                            <div key={i} className="flex items-center justify-between animate-pulse">
+                                <div className="h-6 bg-[#2A2B3E] rounded w-1/2"></div>
+                                <div className="h-10 bg-[#2A2B3E] rounded w-20"></div>
+                            </div>
+                        ))}
                     </div>
-                ))}
+                ) : (
+                    items.map((it, i) => (
+                        <div key={`${it.area}-${i}`} className="flex items-center justify-between">
+                            <label className="w-1/2 text-[#E9ECF1]">
+                                {AREAS[i]?.icon ?? '•'} {it.area}
+                            </label>
+                            <input
+                                type="number"
+                                min={0}
+                                max={10}
+                                value={it.score}
+                                onChange={(e) => setScore(i, Number(e.target.value))}
+                                className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-20 rounded"
+                                required
+                            />
+                        </div>
+                    ))
+                )}
 
                 <button
                     onClick={saveWeek}
@@ -185,14 +196,20 @@ export default function WheelPage() {
             </div>
 
             <div className="h-96">
-                <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={items}>
-                        <PolarGrid />
-                        <PolarAngleAxis dataKey="area" />
-                        <PolarRadiusAxis domain={[0, 10]} />
-                        <Radar name="Score" dataKey="score" stroke="#7C5CFC" fill="#9F7CFF" fillOpacity={0.6} />
-                    </RadarChart>
-                </ResponsiveContainer>
+                {loading ? (
+                    <div className="w-full h-full bg-[#121420] border border-[#2A2B3E] rounded-lg animate-pulse flex items-center justify-center">
+                        <div className="text-[#AAB1C2]">Loading chart...</div>
+                    </div>
+                ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <RadarChart data={items}>
+                            <PolarGrid />
+                            <PolarAngleAxis dataKey="area" />
+                            <PolarRadiusAxis domain={[0, 10]} />
+                            <Radar name="Score" dataKey="score" stroke="#7C5CFC" fill="#9F7CFF" fillOpacity={0.6} />
+                        </RadarChart>
+                    </ResponsiveContainer>
+                )}
             </div>
 
             {/* RU: коуч-блок на основе трендов/роллапов */}

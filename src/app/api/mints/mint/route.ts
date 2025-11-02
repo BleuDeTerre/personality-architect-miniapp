@@ -15,11 +15,27 @@ export async function POST(req: NextRequest) {
         const supa = createUserServerClient(token);
 
         const b = await req.json().catch(() => ({}));
-        const badge = String(b?.badge || '').trim().toUpperCase();
+        const badge = String(b?.badge || b?.code || '').trim().toUpperCase();
         const to = String(b?.to || '').trim();
 
         if (!badge) return NextResponse.json({ error: 'badge_required' }, { status: 400 });
-        if (!/^0x[0-9a-fA-F]{40}$/.test(to)) return NextResponse.json({ error: 'bad_address' }, { status: 400 });
+        
+        // Если адрес не передан, пытаемся получить из пользователя или из контекста Farcaster
+        let mintAddress = to;
+        if (!mintAddress || !/^0x[0-9a-fA-F]{40}$/.test(mintAddress)) {
+            // Попытка получить адрес из пользователя (если есть в таблице users)
+            const { data: userData } = await supa
+                .from('users')
+                .select('wallet_address')
+                .eq('id', uid)
+                .maybeSingle();
+            
+            if (userData?.wallet_address && /^0x[0-9a-fA-F]{40}$/.test(userData.wallet_address)) {
+                mintAddress = userData.wallet_address;
+            } else {
+                return NextResponse.json({ error: 'wallet_address_required' }, { status: 400 });
+            }
+        }
 
         // уже есть успешный минт этого бейджа?
         {
@@ -65,7 +81,7 @@ export async function POST(req: NextRequest) {
         let status: 'success' | 'pending' | 'failed' = 'success';
         try {
             const result = await sendMint({
-                to: to as `0x${string}`,
+                to: mintAddress as `0x${string}`,
                 tokenId: badgeMeta.tokenId,
                 quantity: BigInt(1),
             });
@@ -86,7 +102,7 @@ export async function POST(req: NextRequest) {
             .insert({
                 user_id: uid,
                 badge_code: badge,
-                to_address: to,
+                to_address: mintAddress,
                 status: status,
                 chain_id: 8453,
                 tx_hash: tx,
@@ -109,7 +125,7 @@ export async function POST(req: NextRequest) {
             p_name: 'mint.success',
             p_status: 'success',
             p_path: '/api/mint',
-            p_props: { badge, tx_hash: tx, to }
+            p_props: { badge, tx_hash: tx, to: mintAddress }
         });
 
         return NextResponse.json({ ok: true, txHash: ins?.tx_hash });
