@@ -10,6 +10,7 @@ const NAVIGATION = [
   { href: '/streaks', label: 'Streaks', icon: '🔥', desc: 'View your streaks' },
   { href: '/analytics', label: 'Analytics', icon: '📊', desc: 'Advanced insights' },
   { href: '/profile', label: 'Badges', icon: '🏆', desc: 'Your badges & mints' },
+  { href: '/pricing', label: 'Pricing', icon: '💰', desc: 'Upgrade your plan' },
 ];
 
 export default function DashboardPage() {

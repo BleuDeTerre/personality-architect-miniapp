@@ -236,8 +236,9 @@
 16. ✅ Comparative analytics
 17. ✅ Analytics UI page
 
-### Phase 5: Monetization (2-3 недели)
-21-23. Subscription tiers, premium features
+### Phase 5: Monetization (2-3 недели) ✅ **ЗАВЕРШЕНО**
+21. ✅ Subscription UI page (/pricing)
+22-23. Premium features (ready via existing API)
 
 ### Phase 6: Social & Integrations (4-6 недель)
 18-20, 27-30. Social features, integrations, mobile
