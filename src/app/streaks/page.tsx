@@ -108,6 +108,14 @@ export default function StreaksPage() {
         return 'bg-green-200';
     }
 
+    // Считаем сколько дней до следующего streak badge
+    const nextBadgeDays = useMemo(() => {
+        const streak = stats.current_streak || 0;
+        const milestones = [7, 30, 60, 100, 365];
+        const next = milestones.find(m => m > streak);
+        return next ? next - streak : null;
+    }, [stats.current_streak]);
+
     const filteredDays = useMemo(() => {
         // Показываем последние 365 дней сгруппированные по неделям
         const weeks: string[][] = [];
@@ -138,7 +146,7 @@ export default function StreaksPage() {
 
             {/* Stats карточки */}
             {!loading && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="border rounded-lg p-4">
                         <div className="text-sm text-gray-600">Current Streak</div>
                         <div className="text-3xl font-bold text-green-600">{stats.current_streak}</div>
@@ -155,6 +163,13 @@ export default function StreaksPage() {
                             {stats.last_completed ? new Date(stats.last_completed).toLocaleDateString() : 'Never'}
                         </div>
                     </div>
+                    {nextBadgeDays !== null && (
+                        <div className="border rounded-lg p-4 bg-blue-50">
+                            <div className="text-sm text-gray-600">Next Badge</div>
+                            <div className="text-3xl font-bold text-blue-600">{nextBadgeDays}</div>
+                            <div className="text-xs text-gray-500">days remaining</div>
+                        </div>
+                    )}
                 </div>
             )}
 

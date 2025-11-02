@@ -40,7 +40,7 @@
 ## 🎨 UI/UX Improvements
 
 ### Малые улучшения
-- Add tooltips для всех badges
+- ~~Add tooltips для всех badges~~ ✅ **СДЕЛАНО**
 - ~~Show streak indicator на habit cards~~ ✅ УЖЕ ЕСТЬ
 - Add "Days until next badge" progress
 - Dark mode toggle
