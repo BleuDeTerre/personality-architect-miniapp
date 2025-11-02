@@ -16,6 +16,7 @@
 - ✅ **Streaks Analytics** - heatmap + статистика
 - ✅ **Badge Gallery** - галерея с minting
 - ✅ **Advanced Analytics** - correlations, predictive, comparative
+- ✅ **Subscription Plans** - Free/Pro/Premium tiers
 
 ### 🤖 AI Features
 - ✅ AI Insights (habit, weekly, monthly)
@@ -30,6 +31,8 @@
 - ✅ Pay-per-use модель
 - ✅ Pro credits packs
 - ✅ Middleware для защиты платных эндпоинтов
+- ✅ Subscription tiers (Free/Pro/Premium)
+- ✅ Pricing page with upgrade flows
 
 ---
 
@@ -154,10 +157,11 @@
 
 ### 💰 Monetization
 
-21. **Subscription tiers**
-   - Free: базовые фичи
-   - Pro: все insights + credits
-   - Premium: + advanced analytics
+21. ~~**Subscription tiers**~~ ✅ **СДЕЛАНО**
+   - ✅ Free: базовые фичи
+   - ✅ Pro: все insights + credits
+   - ✅ Premium: + advanced analytics
+   - ✅ /pricing UI page
 
 22. **Enterprise / Team features**
    - Group habits
