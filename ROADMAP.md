@@ -109,17 +109,20 @@
    - ✅ Stats карточки
    - Calendar view можно добавить потом
 
-14. **Habit correlations**
-   - AI анализ: какие привычки связаны
-   - "When you do X, you're more likely to do Y"
+14. ~~**Habit correlations**~~ ✅ **СДЕЛАНО**
+   - ✅ API endpoint /api/analytics/correlations
+   - ✅ Корреляционный анализ за 90 дней
+   - ✅ "When you do X, you're more likely to do Y"
 
-15. **Predictive insights**
-   - "You're likely to break your streak in 3 days"
-   - Risk factors analysis
+15. ~~**Predictive insights**~~ ✅ **СДЕЛАНО**
+   - ✅ API endpoint /api/analytics/predictive
+   - ✅ Risk analysis для streaks
+   - ✅ Streak break predictions
 
-16. **Comparative analytics**
-   - "You're 20% better this week than last"
-   - Benchmark vs average users
+16. ~~**Comparative analytics**~~ ✅ **СДЕЛАНО**
+   - ✅ API endpoint /api/analytics/comparative
+   - ✅ Week-over-week comparison
+   - ✅ Trend analysis с процентными изменениями
 
 ### 🎨 UI/UX Improvements
 
@@ -220,9 +223,11 @@
    - ✅ Показываются изображения, статусы, eligibility
    - ✅ Grid layout с responsive design
 
-### Phase 4: Advanced Analytics (3-4 недели)
-15-16. Predictive & comparative insights
-17. Habit correlations
+### Phase 4: Advanced Analytics (3-4 недели) ✅ **ЗАВЕРШЕНО**
+14. ✅ Habit correlations
+15. ✅ Predictive insights
+16. ✅ Comparative analytics
+17. ✅ Analytics UI page
 
 ### Phase 5: Monetization (2-3 недели)
 21-23. Subscription tiers, premium features
