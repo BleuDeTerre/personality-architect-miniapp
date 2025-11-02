@@ -17,6 +17,7 @@
 - ✅ **Badge Gallery** - галерея с minting
 - ✅ **Advanced Analytics** - correlations, predictive, comparative
 - ✅ **Subscription Plans** - Free/Pro/Premium tiers
+- ✅ **Dashboard** - главная страница с навигацией
 
 ### 🤖 AI Features
 - ✅ AI Insights (habit, weekly, monthly)
@@ -36,261 +37,161 @@
 
 ---
 
-## 🔨 Что нужно доделать / исправить
+## 🎨 UI/UX Improvements
 
-### 🔴 Критические баги
-
-1. ~~**Minting использует фейковый TX hash**~~ ✅ **ИСПРАВЛЕНО**
-   - ~~Сейчас: `0x${crypto.randomUUID().replace(/-/g, '').slice(0, 64)}`~~
-   - ✅ Используется реальный минт через `sendMint()` из `zora.ts`
-   - Файл: `src/app/api/mints/mint/route.ts`
-
-2. ~~**chargeProCredit не реализован**~~ ⚠️ **ОКАЗАЛОСЬ НЕ ИСПОЛЬЗУЕТСЯ**
-   - ⚠️ Функция не используется в коде
-   - В роутах используется напрямую `supa.rpc('consume_credit')`
-   - Можно оставить как есть или удалить
-
-3. ⚠️ **X402 signature verification заглушка**
-   - Сейчас: есть 2 реализации - middleware (работает) и x402Client (заглушка)
-   - ⚠️ `paymentMiddleware` из `x402-next` уже проверяет подписи автоматически
-   - Дополнительная проверка в `x402Client.ts` не нужна (или нужно убрать дублирование)
-   - Файл: `src/lib/x402Client.ts:21`
-
-### 🟡 Важные фичи
-
-4. ~~**Badge eligibility для CONSISTENT_21**~~ ✅ **ДОБАВЛЕНО В SQL**
-   - ✅ Правило добавлено в `sql/add_streak_badges.sql`
-   - Проверяет streak ≥ 21 дня
-
-5. ~~**Badge eligibility для SHARE_3**~~ ✅ **ДОБАВЛЕНО В SQL**
-   - ✅ Правило добавлено в `sql/add_streak_badges.sql`
-   - ✅ Исправлен баг в `src/app/api/share/link/route.ts` (event → name)
-   - Проверяет ≥ 3 share events в events_log
-
-6. ~~**Real AI integration**~~ ✅ **СДЕЛАНО**
-   - ✅ Добавлена реальная интеграция с OpenAI в `/api/paid/insight`
-   - ✅ Добавлена реальная интеграция с OpenAI в `/api/paid/habit-review`
-   - ✅ Исправлен баг с `completed` → `value` в habit-review
-
-7. ~~**Weekly Summaries generation**~~ ✅ **СДЕЛАНО**
-   - ✅ Реализована реальная генерация в `/api/pro/insight/weekly`
-   - ✅ Реализована реальная генерация в `/api/paid/insight/weekly`
-   - ✅ Добавлено сохранение в `weekly_summaries`
-   - ✅ Интеграция с OpenAI для summary
-
-8. ~~**Goals management UI**~~ ✅ **СДЕЛАНО**
-   - ✅ API endpoints: GET, POST, PUT, DELETE
-   - ✅ UI страница `/goals` с CRUD операциями
-   - ✅ Форма создания, редактирование, удаление, переключение статуса
-
----
-
-## 🚀 Новые фичи для реализации
-
-### 🏆 Badges & Streaks
-
-9. ~~**Продвинутые streaks badges**~~ ✅ **ДОБАВЛЕНО**
-   - STREAK_7 ✅ (есть)
-   - STREAK_30 ✅ (есть)
-   - STREAK_60 ✅ (добавлено)
-   - STREAK_100 ✅ (добавлено)
-   - STREAK_365 ✅ (добавлено)
-   - CONSISTENT_21 ✅ (добавлено)
-   - SHARE_3 ✅ (добавлено)
-   - SQL миграция создана в `sql/add_streak_badges.sql`
-
-10. **Habit-specific streaks**
-   - Badge за конкретную привычку (например, "100 days of meditation")
-   - Multiple badges для одной привычки
-
-11. **Perfect week badges**
-   - Выполнить все дни недели для привычки
-   - Perfect month badges
-
-12. **Category badges**
-   - Badges по категориям (health, learning, productivity)
-   - Master badges (все привычки категории)
-
-### 📊 Insights & Analytics
-
-13. ~~**Streaks analytics page**~~ ✅ **СДЕЛАНО**
-   - ✅ Current streak, best streak, last activity
-   - ✅ Heatmap (GitHub style)
-   - ✅ Stats карточки
-   - Calendar view можно добавить потом
-
-14. ~~**Habit correlations**~~ ✅ **СДЕЛАНО**
-   - ✅ API endpoint /api/analytics/correlations
-   - ✅ Корреляционный анализ за 90 дней
-   - ✅ "When you do X, you're more likely to do Y"
-
-15. ~~**Predictive insights**~~ ✅ **СДЕЛАНО**
-   - ✅ API endpoint /api/analytics/predictive
-   - ✅ Risk analysis для streaks
-   - ✅ Streak break predictions
-
-16. ~~**Comparative analytics**~~ ✅ **СДЕЛАНО**
-   - ✅ API endpoint /api/analytics/comparative
-   - ✅ Week-over-week comparison
-   - ✅ Trend analysis с процентными изменениями
-
-### 🎨 UI/UX Improvements
-
-17. **Habit templates**
-   - Предустановленные популярные привычки
-   - Категории: Health, Learning, Productivity, etc.
-
-18. **Reminders & notifications**
-   - Push notifications для missed habits
-   - Email summaries
-   - Farcaster integration для реминдеров
-
-19. **Social features**
-   - Share your streaks to Farcaster
-   - Friend comparisons (private)
-   - Leaderboards (optoinal)
-
-20. **Mobile app / PWA**
-   - Добавить Service Worker
-   - Optimize для mobile
-   - Offline support
-
-### 💰 Monetization
-
-21. ~~**Subscription tiers**~~ ✅ **СДЕЛАНО**
-   - ✅ Free: базовые фичи
-   - ✅ Pro: все insights + credits
-   - ✅ Premium: + advanced analytics
-   - ✅ /pricing UI page
-
-22. **Enterprise / Team features**
-   - Group habits
-   - Team challenges
-   - Shared goals
-
-23. **Premium badges**
-   - Rare edition badges (1-of-1, limited runs)
-   - Badge upgrades (bronze → silver → gold)
-
-### 🤖 AI Enhancements
-
-24. **Conversational AI**
-   - Таблица `conversation_summaries` уже есть
-   - Chat с AI коучем
-   - Embeddings для semantic search
-
-25. **Personal facts extraction**
-   - Таблица `user_facts` есть
-   - Автоматически извлекать факты из логов
-   - "You're most productive on Wednesdays"
-
-26. **LLM personalization**
-   - Fine-tune модель на данных пользователя
-   - Персонализированные советы
-
-### 🔗 Integrations
-
-27. **Calendar sync**
-   - Google Calendar
-   - Apple Calendar
-   - iCal export
-
-28. **Health apps**
-   - Apple Health
-   - Google Fit
-   - Strava
-
-29. **Productivity tools**
-   - Todoist
-   - Notion
-   - Obsidian
-
-30. **Crypto wallets**
-   - Connect Wallet для минта
-   - Show wallet badges в profile
-
----
-
-## 📋 Приоритетный план (MVP → Full)
-
-### Phase 1: Fix Critical Issues (1-2 недели) ✅ **ЗАВЕРШЕНО**
-1. ✅ Исправить ELIFECYCLE (сделано)
-2. ✅ Реализовать реальный minting через Zora (сделано)
-3. ⚠️ chargeProCredit - оказалось не используется
-4. ⚠️ X402 signatures - paymentMiddleware уже проверяет автоматически
-
-### Phase 2: Core Features (2-4 недели) ✅ **ЗАВЕРШЕНО**
-5. ✅ Доработать badge eligibility rules
-6. ✅ Реализовать real AI insights
-7. ✅ Добавить Goals UI
-8. ✅ Weekly summaries generation
-
-### Phase 3: Enhanced Badges (2-3 недели) ✅ **ЗАВЕРШЕНО**
-9-12. Добавить новые badges (streaks, categories)
-13. ✅ Streaks analytics page
-14. ✅ Badge gallery/explorer
-   - ✅ Обновлен /profile с галереей бейджей
-   - ✅ Используются актуальные бейджи из lib/badges
-   - ✅ Показываются изображения, статусы, eligibility
-   - ✅ Grid layout с responsive design
-
-### Phase 4: Advanced Analytics (3-4 недели) ✅ **ЗАВЕРШЕНО**
-14. ✅ Habit correlations
-15. ✅ Predictive insights
-16. ✅ Comparative analytics
-17. ✅ Analytics UI page
-
-### Phase 5: Monetization (2-3 недели) ✅ **ЗАВЕРШЕНО**
-21. ✅ Subscription UI page (/pricing)
-22-23. Premium features (ready via existing API)
-
-### Phase 6: Social & Integrations (4-6 недель)
-18-20, 27-30. Social features, integrations, mobile
-
----
-
-## 🎯 Quick Wins (можно сделать быстро)
-
-### Сегодня можно начать:
-1. ~~**Добавить STREAK_60/100/365 badges**~~ ✅ **СДЕЛАНО**
-2. ~~**Fix реальный minting**~~ ✅ **СДЕЛАНО**
-3. ~~**Добавить Goals list page**~~ ✅ **СДЕЛАНО** - используя существующую таблицу
-4. ~~**Streaks heatmap**~~ ✅ **СДЕЛАНО** - визуализация (GitHub style)
-5. ~~**Badge eligibility для CONSISTENT_21 и SHARE_3**~~ ✅ **СДЕЛАНО** - SQL правила добавлены
-
-### Малые улучшения UI:
+### Малые улучшения
 - Add tooltips для всех badges
-- Show streak indicator на habit cards
+- ~~Show streak indicator на habit cards~~ ✅ УЖЕ ЕСТЬ
 - Add "Days until next badge" progress
-- Dark mode
-- Better loading states
+- Dark mode toggle
+- Better loading states / skeletons
+- Empty states для всех страниц
+- Responsive design polish
+- Animations & transitions
+
+### Функциональные улучшения
+- **Habit templates** - предустановленные популярные привычки
+- **Habit categories** - Health, Learning, Productivity, etc.
+- **Quick actions** - быстрые действия на dashboard
+- **Onboarding flow** - guided tour для новых пользователей
+- **Search & filters** - поиск по привычкам и целям
+- **Export data** - JSON/CSV export для всех данных
+- **Calendar view** - календарное отображение streaks
+
+### Mobile & PWA
+- **Service Worker** - offline support
+- **Mobile optimization** - touch-friendly UI
+- **Push notifications** - reminders для missed habits
+- **App-like feel** - PWA manifest улучшения
+
+---
+
+## 🤖 AI Enhancements
+
+### Conversational AI
+- **Chat interface** - диалог с AI коучем
+- **Personalized coaching** - персональные советы на основе данных
+- **Embeddings search** - семантический поиск по логам
+- **Context-aware responses** - AI понимает историю пользователя
+
+### Personal Insights
+- **Facts extraction** - автоматическое извлечение паттернов
+  - "You're most productive on Wednesdays"
+  - "Exercise correlates with better sleep"
+  - "Meditation improves focus days"
+- **LLM personalization** - Fine-tune на данных пользователя
+- **Sentiment analysis** - анализ настроения через логи
+- **Predictive modeling** - ML для прогнозирования успеха
+
+### Advanced Features
+- **Voice coaching** - AI коуч через голос (эксперимент)
+- **Image recognition** - авто-логирование по фото
+- **Natural language logs** - свободный текст вместо чекбоксов
+
+---
+
+## 🔗 Integrations
+
+### Calendar & Scheduling
+- **Google Calendar sync** - интеграция с календарем
+- **Apple Calendar sync** - iOS calendar support
+- **iCal export** - экспорт привычек
+- **Time blocking** - планирование времени
+
+### Health & Fitness
+- **Apple Health** - импорт данных о здоровье
+- **Google Fit** - Android fitness integration
+- **Strava** - спортивные активности
+- **Sleep tracking** - интеграция со sleep apps
+
+### Productivity Tools
+- **Todoist** - синхронизация задач
+- **Notion** - экспорт в Notion
+- **Obsidian** - интеграция с заметками
+- **Slack/Teams** - team reminders
+
+### Crypto & Web3
+- **Wallet Connect** - подключение кошельков
+- **On-chain badges** - просмотр NFT на Base
+- **Cross-chain support** - другие сети кроме Base
+- **ENS integration** - показ ENS имен
 
 ---
 
 ## 💡 Идеи на будущее
 
-### Экспериментальные фичи
+### Социальные фичи
+- **Share to Farcaster** - публикация streaks
+- **Friend comparisons** - приватные сравнения
+- **Leaderboards** - топ по streaks (опционально)
+- **Group challenges** - командные соревнования
+- **Community** - форум/чат пользователей
+
+### Enterprise & Team
+- **Team spaces** - групповые цели
+- **Team habits** - общие привычки
+- **Collaboration** - shared goals tracking
+- **Admin dashboard** - управление командой
+
+### Premium & Monetization
+- **Rare edition badges** - лимитированные NFT (1-of-1)
+- **Badge upgrades** - bronze → silver → gold
+- **Annual subscriptions** - скидки за год
+- **Lifetime plan** - пожизненный доступ
+
+### Gamification
+- **XP system** - очки опыта за действия
+- **Levels** - уровни пользователя
+- **Achievements** - расширенные достижения
+- **Daily quests** - ежедневные задания
+
+### Экспериментальные
 - **Habit marketplaces** - покупка/продажа привычек
 - **NFT wearables** - динамические NFT бейджи
-- **DAO governance** - community voting для новых badges
-- **Cross-app habits** - интеграция с другими habit apps
-- **Gamification** - levels, XP, achievements
 - **AR badges** - виртуальные награды в AR
-
-### AI Experiments
-- **Voice coaching** - AI коуч через голос
-- **Image recognition** - авто-логирование по фото
-- **Sentiment analysis** - анализ настроения через логи
+- **DAO governance** - community voting
+- **Cross-app habits** - интеграция с другими apps
 
 ---
 
-## 📝 Notes
+## 📊 Приоритетный план
 
-- **Database**: Все необходимые таблицы уже созданы
-- **Backend**: Большая часть логики уже реализована
-- **Frontend**: Основной UI есть, нужно дорабатывать
-- **Payments**: X402 полностью интегрирован
-- **AI**: Базовая интеграция есть, нужно углублять
+### Phase 6: Social & Integrations (4-6 недель)
+- Social features (Farcaster shares, friends)
+- Calendar integrations
+- Mobile PWA optimization
+- Notifications system
 
-**Главное**: Приложение уже имеет solid foundation! Больше работы с UI и добавлением фич чем с архитектурой.
+### Phase 7: AI Deep Dive (3-4 недели)
+- Conversational AI chat
+- Advanced personalization
+- Facts extraction engine
+- Voice/Image features
 
+### Phase 8: Enterprise & Scale (3-4 недели)
+- Team features
+- Enterprise dashboard
+- Advanced reporting
+- API for third-parties
+
+---
+
+## 📝 Technical Notes
+
+### Database
+- Все необходимые таблицы созданы и работают
+- RPC функции для analytics и streaks
+- Badge eligibility rules реализованы
+
+### Backend
+- X402 payment middleware работает
+- OpenAI integration настроена
+- Supabase RPC для всех операций
+
+### Frontend
+- Dashboard с навигацией
+- Responsive design базовый
+- Dark mode не настроен
+- PWA manifest базовый
+
+**Главное**: Приложение имеет solid foundation! Фокус на улучшении UX, добавлении интеграций и расширении AI возможностей.
