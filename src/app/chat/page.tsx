@@ -19,7 +19,7 @@ export default function ChatPage() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
-    const [ctx, setCtx] = useState<any>(null);
+    const [_ctx, setCtx] = useState<any>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -124,7 +124,7 @@ export default function ChatPage() {
             <div className="flex-1 overflow-y-auto mb-4 space-y-4 border border-[#2A2B3E] bg-[#121420] rounded-lg p-4">
                 {messages.length === 0 ? (
                     <div className="text-center py-12 text-[#AAB1C2]">
-                        <div className="text-lg mb-2">👋 Hi! I'm your AI coach</div>
+                        <div className="text-lg mb-2">👋 Hi! I&apos;m your AI coach</div>
                         <div className="text-sm">Ask me about your habits, goals, or progress</div>
                     </div>
                 ) : (
@@ -135,8 +135,8 @@ export default function ChatPage() {
                         >
                             <div
                                 className={`max-w-[80%] rounded-lg p-3 ${msg.role === 'user'
-                                        ? 'bg-[#8B5CF6] text-white'
-                                        : 'bg-[#1A1B2E] border border-[#2A2B3E]'
+                                    ? 'bg-[#8B5CF6] text-white'
+                                    : 'bg-[#1A1B2E] border border-[#2A2B3E]'
                                     }`}
                             >
                                 <div className="text-sm whitespace-pre-wrap">{msg.content}</div>

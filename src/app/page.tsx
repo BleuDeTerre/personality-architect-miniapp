@@ -24,7 +24,7 @@ const NAVIGATION = [
 export default function DashboardPage() {
   const [stats, setStats] = useState<{ current_streak: number; best_streak: number; last_completed: string | null } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [_showOnboarding, _setShowOnboarding] = useState(false);
 
   const authHeaders = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();

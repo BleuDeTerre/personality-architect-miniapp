@@ -148,7 +148,7 @@ export default function PricingPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {PLANS.map((plan) => {
                     const isCurrent = currentPlan === plan.id;
-                    const isPro = plan.id === 'pro';
+                    const _isPro = plan.id === 'pro';
 
                     return (
                         <div

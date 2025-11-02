@@ -18,7 +18,7 @@ function xErr(status: number, error: string, extra: Record<string, any> = {}) {
 }
 
 /** Заглушка верификации подписи. В проде — замени реальной проверкой. */
-async function verifyX402Signature(payload: string, signature: string): Promise<boolean> {
+async function verifyX402Signature(_payload: string, _signature: string): Promise<boolean> {
     // TODO: тут должна быть реальная криптопроверка подписи `signature` над `payload`
     // с использованием FACILITATOR_PUBKEY.
     // Временное поведение:

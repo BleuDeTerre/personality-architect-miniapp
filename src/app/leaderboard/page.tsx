@@ -21,7 +21,7 @@ export default function LeaderboardPage() {
     const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
     const [loading, setLoading] = useState(false);
     const [myUserId, setMyUserId] = useState<string | null>(null);
-    const [ctx, setCtx] = useState<any>(null);
+    const [_ctx, setCtx] = useState<any>(null);
 
     useEffect(() => {
         sdk.actions.ready();
@@ -122,8 +122,8 @@ export default function LeaderboardPage() {
                         <div
                             key={entry.user_id}
                             className={`border rounded-lg p-4 transition ${entry.user_id === myUserId
-                                    ? 'bg-[#1A1B2E] border-[#8B5CF6] shadow-lg'
-                                    : 'bg-[#121420] border-[#2A2B3E]'
+                                ? 'bg-[#1A1B2E] border-[#8B5CF6] shadow-lg'
+                                : 'bg-[#121420] border-[#2A2B3E]'
                                 }`}
                         >
                             <div className="flex items-center justify-between">
