@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import Link from "next/link";
 import { createClient } from '@supabase/supabase-js';
+import { calculateXP, calculateLevel, getLevelProgress, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,6 +24,7 @@ const NAVIGATION = [
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<{ current_streak: number; best_streak: number; last_completed: string | null } | null>(null);
+  const [gamificationStats, setGamificationStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [_showOnboarding, _setShowOnboarding] = useState(false);
 
@@ -61,16 +63,23 @@ export default function DashboardPage() {
       try {
         setLoading(true);
         const hdrs = await authHeaders();
-        const res = await fetch('/api/habits/stats', { headers: hdrs });
-        if (res.ok) {
-          const data = await res.json();
-          setStats(data);
-        }
+        const [statsRes, gamificationRes] = await Promise.all([
+          fetch('/api/habits/stats', { headers: hdrs }).then(r => r.ok ? r.json() : null),
+          fetch('/api/stats/gamification', { headers: hdrs }).then(r => r.ok ? r.json() : null),
+        ]);
+        if (statsRes) setStats(statsRes);
+        if (gamificationRes) setGamificationStats(gamificationRes);
       } finally {
         setLoading(false);
       }
     })();
   }, [authHeaders]);
+
+  const xp = gamificationStats ? calculateXP(gamificationStats) : 0;
+  const level = calculateLevel(xp);
+  const progress = getLevelProgress(xp, level);
+  const levelName = getLevelName(level);
+  const levelColor = getLevelColor(level);
 
   return (
     <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-4 sm:p-6 max-w-4xl mx-auto">
@@ -78,6 +87,25 @@ export default function DashboardPage() {
         Personality Architect
       </h1>
       <p className="text-[#AAB1C2] mb-6 sm:mb-8 text-sm sm:text-base">Build better habits, track your progress, achieve your goals.</p>
+
+      {/* Level Progress */}
+      {gamificationStats && (
+        <div className="mb-6 bg-[#121420] border border-[#2A2B3E] rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className={`text-xl font-bold ${levelColor}`}>{levelName}</div>
+              <div className="text-sm text-[#AAB1C2]">Level {level}</div>
+            </div>
+            <div className="text-sm text-[#AAB1C2]">{xp.toLocaleString()} XP</div>
+          </div>
+          <div className="h-2 bg-[#2A2B3E] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+        </div>
+      )}
 
       {/* Onboarding */}
       {!loading && stats && stats.current_streak === 0 && (

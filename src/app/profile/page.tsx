@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { BADGES } from '@/lib/badges';
+import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
 
 // Supabase client
 const supabase = createClient(
@@ -42,6 +43,7 @@ export default function ProfilePage() {
     const [busyCode, setBusyCode] = useState<string | null>(null);
 
     const [loading, setLoading] = useState(true);
+    const [gamificationStats, setGamificationStats] = useState<UserStats | null>(null);
 
     // Headers with Bearer
     const authHeaders = useCallback(async () => {
@@ -113,8 +115,15 @@ export default function ProfilePage() {
 
             await refreshMints();
             await refreshEligibility();
+
+            // Load gamification stats
+            const statsRes = await fetch('/api/stats/gamification', { headers: await authHeaders() });
+            if (statsRes.ok) {
+                const stats = await statsRes.json();
+                setGamificationStats(stats);
+            }
         })().finally(() => setLoading(false));
-    }, [refreshMints, refreshEligibility]);
+    }, [refreshMints, refreshEligibility, authHeaders]);
 
     // Mint button
     async function mint(slug: string) {
@@ -144,9 +153,45 @@ export default function ProfilePage() {
         } catch (e) { console.error(e); }
     };
 
+    // Calculate XP and level
+    const xp = gamificationStats ? calculateXP(gamificationStats) : 0;
+    const level = calculateLevel(xp);
+    const progress = getLevelProgress(xp, level);
+    const nextLevelXP = xpForNextLevel(level);
+    const levelName = getLevelName(level);
+    const levelColor = getLevelColor(level);
+
     return (
         <div className="min-h-screen p-6 text-white" style={{ background: 'linear-gradient(135deg, #7C5CFC, #9F7CFF)' }}>
             <h1 className="text-3xl font-bold mb-4">Profile</h1>
+
+            {/* Level & XP Card */}
+            {gamificationStats && (
+                <div className="mb-6 bg-white/10 p-6 rounded-xl border border-white/20">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <div className={`text-2xl font-bold ${levelColor}`}>{levelName}</div>
+                            <div className="text-sm text-white/70">Level {level}</div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-2xl font-bold text-white">{xp.toLocaleString()}</div>
+                            <div className="text-sm text-white/70">Total XP</div>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-xs text-white/80">
+                            <span>Progress to Level {level + 1}</span>
+                            <span>{progress.toFixed(0)}%</span>
+                        </div>
+                        <div className="h-3 bg-white/20 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] transition-all duration-300"
+                                style={{ width: `${progress}%` }}
+                            ></div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Profile cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
@@ -159,42 +204,58 @@ export default function ProfilePage() {
             {/* Badges with Mint buttons */}
             <section className="mb-6">
                 <h2 className="text-xl font-semibold mb-3">Badges Gallery</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {BADGES.map(b => {
-                        const st = statusMap[b.slug] ?? 'none';
-                        const el = eligMap[b.slug]?.eligible ?? false;
-                        const reason = eligMap[b.slug]?.reason ?? '';
-                        const canMint = el && st === 'none';
-                        return (
-                            <div
-                                key={b.slug}
-                                className="border border-white/30 rounded-xl p-3 bg-white/10 flex flex-col gap-2 transition hover:bg-white/15"
-                                title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
-                            >
+                {loading ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {[1, 2, 3, 4, 5, 6].map(i => (
+                            <div key={i} className="border border-white/30 rounded-xl p-3 bg-white/10 animate-pulse">
                                 <div className="flex items-start gap-3">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
-                                    <div className="flex-1">
-                                        <div className="font-medium">{b.title}</div>
-                                        <div className="text-xs text-white/70">{b.description}</div>
-                                        <div className="text-xs mt-1">
-                                            Status: <span className="font-mono">{st}</span>
-                                            {!el && <span className="ml-2 opacity-80">({reason})</span>}
-                                        </div>
+                                    <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
+                                    <div className="flex-1 space-y-2">
+                                        <div className="h-4 bg-white/20 rounded w-3/4"></div>
+                                        <div className="h-3 bg-white/20 rounded w-full"></div>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => mint(b.slug)}
-                                    disabled={loading || busyCode === b.slug || !canMint}
-                                    className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
-                                    title={!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT'}
-                                >
-                                    {busyCode === b.slug ? 'Minting…' : st === 'success' ? '✅ Minted' : 'Mint'}
-                                </button>
                             </div>
-                        );
-                    })}
-                </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {BADGES.map(b => {
+                            const st = statusMap[b.slug] ?? 'none';
+                            const el = eligMap[b.slug]?.eligible ?? false;
+                            const reason = eligMap[b.slug]?.reason ?? '';
+                            const canMint = el && st === 'none';
+                            return (
+                                <div
+                                    key={b.slug}
+                                    className="border border-white/30 rounded-xl p-3 bg-white/10 flex flex-col gap-2 transition hover:bg-white/15"
+                                    title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
+                                >
+                                    <div className="flex items-start gap-3">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                                        <div className="flex-1">
+                                            <div className="font-medium">{b.title}</div>
+                                            <div className="text-xs text-white/70">{b.description}</div>
+                                            <div className="text-xs mt-1">
+                                                Status: <span className="font-mono">{st}</span>
+                                                {!el && <span className="ml-2 opacity-80">({reason})</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => mint(b.slug)}
+                                        disabled={loading || busyCode === b.slug || !canMint}
+                                        className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
+                                        title={!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT'}
+                                    >
+                                        {busyCode === b.slug ? 'Minting…' : st === 'success' ? '✅ Minted' : 'Mint'}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </section>
 
             {/* Export Data */}

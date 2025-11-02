@@ -81,7 +81,23 @@ export default function AnalyticsPage() {
             <h1 className="text-2xl font-bold text-[#E9ECF1]">Advanced Analytics</h1>
 
             {loading ? (
-                <div className="text-[#AAB1C2]">Loading analytics...</div>
+                <div className="space-y-6">
+                    <div className="bg-[#121420] border border-[#2A2B3E] rounded-lg p-4 animate-pulse">
+                        <div className="h-6 bg-[#2A2B3E] rounded w-32 mb-4"></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="h-16 bg-[#2A2B3E] rounded"></div>
+                            <div className="h-16 bg-[#2A2B3E] rounded"></div>
+                        </div>
+                    </div>
+                    <div className="bg-[#121420] border border-[#2A2B3E] rounded-lg p-4 animate-pulse">
+                        <div className="h-6 bg-[#2A2B3E] rounded w-40 mb-4"></div>
+                        <div className="space-y-3">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="h-20 bg-[#2A2B3E] rounded"></div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
             ) : (
                 <>
                     {/* Comparative Analytics */}

@@ -37,13 +37,15 @@
 - ✅ Dark theme applied to all pages
 - ✅ Habit templates & categories
 - ✅ Search & filters (Habits & Goals)
-- ✅ Loading skeletons & empty states
+- ✅ Loading skeletons & empty states (ALL pages)
 - ✅ Onboarding flow
 - ✅ PWA manifest
 - ✅ AI Chat interface
 - ✅ Leaderboards
 - ✅ iCal export
 - ✅ Share to Farcaster
+- ✅ Calendar view (Streaks heatmap 365 days)
+- ✅ Gamification (XP, Levels, Progress bar)
 
 ---
 
@@ -52,7 +54,6 @@
 Функции для добавления после MVP релиза и получения первой обратной связи от пользователей.
 
 ### UI/UX Improvements
-- **Calendar view** - календарное отображение streaks
 - **Service Worker** - offline support
 - **Push notifications** - reminders для missed habits
 
@@ -100,8 +101,6 @@
 - **Lifetime plan** - пожизненный доступ
 
 ### Gamification
-- **XP system** - очки опыта за действия
-- **Levels** - уровни пользователя
 - **Achievements** - расширенные достижения
 - **Daily quests** - ежедневные задания
 
