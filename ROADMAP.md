@@ -53,7 +53,7 @@
 - ~~**Habit categories**~~ ✅ **СДЕЛАНО** - Через templates (Health, Learning, Growth, Focus)
 - ~~**Quick actions**~~ ✅ **СДЕЛАНО** - Stats на dashboard с auto-load
 - **Onboarding flow** - guided tour для новых пользователей
-- **Search & filters** - поиск по привычкам и целям
+- ~~**Search & filters**~~ ✅ **СДЕЛАНО** - Поиск и фильтры на Habits & Goals
 - ~~**Export data**~~ ✅ **СДЕЛАНО** - JSON/CSV export из /profile
 - **Calendar view** - календарное отображение streaks
 

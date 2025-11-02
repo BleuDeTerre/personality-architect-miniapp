@@ -31,6 +31,8 @@ export default function GoalsPage() {
     const [dueDate, setDueDate] = useState('');
     const [loading, setLoading] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'completed' | 'archived'>('all');
 
     // Заголовки с Bearer для вызовов /api/*
     const authHeaders = useCallback(async () => {
@@ -202,89 +204,120 @@ export default function GoalsPage() {
                 </button>
             </form>
 
+            {/* Search & Filter */}
+            {goals.length > 0 && (
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        placeholder="🔍 Search goals..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="flex-1 border p-2 rounded"
+                    />
+                    <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value as any)}
+                        className="border p-2 rounded"
+                    >
+                        <option value="all">All</option>
+                        <option value="active">Active</option>
+                        <option value="completed">Completed</option>
+                        <option value="archived">Archived</option>
+                    </select>
+                </div>
+            )}
+
             {/* Список */}
             {loading && goals.length === 0 ? (
                 <p>Loading...</p>
             ) : (
                 <ul className="space-y-2">
-                    {goals.map((g) => (
-                        <li key={g.id} className="flex justify-between items-start border p-4 rounded-lg">
-                            {editingId === g.id ? (
-                                <div className="flex-1 space-y-2">
-                                    <input
-                                        type="text"
-                                        value={g.title}
-                                        onChange={(e) => setGoals(goals.map(goal => goal.id === g.id ? { ...goal, title: e.target.value } : goal))}
-                                        className="border p-2 w-full rounded"
-                                    />
-                                    {g.due_date && (
-                                        <div className="text-xs text-gray-500">
-                                            Due: {new Date(g.due_date).toLocaleDateString()}
+                    {goals
+                        .filter(g => {
+                            const matchesSearch = g.title.toLowerCase().includes(searchQuery.toLowerCase());
+                            const matchesFilter =
+                                filterStatus === 'all' ||
+                                g.status === filterStatus;
+                            return matchesSearch && matchesFilter;
+                        })
+                        .map((g) => (
+                            <li key={g.id} className="flex justify-between items-start border p-4 rounded-lg">
+                                {editingId === g.id ? (
+                                    <div className="flex-1 space-y-2">
+                                        <input
+                                            type="text"
+                                            value={g.title}
+                                            onChange={(e) => setGoals(goals.map(goal => goal.id === g.id ? { ...goal, title: e.target.value } : goal))}
+                                            className="border p-2 w-full rounded"
+                                        />
+                                        {g.due_date && (
+                                            <div className="text-xs text-gray-500">
+                                                Due: {new Date(g.due_date).toLocaleDateString()}
+                                            </div>
+                                        )}
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => updateGoal(g)}
+                                                disabled={loading}
+                                                className="bg-green-500 text-white px-3 py-1 rounded text-sm"
+                                            >
+                                                Save
+                                            </button>
+                                            <button
+                                                onClick={() => setEditingId(null)}
+                                                className="bg-gray-300 px-3 py-1 rounded text-sm"
+                                            >
+                                                Cancel
+                                            </button>
                                         </div>
-                                    )}
+                                    </div>
+                                ) : (
+                                    <div className="flex-1">
+                                        <div className={`font-medium ${g.status === 'completed' ? 'line-through text-gray-500' : ''}`}>
+                                            {g.title}
+                                        </div>
+                                        {g.metric && g.target && (
+                                            <div className="text-sm text-gray-600">
+                                                {g.target} {g.unit || g.metric}
+                                            </div>
+                                        )}
+                                        {g.due_date && (
+                                            <div className="text-xs text-gray-500 mt-1">
+                                                Due: {new Date(g.due_date).toLocaleDateString()}
+                                            </div>
+                                        )}
+                                        <div className="text-xs text-gray-400 mt-1">
+                                            {g.status}
+                                        </div>
+                                    </div>
+                                )}
+                                {editingId !== g.id && (
                                     <div className="flex gap-2">
                                         <button
-                                            onClick={() => updateGoal(g)}
+                                            onClick={() => toggleStatus(g)}
+                                            className={`px-3 py-1 rounded text-sm ${g.status === 'completed' ? 'bg-green-500 text-white' : 'bg-gray-300'}`}
                                             disabled={loading}
-                                            className="bg-green-500 text-white px-3 py-1 rounded text-sm"
                                         >
-                                            Save
+                                            {g.status === 'completed' ? '✓' : '⏳'}
                                         </button>
                                         <button
-                                            onClick={() => setEditingId(null)}
-                                            className="bg-gray-300 px-3 py-1 rounded text-sm"
+                                            onClick={() => setEditingId(g.id)}
+                                            className="px-3 py-1 rounded text-sm bg-blue-300"
+                                            disabled={loading}
                                         >
-                                            Cancel
+                                            Edit
+                                        </button>
+                                        <button
+                                            onClick={() => deleteGoal(g.id)}
+                                            className="px-3 py-1 rounded text-sm bg-red-300"
+                                            disabled={loading}
+                                        >
+                                            Delete
                                         </button>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="flex-1">
-                                    <div className={`font-medium ${g.status === 'completed' ? 'line-through text-gray-500' : ''}`}>
-                                        {g.title}
-                                    </div>
-                                    {g.metric && g.target && (
-                                        <div className="text-sm text-gray-600">
-                                            {g.target} {g.unit || g.metric}
-                                        </div>
-                                    )}
-                                    {g.due_date && (
-                                        <div className="text-xs text-gray-500 mt-1">
-                                            Due: {new Date(g.due_date).toLocaleDateString()}
-                                        </div>
-                                    )}
-                                    <div className="text-xs text-gray-400 mt-1">
-                                        {g.status}
-                                    </div>
-                                </div>
-                            )}
-                            {editingId !== g.id && (
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => toggleStatus(g)}
-                                        className={`px-3 py-1 rounded text-sm ${g.status === 'completed' ? 'bg-green-500 text-white' : 'bg-gray-300'}`}
-                                        disabled={loading}
-                                    >
-                                        {g.status === 'completed' ? '✓' : '⏳'}
-                                    </button>
-                                    <button
-                                        onClick={() => setEditingId(g.id)}
-                                        className="px-3 py-1 rounded text-sm bg-blue-300"
-                                        disabled={loading}
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        onClick={() => deleteGoal(g.id)}
-                                        className="px-3 py-1 rounded text-sm bg-red-300"
-                                        disabled={loading}
-                                    >
-                                        Delete
-                                    </button>
-                                </div>
-                            )}
-                        </li>
-                    ))}
+                                )}
+                            </li>
+                        ))}
                 </ul>
             )}
 

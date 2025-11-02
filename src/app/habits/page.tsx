@@ -39,6 +39,8 @@ export default function HabitsPage() {
     const [targetDays, setTargetDays] = useState(3);
     const [loading, setLoading] = useState(false);
     const [showTemplates, setShowTemplates] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterCompleted, setFilterCompleted] = useState<'all' | 'completed' | 'active'>('all');
 
     // Заголовки с Bearer для вызовов /api/*
     const authHeaders = useCallback(async () => {
@@ -199,6 +201,28 @@ export default function HabitsPage() {
                 </div>
             )}
 
+            {/* Search & Filter */}
+            {habits.length > 0 && (
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        placeholder="🔍 Search habits..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="flex-1 bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 rounded"
+                    />
+                    <select
+                        value={filterCompleted}
+                        onChange={(e) => setFilterCompleted(e.target.value as any)}
+                        className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 rounded"
+                    >
+                        <option value="all">All</option>
+                        <option value="active">Active</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+            )}
+
             {/* Список */}
             {loading ? (
                 <div className="space-y-2">
@@ -215,27 +239,36 @@ export default function HabitsPage() {
                 </div>
             ) : (
                 <ul className="space-y-2">
-                    {habits.map((h) => (
-                        <li key={h.id} className="bg-[#121420] border border-[#2A2B3E] flex justify-between items-center p-3 rounded">
-                            <div className="flex items-center">
-                                <span className={h.is_completed ? 'line-through text-[#5B6785]' : 'text-[#E9ECF1]'}>
-                                    {h.title}
-                                </span>
-                                <span className="text-sm text-[#AAB1C2] ml-2">
-                                    ({h.target_days_per_week} days/week)
-                                </span>
-                                <span className="text-sm text-[#8B5CF6] ml-3">🔥 {h.streak ?? 0}d</span>
-                            </div>
+                    {habits
+                        .filter(h => {
+                            const matchesSearch = h.title.toLowerCase().includes(searchQuery.toLowerCase());
+                            const matchesFilter =
+                                filterCompleted === 'all' ||
+                                (filterCompleted === 'completed' && h.is_completed) ||
+                                (filterCompleted === 'active' && !h.is_completed);
+                            return matchesSearch && matchesFilter;
+                        })
+                        .map((h) => (
+                            <li key={h.id} className="bg-[#121420] border border-[#2A2B3E] flex justify-between items-center p-3 rounded">
+                                <div className="flex items-center">
+                                    <span className={h.is_completed ? 'line-through text-[#5B6785]' : 'text-[#E9ECF1]'}>
+                                        {h.title}
+                                    </span>
+                                    <span className="text-sm text-[#AAB1C2] ml-2">
+                                        ({h.target_days_per_week} days/week)
+                                    </span>
+                                    <span className="text-sm text-[#8B5CF6] ml-3">🔥 {h.streak ?? 0}d</span>
+                                </div>
 
-                            <button
-                                onClick={() => markComplete(h.id, h.is_completed)}
-                                className={`px-3 py-1 rounded transition ${h.is_completed ? 'bg-[#2BD4A4] text-white' : 'bg-[#2A2B3E] text-[#E9ECF1] hover:bg-[#3A3B4E]'}`}
-                                aria-label={h.is_completed ? 'Completed today' : 'Mark as done today'}
-                            >
-                                {h.is_completed ? '✔' : 'Mark'}
-                            </button>
-                        </li>
-                    ))}
+                                <button
+                                    onClick={() => markComplete(h.id, h.is_completed)}
+                                    className={`px-3 py-1 rounded transition ${h.is_completed ? 'bg-[#2BD4A4] text-white' : 'bg-[#2A2B3E] text-[#E9ECF1] hover:bg-[#3A3B4E]'}`}
+                                    aria-label={h.is_completed ? 'Completed today' : 'Mark as done today'}
+                                >
+                                    {h.is_completed ? '✔' : 'Mark'}
+                                </button>
+                            </li>
+                        ))}
                 </ul>
             )}
         </div>
