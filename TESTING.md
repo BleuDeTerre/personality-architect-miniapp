@@ -1,173 +1,317 @@
-# Инструкция по тестированию X402 платежей
+# 🧪 Testing Guide - Personality Architect Mini App
 
-## 🎯 Суть приложения
+## ✅ Phase 1-3 Features Testing Checklist
 
-Это habit tracking приложение с системой оплаты через X402:
+### 📋 Quick Test Guide
 
-1. **Бесплатные функции**: базовые инсайты по привычкам (`/api/insight/*`)
-2. **Платные функции** через X402:
-   - Habit Insight: $0.15
-   - Weekly Insight: $0.25  
-   - Monthly Insight: $0.35
-   - Pro Credits Pack: $4.99
+Run these tests after each deployment to ensure everything works correctly.
 
-3. **Две схемы доступа**:
-   - **Бесплатно**: базовый функционал
-   - **За кредиты**: если у пользователя есть Pro credits, используется кредит
-   - **За X402 платеж**: если кредитов нет, клиент оплачивает через X402
+---
 
-## ✅ Что было исправлено
+## 🎯 Goals Management
 
-1. Убран дублирующийся параметр `facilitator` в `middleware.ts` (строки 57-60)
-2. Удалена несуществующая функция `postPaidJSON` из всех файлов
-3. Эндпоинты `/api/buy/*` теперь правильно возвращают 402 вместо 500 ошибок
+### Test: `/goals` Page
 
-## 🧪 Как проверить что все работает
+**Pre-requisites**: Logged in with Farcaster
 
-### 1. Локальная проверка (без реальных платежей)
+**Steps**:
+1. Navigate to `/goals`
+2. **Create goal**:
+   - Fill title, target, due date
+   - Click "Add Goal"
+   - ✅ Verify: Goal appears in list
+3. **Edit goal**:
+   - Click edit button on a goal
+   - Change values
+   - ✅ Verify: Changes saved
+4. **Toggle status**:
+   - Click checkbox to complete/incomplete
+   - ✅ Verify: Status updates immediately
+5. **Delete goal**:
+   - Click delete button
+   - ✅ Verify: Goal removed from list
 
+**API endpoints to test**:
 ```bash
-# 1. Убедитесь что приложение собирается
-pnpm build
+# Get all goals
+GET /api/goals
 
-# 2. Запустите dev сервер  
-pnpm dev
+# Create goal
+POST /api/goals
+Body: { "title": "Test", "target": 100, "due_date": "2025-12-31" }
 
-# 3. Проверьте базовые эндпоинты
-curl http://localhost:3000/api/health
-# Должно вернуть: {"ok":true,"ts":...}
+# Update goal
+PUT /api/goals/{id}
+Body: { "title": "Updated", "target": 150 }
 
-curl http://localhost:3000/api/paid/ping
-# В DEV платежи отключены, должен вернуть: {"ok":true,...}
+# Delete goal
+DELETE /api/goals/{id}
 ```
 
-**Важно**: В локальной разработке (`PAID_ENABLED != 'true'`) платежи отключены, поэтому все `/api/paid/*` эндпоинты работают без проверки оплаты.
+**Expected**: All CRUD operations work, UI updates correctly.
 
-### 2. Проверка логики `/api/buy/*` эндпоинтов
+---
 
-Эндпоинты `/api/buy/*` работают так:
-1. Проверяют авторизацию (JWT токен)
-2. Смотрят есть ли кредиты у пользователя
-3. Если кредиты есть → вызывают `/api/pro/*` версию (бесплатно для пользователя)
-4. Если кредитов нет → возвращают **402 Payment Required**
+## 📊 Streaks Analytics
 
+### Test: `/streaks` Page
+
+**Pre-requisites**: Have at least one habit with logs
+
+**Steps**:
+1. Navigate to `/streaks`
+2. **Check stats cards**:
+   - ✅ Current Streak should show number
+   - ✅ Best Streak should show number
+   - ✅ Last Activity should show date or "Never"
+3. **Check heatmap**:
+   - ✅ Green squares appear for days with activity
+   - ✅ Intensity varies (green-200 to green-600)
+   - ✅ Last 365 days displayed
+4. **Filter by habit**:
+   - Select a specific habit from dropdown
+   - ✅ Verify: Heatmap updates to show only that habit
+   - Select "All Habits"
+   - ✅ Verify: All habits shown again
+
+**API endpoints to test**:
 ```bash
-# Проверка без авторизации (должен вернуть 401)
-curl -X POST http://localhost:3000/api/buy/habit \
-  -H "Content-Type: application/json" \
-  -d '{"date":"2025-01-01","highAccuracy":false}'
+# Get streak stats
+GET /api/habits/stats
 
-# Должно вернуть: {"error":"unauthorized"}
+# Get habit streaks
+POST /api/habits/streaks
+Body: { "ids": ["habit-id-1", "habit-id-2"] }
 
-# С авторизацией (при отсутствии кредитов) должен вернуть 402
-curl -X POST http://localhost:3000/api/buy/habit \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_VALID_JWT_TOKEN" \
-  -d '{"date":"2025-01-01","highAccuracy":false}'
-
-# Должно вернуть 402: 
-# {"error":"payment_required","sku":"/api/paid/insight/habit"}
+# Get habit logs
+GET /api/habits/logs?from=2024-01-01&to=2024-12-31
 ```
 
-### 3. Тестирование с реальными платежами
+**Expected**: Stats display correctly, heatmap renders, filtering works.
 
-Для тестирования **реальных платежей X402** используйте скрипты из папки `scripts/`:
+---
 
-#### Настройка `.env.local`
+## 🏆 Badge Gallery
 
-Создайте файл `.env.local` в корне проекта:
+### Test: `/profile` Page
 
+**Pre-requisites**: Logged in with Farcaster, have wallet address
+
+**Steps**:
+1. Navigate to `/profile`
+2. **Check gallery**:
+   - ✅ All 10 badges displayed with images
+   - ✅ Each badge shows title, description, status
+3. **Check eligibility**:
+   - ✅ Eligible badges show "Mint" button enabled
+   - ✅ Non-eligible show reason in parentheses
+   - ✅ Already minted show "✅ Minted"
+4. **Test minting**:
+   - Click "Mint" on eligible badge
+   - ✅ Verify: Button shows "Minting…" while processing
+   - ✅ Verify: After success, status changes to "Minted"
+5. **Check mint status**:
+   - Refresh page
+   - ✅ Verify: Badge still shows as minted
+
+**API endpoints to test**:
 ```bash
-# Приватный ключ кошелька для тестовых платежей (base-sepolia)
-TEST_BUYER_PRIVATE_KEY=0x...
+# Get mint status
+GET /api/mints/status
 
-# URL вашего продакшен приложения
-URL_PING=https://personality-architect-miniapp.vercel.app/api/paid/ping
-URL_MONTHLY=https://personality-architect-miniapp.vercel.app/api/paid/insight/monthly
+# Check eligibility
+GET /api/mints/eligibility?code=STREAK_7
 
-# JWT токен авторизованного пользователя (опционально)
-SUPABASE_JWT=eyJ...
+# Mint badge
+POST /api/mints/mint
+Body: { "code": "STREAK_7" }
 ```
 
-#### Запуск тестовых платежей
+**Expected**: All badges display, eligibility works, minting succeeds.
 
+---
+
+## 🤖 AI Insights
+
+### Test: AI-Generated Insights
+
+**Pre-requisites**: Have habits with 7+ days of logs, Pro credits or payment ready
+
+**Test endpoints**:
+
+#### 1. Weekly AI Insight
 ```bash
-# Тест платного пинга ($0.01)
-pnpm pay:ping
+POST /api/paid/insight
+Authorization: Bearer {token}
 
-# Тест monthly insight ($0.35)
-pnpm pay:monthly
-
-# Скрипты:
-# - Автоматически подписывают запрос через wrapFetchWithPayment
-# - Отправляют на ваш сервер
-# - Показывают результат в консоли
+Expected: 
+{
+  "kind": "ai_insight",
+  "period": { "start": "...", "end": "..." },
+  "metrics": { "completed_total_7d": X, "active_days_7d": Y, "avg_wheel_7d": Z },
+  "insight": "AI generated text...",
+  "model": "gpt-4o-mini"
+}
 ```
+✅ Verify: Real AI text (not placeholder), model specified
 
-## 🔄 Как работает платежный флоу
+#### 2. Habit Review
+```bash
+POST /api/paid/habit-review
+Authorization: Bearer {token}
 
-### В продакшене (`PAID_ENABLED=true`)
+Expected:
+{
+  "kind": "habit_review",
+  "period": { "start": "...", "end": "..." },
+  "habits": [...],
+  "note": "AI generated analysis...",
+  "model": "gpt-4o-mini"
+}
+```
+✅ Verify: Real AI analysis, not placeholder
 
-1. **Клиент** нажимает "Buy" кнопку на странице `/insight/habit`
-2. **Компонент `PayButton`** вызывает функцию `performBuy`
-3. **`performBuy`** делает fetch к `/api/buy/habit`:
-   ```javascript
-   fetch('/api/buy/habit', {
-     method: 'POST',
-     headers: { 'content-type': 'application/json' },
-     body: JSON.stringify({ date, highAccuracy })
-   })
+#### 3. Weekly Summary
+```bash
+POST /api/pro/insight/weekly
+Authorization: Bearer {token}
+Body: { "week_start": "2024-01-01" }
+
+Expected:
+{
+  "week_start": "...",
+  "totals": { "days": 7, "habits_total": X, "completed": Y, "rate_pct": Z },
+  "items": [{ "day": "Mon", "completed": N, "total": M }, ...],
+  "summary": "AI generated weekly summary...",
+  "cachedUntil": "..."
+}
+```
+✅ Verify: Real weekly summary, data from actual logs, saved to weekly_summaries
+
+---
+
+## 📈 Weekly Summaries
+
+### Test: Weekly Summaries Generation
+
+**Pre-requisites**: Have habit logs for at least one week
+
+**Steps**:
+1. Generate weekly summary via API
+2. **Check database**:
+   ```sql
+   SELECT * FROM public.weekly_summaries 
+   WHERE iso_week = '2024-W01' 
+   ORDER BY created_at DESC 
+   LIMIT 1;
    ```
-4. **Сервер** (`/api/buy/habit`) проверяет:
-   - Авторизацию (401 если нет)
-   - Кредиты (если есть → `/api/pro/*`)
-   - Возвращает **402** если кредитов нет
-5. **Клиент** получает 402 и **должен** использовать `wrapFetchWithPayment` для оплаты
-6. **Клиент** повторяет запрос но **напрямую к `/api/paid/insight/habit`** с X402 заголовками
-7. **Middleware** проверяет платеж через `paymentMiddleware` из `x402-next`
-8. **Сервер** обрабатывает и возвращает результат
+   ✅ Verify: Row exists with AI-generated summary
 
-### В разработке (`PAID_ENABLED=false`)
+**API endpoints to test**:
+```bash
+# Pro version (uses credits)
+POST /api/pro/insight/weekly
+Body: { "week_start": "2024-01-01" }
 
-1. Middleware пропускает все `/api/paid/*` без проверок
-2. Клиент может тестировать функционал без реальных платежей
+# Paid version (X402)
+POST /api/paid/insight/weekly  
+Body: { "week_start": "2024-01-01" }
+```
 
-## 📝 Чек-лист для деплоя в продакшен
+**Expected**: Both generate real summaries and save to database.
 
-- [ ] Убедитесь что все переменные окружения настроены
-  - `PAID_ENABLED=true` - **обязательно** для включения платежей
-  - `X402_RECIPIENT=0x...` - адрес для получения платежей
-  - `X402_FACILITATOR=https://x402.org/facilitator` - URL фасилитатора
-  - `X402_NETWORK=base-sepolia` или `base` - сеть
-- [ ] Запустите `pnpm build` перед деплоем
-- [ ] Проверьте что `pnpm typecheck` проходит без ошибок
-- [ ] Протестируйте через скрипты `pnpm pay:ping` и `pnpm pay:monthly`
-- [ ] Убедитесь что `/api/buy/*` возвращают 402 без кредитов (не 500!)
+---
 
-## 🐛 Troubleshooting
+## 🔧 Badge Eligibility
 
-### Ошибка "postPaidJSON is not a function"
-**Исправлено!** Удалил все импорты несуществующей функции.
+### Test: All Badge Rules
 
-### Middleware возвращает 500 вместо 402
-**Исправлено!** Убрал дублирующийся параметр `facilitator`.
+**Pre-requisites**: Logged in as test user
 
-### Платежи не работают локально
-**Это нормально!** В dev режиме (`PAID_ENABLED=false`) платежи отключены намеренно.
+**SQL test for each badge**:
+```sql
+-- Replace with your user UUID
+SELECT public.badge_eligibility('your-user-id'::uuid, 'FIRST_LOG');
+SELECT public.badge_eligibility('your-user-id'::uuid, 'STREAK_7');
+SELECT public.badge_eligibility('your-user-id'::uuid, 'STREAK_30');
+SELECT public.badge_eligibility('your-user-id'::uuid, 'STREAK_60');
+SELECT public.badge_eligibility('your-user-id'::uuid, 'STREAK_100');
+SELECT public.badge_eligibility('your-user-id'::uuid, 'STREAK_365');
+SELECT public.badge_eligibility('your-user-id'::uuid, 'WHEEL_70');
+SELECT public.badge_eligibility('your-user-id'::uuid, 'WHEEL_80');
+SELECT public.badge_eligibility('your-user-id'::uuid, 'CONSISTENT_21');
+SELECT public.badge_eligibility('your-user-id'::uuid, 'SHARE_3');
+```
 
-### Клиент не может оплатить
-Проверьте что:
-1. В проде установлен `PAID_ENABLED=true`
-2. Клиент использует `wrapFetchWithPayment` для запросов к `/api/paid/*`
-3. Middleware правильно настроен с `RECIPIENT`, `FACILITATOR`, `NETWORK`
+**Expected**: Each returns `{ eligible: true/false, reason: string }`.
 
-### Как протестировать без реальных денег?
-Используйте `base-sepolia` testnet и testnet фасилитатор. USDC будет тестовым.
+---
 
-## 📚 Полезные ссылки
+## 🌐 API Health Checks
 
-- [X402 Documentation](https://x402.org)
-- [x402-fetch package](https://www.npmjs.com/package/x402-fetch)
-- [x402-next package](https://www.npmjs.com/package/x402-next)
-- Base Sepolia faucet: https://www.coinbase.com/faucets/base-ethereum-goerli-faucet
+### Test: Critical Endpoints
 
+```bash
+# Health check
+GET /api/health
+
+# Habits list
+GET /api/habits/list
+Authorization: Bearer {token}
+
+# Today's habits
+GET /api/habits/today
+
+# Streaks
+POST /api/habits/streaks
+Authorization: Bearer {token}
+Body: { "ids": ["id1"] }
+
+# Stats
+GET /api/habits/stats
+Authorization: Bearer {token}
+```
+
+✅ Verify: All return 200 OK with valid JSON.
+
+---
+
+## 🐛 Known Issues to Check
+
+1. **Value vs Completed**: Make sure habit_logs uses `value`, not `completed`
+2. **Events log**: Verify `name` field (not `event`) when checking shares
+3. **RPC functions**: Confirm `habit_streak` and `get_habit_streak` work correctly
+
+---
+
+## 📊 Test Coverage Summary
+
+| Feature | UI Test | API Test | Status |
+|---------|---------|----------|--------|
+| Goals CRUD | ✅ | ✅ | Pending |
+| Streaks Analytics | ✅ | ✅ | Pending |
+| Badge Gallery | ✅ | ✅ | Pending |
+| AI Insights | ❌ | ✅ | Pending |
+| Weekly Summaries | ❌ | ✅ | Pending |
+| Badge Eligibility | ❌ | ✅ | Pending |
+
+---
+
+## 🚀 Quick Smoke Test
+
+Run this to verify basic functionality:
+
+1. ✅ Login through Farcaster
+2. ✅ Create a goal
+3. ✅ View `/streaks` page (stats load)
+4. ✅ View `/profile` (badges display)
+5. ✅ Check one AI insight endpoint
+6. ✅ Mint one eligible badge
+
+If all pass → System is operational! ✅
+
+---
+
+**Last Updated**: After Phase 3 completion
+**Deploy Status**: Production ready
+**Next Phase**: Phase 4 (Advanced Analytics) or testing
