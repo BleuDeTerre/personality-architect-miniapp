@@ -188,9 +188,10 @@
 - Supabase RPC для всех операций
 
 ### Frontend
-- Dashboard с навигацией
-- Responsive design базовый
-- Dark mode не настроен
+- Dashboard с навигацией ✅
+- Responsive design базовый ✅
+- ~~Dark mode~~ ✅ **НАСТРОЕН** - Farcaster/Base style
+- Loading skeletons & empty states ✅
 - PWA manifest базовый
 
 **Главное**: Приложение имеет solid foundation! Фокус на улучшении UX, добавлении интеграций и расширении AI возможностей.
