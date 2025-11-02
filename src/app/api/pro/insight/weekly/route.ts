@@ -10,21 +10,6 @@ function sha(x: unknown) {
     return crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 }
 
-function isoWeekToRange(week: string) {
-    const [y, w] = week.split('-W').map(Number);
-    if (!y || !w) throw new Error('bad_week_format');
-    const jan4 = new Date(Date.UTC(y, 0, 4));
-    const jan4Day = (jan4.getUTCDay() || 7);
-    const week1Mon = new Date(jan4);
-    week1Mon.setUTCDate(jan4.getUTCDate() - (jan4Day - 1));
-    const start = new Date(week1Mon);
-    start.setUTCDate(week1Mon.getUTCDate() + (w - 1) * 7);
-    const end = new Date(start);
-    end.setUTCDate(start.getUTCDate() + 6);
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    return { start: fmt(start), end: fmt(end) };
-}
-
 // Реальная генерация weekly
 async function generateWeekly(supa: ReturnType<typeof createUserServerClient>, userId: string, startDate: string) {
     const endDate = new Date(startDate);
