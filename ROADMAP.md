@@ -42,7 +42,7 @@
 ### Малые улучшения
 - ~~Add tooltips для всех badges~~ ✅ **СДЕЛАНО**
 - ~~Show streak indicator на habit cards~~ ✅ УЖЕ ЕСТЬ
-- Add "Days until next badge" progress
+- ~~Add "Days until next badge" progress~~ ✅ **СДЕЛАНО**
 - Dark mode toggle
 - Better loading states / skeletons
 - Empty states для всех страниц
