@@ -12,11 +12,18 @@
 - ✅ **Minting** - минт бейджей в NFT (Zora 1155)
 - ✅ **Referrals** - реферальная система
 - ✅ **Farcaster Auth** - авторизация через Farcaster
+- ✅ **Goals Management** - CRUD для целей
+- ✅ **Streaks Analytics** - heatmap + статистика
+- ✅ **Badge Gallery** - галерея с minting
+- ✅ **Advanced Analytics** - correlations, predictive, comparative
 
 ### 🤖 AI Features
 - ✅ AI Insights (habit, weekly, monthly)
 - ✅ Coach recommendations на основе Wheel of Life trends
 - ✅ Caching для оптимизации costs (7 days)
+- ✅ Real OpenAI integration для всех insights
+- ✅ Habit correlations analysis
+- ✅ Predictive risk analysis
 
 ### 💳 Payments & Credits
 - ✅ X402 integration (base-sepolia/base mainnet)
