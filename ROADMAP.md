@@ -34,99 +34,60 @@
 - ✅ Middleware для защиты платных эндпоинтов
 - ✅ Subscription tiers (Free/Pro/Premium)
 - ✅ Pricing page with upgrade flows
+- ✅ Dark theme applied to all pages
+- ✅ Habit templates & categories
+- ✅ Search & filters (Habits & Goals)
+- ✅ Loading skeletons & empty states
+- ✅ Onboarding flow
+- ✅ PWA manifest
+- ✅ AI Chat interface
+- ✅ Leaderboards
+- ✅ iCal export
+- ✅ Share to Farcaster
 
 ---
 
-## 🎨 UI/UX Improvements
+## 🚀 После запуска приложения
 
-### Малые улучшения
-- ~~Add tooltips для всех badges~~ ✅ **СДЕЛАНО**
-- ~~Show streak indicator на habit cards~~ ✅ УЖЕ ЕСТЬ
-- ~~Add "Days until next badge" progress~~ ✅ **СДЕЛАНО**
-- ~~Dark mode foundation~~ ✅ **СДЕЛАНО** - Applied to ALL pages (Dashboard, Habits, Streaks, Wheel, Pricing, Analytics, Goals)
-- ~~Loading skeletons & empty states~~ ✅ **СДЕЛАНО** - Pulse animations added
-- ~~Responsive design polish~~ ✅ **СДЕЛАНО** - Mobile-first подход, адаптивные размеры, flex на мобилках
-- ~~Animations & transitions~~ ✅ **СДЕЛАНО** - Pulse animations, transitions на всех интерактивных элементах
+Функции для добавления после MVP релиза и получения первой обратной связи от пользователей.
 
-### Функциональные улучшения
-- ~~**Habit templates**~~ ✅ **СДЕЛАНО** - 10 популярных привычек с иконками
-- ~~**Habit categories**~~ ✅ **СДЕЛАНО** - Через templates (Health, Learning, Growth, Focus)
-- ~~**Quick actions**~~ ✅ **СДЕЛАНО** - Stats на dashboard с auto-load
-- ~~**Onboarding flow**~~ ✅ **СДЕЛАНО** - Welcome banner для новых пользователей
-- ~~**Search & filters**~~ ✅ **СДЕЛАНО** - Поиск и фильтры на Habits & Goals
-- ~~**Export data**~~ ✅ **СДЕЛАНО** - JSON/CSV export из /profile
+### UI/UX Improvements
 - **Calendar view** - календарное отображение streaks
-
-### Mobile & PWA
 - **Service Worker** - offline support
-- ~~**Mobile optimization**~~ ✅ **СДЕЛАНО** - Touch-friendly UI, responsive polish
 - **Push notifications** - reminders для missed habits
-- ~~**App-like feel**~~ ✅ **СДЕЛАНО** - PWA manifest создан
 
----
-
-## 🤖 AI Enhancements
-
-### Conversational AI
-- ~~**Chat interface**~~ ✅ **СДЕЛАНО** - /chat страница с AI коучем
-- ~~**Personalized coaching**~~ ✅ **Частично** - CoachBlock компонент есть, использует Wheel trends + Goals
+### AI Enhancements
 - **Embeddings search** - семантический поиск по логам
-- ~~**Context-aware responses**~~ ✅ **СДЕЛАНО** - Chat использует habits, goals, logs, wheel для контекста
-
-### Personal Insights
-- ~~**Facts extraction**~~ ✅ **СДЕЛАНО** - AI endpoint /api/analytics/facts
-  - Анализ частоты привычек
-  - День недели с наибольшей активностью
-  - Топ-5 самых частых привычек
 - **LLM personalization** - Fine-tune на данных пользователя
 - **Sentiment analysis** - анализ настроения через логи
 - **Predictive modeling** - ML для прогнозирования успеха
-
-### Advanced Features
 - **Voice coaching** - AI коуч через голос (эксперимент)
 - **Image recognition** - авто-логирование по фото
 - **Natural language logs** - свободный текст вместо чекбоксов
 
----
-
-## 🔗 Integrations
-
-### Calendar & Scheduling
+### Календарь & Планирование
 - **Google Calendar sync** - интеграция с календарем
 - **Apple Calendar sync** - iOS calendar support
-- ~~**iCal export**~~ ✅ **СДЕЛАНО** - Export habits to .ics file
 - **Time blocking** - планирование времени
 
-### Health & Fitness
+### Здоровье & Фитнес
 - **Apple Health** - импорт данных о здоровье
 - **Google Fit** - Android fitness integration
 - **Strava** - спортивные активности
 - **Sleep tracking** - интеграция со sleep apps
 
-### Productivity Tools
+### Продуктивность
 - **Todoist** - синхронизация задач
 - **Notion** - экспорт в Notion
 - **Obsidian** - интеграция с заметками
 - **Slack/Teams** - team reminders
 
-### Crypto & Web3
-- **Wallet Connect** - подключение кошельков
-- **On-chain badges** - просмотр NFT на Base
-- **Cross-chain support** - другие сети кроме Base
-- **ENS integration** - показ ENS имен
-
----
-
-## 💡 Идеи на будущее
-
-### Социальные фичи
-- ~~**Share to Farcaster**~~ ✅ **Частично** - Share button на Streaks page, API готов
+### Социальные функции
 - **Friend comparisons** - приватные сравнения
-- ~~**Leaderboards**~~ ✅ **СДЕЛАНО** - /leaderboard страница с топ-50 по best_streak
 - **Group challenges** - командные соревнования
 - **Community** - форум/чат пользователей
 
-### Enterprise & Team
+### Командная работа
 - **Team spaces** - групповые цели
 - **Team habits** - общие привычки
 - **Collaboration** - shared goals tracking
@@ -151,27 +112,11 @@
 - **DAO governance** - community voting
 - **Cross-app habits** - интеграция с другими apps
 
----
-
-## 📊 Приоритетный план
-
-### Phase 6: Social & Integrations (4-6 недель)
-- Social features (Farcaster shares, friends)
-- Calendar integrations
-- Mobile PWA optimization
-- Notifications system
-
-### Phase 7: AI Deep Dive (3-4 недели)
-- Conversational AI chat
-- Advanced personalization
-- Facts extraction engine
-- Voice/Image features
-
-### Phase 8: Enterprise & Scale (3-4 недели)
-- Team features
-- Enterprise dashboard
-- Advanced reporting
-- API for third-parties
+### Web3 & Crypto
+- **Wallet Connect** - подключение кошельков
+- **On-chain badges** - просмотр NFT на Base
+- **Cross-chain support** - другие сети кроме Base
+- **ENS integration** - показ ENS имен
 
 ---
 
@@ -190,8 +135,11 @@
 ### Frontend
 - Dashboard с навигацией ✅
 - Responsive design базовый ✅
-- ~~Dark mode~~ ✅ **НАСТРОЕН** - Farcaster/Base style
-- Loading skeletons & empty states ✅
+- Dark mode настроен - Farcaster/Base style
+- Loading skeletons & empty states
 - PWA manifest базовый
 
-**Главное**: Приложение имеет solid foundation! Фокус на улучшении UX, добавлении интеграций и расширении AI возможностей.
+---
+
+**Главное**: Приложение готово к продакшену с полным набором MVP функционала! 
+Следующий этап - сбор обратной связи от пользователей и добавление фич из раздела "🚀 После запуска".
