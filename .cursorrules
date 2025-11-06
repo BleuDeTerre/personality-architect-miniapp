@@ -1,0 +1,43 @@
+# Cursor Rules for Personality Architect Mini App
+
+## Neynar Integration
+- Using @neynar/nodejs-sdk v3.34.0
+- API client configured in src/lib/neynar.ts
+- Functions: getUserProfile(fid), publishCast(signerUuid, text, embeds)
+- API Key stored in NEYNAR_API_KEY environment variable
+
+## Neynar API Documentation
+- OpenAPI Spec: https://github.com/neynarxyz/OAS/
+- Node.js SDK: https://github.com/neynarxyz/nodejs-sdk
+- Official Docs: https://docs.neynar.com
+- MCP Setup Guide: https://docs.neynar.com/docs/neynar-farcaster-with-cursor
+
+## Key Neynar Methods & Patterns
+
+### Client Initialization
+```typescript
+import { NeynarAPIClient, Configuration } from "@neynar/nodejs-sdk";
+const client = new NeynarAPIClient(new Configuration({ apiKey: process.env.NEYNAR_API_KEY }));
+```
+
+### Fetching Users
+- `fetchBulkUsers({ fids: number[], viewerFid?: number })` - get user profiles
+- Returns `BulkUsersResponse` with `users: User[]` array
+- User object has: `fid`, `username`, `display_name`, `pfp_url`, `profile?.bio?.text`, `follower_count`, `following_count`
+
+### Publishing Casts
+- `publishCast({ signerUuid: string, text?: string, embeds?: PostCastReqBodyEmbeds[], ... })` - publish casts
+- Returns `PostCastResponse` with `cast.hash` property
+- Requires signer UUID (not just signer string)
+
+### React Components
+- @neynar/react package available: NeynarProfileCard, NeynarCastCard, NeynarAuthButton, etc.
+- See docs/NEYNAR_UI_COMPONENTS_ANALYSIS.md for details
+
+## Project Structure
+- Next.js 15.4.6 with React 19
+- TypeScript 5
+- Supabase for database/auth
+- Farcaster Miniapp SDK for client-side
+- Neynar SDK for server-side Farcaster operations
+

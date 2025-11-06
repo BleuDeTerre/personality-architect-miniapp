@@ -4,6 +4,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 
+type LeaderboardEntry = {
+    user_id: string;
+    fid: number | null;
+    current_streak: number;
+    best_streak: number;
+    total_logs: number;
+};
+
+type NeynarProfile = {
+    user_id: string;
+    fid: number | null;
+    username: string | null;
+    display_name: string | null;
+    pfp_url: string | null;
+    bio: string | null;
+    follower_count: number | null;
+    following_count: number | null;
+    updated_at: string | null;
+};
+
 export async function GET(req: NextRequest) {
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
@@ -12,20 +32,16 @@ export async function GET(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        // Получаем всех пользователей с их streaks
-        // Используем raw SQL для более быстрого запроса
         const { data: users } = await supa.from('users').select('id, fid');
 
         if (!users || users.length === 0) {
             return NextResponse.json({ entries: [] });
         }
 
-        // Для каждого пользователя получаем stats
-        const leaderboardEntries = await Promise.all(
+        const leaderboardEntries: LeaderboardEntry[] = await Promise.all(
             users.map(async (user: any) => {
                 const { data: stats } = await supa.rpc('get_habit_streak', { p_user: user.id });
 
-                // Получаем total logs count
                 const { count } = await supa
                     .from('habit_logs')
                     .select('*', { count: 'exact', head: true })
@@ -44,7 +60,6 @@ export async function GET(req: NextRequest) {
             })
         );
 
-        // Сортируем по best_streak (descending), затем по total_logs
         const sorted = leaderboardEntries.sort((a, b) => {
             if (b.best_streak !== a.best_streak) {
                 return b.best_streak - a.best_streak;
@@ -52,10 +67,39 @@ export async function GET(req: NextRequest) {
             return b.total_logs - a.total_logs;
         });
 
-        // Ограничиваем топ-50
         const topEntries = sorted.slice(0, 50);
 
-        return NextResponse.json({ entries: topEntries });
+        let profilesMap: Record<string, NeynarProfile> = {};
+        if (topEntries.length > 0) {
+            const { data: profiles, error: profilesErr } = await supa
+                .from('farcaster_profiles')
+                .select('user_id, fid, username, display_name, pfp_url, bio, follower_count, following_count, updated_at')
+                .in('user_id', topEntries.map(entry => entry.user_id));
+
+            if (!profilesErr && profiles) {
+                profilesMap = profiles.reduce((acc: Record<string, NeynarProfile>, profile: any) => {
+                    acc[profile.user_id] = {
+                        user_id: profile.user_id,
+                        fid: profile.fid ?? null,
+                        username: profile.username ?? null,
+                        display_name: profile.display_name ?? null,
+                        pfp_url: profile.pfp_url ?? null,
+                        bio: profile.bio ?? null,
+                        follower_count: profile.follower_count ?? null,
+                        following_count: profile.following_count ?? null,
+                        updated_at: profile.updated_at ?? null,
+                    };
+                    return acc;
+                }, {});
+            }
+        }
+
+        const enriched = topEntries.map(entry => ({
+            ...entry,
+            neynar_profile: profilesMap[entry.user_id] ?? null,
+        }));
+
+        return NextResponse.json({ entries: enriched, viewer: userId });
     } catch (e: any) {
         console.error('Leaderboard error:', e);
         return NextResponse.json({ error: 'failed_to_fetch_leaderboard', detail: e?.message }, { status: 500 });

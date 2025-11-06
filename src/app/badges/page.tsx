@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { BADGES } from '@/lib/badges';
 import { PRICES_USD } from '@/lib/pricing';
 import PayButton from '@/components/PayButton';
+import BadgeImage from '@/components/BadgeImage';
 
 const PAID_PATH = '/api/mint' as const;
 
@@ -70,8 +71,7 @@ export default function BadgesPage() {
       <div className="grid sm:grid-cols-2 gap-4">
         {BADGES.map(b => (
           <div key={b.slug} className="border rounded-2xl p-4 flex items-center gap-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={b.image} alt={b.title} className="w-16 h-16 rounded-xl object-cover" />
+            <BadgeImage src={b.image} alt={b.title} className="w-16 h-16 rounded-xl object-cover" />
             <div className="flex-1">
               <div className="font-semibold">{b.title}</div>
               <div className="text-sm text-neutral-500">{b.description}</div>

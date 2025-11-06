@@ -7,6 +7,7 @@ import { sdk } from '@farcaster/miniapp-sdk';
 import { BADGES } from '@/lib/badges';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
 import PushNotificationSettings from '@/components/PushNotificationSettings';
+import BadgeImage from '@/components/BadgeImage';
 
 // Supabase client
 const supabase = createClient(
@@ -24,6 +25,17 @@ type Profile = {
     plan_until: string | null;
 };
 
+type NeynarProfile = {
+    fid: number | null;
+    username: string | null;
+    displayName: string | null;
+    pfpUrl: string | null;
+    bio: string | null;
+    followerCount: number | null;
+    followingCount: number | null;
+    updatedAt: string | null;
+};
+
 export default function ProfilePage() {
     // SDK debug
     const [ctx, setCtx] = useState<any>(null);
@@ -37,11 +49,17 @@ export default function ProfilePage() {
         plan: 'free',
         plan_until: null,
     });
+    const [neynarProfile, setNeynarProfile] = useState<NeynarProfile | null>(null);
+    const [neynarLoading, setNeynarLoading] = useState(false);
+    const [neynarError, setNeynarError] = useState<string | null>(null);
 
     // Mints
     const [statusMap, setStatusMap] = useState<Record<string, MintStatus>>({});
     const [eligMap, setEligMap] = useState<Record<string, { eligible: boolean; reason: string }>>({});
     const [busyCode, setBusyCode] = useState<string | null>(null);
+    const [walletInput, setWalletInput] = useState<string>('');
+    const [walletSaving, setWalletSaving] = useState(false);
+    const [walletError, setWalletError] = useState<string | null>(null);
 
     const [loading, setLoading] = useState(true);
     const [gamificationStats, setGamificationStats] = useState<UserStats | null>(null);
@@ -78,6 +96,48 @@ export default function ProfilePage() {
         setEligMap(Object.fromEntries(entries));
     }, [authHeaders]);
 
+    const loadNeynarProfile = useCallback(async (fid: number | null, userId: string | null) => {
+        if (!fid && !userId) {
+            setNeynarProfile(null);
+            setNeynarError(null);
+            return;
+        }
+        setNeynarLoading(true);
+        setNeynarError(null);
+        try {
+            let query = supabase
+                .from('farcaster_profiles')
+                .select('fid, username, display_name, pfp_url, bio, follower_count, following_count, updated_at');
+            if (userId) {
+                query = query.eq('user_id', userId);
+            } else if (fid) {
+                query = query.eq('fid', fid);
+            }
+            const { data, error } = await (query as any).maybeSingle();
+            if (error) throw error;
+            if (!data) {
+                setNeynarProfile(null);
+                return;
+            }
+            setNeynarProfile({
+                fid: data.fid ?? null,
+                username: data.username ?? null,
+                displayName: data.display_name ?? null,
+                pfpUrl: data.pfp_url ?? null,
+                bio: data.bio ?? null,
+                followerCount: data.follower_count ?? null,
+                followingCount: data.following_count ?? null,
+                updatedAt: data.updated_at ?? null,
+            });
+        } catch (err: any) {
+            console.error('[Neynar] Failed to load profile', err);
+            setNeynarProfile(null);
+            setNeynarError(err?.message ?? 'Failed to load profile');
+        } finally {
+            setNeynarLoading(false);
+        }
+    }, []);
+
     // Init: miniapp context, soft Supabase login, load mint status/eligibility
     useEffect(() => {
         (async () => {
@@ -113,9 +173,11 @@ export default function ProfilePage() {
                 plan: 'free',
                 plan_until: null,
             });
+            setWalletInput(wallet ?? '');
 
             await refreshMints();
             await refreshEligibility();
+            await loadNeynarProfile(fid, data.user?.id ?? null);
 
             // Load gamification stats
             const statsRes = await fetch('/api/stats/gamification', { headers: await authHeaders() });
@@ -124,7 +186,12 @@ export default function ProfilePage() {
                 setGamificationStats(stats);
             }
         })().finally(() => setLoading(false));
-    }, [refreshMints, refreshEligibility, authHeaders]);
+    }, [refreshMints, refreshEligibility, loadNeynarProfile, authHeaders]);
+
+    useEffect(() => {
+        if (!p.fid && !p.supaUserId) return;
+        loadNeynarProfile(p.fid, p.supaUserId);
+    }, [p.fid, p.supaUserId, loadNeynarProfile]);
 
     // Mint button
     async function mint(slug: string) {
@@ -133,7 +200,7 @@ export default function ProfilePage() {
             const r = await fetch('/api/mints/mint', {
                 method: 'POST',
                 headers: await authHeaders(),
-                body: JSON.stringify({ code: slug }),
+                body: JSON.stringify({ code: slug, to: p.wallet }),
             });
             const j = await r.json();
             if (!r.ok) {
@@ -162,9 +229,72 @@ export default function ProfilePage() {
     const levelName = getLevelName(level);
     const levelColor = getLevelColor(level);
 
+    const neynarDisplayName =
+        neynarProfile?.displayName ??
+        neynarProfile?.username ??
+        (neynarProfile?.fid ? `FID ${neynarProfile.fid}` : null);
+
+    const neynarInitials = neynarProfile && neynarDisplayName
+        ? (neynarDisplayName.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || 'FC')
+        : 'FC';
+
+    const neynarUpdatedAt = neynarProfile?.updatedAt
+        ? new Date(neynarProfile.updatedAt).toLocaleString()
+        : null;
+
     return (
         <div className="min-h-screen p-6 text-white" style={{ background: 'linear-gradient(135deg, #7C5CFC, #9F7CFF)' }}>
             <h1 className="text-3xl font-bold mb-4">Profile</h1>
+
+            <div className="mb-6 bg-white/10 p-6 rounded-xl border border-white/20">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold">Farcaster Profile</h2>
+                    {neynarUpdatedAt && (
+                        <span className="text-xs text-white/60">
+                            Updated {neynarUpdatedAt}
+                        </span>
+                    )}
+                </div>
+                {neynarLoading ? (
+                    <div className="text-sm text-white/70 animate-pulse">Loading profile…</div>
+                ) : neynarProfile ? (
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 rounded-full overflow-hidden bg-white/20 flex items-center justify-center text-2xl font-semibold text-white/80">
+                                {neynarProfile.pfpUrl ? (
+                                    <img
+                                        src={neynarProfile.pfpUrl}
+                                        alt={neynarDisplayName ?? 'Farcaster user'}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    neynarInitials
+                                )}
+                            </div>
+                            <div>
+                                <div className="text-xl font-bold text-white">{neynarDisplayName ?? 'Farcaster User'}</div>
+                                {neynarProfile.username && (
+                                    <div className="text-sm text-white/70">@{neynarProfile.username}</div>
+                                )}
+                                {neynarProfile.fid && (
+                                    <div className="text-xs text-white/60">FID {neynarProfile.fid}</div>
+                                )}
+                            </div>
+                        </div>
+                        {neynarProfile.bio && (
+                            <p className="text-sm text-white/80 leading-relaxed whitespace-pre-line">{neynarProfile.bio}</p>
+                        )}
+                    </div>
+                ) : (
+                    <div className="text-sm text-white/70">
+                        {neynarError
+                            ? `Не удалось загрузить профиль Neynar: ${neynarError}`
+                            : p.fid
+                                ? 'Профиль Neynar пока не сохранён. Попробуйте позднее.'
+                                : 'Авторизуйтесь через Farcaster, чтобы увидеть Neynar профиль.'}
+                    </div>
+                )}
+            </div>
 
             {/* Level & XP Card */}
             {gamificationStats && (
@@ -233,8 +363,7 @@ export default function ProfilePage() {
                                     title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
                                 >
                                     <div className="flex items-start gap-3">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                                        <BadgeImage src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
                                         <div className="flex-1">
                                             <div className="font-medium">{b.title}</div>
                                             <div className="text-xs text-white/70">{b.description}</div>
@@ -246,17 +375,62 @@ export default function ProfilePage() {
                                     </div>
                                     <button
                                         onClick={() => mint(b.slug)}
-                                        disabled={loading || busyCode === b.slug || !canMint}
+                                        disabled={loading || busyCode === b.slug || !canMint || !p.wallet}
                                         className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
-                                        title={!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT'}
+                                        title={!p.wallet ? 'Add wallet address first' : (!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT')}
                                     >
-                                        {busyCode === b.slug ? 'Minting…' : st === 'success' ? '✅ Minted' : 'Mint'}
+                                        {busyCode === b.slug ? 'Minting…' : !p.wallet ? 'Add wallet' : (st === 'success' ? '✅ Minted' : 'Mint')}
                                     </button>
                                 </div>
                             );
                         })}
                     </div>
                 )}
+            </section>
+
+            {/* Wallet setup */}
+            <section className="mb-6 bg-white/10 p-4 rounded-lg">
+                <h2 className="text-xl font-semibold mb-3">Wallet</h2>
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+                    <div className="flex-1 w-full">
+                        <label className="text-xs opacity-70">EVM Address</label>
+                        <input
+                            value={walletInput}
+                            onChange={e => setWalletInput(e.target.value)}
+                            placeholder="0x..."
+                            className="mt-1 w-full px-3 py-2 rounded bg-white/5 border border-white/20"
+                        />
+                        {walletError && <div className="text-xs text-red-400 mt-1">{walletError}</div>}
+                    </div>
+                    <button
+                        onClick={async () => {
+                            setWalletError(null);
+                            if (!/^0x[0-9a-fA-F]{40}$/.test(walletInput)) {
+                                setWalletError('Неверный адрес кошелька');
+                                return;
+                            }
+                            setWalletSaving(true);
+                            try {
+                                const r = await fetch('/api/profile/wallet', {
+                                    method: 'POST',
+                                    headers: await authHeaders(),
+                                    body: JSON.stringify({ wallet: walletInput }),
+                                });
+                                const j = await r.json();
+                                if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+                                setP(prev => ({ ...prev, wallet: walletInput }));
+                            } catch (e: any) {
+                                setWalletError(e?.message || 'Ошибка сохранения');
+                            } finally {
+                                setWalletSaving(false);
+                            }
+                        }}
+                        disabled={walletSaving}
+                        className="px-4 py-2 rounded bg-white/20 hover:bg-white/30 transition disabled:opacity-50"
+                    >
+                        {walletSaving ? 'Сохранение...' : 'Сохранить'}
+                    </button>
+                </div>
             </section>
 
             {/* Push Notifications Settings */}

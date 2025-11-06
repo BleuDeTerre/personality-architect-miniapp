@@ -3,11 +3,15 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { sendMint } from '@/lib/zora';
+import { sendMint, validateZoraConfig } from '@/lib/zora';
 import { getBadge } from '@/lib/badges';
 
 export async function POST(req: NextRequest) {
     try {
+        const cfg = validateZoraConfig();
+        if (cfg.ok === false) {
+            return NextResponse.json({ error: 'ZORA_CONFIG_MISSING', missing: cfg.missing }, { status: 500 });
+        }
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
@@ -19,7 +23,7 @@ export async function POST(req: NextRequest) {
         const to = String(b?.to || '').trim();
 
         if (!badge) return NextResponse.json({ error: 'badge_required' }, { status: 400 });
-        
+
         // Если адрес не передан, пытаемся получить из пользователя или из контекста Farcaster
         let mintAddress = to;
         if (!mintAddress || !/^0x[0-9a-fA-F]{40}$/.test(mintAddress)) {
@@ -29,7 +33,7 @@ export async function POST(req: NextRequest) {
                 .select('wallet_address')
                 .eq('id', uid)
                 .maybeSingle();
-            
+
             if (userData?.wallet_address && /^0x[0-9a-fA-F]{40}$/.test(userData.wallet_address)) {
                 mintAddress = userData.wallet_address;
             } else {

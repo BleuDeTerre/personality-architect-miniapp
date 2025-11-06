@@ -2,23 +2,22 @@ export const runtime = 'nodejs';
 // src/app/api/notifications/cron/route.ts
 // Cron job endpoint для отправки push-уведомлений о пропущенных привычках
 // Настройте в Vercel Cron: vercel.json или через Vercel Dashboard
+// ⚠️ Push-уведомления временно отключены (VAPID удалены)
+// TODO: Реализовать Farcaster уведомления через webhookUrl
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import webpush from 'web-push';
+import { isNeynarEnabled, publishNotification } from '@/lib/neynar';
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY! // Используем service role для доступа ко всем данным
 );
 
-// Настройка VAPID для web-push
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
-const VAPID_EMAIL = process.env.VAPID_EMAIL || 'mailto:noreply@personality-architect.app';
-
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-    webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-}
+const PUSH_NOTIFICATIONS_ENABLED = false;
+const NEYNAR_NOTIFICATIONS_ENABLED = isNeynarEnabled();
+const NEYNAR_NOTIFICATION_TARGET_URL =
+    process.env.NEYNAR_NOTIFICATION_TARGET_URL ??
+    (process.env.NEXT_PUBLIC_SITE_URL ? `${process.env.NEXT_PUBLIC_SITE_URL}/habits` : 'https://warpcast.com/~/mini-apps/personality-architect');
 
 export async function GET(req: NextRequest) {
     try {
@@ -48,13 +47,27 @@ export async function GET(req: NextRequest) {
         }
 
         const userIds = [...new Set(subscriptions.map(s => s.user_id))];
-        let notificationsSent = 0;
-        const errors: string[] = [];
+        const { data: users, error: usersErr } = await supabaseAdmin
+            .from('users')
+            .select('id, fid')
+            .in('id', userIds);
 
-        // Для каждого пользователя проверяем пропущенные привычки
+        if (usersErr) {
+            console.error('[Cron] Failed to fetch users for notifications:', usersErr);
+            return NextResponse.json({ error: usersErr.message }, { status: 500 });
+        }
+
+        const usersById = (users || []).reduce((acc: Record<string, { id: string; fid: number | null }>, user: any) => {
+            acc[user.id] = { id: user.id, fid: user.fid ?? null };
+            return acc;
+        }, {});
+        const errors: string[] = [];
+        let neynarNotificationsSent = 0;
+
         for (const userId of userIds) {
+            const user = usersById[userId];
+            if (!user) continue;
             try {
-                // Получаем активные привычки пользователя
                 const { data: habits, error: hErr } = await supabaseAdmin
                     .from('habits')
                     .select('id, title')
@@ -65,7 +78,6 @@ export async function GET(req: NextRequest) {
 
                 const habitIds = habits.map(h => h.id);
 
-                // Получаем логи за сегодня и вчера
                 const { data: logs, error: lErr } = await supabaseAdmin
                     .from('habit_logs')
                     .select('habit_id, date')
@@ -84,62 +96,39 @@ export async function GET(req: NextRequest) {
 
                 if (missedHabits.length === 0) continue;
 
-                // Находим подписки этого пользователя
+                if (NEYNAR_NOTIFICATIONS_ENABLED && user.fid) {
+                    try {
+                        const habitNames = missedHabits.map(h => h.title).filter(Boolean);
+                        const intro = missedHabits.length === 1 ? 'Не забудь привычку' : 'Твои привычки ждут тебя';
+                        const summaryBase = habitNames.slice(0, 2).join(', ');
+                        const extraCount = habitNames.length - 2;
+                        const summary = extraCount > 0 ? `${summaryBase} и ещё ${extraCount}` : summaryBase;
+                        const body = missedHabits.length === 1
+                            ? `Ты пропустил ${habitNames[0] || 'привычку'} сегодня.`
+                            : `Пропущено ${missedHabits.length}: ${summary}.`;
+
+                        await publishNotification({
+                            targetFids: [Number(user.fid)],
+                            title: intro,
+                            body,
+                            targetUrl: NEYNAR_NOTIFICATION_TARGET_URL,
+                        });
+                        neynarNotificationsSent += 1;
+                    } catch (notifErr: any) {
+                        console.error('[Cron] Neynar notification failed', notifErr);
+                        errors.push(`Neynar user ${userId}: ${notifErr?.message || 'error'}`);
+                    }
+                }
+
                 const userSubscriptions = subscriptions.filter(s => s.user_id === userId);
 
-                // Отправляем уведомление каждой подписке пользователя
                 for (const sub of userSubscriptions) {
                     try {
-                        // Формируем текст уведомления
-                        const habitsText = missedHabits.length === 1
-                            ? missedHabits[0].title
-                            : missedHabits.length <= 3
-                                ? missedHabits.map(h => h.title).join(', ')
-                                : `${missedHabits.slice(0, 2).map(h => h.title).join(', ')} и еще ${missedHabits.length - 2}`;
-
-                        const bodyText = missedHabits.length === 1
-                            ? `Вы пропустили: ${habitsText}`
-                            : `У вас ${missedHabits.length} пропущенных привычек: ${habitsText}`;
-
-                        const payload = JSON.stringify({
-                            title: 'Пропущенные привычки',
-                            body: bodyText,
-                            icon: '/icon-192.png',
-                            badge: '/icon-192.png',
-                            tag: 'missed-habits',
-                            data: { url: '/habits' },
-                        });
-
-                        // Отправляем push-уведомление
-                        if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-                            await webpush.sendNotification(
-                                {
-                                    endpoint: sub.endpoint,
-                                    keys: {
-                                        p256dh: sub.keys.p256dh,
-                                        auth: sub.keys.auth,
-                                    },
-                                },
-                                payload
-                            );
-                            notificationsSent++;
-                        } else {
-                            console.warn('[Cron] VAPID keys not configured, skipping push notification');
-                            errors.push('VAPID keys not configured');
+                        if (!PUSH_NOTIFICATIONS_ENABLED) {
+                            continue;
                         }
                     } catch (e: any) {
-                        // Удаляем невалидные подписки (410 Gone)
-                        if (e.statusCode === 410 || e.statusCode === 404) {
-                            try {
-                                await supabaseAdmin
-                                    .from('push_subscriptions')
-                                    .delete()
-                                    .eq('endpoint', sub.endpoint);
-                                console.log(`[Cron] Removed invalid subscription: ${sub.endpoint}`);
-                            } catch (deleteErr) {
-                                console.error('[Cron] Failed to remove invalid subscription:', deleteErr);
-                            }
-                        }
+                        console.error(`[Cron] Error processing subscription ${sub.endpoint}:`, e);
                         errors.push(`Subscription ${sub.endpoint}: ${e?.message || 'error'}`);
                     }
                 }
@@ -153,9 +142,11 @@ export async function GET(req: NextRequest) {
             date: today,
             subscriptions_checked: subscriptions.length,
             users_checked: userIds.length,
-            notifications_sent: notificationsSent,
-            vapid_configured: !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY),
-            errors: errors.length > 0 ? errors.slice(0, 10) : undefined, // Ограничиваем количество ошибок в ответе
+            notifications_sent: neynarNotificationsSent,
+            push_notifications_enabled: PUSH_NOTIFICATIONS_ENABLED,
+            neynar_notifications_enabled: NEYNAR_NOTIFICATIONS_ENABLED,
+            note: PUSH_NOTIFICATIONS_ENABLED ? null : 'Web push notifications are disabled; using Neynar if available.',
+            errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
             error_count: errors.length,
         });
     } catch (e: any) {

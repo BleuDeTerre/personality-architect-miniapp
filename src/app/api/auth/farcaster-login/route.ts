@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
+import { getUserProfile, isNeynarEnabled } from '@/lib/neynar';
 
 // Admin client (service role). Server env only.
 const admin = createServiceClient();
@@ -31,6 +32,12 @@ export async function POST(req: NextRequest) {
         const body = await req.json().catch(() => ({}));
         const fid = parseFid(body?.fid);
 
+        // 0) попытка получить профиль Neynar (не критично для логина)
+        let neynarProfile = null as Awaited<ReturnType<typeof getUserProfile>> | null;
+        if (isNeynarEnabled()) {
+            neynarProfile = await getUserProfile(fid);
+        }
+
         // 1) lookup by fid
         const { data: existingUser, error: qErr } = await admin
             .from('users')
@@ -42,12 +49,20 @@ export async function POST(req: NextRequest) {
         let userId = existingUser?.id;
         const email = existingUser?.email ?? `farcaster-${fid}@example.com`;
 
+        const baseMetadata: Record<string, any> = {
+            fid,
+            neynar_username: neynarProfile?.username ?? null,
+            neynar_display_name: neynarProfile?.displayName ?? null,
+            neynar_pfp_url: neynarProfile?.pfpUrl ?? null,
+            neynar_profile: neynarProfile,
+        };
+
         // 2) create auth user + row in users if absent
         if (!userId) {
             const { data: authUser, error: authError } = await admin.auth.admin.createUser({
                 email,
                 email_confirm: true,
-                user_metadata: { fid },
+                user_metadata: baseMetadata,
             });
             if (authError) throw authError;
             userId = authUser.user.id;
@@ -57,6 +72,40 @@ export async function POST(req: NextRequest) {
                 .insert({ id: userId, fid, email })
                 .single();
             if (insErr) throw insErr;
+        } else {
+            // обновляем metadata для существующего пользователя
+            const { data: existingAuth } = await admin.auth.admin.getUserById(userId);
+            const mergedMetadata = {
+                ...(existingAuth?.user?.user_metadata ?? {}),
+                ...baseMetadata,
+            };
+            await admin.auth.admin.updateUserById(userId, {
+                user_metadata: mergedMetadata,
+            } as any);
+        }
+
+        // 2.5) сохранить профиль Neynar в таблице farcaster_profiles (если доступно)
+        if (userId && neynarProfile) {
+            try {
+                await admin
+                    .from('farcaster_profiles')
+                    .upsert(
+                        {
+                            user_id: userId,
+                            fid,
+                            username: neynarProfile.username ?? null,
+                            display_name: neynarProfile.displayName ?? null,
+                            pfp_url: neynarProfile.pfpUrl ?? null,
+                            bio: neynarProfile.bio ?? null,
+                            follower_count: neynarProfile.followerCount ?? null,
+                            following_count: neynarProfile.followingCount ?? null,
+                            updated_at: new Date().toISOString(),
+                        },
+                        { onConflict: 'user_id' }
+                    );
+            } catch (profileErr) {
+                console.error('[Neynar] Failed to upsert profile:', profileErr);
+            }
         }
 
         // 3) magic link and optional access_token
@@ -71,6 +120,7 @@ export async function POST(req: NextRequest) {
             user_id: userId,
             access_token: accessToken,
             magiclink: (linkData as any)?.properties?.action_link ?? null,
+            neynar_profile: neynarProfile,
         });
     } catch (err: any) {
         return NextResponse.json({ error: err?.message ?? 'internal' }, { status: 500 });

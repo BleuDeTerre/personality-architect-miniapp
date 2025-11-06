@@ -15,20 +15,55 @@ function getOrigin(req: NextRequest) {
     return `${url.protocol}//${url.host}`;
 }
 
+const DEFAULT_IMAGES: Record<string, string> = {
+    monthly: '/share/images/monthly.png',
+    weekly: '/share/images/weekly.png',
+    habit: '/share/images/habit.png',
+    streaks: '/share/images/streaks.png',
+};
+
 export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const origin = getOrigin(req);
 
-    const kind = url.searchParams.get('kind') ?? 'monthly';
+    const kind = url.searchParams.get('kind') ?? 'streaks';
     const month = url.searchParams.get('month') ?? '';
     const title = url.searchParams.get('title') ?? 'Habit Insight';
-    const image = url.searchParams.get('image') ?? `${origin}/share/images/${kind}.png`;
+    const highlight = url.searchParams.get('highlight') ?? '';
+    const streak = url.searchParams.get('streak');
+    const remaining = url.searchParams.get('remaining');
+    const descriptionParam = url.searchParams.get('description');
+    const imageOverride = url.searchParams.get('image');
+
+    const defaultImage = DEFAULT_IMAGES[kind] ?? DEFAULT_IMAGES.streaks;
+    const image = imageOverride ? imageOverride : `${origin}${defaultImage}`;
+
+    const description = (() => {
+        if (descriptionParam) return descriptionParam;
+        if (kind === 'streaks') {
+            if (highlight === 'current' && streak) {
+                return `Current streak: ${streak} day${Number(streak) === 1 ? '' : 's'}`;
+            }
+            if (highlight === 'best' && streak) {
+                return `Best streak so far: ${streak} day${Number(streak) === 1 ? '' : 's'}`;
+            }
+            if (highlight === 'goal' && remaining) {
+                return `${remaining} day${Number(remaining) === 1 ? '' : 's'} until the next streak badge.`;
+            }
+        }
+        if (kind === 'monthly' && month) {
+            return `Highlights for ${month}`;
+        }
+        return 'Keep up your progress with Personality Architect!';
+    })();
 
     const actionUrl = (() => {
+        if (url.searchParams.get('target')) return url.searchParams.get('target')!;
         if (kind === 'monthly' && month)
             return `${origin}/insight/monthly?month=${encodeURIComponent(month)}`;
         if (kind === 'weekly') return `${origin}/insight/weekly`;
         if (kind === 'habit') return `${origin}/insight/habit`;
+        if (kind === 'streaks' && highlight === 'goal') return `${origin}/streaks`;
         return origin;
     })();
 
@@ -63,16 +98,20 @@ export async function GET(req: NextRequest) {
   <!-- OpenGraph -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="${escapeAttr(title)}" />
+  <meta property="og:description" content="${escapeAttr(description)}" />
   <meta property="og:image" content="${escapeAttr(image)}" />
   <meta property="og:url" content="${escapeAttr(actionUrl)}" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeAttr(title)}" />
+  <meta name="twitter:description" content="${escapeAttr(description)}" />
+  <meta name="twitter:image" content="${escapeAttr(image)}" />
 </head>
 <body>
   <main style="font-family:system-ui;padding:24px;">
     <h1 style="margin:0 0 8px 0;">${escapeAttr(title)}</h1>
-    <p style="margin:0;color:#666">Preview for Farcaster clients.</p>
+    <p style="margin:0;color:#666">${escapeAttr(description)}</p>
   </main>
 </body>
 </html>`;

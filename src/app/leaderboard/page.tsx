@@ -9,12 +9,24 @@ const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+type LeaderboardNeynarProfile = {
+    fid: number | null;
+    username: string | null;
+    display_name: string | null;
+    pfp_url: string | null;
+    bio: string | null;
+    follower_count: number | null;
+    following_count: number | null;
+    updated_at: string | null;
+};
+
 type LeaderboardEntry = {
     user_id: string;
     fid: number | null;
     current_streak: number;
     best_streak: number;
     total_logs: number;
+    neynar_profile: LeaderboardNeynarProfile | null;
 };
 
 export default function LeaderboardPage() {
@@ -118,41 +130,70 @@ export default function LeaderboardPage() {
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {entries.map((entry, idx) => (
-                        <div
-                            key={entry.user_id}
-                            className={`border rounded-lg p-4 transition ${entry.user_id === myUserId
-                                ? 'bg-[#1A1B2E] border-[#8B5CF6] shadow-lg'
-                                : 'bg-[#121420] border-[#2A2B3E]'
-                                }`}
-                        >
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-2xl">{getPositionEmoji(idx)}</span>
-                                    <div>
-                                        <div className="font-semibold text-[#E9ECF1]">
-                                            {entry.user_id === myUserId ? '⭐ You' : `User #${entry.fid || '?'}`}
+                    {entries.map((entry, idx) => {
+                        const name = entry.neynar_profile?.display_name
+                            ?? entry.neynar_profile?.username
+                            ?? (entry.fid ? `FID ${entry.fid}` : 'Anonymous');
+                        const handle = entry.neynar_profile?.username ? `@${entry.neynar_profile.username}` : null;
+                        const avatar = entry.neynar_profile?.pfp_url ?? null;
+                        const updatedAt = entry.neynar_profile?.updated_at
+                            ? new Date(entry.neynar_profile.updated_at).toLocaleDateString()
+                            : null;
+
+                        return (
+                            <div
+                                key={entry.user_id}
+                                className={`border rounded-lg p-4 transition ${entry.user_id === myUserId
+                                    ? 'bg-[#1A1B2E] border-[#8B5CF6] shadow-lg'
+                                    : 'bg-[#121420] border-[#2A2B3E]'
+                                    }`}
+                            >
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-start gap-3">
+                                        <span className="text-2xl mt-1">{getPositionEmoji(idx)}</span>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 rounded-full bg-[#2A2B3E] flex items-center justify-center overflow-hidden text-lg">
+                                                {avatar ? (
+                                                    <img src={avatar} alt={name} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    name.slice(0, 2).toUpperCase()
+                                                )}
+                                            </div>
+                                            <div>
+                                                <div className="font-semibold text-[#E9ECF1]">
+                                                    {entry.user_id === myUserId ? '⭐ You' : name}
+                                                </div>
+                                                {handle && entry.user_id !== myUserId && (
+                                                    <div className="text-xs text-[#AAB1C2]">{handle}</div>
+                                                )}
+                                                {entry.fid && (
+                                                    <div className="text-xs text-[#AAB1C2] mt-1">FID {entry.fid}</div>
+                                                )}
+                                                {updatedAt && (
+                                                    <div className="text-[10px] text-[#5B6785] mt-1">Profile updated {updatedAt}</div>
+                                                )}
+                                            </div>
                                         </div>
-                                        {entry.user_id === myUserId && (
-                                            <div className="text-xs text-[#8B5CF6] mt-1">Your position</div>
-                                        )}
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-lg font-bold text-[#2BD4A4]">{entry.best_streak}</div>
+                                        <div className="text-xs text-[#AAB1C2]">best streak</div>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <div className="text-lg font-bold text-[#2BD4A4]">{entry.best_streak}</div>
-                                    <div className="text-xs text-[#AAB1C2]">best streak</div>
+                                <div className="flex gap-4 mt-3 text-sm text-[#AAB1C2]">
+                                    <div>
+                                        <span className="text-[#8B5CF6]">{entry.current_streak}</span> current
+                                    </div>
+                                    <div>
+                                        <span className="text-[#2BD4A4]">{entry.total_logs}</span> total logs
+                                    </div>
                                 </div>
+                                {entry.user_id === myUserId && (
+                                    <div className="text-xs text-[#8B5CF6] mt-3">Your position</div>
+                                )}
                             </div>
-                            <div className="flex gap-4 mt-3 text-sm text-[#AAB1C2]">
-                                <div>
-                                    <span className="text-[#8B5CF6]">{entry.current_streak}</span> current
-                                </div>
-                                <div>
-                                    <span className="text-[#2BD4A4]">{entry.total_logs}</span> total logs
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>

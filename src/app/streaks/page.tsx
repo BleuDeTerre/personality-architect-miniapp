@@ -19,6 +19,7 @@ export default function StreaksPage() {
     const [logs, setLogs] = useState<Log[]>([]);
     const [stats, setStats] = useState<Stats>({ current_streak: 0, best_streak: 0, last_completed: null });
     const [loading, setLoading] = useState(false);
+    const [shareLoading, setShareLoading] = useState<string | null>(null);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -116,6 +117,48 @@ export default function StreaksPage() {
         return next ? next - streak : null;
     }, [stats.current_streak]);
 
+    const shareOptions = useMemo(() => {
+        const options: Array<{
+            key: string;
+            label: string;
+            enabled: boolean;
+            text: string;
+            title: string;
+            previewParams?: Record<string, string>;
+        }> = [];
+        if (stats.current_streak > 0) {
+            options.push({
+                key: 'current',
+                label: `Share current streak (${stats.current_streak} days)`,
+                enabled: true,
+                text: `🔥 I've kept my habit streak going for ${stats.current_streak} days straight!`,
+                title: 'Current Streak Progress',
+                previewParams: { highlight: 'current', streak: String(stats.current_streak) },
+            });
+        }
+        if (stats.best_streak > 0) {
+            options.push({
+                key: 'best',
+                label: `Share best streak (${stats.best_streak} days)`,
+                enabled: true,
+                text: `🏆 My best streak so far is ${stats.best_streak} days — pushing for a new record!`,
+                title: 'Best Streak Highlight',
+                previewParams: { highlight: 'best', streak: String(stats.best_streak) },
+            });
+        }
+        if (nextBadgeDays !== null) {
+            options.push({
+                key: 'goal',
+                label: `Share goal (${nextBadgeDays} days to next badge)`,
+                enabled: true,
+                text: `🎯 ${nextBadgeDays} more day${nextBadgeDays === 1 ? '' : 's'} until my next streak badge!`,
+                title: 'Streak Goal',
+                previewParams: { highlight: 'goal', remaining: String(nextBadgeDays) },
+            });
+        }
+        return options;
+    }, [stats.current_streak, stats.best_streak, nextBadgeDays]);
+
     const filteredDays = useMemo(() => {
         // Показываем последние 365 дней сгруппированные по неделям
         const weeks: string[][] = [];
@@ -141,25 +184,43 @@ export default function StreaksPage() {
     }, [days]);
 
     // Share to Farcaster
-    async function shareToFarcaster() {
-        if (!stats.current_streak && !stats.best_streak) {
-            alert('Complete some habits to share!');
+    async function shareToFarcaster(optionKey: string) {
+        const option = shareOptions.find(o => o.key === optionKey && o.enabled);
+        if (!option) {
+            alert('Nothing to share yet!');
             return;
         }
         try {
+            setShareLoading(optionKey);
             const hdrs = await authHeaders();
-            const qs = new URLSearchParams({
-                kind: 'streaks',
-                text: `🔥 I've maintained a ${stats.current_streak}-day streak! Best: ${stats.best_streak} days.`,
-                title: 'My Streaks Progress',
+            const res = await fetch('/api/share/cast', {
+                method: 'POST',
+                headers: hdrs,
+                body: JSON.stringify({
+                    kind: 'streaks',
+                    title: option.title,
+                    text: option.text,
+                    previewParams: option.previewParams,
+                }),
             });
-            const r = await fetch(`/api/share/link?${qs.toString()}`, { headers: hdrs });
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            const { url } = await r.json();
-            window.open(url, '_blank', 'noopener,noreferrer');
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                if (data?.fallback) {
+                    window.open(data.fallback, '_blank', 'noopener,noreferrer');
+                    return;
+                }
+                throw new Error(data?.error || `HTTP ${res.status}`);
+            }
+            if (data?.castUrl) {
+                window.open(data.castUrl, '_blank', 'noopener,noreferrer');
+            } else {
+                alert('Cast published!');
+            }
         } catch (e) {
             console.error('Failed to share:', e);
-            alert('Failed to open share dialog');
+            alert('Failed to publish the cast');
+        } finally {
+            setShareLoading(null);
         }
     }
 
@@ -167,13 +228,19 @@ export default function StreaksPage() {
         <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-6 max-w-6xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-[#E9ECF1]">Streaks Analytics</h1>
-                {!loading && (stats.current_streak > 0 || stats.best_streak > 0) && (
-                    <button
-                        onClick={shareToFarcaster}
-                        className="bg-[#8B5CF6] hover:bg-[#6D28D9] text-white px-4 py-2 rounded-lg transition flex items-center gap-2"
-                    >
-                        <span>🎉 Share</span>
-                    </button>
+                {!loading && shareOptions.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        {shareOptions.map(option => (
+                            <button
+                                key={option.key}
+                                onClick={() => shareToFarcaster(option.key)}
+                                disabled={shareLoading !== null}
+                                className="bg-[#8B5CF6] hover:bg-[#6D28D9] text-white px-4 py-2 rounded-lg transition flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                                <span>{shareLoading === option.key ? 'Sending…' : option.label}</span>
+                            </button>
+                        ))}
+                    </div>
                 )}
             </div>
 
