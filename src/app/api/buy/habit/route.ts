@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-        const { id: userId } = await requireUserFromReq(req);
+        await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
         // 2) Парсим тело

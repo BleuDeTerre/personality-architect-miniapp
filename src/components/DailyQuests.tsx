@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { generateDailyQuests, calculateQuestProgress, type DailyQuest } from '@/lib/daily-quests';
+import { calculateQuestProgress, type DailyQuest } from '@/lib/daily-quests';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -71,11 +71,10 @@ export default function DailyQuests() {
                     return (
                         <div
                             key={quest.id}
-                            className={`p-3 rounded-lg border ${
-                                quest.completed
+                            className={`p-3 rounded-lg border ${quest.completed
                                     ? 'bg-green-900/20 border-green-500/50'
                                     : 'bg-[#121420] border-[#2A2B3E]'
-                            }`}
+                                }`}
                         >
                             <div className="flex items-start gap-3">
                                 <span className="text-2xl">{quest.icon}</span>
@@ -96,11 +95,10 @@ export default function DailyQuests() {
                                         </div>
                                         <div className="h-2 bg-[#2A2B3E] rounded-full overflow-hidden">
                                             <div
-                                                className={`h-full transition-all ${
-                                                    quest.completed
+                                                className={`h-full transition-all ${quest.completed
                                                         ? 'bg-green-500'
                                                         : 'bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA]'
-                                                }`}
+                                                    }`}
                                                 style={{ width: `${progress}%` }}
                                             ></div>
                                         </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { BADGE_PLACEHOLDER_IMAGE } from '@/lib/badges';
 
 interface BadgeImageProps {
@@ -26,12 +27,14 @@ export default function BadgeImage({ src, alt, className = '' }: BadgeImageProps
     };
 
     return (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
             src={imgSrc}
             alt={alt}
             className={className}
+            width={256}
+            height={256}
             onError={handleError}
+            unoptimized
         />
     );
 }

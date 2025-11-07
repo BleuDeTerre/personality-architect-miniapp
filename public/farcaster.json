@@ -1,0 +1,11 @@
+{
+    "frame": {
+        "url": "https://personality-architect-miniapp.vercel.app/api/share/preview",
+        "name": "Personality Architect"
+    },
+    "miniapp": {
+        "url": "https://personality-architect-miniapp.vercel.app/",
+        "title": "Personality Architect",
+        "description": "Build better habits, track your progress, achieve your goals"
+    }
+}

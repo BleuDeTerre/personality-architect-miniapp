@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
             weeklyCompleted,
             totalXP, // Добавляем общий XP
         });
-    } catch (e: any) {
+    } catch {
         return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     }
 }

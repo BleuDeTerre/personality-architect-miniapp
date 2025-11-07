@@ -3,7 +3,6 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
-import { createUserServerClient } from '@/lib/supabase';
 
 // Конфиг пакетов Pro
 const PACKS = {
@@ -20,8 +19,7 @@ export async function POST(req: NextRequest) {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-        const { id: userId } = await requireUserFromReq(req);
-        const supa = createUserServerClient(token);
+        await requireUserFromReq(req);
 
         // 2. Разбор тела
         const body = await req.json().catch(() => ({}));

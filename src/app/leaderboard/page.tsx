@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -152,9 +153,16 @@ export default function LeaderboardPage() {
                                     <div className="flex items-start gap-3">
                                         <span className="text-2xl mt-1">{getPositionEmoji(idx)}</span>
                                         <div className="flex items-center gap-3">
-                                            <div className="w-12 h-12 rounded-full bg-[#2A2B3E] flex items-center justify-center overflow-hidden text-lg">
+                                            <div className="w-12 h-12 rounded-full bg-[#2A2B3E] flex items-center justify-center overflow-hidden text-lg relative">
                                                 {avatar ? (
-                                                    <img src={avatar} alt={name} className="w-full h-full object-cover" />
+                                                    <Image
+                                                        src={avatar}
+                                                        alt={name}
+                                                        className="object-cover"
+                                                        fill
+                                                        sizes="48px"
+                                                        unoptimized
+                                                    />
                                                 ) : (
                                                     name.slice(0, 2).toUpperCase()
                                                 )}

@@ -33,7 +33,6 @@ export async function GET(req: NextRequest) {
         const totalLogs = logsRes.data?.length || 0;
         const streakData = Array.isArray(statsRes.data) ? statsRes.data[0] : { best_streak: 0, current_streak: 0 };
         const bestStreak = streakData?.best_streak || 0;
-        const currentStreak = streakData?.current_streak || 0;
         const shares = eventsRes.data?.length || 0;
 
         // Проверка perfect_week и perfect_month

@@ -12,24 +12,25 @@ export type DailyQuest = {
     xpReward: number;
 };
 
-export type DailyQuestType =
-    | 'complete_habits'
-    | 'maintain_streak'
-    | 'log_habits'
-    | 'create_habit'
-    | 'wheel_update';
+export function calculateQuestProgress(quest: DailyQuest): number {
+    return Math.min(100, (quest.current / quest.target) * 100);
+}
 
-export function generateDailyQuests(
-    stats: {
-        totalHabits: number;
-        completedToday: number;
-        currentStreak: number;
-        logsToday: number;
-    }
-): DailyQuest[] {
+export function getTotalQuestXP(quests: DailyQuest[]): number {
+    return quests
+        .filter(q => q.completed)
+        .reduce((sum, q) => sum + q.xpReward, 0);
+}
+
+export function generateDailyQuests(stats: {
+    totalHabits: number;
+    completedToday: number;
+    currentStreak: number;
+    logsToday: number;
+}): DailyQuest[] {
     const quests: DailyQuest[] = [];
 
-    // Квест 1: Выполнить N привычек сегодня
+    // Квест 1: выполнить N привычек сегодня
     const targetComplete = Math.max(3, Math.ceil(stats.totalHabits * 0.5));
     quests.push({
         id: 'complete_habits',
@@ -42,7 +43,7 @@ export function generateDailyQuests(
         xpReward: targetComplete * 5,
     });
 
-    // Квест 2: Поддержать streak
+    // Квест 2: поддержать streak
     if (stats.currentStreak > 0) {
         quests.push({
             id: 'maintain_streak',
@@ -56,30 +57,21 @@ export function generateDailyQuests(
         });
     }
 
-    // Квест 3: Записать логи
+    // Квест 3: записать логи
     if (stats.totalHabits > 0) {
+        const targetLogs = Math.min(5, stats.totalHabits);
         quests.push({
             id: 'log_habits',
             title: 'Активность дня',
-            description: `Запишите ${Math.min(5, stats.totalHabits)} привычек сегодня`,
+            description: `Запишите ${targetLogs} привычек сегодня`,
             icon: '📝',
-            target: Math.min(5, stats.totalHabits),
+            target: targetLogs,
             current: stats.logsToday,
-            completed: stats.logsToday >= Math.min(5, stats.totalHabits),
-            xpReward: Math.min(5, stats.totalHabits) * 3,
+            completed: stats.logsToday >= targetLogs,
+            xpReward: targetLogs * 3,
         });
     }
 
     return quests;
-}
-
-export function calculateQuestProgress(quest: DailyQuest): number {
-    return Math.min(100, (quest.current / quest.target) * 100);
-}
-
-export function getTotalQuestXP(quests: DailyQuest[]): number {
-    return quests
-        .filter(q => q.completed)
-        .reduce((sum, q) => sum + q.xpReward, 0);
 }
 

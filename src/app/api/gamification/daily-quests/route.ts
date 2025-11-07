@@ -4,7 +4,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { generateDailyQuests } from '@/lib/daily-quests';
+import { generateDailyQuests, type DailyQuest } from '@/lib/daily-quests';
 
 function todayUTC(): string {
     const d = new Date();
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
         const streakData = Array.isArray(statsRes.data) ? statsRes.data[0] : { current_streak: 0 };
         const currentStreak = streakData?.current_streak || 0;
 
-        const quests = generateDailyQuests({
+        const quests: DailyQuest[] = generateDailyQuests({
             totalHabits,
             completedToday,
             currentStreak,

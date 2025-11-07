@@ -19,12 +19,12 @@ export async function GET(req: NextRequest) {
         const supa = createUserServerClient(token);
 
         const today = new Date().toISOString().slice(0, 10);
-        const lastWeek = addDaysISO(today, -7);
-        const weekBefore = addDaysISO(today, -14);
 
         // Это неделя и неделя до того
         const thisWeekStart = addDaysISO(today, -(new Date().getDay() || 7));
         const lastWeekStart = addDaysISO(thisWeekStart, -7);
+        const thisWeekEnd = addDaysISO(today, -1);
+        const lastWeekEnd = addDaysISO(thisWeekStart, -1);
 
         // Получаем логи для текущей и прошлой недели
         const { data: logsThisWeek } = await supa
@@ -77,10 +77,18 @@ export async function GET(req: NextRequest) {
                 active_days: thisWeekDays,
                 avg_streak: avgStreak,
                 max_streak: maxStreak,
+                range: {
+                    start: thisWeekStart,
+                    end: thisWeekEnd,
+                },
             },
             last_week: {
                 completed_total: lastWeekCount,
                 active_days: lastWeekDays,
+                range: {
+                    start: lastWeekStart,
+                    end: lastWeekEnd,
+                },
             },
             comparison: {
                 percent_change: percentChange,

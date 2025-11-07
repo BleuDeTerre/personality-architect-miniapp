@@ -1,8 +1,8 @@
-// eslint-disable @typescript-eslint/no-explicit-any
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import Image from 'next/image';
+import { createClient, type PostgrestError } from '@supabase/supabase-js';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { BADGES } from '@/lib/badges';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
@@ -36,10 +36,40 @@ type NeynarProfile = {
     updatedAt: string | null;
 };
 
+type FarcasterProfileRow = {
+    user_id: string;
+    fid: number | null;
+    username: string | null;
+    display_name: string | null;
+    pfp_url: string | null;
+    bio: string | null;
+    follower_count: number | null;
+    following_count: number | null;
+    updated_at: string | null;
+};
+
+type FrameContextUser = {
+    fid?: number | null;
+    custodyAddress?: string | null;
+    walletAddress?: string | null;
+};
+
+type FrameContext = {
+    user?: FrameContextUser | null;
+};
+
+type MiniAppContext = {
+    getFrameContext?: () => Promise<FrameContext | null>;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 export default function ProfilePage() {
     // SDK debug
-    const [ctx, setCtx] = useState<any>(null);
-    const [authView, setAuthView] = useState<any>(null);
+    const [ctx, setCtx] = useState<FrameContext | null>(null);
+    const [authView, setAuthView] = useState<Record<string, unknown> | null>(null);
 
     // Profile
     const [p, setP] = useState<Profile>({
@@ -105,15 +135,25 @@ export default function ProfilePage() {
         setNeynarLoading(true);
         setNeynarError(null);
         try {
-            let query = supabase
-                .from('farcaster_profiles')
-                .select('fid, username, display_name, pfp_url, bio, follower_count, following_count, updated_at');
+            let response: { data: FarcasterProfileRow | null; error: PostgrestError | null } = { data: null, error: null };
+
+            const baseSelect = 'user_id, fid, username, display_name, pfp_url, bio, follower_count, following_count, updated_at';
+
             if (userId) {
-                query = query.eq('user_id', userId);
+                response = await supabase
+                    .from('farcaster_profiles')
+                    .select(baseSelect)
+                    .eq('user_id', userId)
+                    .maybeSingle<FarcasterProfileRow>();
             } else if (fid) {
-                query = query.eq('fid', fid);
+                response = await supabase
+                    .from('farcaster_profiles')
+                    .select(baseSelect)
+                    .eq('fid', fid)
+                    .maybeSingle<FarcasterProfileRow>();
             }
-            const { data, error } = await (query as any).maybeSingle();
+
+            const { data, error } = response;
             if (error) throw error;
             if (!data) {
                 setNeynarProfile(null);
@@ -129,10 +169,11 @@ export default function ProfilePage() {
                 followingCount: data.following_count ?? null,
                 updatedAt: data.updated_at ?? null,
             });
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('[Neynar] Failed to load profile', err);
+            const message = err instanceof Error ? err.message : 'Failed to load profile';
             setNeynarProfile(null);
-            setNeynarError(err?.message ?? 'Failed to load profile');
+            setNeynarError(message);
         } finally {
             setNeynarLoading(false);
         }
@@ -142,14 +183,19 @@ export default function ProfilePage() {
     useEffect(() => {
         (async () => {
             try { await sdk.actions.ready(); } catch { /* noop */ }
-            const frame = await (sdk.context as any).getFrameContext?.().catch?.(() => null) ?? null;
+            let frame: FrameContext | null = null;
+            const rawContext = sdk.context as unknown;
+            if (rawContext && typeof rawContext === 'object') {
+                const miniAppContext = rawContext as MiniAppContext;
+                if (typeof miniAppContext.getFrameContext === 'function') {
+                    frame = await miniAppContext.getFrameContext().catch(() => null);
+                }
+            }
+
             setCtx(frame);
 
             const fid = frame?.user?.fid ?? null;
-            const wallet =
-                (frame as any)?.user?.custodyAddress ??
-                (frame as any)?.user?.walletAddress ??
-                null;
+            const wallet = frame?.user?.custodyAddress ?? frame?.user?.walletAddress ?? null;
 
             // Supabase session
             let { data } = await supabase.auth.getUser();
@@ -217,15 +263,20 @@ export default function ProfilePage() {
     const signin = async () => {
         try {
             const res = await sdk.actions.signIn({ nonce: Math.random().toString(36).slice(2) });
-            setAuthView(res);
-        } catch (e) { console.error(e); }
+            setAuthView(isRecord(res) ? res : { value: res });
+        } catch (error) {
+            console.error(error);
+        }
     };
 
     // Calculate XP and level - используем totalXP из таблицы xp_events, если доступен
     const xp = gamificationStats?.totalXP ?? (gamificationStats ? calculateXP(gamificationStats) : 0);
     const level = calculateLevel(xp);
     const progress = getLevelProgress(xp, level);
-    const nextLevelXP = xpForNextLevel(level);
+    const xpGap = xpForNextLevel(level);
+    const xpForCurrentLevel = (level ** 2) * 100;
+    const xpInCurrentLevel = Math.max(xp - xpForCurrentLevel, 0);
+    const xpRemaining = Math.max(xpGap - xpInCurrentLevel, 0);
     const levelName = getLevelName(level);
     const levelColor = getLevelColor(level);
 
@@ -260,12 +311,15 @@ export default function ProfilePage() {
                 ) : neynarProfile ? (
                     <div className="space-y-4">
                         <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-full overflow-hidden bg-white/20 flex items-center justify-center text-2xl font-semibold text-white/80">
+                            <div className="w-16 h-16 rounded-full overflow-hidden bg-white/20 flex items-center justify-center text-2xl font-semibold text-white/80 relative">
                                 {neynarProfile.pfpUrl ? (
-                                    <img
+                                    <Image
                                         src={neynarProfile.pfpUrl}
                                         alt={neynarDisplayName ?? 'Farcaster user'}
-                                        className="w-full h-full object-cover"
+                                        className="object-cover"
+                                        fill
+                                        sizes="64px"
+                                        unoptimized
                                     />
                                 ) : (
                                     neynarInitials
@@ -319,6 +373,14 @@ export default function ProfilePage() {
                                 className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] transition-all duration-300"
                                 style={{ width: `${progress}%` }}
                             ></div>
+                        </div>
+                        <div className="flex justify-between text-xs text-white/70">
+                            <span>
+                                {xpRemaining > 0
+                                    ? `Осталось ${xpRemaining.toLocaleString()} XP`
+                                    : `Готов к уровню ${level + 1}!`}
+                            </span>
+                            <span>{((level + 1) ** 2 * 100).toLocaleString()} XP всего</span>
                         </div>
                     </div>
                 </div>
@@ -419,8 +481,9 @@ export default function ProfilePage() {
                                 const j = await r.json();
                                 if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
                                 setP(prev => ({ ...prev, wallet: walletInput }));
-                            } catch (e: any) {
-                                setWalletError(e?.message || 'Ошибка сохранения');
+                            } catch (error) {
+                                const message = error instanceof Error ? error.message : 'Ошибка сохранения';
+                                setWalletError(message);
                             } finally {
                                 setWalletSaving(false);
                             }
@@ -520,11 +583,16 @@ export default function ProfilePage() {
 }
 
 // Info card
-function Info({ label, value, mono = false }: { label: string; value: any; mono?: boolean }) {
+function Info({ label, value, mono = false }: { label: string; value: ReactNode; mono?: boolean }) {
+    const content =
+        typeof value === 'string' || typeof value === 'number'
+            ? value
+            : value ?? '—';
+
     return (
         <div className="border border-white/30 rounded-lg p-3 bg-white/10">
             <div className="text-xs text-white/80">{label}</div>
-            <div className={mono ? 'font-mono break-all' : ''}>{String(value)}</div>
+            <div className={mono ? 'font-mono break-all' : ''}>{content}</div>
         </div>
     );
 }

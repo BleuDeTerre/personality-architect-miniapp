@@ -18,7 +18,6 @@
 - ✅ **Advanced Analytics** - correlations, predictive, comparative
 - ✅ **Subscription Plans** - Free/Pro/Premium tiers
 - ✅ **Dashboard** - главная страница с навигацией
-
 ### 🤖 AI Features
 - ✅ AI Insights (habit, weekly, monthly)
 - ✅ Coach recommendations на основе Wheel of Life trends
@@ -26,7 +25,6 @@
 - ✅ Real OpenAI integration для всех insights
 - ✅ Habit correlations analysis
 - ✅ Predictive risk analysis
-
 ### 💳 Payments & Credits
 - ✅ X402 integration (base-sepolia/base mainnet)
 - ✅ Pay-per-use модель
@@ -64,33 +62,6 @@
 
 ---
 
-## 📝 Technical Notes
-
-### Database
-- Все необходимые таблицы созданы и работают
-- RPC функции для analytics и streaks
-- Badge eligibility rules реализованы
-- Таблица xp_events для истории XP
-- Таблица push_subscriptions для push-уведомлений
-
-### Backend
-- X402 payment middleware работает
-- OpenAI integration настроена
-- Supabase RPC для всех операций
-- Gamification система (XP бонусы, достижения, уровни)
-- Vercel Cron для автоматических задач (проверка пропущенных привычек)
-- ⚠️ Push notifications система отключена (VAPID удалены, будет реализована через Farcaster webhooks)
-
-### Frontend
-- Dashboard с навигацией ✅
-- Responsive design базовый ✅
-- Dark mode настроен - Farcaster/Base style ✅
-- Loading skeletons & empty states ✅
-- Анимации level up и достижений ✅
-- Toast уведомления (sonner) ✅
-
----
-
 ## 🚀 Что еще реализовать после запуска MVP
 
 Функции для добавления после MVP релиза и получения первой обратной связи от пользователей.
@@ -120,48 +91,26 @@
 - Компонент `BadgeImage` автоматически обработает fallback если что-то пойдет не так
 - Подробная документация: `docs/BADGE_IMAGE_SETUP.md`
 
-### ⚠️ **#2 ПРИОРИТЕТ: Интеграция Neynar для уведомлений и улучшения Farcaster функций**
+### ⚠️ **#2 ПРИОРИТЕТ: Neynar расширения (вебхуки и продвинутый share)**
 
-**Что такое Neynar:**
-- Платформа с API для работы с Farcaster
-- Предоставляет webhooks, Cast API, User API и облачные хабы
-- Упрощает интеграцию с Farcaster протоколом
+1. **Подключить вебхуки Neynar** (требуется платный план):
+   - Настроить Target URL `https://<домен>/api/webhooks/neynar`
+   - Задать `NEYNAR_WEBHOOK_SECRET`
+   - Синхронизировать enable/disable уведомлений по событиям вебхука
+2. **Расширенные сценарии share**:
+   - Дополнительные тексты/превью (баджи, достижения, ссылки на новые страницы)
+   - Тонкая настройка уведомлений и кастов (batching, таргетирование)
 
-**Зачем это нужно:**
-1. **Уведомления через Webhooks** — включить уведомления о пропущенных привычках (сейчас отключены)
-2. **Улучшить Share to Farcaster** — автоматическая публикация кастов вместо ручного compose
-3. **Профили пользователей** — показывать имена и аватары из Farcaster
+**Статус**:
+- ⚠️ Ожидает апгрейда Neynar (вебхуки недоступны на free плане)
+- 🌱 Дополнительные share-сценарии запланированы
 
-**Что нужно сделать:**
-1. Зарегистрироваться на [neynar.com](https://neynar.com) и получить API ключ
-2. Установить `@neynar/nodejs-sdk`
-3. Настроить webhooks для уведомлений в `src/app/api/notifications/cron/route.ts`
-4. Улучшить функцию share в `src/app/streaks/page.tsx` через Cast API
-5. Добавить получение профилей пользователей через User API
+### 🧹 Технический долг / полировка (актуально)
 
-**Где**: 
-- Подробная документация: `docs/NEYNAR_INTEGRATION.md`
-- Инструкция по настройке: `docs/NEYNAR_SETUP.md`
-- Расчет кредитов: `docs/NEYNAR_CREDITS_CALCULATION.md`
-- Клиент Neynar: `src/lib/neynar.ts`
-- Код уведомлений: `src/app/api/notifications/`
-- Код шеринга: `src/app/streaks/page.tsx`, `src/app/api/share/`
-
-**Статус**: 
-- ✅ Базовая структура готова (`src/lib/neynar.ts`)
-- ⏳ Ожидает установки SDK: `pnpm add @neynar/nodejs-sdk`
-- ⏳ Нужен API ключ от Neynar (бесплатный план: 200k кредитов/месяц)
-
-**Примечание**: 
-- Это не критично для MVP, но значительно улучшит UX
-- Особенно важно для уведомлений — сейчас они полностью отключены
-- Бесплатный план хватит на 100-300 активных пользователей
-
-## Neynar Integration
-- ✅ Минимальная интеграция (получение профилей, share, уведомления)
-- ⏳ Webhooks и нотификации Neynar
-  - Requires paid plan: подключить Neynar webhook `https://<домен>/api/webhooks/neynar` с секретом `NEYNAR_WEBHOOK_SECRET`
-  - Синхронизировать включение/отключение уведомлений напрямую via webhook events
+- ✅ Заменить оставшиеся `<img>` на `next/image` (профиль, лидерборд, компонент `BadgeImage`).
+- ✅ Очистить API от неиспользуемых переменных и вернуть генератор `generateDailyQuests`, чтобы `pnpm typecheck` проходил без ошибок.
+- 🔄 Прогонять `pnpm lint` локально — в песочнице Cursor команда падает с `EPERM` при чтении `node_modules`, но на реальной машине должна работать.
+- ℹ️ `pnpm typecheck` проходит успешно (TS ошибок нет).
 
 ---
 
@@ -182,7 +131,7 @@
 - **Community** - форум/чат пользователей
 
 ### Командная работа
-- **Team spaces** - групповые цели
+- **Team spaces** - групповые цели Что бы можно было создать группу по привычке и там общатсья и делиться прогрессом
 - **Team habits** - общие привычки
 - **Collaboration** - shared goals tracking
 - **Admin dashboard** - управление командой

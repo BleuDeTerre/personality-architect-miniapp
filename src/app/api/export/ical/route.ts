@@ -58,7 +58,7 @@ function generateICal(habits: Array<{ id: string; title: string }>): string {
         date.setDate(date.getDate() + day);
         const dateStr = formatICalDate(date);
 
-        habits.forEach((habit, idx) => {
+        habits.forEach(habit => {
             lines.push('BEGIN:VEVENT');
             lines.push(`UID:habit-${habit.id}-${day}@personality-architect.com`);
             lines.push(`DTSTART:${dateStr}`);
