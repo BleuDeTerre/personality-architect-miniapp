@@ -6,7 +6,15 @@ import { sdk } from '@farcaster/miniapp-sdk';
 
 // Проверка, запущено ли приложение в Mini App
 function isInMiniApp(): boolean {
-    return typeof window !== 'undefined' && 'farcaster' in window;
+    if (typeof window === 'undefined') {
+        return false;
+    }
+    // Проверяем наличие SDK различными способами
+    try {
+        return !!(window as any).farcaster || !!(window as any).FarcasterSDK || typeof (sdk as any)?.actions !== 'undefined';
+    } catch {
+        return false;
+    }
 }
 
 export interface FrameContext {
@@ -30,6 +38,7 @@ let initializationPromise: Promise<void> | null = null;
 
 /**
  * Инициализирует SDK один раз для всего приложения
+ * Не блокирует выполнение, работает в фоне
  */
 export async function initializeSDK(): Promise<void> {
     if (sdkInitialized) {
@@ -40,20 +49,25 @@ export async function initializeSDK(): Promise<void> {
         return initializationPromise;
     }
 
+    // Помечаем как инициализированное сразу, чтобы не блокировать
+    sdkInitialized = true;
+
+    // Инициализация в фоне
     initializationPromise = (async () => {
         try {
-            if (isInMiniApp()) {
-                await sdk.actions.ready();
+            if (isInMiniApp() && sdk?.actions?.ready) {
+                // Не ждем ready, чтобы не блокировать приложение
+                sdk.actions.ready().catch((err: any) => {
+                    console.warn('[Farcaster SDK] ready() failed (non-blocking):', err);
+                });
             }
-            sdkInitialized = true;
         } catch (error) {
-            console.warn('[Farcaster SDK] Failed to initialize:', error);
-            // Не блокируем приложение, если SDK не доступен
-            sdkInitialized = true;
+            console.warn('[Farcaster SDK] Failed to initialize (non-blocking):', error);
         }
     })();
 
-    return initializationPromise;
+    // Не ждем завершения, возвращаемся сразу
+    return Promise.resolve();
 }
 
 /**
