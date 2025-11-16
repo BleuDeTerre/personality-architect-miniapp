@@ -615,98 +615,9 @@ export default function AnalyticsPage() {
                     </section>
                 )}
 
-                {/* Week Comparison Section */}
-                {comparative && (
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
-                        <h2 className="text-2xl font-semibold text-white">Week comparison</h2>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <p className="text-xs uppercase tracking-wide text-white/60">This week</p>
-                                <p className="text-3xl font-semibold text-[#2BD4A4]">{comparative.this_week.completed_total}</p>
-                                <p className="text-sm text-white/70">completed logs</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-xs uppercase tracking-wide text-white/60">Last week</p>
-                                <p className="text-3xl font-semibold text-[#A78BFA]">{comparative.last_week.completed_total}</p>
-                                <p className="text-sm text-white/70">completed logs</p>
-                            </div>
-                        </div>
-                        {comparative.comparison && (
-                            <div className={`rounded-2xl border px-4 py-3 ${comparative.comparison.trend === 'up'
-                                ? 'border-[#2BD4A4] bg-[#2BD4A4]/10'
-                                : comparative.comparison.trend === 'down'
-                                    ? 'border-red-400 bg-red-400/10'
-                                    : 'border-white/10 bg-white/[0.03]'
-                                }`}>
-                                <p className="text-base font-semibold text-white mb-1">
-                                    {comparative.comparison.message} {comparative.comparison.trend === 'up' ? '🔥' : ''}
-                                </p>
-                                <p className="text-sm text-white/70">
-                                    {comparative.comparison.percent_change > 0 ? '+' : ''}{comparative.comparison.percent_change}% change
-                                </p>
-                            </div>
-                        )}
-                    </section>
-                )}
-
-                {/* AI Facts Section */}
-                {facts && facts.facts && facts.facts.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
-                        <h2 className="text-2xl font-semibold text-white flex items-center gap-2">
-                            <span>🤖</span>
-                            <span>AI facts</span>
-                        </h2>
-                        <div className="space-y-3">
-                            {facts.facts.map((fact, idx) => (
-                                <div key={idx} className="flex items-start gap-3">
-                                    <span className="text-white/60 mt-1">•</span>
-                                    <p className="text-sm text-white flex-1">{fact}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-                )}
-
-                {/* Habit Correlations Section */}
-                {correlations && correlations.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
-                        <h2 className="text-2xl font-semibold text-white">Habit correlations</h2>
-                        <div className="space-y-3">
-                            {correlations.map((corr, idx) => {
-                                // Extract emoji and title for habit_a
-                                const emojiA = corr.habit_a.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u)?.[0] || '';
-                                const titleA = corr.habit_a.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || corr.habit_a;
-
-                                // Extract emoji and title for habit_b
-                                const emojiB = corr.habit_b.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u)?.[0] || '';
-                                const titleB = corr.habit_b.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || corr.habit_b;
-
-                                const percentage = Math.round(corr.correlation * 100);
-
-                                return (
-                                    <div key={idx} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                                        <p className="text-sm text-white flex-1">
-                                            <span>
-                                                {emojiA ? `${emojiA} ` : ''}<span className="font-semibold">{titleA}</span>
-                                            </span>
-                                            {' ↔ '}
-                                            <span>
-                                                {emojiB ? `${emojiB} ` : ''}<span className="font-semibold">{titleB}</span>
-                                            </span>
-                                        </p>
-                                        <span className="text-sm font-semibold text-[#8B5CF6] ml-3 flex-shrink-0">
-                                            {percentage}%
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </section>
-                )}
-
                 {/* Habit Trend Prototypes Section */}
                 {habits.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-6">
                         <div>
                             <h2 className="text-2xl font-semibold text-white mb-2">Habit trend prototypes</h2>
                             <p className="text-sm text-white/70">
@@ -751,10 +662,11 @@ export default function AnalyticsPage() {
                             </div>
                         ) : habitTrendData.length > 0 ? (
                             <div className="space-y-6">
+                                {/* Sparkline streak trend */}
                                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
                                     <div>
                                         <h3 className="text-base font-semibold text-white mb-1">Sparkline streak trend (last 90 days)</h3>
-                                        <p className="text-sm text-white/70">Max streak: {maxStreak} days</p>
+                                        <p className="text-sm text-white/70">Max streak: {maxStreak} day{maxStreak !== 1 ? 's' : ''}</p>
                                     </div>
                                     <div className="relative h-32 w-full">
                                         <SparklineChart data={habitTrendData} maxStreak={maxStreak} />
@@ -773,7 +685,7 @@ export default function AnalyticsPage() {
                                                 const startStr = capsule.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                                                 const endStr = capsule.weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-                                                // Determine colors based on completion rate (gradient from red to green)
+                                                // Determine colors based on completion rate
                                                 let bgColor = 'bg-red-500/30';
                                                 let borderColor = 'border-red-500/50';
                                                 const textColor = 'text-white';
@@ -783,7 +695,7 @@ export default function AnalyticsPage() {
                                                     bgColor = 'bg-green-500/30';
                                                     borderColor = 'border-green-500/50';
                                                 } else if (capsule.completedDays >= 4) {
-                                                    // Yellow/orange for good progress
+                                                    // Yellow for good progress
                                                     bgColor = 'bg-yellow-500/30';
                                                     borderColor = 'border-yellow-500/50';
                                                 } else if (capsule.completedDays > 0) {
@@ -795,16 +707,26 @@ export default function AnalyticsPage() {
                                                 return (
                                                     <div
                                                         key={idx}
-                                                        className={`flex-shrink-0 rounded-2xl border ${borderColor} ${bgColor} p-4 min-w-[180px] flex flex-col gap-2`}
+                                                        className={`flex-shrink-0 rounded-2xl border ${borderColor} ${bgColor} p-4 min-w-[180px] flex flex-col gap-3`}
                                                     >
+                                                        <div className="text-xs text-white/60 text-center">
+                                                            {startStr} → {endStr}
+                                                        </div>
                                                         <div className={`text-lg font-semibold ${textColor} text-center`}>
                                                             {capsule.completedDays}/{capsule.totalDays}
                                                         </div>
                                                         <div className={`text-sm ${textColor} text-center`}>
-                                                            Longest {capsule.longestRun === 0 ? '0d' : `${capsule.longestRun}d`}
+                                                            {capsule.longestRun === 0 ? 'Longes Break' : `Longest ${capsule.longestRun}d`}
                                                         </div>
-                                                        <div className="text-xs text-white/60 text-center mt-1">
-                                                            {startStr} → {endStr}
+                                                        {/* Progress bar */}
+                                                        <div className="relative w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                                                            <div
+                                                                className={`h-full rounded-full ${capsule.completedDays === 7 ? 'bg-green-500' :
+                                                                    capsule.completedDays >= 4 ? 'bg-yellow-500' :
+                                                                        capsule.completedDays > 0 ? 'bg-orange-600' : 'bg-transparent'
+                                                                    }`}
+                                                                style={{ width: `${(capsule.completedDays / capsule.totalDays) * 100}%` }}
+                                                            />
                                                         </div>
                                                     </div>
                                                 );
@@ -820,6 +742,90 @@ export default function AnalyticsPage() {
                         )}
                     </section>
                 )}
+
+                {/* Week Comparison Section */}
+                {comparative && (
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
+                        <h2 className="text-2xl font-semibold text-white">Week comparison</h2>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <p className="text-sm font-medium text-white">This week</p>
+                                <p className="text-3xl font-semibold text-[#2BD4A4]">{comparative.this_week.completed_total}</p>
+                                <p className="text-sm text-white/70">completed logs</p>
+                            </div>
+                            <div className="space-y-2">
+                                <p className="text-sm font-medium text-white">Last week</p>
+                                <p className="text-3xl font-semibold text-[#A78BFA]">{comparative.last_week.completed_total}</p>
+                                <p className="text-sm text-white/70">completed logs</p>
+                            </div>
+                        </div>
+                        {comparative.comparison && (
+                            <div className={`rounded-2xl px-4 py-3 ${comparative.comparison.trend === 'up'
+                                ? 'bg-[#2BD4A4]/20 border border-[#2BD4A4]/50'
+                                : comparative.comparison.trend === 'down'
+                                    ? 'bg-red-400/20 border border-red-400/50'
+                                    : 'border border-white/10 bg-white/[0.03]'
+                                }`}>
+                                <p className="text-base font-semibold text-white mb-1">
+                                    {comparative.comparison.message} {comparative.comparison.trend === 'up' ? '🔥' : ''}
+                                </p>
+                                <p className="text-sm text-white/70">
+                                    {comparative.comparison.percent_change > 0 ? '+' : ''}{comparative.comparison.percent_change}% change
+                                </p>
+                            </div>
+                        )}
+                    </section>
+                )}
+
+                {/* AI Facts Section */}
+                {facts && facts.facts && facts.facts.length > 0 && (
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
+                        <h2 className="text-2xl font-semibold text-white flex items-center gap-2">
+                            <span className="text-2xl">🤖</span>
+                            <span>AI facts</span>
+                        </h2>
+                        <div className="space-y-3">
+                            {facts.facts.map((fact, idx) => (
+                                <div key={idx} className="flex items-start gap-3">
+                                    <span className="text-[#7DD3FC] mt-1 text-lg">•</span>
+                                    <p className="text-sm text-white flex-1">{fact}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* Habit Correlations Section */}
+                {correlations && correlations.length > 0 && (
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
+                        <h2 className="text-2xl font-semibold text-white">Habit correlations</h2>
+                        <div className="space-y-2">
+                            {correlations.map((corr, idx) => {
+                                // Extract emoji and title for habit_a
+                                const emojiA = corr.habit_a.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u)?.[0] || '';
+                                const titleA = corr.habit_a.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || corr.habit_a;
+
+                                // Extract emoji and title for habit_b
+                                const emojiB = corr.habit_b.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u)?.[0] || '';
+                                const titleB = corr.habit_b.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || corr.habit_b;
+
+                                const percentage = Math.round(corr.correlation * 100);
+
+                                return (
+                                    <div key={idx} className="flex items-center justify-between py-2">
+                                        <span className="text-sm text-white flex-1">
+                                            {emojiA ? `${emojiA} ` : ''}{titleA} ↔ {emojiB ? `${emojiB} ` : ''}{titleB}
+                                        </span>
+                                        <span className="text-sm font-semibold text-white ml-4 flex-shrink-0">
+                                            {percentage}%
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </section>
+                )}
+
 
                 {/* Advanced Insights Section */}
                 <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">

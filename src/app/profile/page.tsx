@@ -10,6 +10,7 @@ import PushNotificationSettings from '@/components/PushNotificationSettings';
 import BadgeImage from '@/components/BadgeImage';
 import { type CastTemplate } from '@/components/share/ShareCastComposer';
 import QuestBoard from '@/components/QuestBoard';
+import Achievements from '@/components/Achievements';
 import MiniAppPage from '@/components/MiniAppPage';
 
 // Supabase client
@@ -338,37 +339,37 @@ export default function ProfilePage() {
                                     <div className="h-4 bg-white/10 rounded w-24"></div>
                                 </div>
                             </div>
-                        </div>
-                    ) : neynarProfile ? (
+                </div>
+                ) : neynarProfile ? (
                         <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
                             <div className="flex items-start gap-4">
                                 {/* Profile Picture */}
                                 <div className="w-16 h-16 rounded-full overflow-hidden bg-white/10 flex items-center justify-center text-2xl font-semibold text-white/80 relative flex-shrink-0">
-                                    {neynarProfile.pfpUrl ? (
-                                        <Image
-                                            src={neynarProfile.pfpUrl}
-                                            alt={neynarDisplayName ?? 'Farcaster user'}
-                                            className="object-cover"
-                                            fill
-                                            sizes="64px"
-                                            unoptimized
-                                        />
-                                    ) : (
-                                        neynarInitials
-                                    )}
-                                </div>
+                                {neynarProfile.pfpUrl ? (
+                                    <Image
+                                        src={neynarProfile.pfpUrl}
+                                        alt={neynarDisplayName ?? 'Farcaster user'}
+                                        className="object-cover"
+                                        fill
+                                        sizes="64px"
+                                        unoptimized
+                                    />
+                                ) : (
+                                    neynarInitials
+                                )}
+                            </div>
 
                                 {/* User Info */}
                                 <div className="flex-1 min-w-0">
                                     <div className="text-xl font-bold text-white mb-1">
                                         {neynarProfile.displayName ?? neynarProfile.username ?? 'Farcaster User'}
                                     </div>
-                                    {neynarProfile.username && (
+                                {neynarProfile.username && (
                                         <div className="text-sm text-white/60 mb-1">@{neynarProfile.username}</div>
-                                    )}
-                                    {neynarProfile.fid && (
+                                )}
+                                {neynarProfile.fid && (
                                         <div className="text-sm text-white/60 mb-3">FID {neynarProfile.fid}</div>
-                                    )}
+                                )}
 
                                     {/* Bio Attributes */}
                                     {bioAttributes.length > 0 && (
@@ -447,7 +448,7 @@ export default function ProfilePage() {
                                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-[#8B5CF6] focus:outline-none"
                                 />
                                 {walletError && <div className="text-xs text-red-400 mt-1">{walletError}</div>}
-                            </div>
+                </div>
                             <div className="flex gap-3 mb-4">
                                 <button
                                     onClick={async () => {
@@ -488,101 +489,106 @@ export default function ProfilePage() {
                                 >
                                     Cancel
                                 </button>
-                            </div>
+            </div>
                         </>
                     ) : null}
                 </section>
 
-                {/* Badges with Mint buttons */}
-                <section className="mb-6">
-                    <h2 className="text-xl font-semibold mb-3">Badges Gallery</h2>
-                    {loading ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {[1, 2, 3, 4, 5, 6].map(i => (
+            {/* Badges with Mint buttons */}
+            <section className="mb-6">
+                <h2 className="text-xl font-semibold mb-3">Badges Gallery</h2>
+                {loading ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {[1, 2, 3, 4, 5, 6].map(i => (
                                 <div key={i} className="rounded-3xl border border-white/10 bg-white/5 p-4 animate-pulse">
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
-                                        <div className="flex-1 space-y-2">
-                                            <div className="h-4 bg-white/20 rounded w-3/4"></div>
-                                            <div className="h-3 bg-white/20 rounded w-full"></div>
-                                        </div>
+                                <div className="flex items-start gap-3">
+                                    <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
+                                    <div className="flex-1 space-y-2">
+                                        <div className="h-4 bg-white/20 rounded w-3/4"></div>
+                                        <div className="h-3 bg-white/20 rounded w-full"></div>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {BADGES.map(b => {
-                                const st = statusMap[b.slug] ?? 'none';
-                                const el = eligMap[b.slug]?.eligible ?? false;
-                                const reason = eligMap[b.slug]?.reason ?? '';
-                                const canMint = el && st === 'none';
-                                return (
-                                    <div
-                                        key={b.slug}
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {BADGES.map(b => {
+                            const st = statusMap[b.slug] ?? 'none';
+                            const el = eligMap[b.slug]?.eligible ?? false;
+                            const reason = eligMap[b.slug]?.reason ?? '';
+                            const canMint = el && st === 'none';
+                            return (
+                                <div
+                                    key={b.slug}
                                         className="rounded-3xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2 transition hover:bg-white/10"
-                                        title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
-                                    >
-                                        <div className="flex items-start gap-3">
-                                            <BadgeImage src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
-                                            <div className="flex-1">
-                                                <div className="font-medium">{b.title}</div>
-                                                <div className="text-xs text-white/70">{b.description}</div>
-                                                <div className="text-xs mt-1">
-                                                    Status: <span className="font-mono">{st}</span>
-                                                    {!el && <span className="ml-2 opacity-80">({reason})</span>}
-                                                </div>
+                                    title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <BadgeImage src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                                        <div className="flex-1">
+                                            <div className="font-medium">{b.title}</div>
+                                            <div className="text-xs text-white/70">{b.description}</div>
+                                            <div className="text-xs mt-1">
+                                                Status: <span className="font-mono">{st}</span>
+                                                {!el && <span className="ml-2 opacity-80">({reason})</span>}
                                             </div>
                                         </div>
-                                        <button
-                                            onClick={() => mint(b.slug)}
-                                            disabled={loading || busyCode === b.slug || !canMint || !p.wallet}
-                                            className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
-                                            title={!p.wallet ? 'Add wallet address first' : (!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT')}
-                                        >
-                                            {busyCode === b.slug ? 'Minting…' : !p.wallet ? 'Add wallet' : (st === 'success' ? '✅ Minted' : 'Mint')}
-                                        </button>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </section>
+                                    <button
+                                        onClick={() => mint(b.slug)}
+                                        disabled={loading || busyCode === b.slug || !canMint || !p.wallet}
+                                        className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
+                                        title={!p.wallet ? 'Add wallet address first' : (!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT')}
+                                    >
+                                        {busyCode === b.slug ? 'Minting…' : !p.wallet ? 'Add wallet' : (st === 'success' ? '✅ Minted' : 'Mint')}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </section>
 
 
-                {/* Push Notifications Settings */}
+            {/* Push Notifications Settings */}
+            <section className="mb-6">
+                <PushNotificationSettings />
+            </section>
+
+                {/* Achievements Section */}
                 <section className="mb-6">
-                    <PushNotificationSettings />
+                    <Achievements />
                 </section>
 
-                {/* Export Data */}
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                    <div className="flex items-center justify-between mb-4">
+            {/* Export Data */}
+                <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                    <div className="flex items-start justify-between mb-4">
                         <div>
                             <p className="text-xs uppercase tracking-wide text-white/60 mb-1">EXPORT DATA</p>
-                            <p className="text-lg font-semibold text-white">Download your data</p>
+                            <p className="text-xl font-bold text-white">Download your data</p>
                         </div>
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20">
-                            <span className="text-lg">⏳</span>
-                            <span className="text-sm font-medium text-white">COMING SOON</span>
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/10">
+                            <span className="text-sm">⏳</span>
+                            <span className="text-xs font-medium text-white">COMING SOON</span>
                         </div>
                     </div>
-                    <div className="space-y-2 opacity-50 pointer-events-none">
+                    <div className="space-y-2">
                         <button
                             disabled
-                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition"
+                            className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
                         >
                             Export CSV
                         </button>
                         <button
                             disabled
-                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition"
+                            className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
                         >
                             Export Notion
                         </button>
                         <button
                             disabled
-                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition"
+                            className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
                         >
                             Export Obsidian
                         </button>

@@ -188,7 +188,7 @@ export default function HabitsPage() {
                 }
             }
             await loadPlan();
-            fetchHabits();
+                fetchHabits();
         })();
     }, [fetchHabits, loadPlan]);
 
@@ -294,12 +294,12 @@ export default function HabitsPage() {
                 if (xpGained.length > 0) {
                     setTimeout(() => {
                         const descriptions = xpGained.map((e: any) => e.description).join(', ');
-                        toast.success(`+${data.xp_earned} XP`, {
+                    toast.success(`+${data.xp_earned} XP`, {
                             description: descriptions,
-                            duration: 3000,
-                        });
+                        duration: 3000,
+                    });
                     }, 500);
-                }
+            }
             }
         }
     }
@@ -322,7 +322,7 @@ export default function HabitsPage() {
             const habit = habits.find(h => h.title === fullTitle);
             if (habit) {
                 await removeHabit(habit.id);
-            }
+        }
         } else {
             // Check habit limit for free plan
             if (plan === 'free' && habits.length >= MAX_FREE_HABITS) {
@@ -365,26 +365,26 @@ export default function HabitsPage() {
 
     return (
         <>
-            {achievementState && (
-                <AchievementAnimation
-                    achievement={{
-                        id: achievementState.id,
-                        title: achievementState.title,
-                        icon: achievementState.icon,
-                        xpReward: achievementState.xpReward,
-                        description: achievementState.description,
-                        category: achievementState.category as any,
-                        rarity: achievementState.rarity as any,
-                    }}
-                    onComplete={() => setAchievementState(null)}
-                />
-            )}
-            {levelUpState && (
-                <LevelUpAnimation
-                    level={levelUpState.level}
-                    onComplete={() => setLevelUpState(null)}
-                />
-            )}
+                {achievementState && (
+                    <AchievementAnimation
+                        achievement={{
+                            id: achievementState.id,
+                            title: achievementState.title,
+                            icon: achievementState.icon,
+                            xpReward: achievementState.xpReward,
+                            description: achievementState.description,
+                            category: achievementState.category as any,
+                            rarity: achievementState.rarity as any,
+                        }}
+                        onComplete={() => setAchievementState(null)}
+                    />
+                )}
+                {levelUpState && (
+                    <LevelUpAnimation
+                        level={levelUpState.level}
+                        onComplete={() => setLevelUpState(null)}
+                    />
+                )}
 
             <MiniAppPage>
                 <div className="space-y-6">
@@ -392,8 +392,8 @@ export default function HabitsPage() {
                     <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
                         <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">My Habits</h1>
                         <p className="text-sm text-white/80">
-                            Build routines faster, track completions, and unlock streak rewards.
-                        </p>
+                        Build routines faster, track completions, and unlock streak rewards.
+                    </p>
                     </section>
 
                     {/* Add Habit Form */}
@@ -411,42 +411,42 @@ export default function HabitsPage() {
                             </div>
                             <div>
                                 <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">HABIT TITLE</label>
-                                <input
-                                    type="text"
-                                    placeholder="Habit title"
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
+                        <input
+                            type="text"
+                            placeholder="Habit title"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
                                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
-                                    required
-                                />
+                            required
+                        />
                             </div>
                             <div>
                                 <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">TARGET DAYS PER WEEK</label>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={7}
-                                    value={targetDays}
-                                    onChange={(e) => setTargetDays(Number(e.target.value))}
+                        <input
+                            type="number"
+                            min={1}
+                            max={7}
+                            value={targetDays}
+                            onChange={(e) => setTargetDays(Number(e.target.value))}
                                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
-                                />
-                            </div>
-                            <button
+                        />
+                    </div>
+                    <button
                                 type="button"
                                 onClick={() => setShowTemplates(!showTemplates)}
                                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition hover:bg-white/10 flex items-center gap-2 justify-center"
-                            >
+                    >
                                 <span>📚</span>
                                 <span>Browse Habit Library</span>
-                            </button>
-                            <button
+                    </button>
+                    <button
                                 type="submit"
                                 disabled={loading}
                                 className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-center font-semibold text-white transition hover:opacity-90 disabled:opacity-60 shadow-lg shadow-[#8B5CF6]/40"
                             >
                                 {loading ? 'Adding…' : 'Add Habit'}
-                            </button>
-                        </form>
+                    </button>
+                </form>
                     </section>
 
                     {/* Search and Filter */}
@@ -497,8 +497,8 @@ export default function HabitsPage() {
                                         <div className="h-6 w-1/2 rounded bg-white/10" />
                                         <div className="mt-2 h-4 w-1/3 rounded bg-white/10" />
                                     </div>
-                                ))}
-                            </div>
+                                    ))}
+                                </div>
                         </section>
                     ) : filteredHabits.length === 0 ? (
                         <section className="rounded-3xl border border-white/10 bg-white/5 p-6 text-center text-white/70">
@@ -512,7 +512,7 @@ export default function HabitsPage() {
                                 const emoji = emojiMatch ? emojiMatch[0] : '✅';
                                 const titleText = h.title.replace(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)\s*/u, '').trim();
 
-                                return (
+                                        return (
                                     <div key={h.id} className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3">
                                         <div className="text-2xl">{emoji}</div>
                                         <div className="text-base font-semibold text-white">{titleText}</div>
@@ -544,11 +544,11 @@ export default function HabitsPage() {
                                             </button>
                                         </div>
                                     </div>
-                                );
-                            })}
+                                        );
+                                    })}
                         </section>
                     )}
-                </div>
+                                </div>
             </MiniAppPage>
 
             {showTemplates && (
@@ -587,8 +587,8 @@ export default function HabitsPage() {
                                 >
                                     {cat}
                                 </button>
-                            ))}
-                        </div>
+                        ))}
+                    </div>
                     </div>
 
                     {/* Templates Grid */}
@@ -604,7 +604,7 @@ export default function HabitsPage() {
                                             ? 'border-[#2BD4A4] bg-white/5'
                                             : 'border-white/10 bg-white/5 hover:bg-white/10'
                                             }`}
-                                    >
+                                >
                                         <div className="text-3xl mb-3">{template.icon}</div>
                                         <div className="text-lg font-semibold text-white mb-1">{template.title}</div>
                                         <div className="text-sm text-white/70 mb-3">
@@ -619,7 +619,7 @@ export default function HabitsPage() {
                                     </button>
                                 );
                             })}
-                        </div>
+            </div>
                     </div>
                 </div>
             )}

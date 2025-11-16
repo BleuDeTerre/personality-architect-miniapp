@@ -425,12 +425,6 @@ export default function GoalsPage() {
                         })}
                     </div>
                 )}
-
-                {goals.length === 0 && !loading && (
-                    <div className="rounded-3xl border border-dashed border-white/20 bg-white/[0.03] p-8 text-center text-white/60">
-                        No goals yet — add your first objective above.
-                    </div>
-                )}
             </div>
         </MiniAppPage>
     );

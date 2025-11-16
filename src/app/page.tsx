@@ -5,7 +5,6 @@ import Link from "next/link";
 import { createClient } from '@supabase/supabase-js';
 import { calculateXP, calculateLevel, getLevelProgress, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
 import DailyQuests from '@/components/DailyQuests';
-import Achievements from '@/components/Achievements';
 import MiniAppPage from '@/components/MiniAppPage';
 
 const supabase = createClient(
@@ -27,7 +26,6 @@ const NAVIGATION = [
 ];
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<{ current_streak: number; best_streak: number; last_completed: string | null } | null>(null);
   const [gamificationStats, setGamificationStats] = useState<UserStats | null>(null);
   const [_loading, setLoading] = useState(false);
   const [_showOnboarding, _setShowOnboarding] = useState(false);
@@ -63,15 +61,11 @@ export default function DashboardPage() {
         }
       }
 
-      // Load stats
+      // Load gamification stats
       try {
         setLoading(true);
         const hdrs = await authHeaders();
-        const [statsRes, gamificationRes] = await Promise.all([
-          fetch('/api/habits/stats', { headers: hdrs }).then(r => r.ok ? r.json() : null),
-          fetch('/api/stats/gamification', { headers: hdrs }).then(r => r.ok ? r.json() : null),
-        ]);
-        if (statsRes) setStats(statsRes);
+        const gamificationRes = await fetch('/api/stats/gamification', { headers: hdrs }).then(r => r.ok ? r.json() : null);
         if (gamificationRes) setGamificationStats(gamificationRes);
       } finally {
         setLoading(false);
@@ -127,36 +121,7 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <DailyQuests />
-          <Achievements />
-        </div>
-
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-white/60">Quick stats</p>
-              <h3 className="text-lg font-semibold text-white">Where you are today</h3>
-            </div>
-            <Link href="/streaks" className="text-sm text-white/70 hover:text-white underline decoration-dotted">View analytics</Link>
-          </div>
-          <div className="mt-4 grid grid-cols-3 gap-4 text-center">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="text-2xl font-semibold text-[#2BD4A4]">{stats?.current_streak ?? 0}</div>
-              <div className="text-xs text-white/60">Current streak</div>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="text-2xl font-semibold text-[#A78BFA]">{stats?.best_streak ?? 0}</div>
-              <div className="text-xs text-white/60">Best streak</div>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="text-xs font-semibold text-white">
-                {stats?.last_completed ? new Date(stats.last_completed).toLocaleDateString() : '—'}
-              </div>
-              <div className="text-xs text-white/60">Last activity</div>
-            </div>
-          </div>
-        </div>
+        <DailyQuests />
       </section>
     </MiniAppPage>
   );

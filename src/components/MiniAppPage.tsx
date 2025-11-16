@@ -13,7 +13,7 @@ export default function MiniAppPage({ children, className, footerSlot }: MiniApp
             <div className={["flex-1 w-full max-w-5xl mx-auto px-4 py-6 sm:px-8", className ?? ""].join(" ").trim()}>
                 {children}
             </div>
-            <div className="w-full max-w-3xl mx-auto px-4 pb-4 space-y-3">
+            <div className="w-full max-w-3xl mx-auto px-4 pb-0">
                 {footerSlot}
                 <MiniAppTabBar />
             </div>

@@ -27,16 +27,16 @@ type TrendArea = {
 };
 
 const AREAS = [
-    { name: 'Inner State', icon: '🕊️', color: '#7DD3FC' }, // light blue (top-center-left)
-    { name: 'Spirituality', icon: '🧘‍♂️', color: '#A78BFA' }, // purple (top-center-right)
-    { name: 'Career', icon: '💼', color: '#3B82F6' }, // blue (top-right)
-    { name: 'Relationships', icon: '❤️', color: '#EF4444' }, // red (upper-right)
-    { name: 'Health', icon: '💊', color: '#10B981' }, // green (mid-right) - pill capsule
-    { name: 'Personal Growth', icon: '🚀', color: '#F97316' }, // orange (bottom-right)
-    { name: 'Joy & Leisure', icon: '🎉', color: '#EC4899' }, // pink/magenta (bottom-left)
-    { name: 'Social', icon: '👥', color: '#A78BFA' }, // purple (lower-left)
-    { name: 'Finances', icon: '💰', color: '#60A5FA' }, // light blue (mid-left)
-    { name: 'Environment', icon: '🏠', color: '#10B981' }, // green (top-left)
+    { name: 'Inner State', icon: '🕊️', color: '#FFFFFF' }, // white
+    { name: 'Spirituality', icon: '🧘', color: '#A78BFA' }, // purple
+    { name: 'Career', icon: '💼', color: '#3B82F6' }, // blue
+    { name: 'Relationships', icon: '❤️', color: '#EF4444' }, // red
+    { name: 'Health', icon: '💊', color: '#10B981' }, // green
+    { name: 'Personal Growth', icon: '🚀', color: '#F97316' }, // orange
+    { name: 'Joy & Leisure', icon: '🎉', color: '#EC4899' }, // pink
+    { name: 'Social', icon: '👥', color: '#A78BFA' }, // purple
+    { name: 'Finances', icon: '💰', color: '#3B82F6' }, // blue
+    { name: 'Environment', icon: '🏠', color: '#10B981' }, // green
 ];
 
 function isoWeek(now = new Date()) {
@@ -162,7 +162,7 @@ export default function WheelPage() {
             await Promise.all(
                 items.map(it =>
                     fetch('/api/wheel', {
-                method: 'POST',
+                        method: 'POST',
                         headers,
                         body: JSON.stringify({ week, area: it.area, score: clamp010(it.score) }),
                     })
@@ -227,8 +227,8 @@ export default function WheelPage() {
                     <p className="text-xs uppercase tracking-wide text-white/60 mb-2">WHEEL OF LIFE — WEEK {week}</p>
                     <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">Life Balance Overview</h1>
                     <p className="text-sm text-white/80 mb-4">
-                            Rate each area of your life from 1-10 to visualize your overall balance.
-                        </p>
+                        Rate each area of your life from 1-10 to visualize your overall balance.
+                    </p>
                     <button
                         onClick={() => {
                             if (!editingValues) {
@@ -299,7 +299,7 @@ export default function WheelPage() {
                                 <div>
                                     <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">Average this week</label>
                                     <div className="text-3xl font-bold text-white">
-                                        {editItems.length > 0 
+                                        {editItems.length > 0
                                             ? (editItems.reduce((sum, item) => sum + item.score, 0) / editItems.length).toFixed(1)
                                             : '0.0'}/10
                                     </div>
@@ -359,87 +359,124 @@ export default function WheelPage() {
                 )}
 
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                    <h2 className="text-xl font-semibold text-white mb-4">Balance radar</h2>
                     <div className="flex gap-6">
                         {/* Radar Chart */}
                         <div className="flex-1 h-96">
                             {weekLoading ? (
                                 <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/60">
                                     Loading chart…
-                </div>
-                        ) : (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <RadarChart data={editingValues ? editItems : items}>
-                                    <PolarGrid stroke="#ffffff1a" />
-                                    <PolarAngleAxis
-                                        dataKey="area"
-                                        tick={({ payload, x, y, textAnchor }) => {
-                                            const areaInfo = AREAS.find(a => a.name === payload.value);
+                                </div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <RadarChart 
+                                        data={useMemo(() => {
                                             const currentItems = editingValues ? editItems : items;
-                                            const item = currentItems.find(i => i.area === payload.value);
-                                            const areaColor = areaInfo?.color ?? '#ffffffa3';
-                                            const score = item?.score ?? 0;
-                                            return (
-                                                <g>
+                                            // Create one data point per area with all area scores
+                                            return AREAS.map(areaInfo => {
+                                                const item = currentItems.find(i => i.area === areaInfo.name);
+                                                const score = item?.score ?? 0;
+                                                const dataPoint: Record<string, string | number> = { area: areaInfo.name };
+                                                AREAS.forEach(a => {
+                                                    const aItem = currentItems.find(i => i.area === a.name);
+                                                    dataPoint[a.name] = aItem?.score ?? 0;
+                                                });
+                                                return dataPoint;
+                                            });
+                                        }, [editingValues, editItems, items])}
+                                    >
+                                        <PolarGrid stroke="#ffffff1a" />
+                                        <PolarAngleAxis
+                                            dataKey="area"
+                                            tick={({ payload, x, y, textAnchor }) => {
+                                                const areaInfo = AREAS.find(a => a.name === payload.value);
+                                                const currentItems = editingValues ? editItems : items;
+                                                const item = currentItems.find(i => i.area === payload.value);
+                                                const areaColor = areaInfo?.color ?? '#ffffffa3';
+                                                const score = item?.score ?? 0;
+                                                return (
+                                                    <g>
+                                                        <text
+                                                            x={x}
+                                                            y={y}
+                                                            fill={areaColor}
+                                                            fontSize={11}
+                                                            textAnchor={textAnchor || 'middle'}
+                                                            fontWeight="500"
+                                                        >
+                                                            {areaInfo?.icon ?? ''} {payload.value} {score}/10
+                                                        </text>
+                                                    </g>
+                                                );
+                                            }}
+                                        />
+                                        <PolarRadiusAxis 
+                                            domain={[0, 10]} 
+                                            tickCount={6} 
+                                            tick={({ payload, x, y }) => {
+                                                const radiusValue = payload.value as number;
+                                                return (
                                                     <text
                                                         x={x}
                                                         y={y}
-                                                        fill={areaColor}
-                                                        fontSize={12}
-                                                        textAnchor={textAnchor || 'middle'}
-                                                        fontWeight="500"
+                                                        fill="#ffffff80"
+                                                        fontSize={10}
+                                                        textAnchor="middle"
                                                     >
-                                                        {payload.value} {score}/10
+                                                        {radiusValue}
                                                     </text>
-                                                </g>
-                                            );
-                                        }}
-                                    />
-                                    <PolarRadiusAxis domain={[0, 10]} tickCount={6} tick={{ fill: '#ffffff80', fontSize: 10 }} />
-                                    <Radar
-                                        name="Score"
-                                        dataKey="score"
-                                        stroke="#8B5CF6"
-                                        fill="#8B5CF6"
-                                        fillOpacity={0.5}
-                                        dot={false}
-                                    />
-                                </RadarChart>
-                            </ResponsiveContainer>
-                        )}
+                                                );
+                                            }}
+                                        />
+                                        {AREAS.map((areaInfo) => (
+                                            <Radar
+                                                key={areaInfo.name}
+                                                name={areaInfo.name}
+                                                dataKey={areaInfo.name}
+                                                stroke={areaInfo.color}
+                                                fill={areaInfo.color}
+                                                fillOpacity={0.5}
+                                                dot={false}
+                                            />
+                                        ))}
+                                    </RadarChart>
+                                </ResponsiveContainer>
+                            )}
                         </div>
                         {/* Category List - Right Side */}
                         <div className="w-64 flex-shrink-0">
                             <div className="space-y-2">
-                                {(editingValues ? editItems : items).map((item) => {
-                                    const areaInfo = AREAS.find(a => a.name === item.area);
-                                    const areaColor = areaInfo?.color ?? '#8B5CF6';
+                                {useMemo(() => {
                                     const currentItems = editingValues ? editItems : items;
-                                    const itemIdx = currentItems.findIndex(i => i.area === item.area);
-                                    return (
-                                        <button
-                                            key={item.area}
-                                            onClick={() => {
-                                                if (itemIdx >= 0) {
+                                    // Order for right side list: Spirituality, Career, Relationships, Health, Personal Growth, Joy & Leisure, Social, Finances, Environment, Inner State
+                                    const rightSideOrder = ['Spirituality', 'Career', 'Relationships', 'Health', 'Personal Growth', 'Joy & Leisure', 'Social', 'Finances', 'Environment', 'Inner State'];
+                                    return rightSideOrder.map(areaName => {
+                                        const item = currentItems.find(i => i.area === areaName);
+                                        if (!item) return null;
+                                        const areaInfo = AREAS.find(a => a.name === areaName);
+                                        const areaColor = areaInfo?.color ?? '#8B5CF6';
+                                        return (
+                                            <button
+                                                key={item.area}
+                                                onClick={() => {
                                                     const slider = document.querySelector(`input[type="range"][data-area="${item.area}"]`) as HTMLInputElement;
                                                     if (slider) slider.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                }
-                                            }}
-                                            className="w-full rounded-2xl border border-white/10 bg-white/5 p-3 flex items-center justify-between hover:bg-white/10 transition"
-                                        >
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <span className="text-lg flex-shrink-0">{areaInfo?.icon ?? '•'}</span>
-                                                <span className="text-sm font-semibold text-white truncate">{item.area}</span>
-                                            </div>
-                                            <span
-                                                className="text-xs font-medium flex-shrink-0"
-                                                style={{ color: areaColor }}
+                                                }}
+                                                className="w-full rounded-2xl border border-white/10 bg-white/5 p-3 flex items-center justify-between hover:bg-white/10 transition"
                                             >
-                                                {item.score}/10
-                                            </span>
-                                        </button>
-                                    );
-                                })}
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="text-lg flex-shrink-0">{areaInfo?.icon ?? '•'}</span>
+                                                    <span className="text-sm font-semibold text-white truncate">{item.area}</span>
+                                                </div>
+                                                <span
+                                                    className="text-xs font-medium flex-shrink-0"
+                                                    style={{ color: areaColor }}
+                                                >
+                                                    {item.score}/10
+                                                </span>
+                                            </button>
+                                        );
+                                    }).filter(Boolean);
+                                }, [editingValues, editItems, items])}
                             </div>
                         </div>
                     </div>
@@ -448,15 +485,15 @@ export default function WheelPage() {
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-5 space-y-4">
                     <h2 className="text-xl font-semibold text-white">Coach</h2>
                     <div className="flex flex-col gap-3">
-                    <button
-                        onClick={loadTrends}
+                        <button
+                            onClick={loadTrends}
                             className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 w-full"
-                        disabled={trendsLoading}
-                    >
+                            disabled={trendsLoading}
+                        >
                             {trendsLoading ? 'Updating…' : 'REFRESH TRENDS'}
-                    </button>
-                <CoachBlock />
-            </div>
+                        </button>
+                        <CoachBlock />
+                    </div>
                 </section>
 
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-5 space-y-4">
@@ -464,15 +501,15 @@ export default function WheelPage() {
                     <div className="overflow-x-auto rounded-2xl border border-white/10">
                         <table className="min-w-full border-collapse text-sm text-white/80">
                             <thead className="bg-white/10 text-white/70">
-                            <tr>
+                                <tr>
                                     <th className="p-3 text-left">Area</th>
-                                <th className="p-3 text-right">Last</th>
-                                <th className="p-3 text-right">Avg 4w</th>
-                                <th className="p-3 text-right">Avg 12w</th>
-                                <th className="p-3 text-right">Δ 4w</th>
-                                <th className="p-3 text-right">Δ 12w</th>
-                            </tr>
-                        </thead>
+                                    <th className="p-3 text-right">Last</th>
+                                    <th className="p-3 text-right">Avg 4w</th>
+                                    <th className="p-3 text-right">Avg 12w</th>
+                                    <th className="p-3 text-right">Δ 4w</th>
+                                    <th className="p-3 text-right">Δ 12w</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 {trends.map((area) => (
                                     <tr key={area.area} className="border-t border-white/5">
@@ -482,22 +519,22 @@ export default function WheelPage() {
                                         <td className="p-3 text-right">{area.avg12?.toFixed?.(1) ?? area.avg12}</td>
                                         <td className={`p-3 text-right ${area.delta4 < 0 ? 'text-red-400' : area.delta4 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
                                             {area.delta4?.toFixed?.(1) ?? area.delta4}
-                                    </td>
+                                        </td>
                                         <td className={`p-3 text-right ${area.delta12 < 0 ? 'text-red-400' : area.delta12 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
                                             {area.delta12?.toFixed?.(1) ?? area.delta12}
-                                    </td>
-                                </tr>
-                            ))}
-                            {!trends.length && (
-                                <tr>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {!trends.length && (
+                                    <tr>
                                         <td colSpan={6} className="p-4 text-center text-white/50">
                                             No trend data yet.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                     <p className="text-xs text-white/50">Δ — change vs previous window. Positive is improvement, negative is decline.</p>
                 </section>
             </div>

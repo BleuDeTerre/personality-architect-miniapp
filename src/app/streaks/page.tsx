@@ -40,6 +40,7 @@ export default function StreaksPage() {
     const [_logs, setLogs] = useState<Log[]>([]);
     const [stats, setStats] = useState<Stats>({ current_streak: 0, best_streak: 0, last_completed: null });
     const [loading, setLoading] = useState(false);
+    const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -367,59 +368,200 @@ export default function StreaksPage() {
                     </section>
                 )}
 
-                {/* Habit Cards Grid - 2 columns */}
-                {loading ? (
-                    <div className="grid grid-cols-2 gap-4">
-                        {[1, 2, 3, 4, 5, 6].map(i => (
-                            <div key={i} className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 animate-pulse">
-                                <div className="h-6 bg-white/10 rounded w-3/4 mb-3"></div>
-                                <div className="h-4 bg-white/10 rounded w-1/2 mb-2"></div>
-                                <div className="h-4 bg-white/10 rounded w-1/2 mb-3"></div>
-                                <div className="flex gap-1">
-                                    {[1, 2, 3, 4, 5, 6, 7].map(j => (
-                                        <div key={j} className="h-3 w-3 rounded bg-white/10"></div>
-                                    ))}
+                {/* Statistics Cards and Progress */}
+                <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                    {/* 2x2 Grid of Statistics Cards */}
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                        {/* Current Streak */}
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                            <div className="text-sm font-semibold text-white mb-2">Current Streak</div>
+                            <div className="text-4xl font-bold text-[#2BD4A4] mb-1">{stats.current_streak || 0}</div>
+                            <div className="text-sm text-white/70">days</div>
+                        </div>
+
+                        {/* Best Streak */}
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                            <div className="text-sm font-semibold text-white mb-2">Best Streak</div>
+                            <div className="text-4xl font-bold text-[#A78BFA] mb-1">{stats.best_streak || 0}</div>
+                            <div className="text-sm text-white/70">days</div>
+                        </div>
+
+                        {/* Last Activity */}
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                            <div className="text-sm font-semibold text-white mb-2">Last Activity</div>
+                            <div className="text-xl font-bold text-white mb-1">
+                                {stats.last_completed
+                                    ? new Date(stats.last_completed).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                    : '—'
+                                }
+                            </div>
+                        </div>
+
+                        {/* Next Badge */}
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                            <div className="text-sm font-semibold text-[#A78BFA] mb-2">Next Badge</div>
+                            <div className="text-4xl font-bold text-[#A78BFA] mb-1">{nextBadgeDays || 0}</div>
+                            <div className="text-sm text-white/70">days remaining</div>
+                        </div>
+                    </div>
+
+                    {/* Progress to next milestone */}
+                    {nextBadgeDays !== null && (() => {
+                        const currentStreak = stats.current_streak || 0;
+                        const milestones = [7, 30, 60, 100, 365];
+                        const nextMilestone = milestones.find(m => m > currentStreak) || 365;
+                        const progressPercent = (currentStreak / nextMilestone) * 100;
+
+                        return (
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                                <div className="text-sm font-semibold text-white mb-3">Progress to next milestone</div>
+                                <div className="text-lg font-semibold text-white mb-3">
+                                    {currentStreak} / {nextMilestone} days
+                                </div>
+                                {/* Progress Bar */}
+                                <div className="relative w-full h-2 bg-white/10 rounded-full mb-4 overflow-hidden">
+                                    <div
+                                        className="h-full rounded-full bg-gradient-to-r from-[#EC4899] via-[#8B5CF6] to-[#2BD4A4]"
+                                        style={{ width: `${Math.min(100, progressPercent)}%` }}
+                                    />
+                                </div>
+                                {/* Milestone Markers */}
+                                <div className="flex justify-between text-xs text-white/70">
+                                    <span>7d</span>
+                                    <span>30d</span>
+                                    <span>60d</span>
+                                    <span>100d</span>
+                                    <span>365d</span>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                ) : habitsWithStats.length === 0 ? (
-                    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center text-white/60">
-                        No active habits yet. Create habits to track your streaks!
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-2 gap-4">
-                        {habitsWithStats.map((habit) => (
-                            <div
-                                key={habit.id}
-                                className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-3"
-                            >
-                                <div className="flex items-center gap-2">
-                                    {habit.icon && <span className="text-2xl">{habit.icon}</span>}
-                                    <h3 className="text-lg font-semibold text-white">{habit.title}</h3>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-white/70">
-                                    <span>Current streak: {habit.current_streak}d</span>
-                                    <span>·</span>
-                                    <span>Best {habit.best_streak}d</span>
-                                </div>
-                                <div className="h-px bg-white/10"></div>
-                                <div className="text-sm text-white/70">
-                                    {habit.completedDays} / 7 days completed
-                                </div>
-                                <div className="flex gap-1">
-                                    {habit.weekProgress.map((completed, idx) => (
-                                        <div
-                                            key={idx}
-                                            className={`h-3 w-3 rounded flex-shrink-0 ${completed ? 'bg-[#2BD4A4]' : 'bg-white/10'
-                                                }`}
-                                        />
-                                    ))}
-                                </div>
+                        );
+                    })()}
+                </section>
+
+                {/* Habit spotlight */}
+                <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                    <h2 className="text-3xl font-bold text-white mb-2">Habit spotlight</h2>
+                    <p className="text-sm text-white/70 mb-6">Deep dive into all habits performance over time.</p>
+
+                    {/* Statistics Cards 2x2 Grid */}
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                        {/* CURRENT STREAK */}
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                            <div className="text-xs uppercase tracking-wide text-white/60 mb-2">CURRENT STREAK</div>
+                            <div className="text-4xl font-bold text-[#2BD4A4] mb-1">{stats.current_streak || 0}</div>
+                            <div className="text-xs text-white/60">days in a row</div>
+                        </div>
+
+                        {/* BEST STREAK */}
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                            <div className="text-xs uppercase tracking-wide text-white/60 mb-2">BEST STREAK</div>
+                            <div className="text-4xl font-bold text-[#A78BFA] mb-1">{stats.best_streak || 0}</div>
+                            <div className="text-xs text-white/60">personal record</div>
+                        </div>
+
+                        {/* LAST ACTIVITY */}
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                            <div className="text-xs uppercase tracking-wide text-white/60 mb-2">LAST ACTIVITY</div>
+                            <div className="text-2xl font-bold text-white mb-1">
+                                {stats.last_completed
+                                    ? new Date(stats.last_completed).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                    : '—'
+                                }
                             </div>
-                        ))}
+                            <div className="text-xs text-white/60">most recent check-in</div>
+                        </div>
+
+                        {/* PREFERRED TIME */}
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                            <div className="text-xs uppercase tracking-wide text-white/60 mb-2">PREFERRED TIME</div>
+                            <div className="text-2xl font-bold text-white mb-1">—</div>
+                            <div className="text-xs text-white/60">when you usually complete it</div>
+                        </div>
                     </div>
-                )}
+
+                    {/* 7-Day Window Card */}
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="flex items-start justify-between mb-4">
+                            <div className="text-xs uppercase tracking-wide text-white/60">LAST 7 DAYS</div>
+                            <div className="text-xs uppercase tracking-wide text-white/60">TODAY ON THE RIGHT</div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="flex-shrink-0">
+                                <label className="text-xs uppercase tracking-wide text-white/60 mb-2 block">Habit</label>
+                                <select
+                                    value={selectedHabitId || ''}
+                                    onChange={(e) => setSelectedHabitId(e.target.value || null)}
+                                    className="w-48 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-white text-sm focus:border-white/30 focus:outline-none"
+                                >
+                                    <option value="">Select a habit</option>
+                                    {habitsWithStats.map((habit) => (
+                                        <option key={habit.id} value={habit.id}>
+                                            {habit.icon ? `${habit.icon} ` : ''}{habit.title}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="flex-1 text-white/70 text-sm">
+                                Select a habit to view the rolling 7-day window.
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* Habit focus */}
+                <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                    <h2 className="text-2xl font-semibold text-white mb-4">Habit focus</h2>
+                    {loading ? (
+                        <div className="grid grid-cols-2 gap-4">
+                            {[1, 2, 3, 4, 5, 6].map(i => (
+                                <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 animate-pulse">
+                                    <div className="h-6 bg-white/10 rounded w-3/4 mb-3"></div>
+                                    <div className="h-4 bg-white/10 rounded w-1/2 mb-2"></div>
+                                    <div className="h-4 bg-white/10 rounded w-1/2 mb-3"></div>
+                                    <div className="flex gap-1">
+                                        {[1, 2, 3, 4, 5, 6, 7].map(j => (
+                                            <div key={j} className="h-3 w-3 rounded bg-white/10"></div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : habitsWithStats.length === 0 ? (
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center text-white/60">
+                            No active habits yet. Create habits to track your streaks!
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                            {habitsWithStats.map((habit) => (
+                                <div
+                                    key={habit.id}
+                                    className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-3"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        {habit.icon && <span className="text-2xl">{habit.icon}</span>}
+                                        <h3 className="text-lg font-semibold text-white">{habit.title}</h3>
+                                    </div>
+                                    <div className="text-sm text-white/70">
+                                        <div>Current streak: {habit.current_streak}d</div>
+                                        <div>Best {habit.best_streak}d</div>
+                                    </div>
+                                    <div className="text-sm text-white/70">
+                                        {habit.completedDays} / 7 days completed
+                                    </div>
+                                    <div className="flex gap-1">
+                                        {habit.weekProgress.map((completed, idx) => (
+                                            <div
+                                                key={idx}
+                                                className={`h-3 w-3 rounded flex-shrink-0 ${completed ? 'bg-[#2BD4A4]' : 'bg-white/10'
+                                                    }`}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </section>
 
                 {/* Momentum Timeline */}
                 <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
