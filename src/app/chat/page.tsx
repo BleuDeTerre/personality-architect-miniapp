@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
+import { initializeSDK, getUserFid, getFrameContext } from '@/lib/farcaster-sdk';
 import { createClient } from '@supabase/supabase-js';
 import MiniAppPage from '@/components/MiniAppPage';
 

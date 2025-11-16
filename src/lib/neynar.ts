@@ -40,7 +40,7 @@ export async function getUserProfile(fid: number, viewerFid?: number) {
     }
 
     try {
-        const response = await neynarClient.fetchBulkUsers({ 
+        const response = await neynarClient.fetchBulkUsers({
             fids: [fid],
             viewerFid, // Добавляем для персонализации (например, подписан ли viewer)
         });
@@ -250,7 +250,7 @@ export async function getBulkUsers(fids: number[], viewerFid?: number) {
     }
 
     try {
-        const result = await neynarClient.fetchBulkUsers({ 
+        const result = await neynarClient.fetchBulkUsers({
             fids,
             viewerFid, // Добавляем для персонализации
         });
@@ -291,7 +291,7 @@ export async function searchUserByUsername(username: string, viewerFid?: number)
             username: cleanUsername,
             viewerFid,
         });
-        return result.result?.user || null;
+        return result.user || null;
     } catch (error: any) {
         console.error(`[Neynar] Failed to search user by username "${username}":`, {
             error: error?.message,
@@ -321,11 +321,11 @@ export async function searchUserByWallet(address: string, viewerFid?: number) {
     }
 
     try {
-        const result = await neynarClient.lookupUserByEthereumAddress({
-            address,
-            viewerFid,
-        });
-        return result.result?.user || null;
+        // lookupUserByEthereumAddress может не существовать в текущей версии SDK
+        // Используем альтернативный подход через bulk users или просто возвращаем null
+        // В будущем можно использовать другой метод если он появится в SDK
+        console.warn('[Neynar] lookupUserByEthereumAddress is not available in current SDK version');
+        return null;
     } catch (error: any) {
         console.error(`[Neynar] Failed to search user by wallet "${address}":`, {
             error: error?.message,

@@ -2,13 +2,20 @@
  * Централизованная утилита для работы с Farcaster Mini App SDK
  */
 
-import { sdk, isInMiniApp } from '@farcaster/miniapp-sdk';
+import { sdk } from '@farcaster/miniapp-sdk';
+
+// Проверка, запущено ли приложение в Mini App
+function isInMiniApp(): boolean {
+    return typeof window !== 'undefined' && 'farcaster' in window;
+}
 
 export interface FrameContext {
     user?: {
         fid: number;
         username?: string;
         displayName?: string;
+        custodyAddress?: string;
+        walletAddress?: string;
     };
     cast?: {
         hash: string;
@@ -108,9 +115,13 @@ export async function openUrl(url: string, target: string = '_blank'): Promise<v
 export async function composeCast(text?: string, embeds?: string[]): Promise<void> {
     try {
         if (isInMiniApp() && sdk.actions.composeCast) {
+            // Преобразуем массив в кортеж для типа SDK
+            const embedsTuple = embeds && embeds.length > 0
+                ? (embeds.length === 1 ? [embeds[0]] as [string] : [embeds[0], embeds[1]] as [string, string])
+                : undefined;
             await sdk.actions.composeCast({
                 text,
-                embeds,
+                embeds: embedsTuple,
             });
         } else {
             // Fallback: открываем композитор через URL
