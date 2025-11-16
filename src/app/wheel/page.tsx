@@ -368,13 +368,11 @@ export default function WheelPage() {
                                 </div>
                             ) : (
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <RadarChart 
-                                        data={useMemo(() => {
+                                    <RadarChart
+                                        data={(() => {
                                             const currentItems = editingValues ? editItems : items;
                                             // Create one data point per area with all area scores
                                             return AREAS.map(areaInfo => {
-                                                const item = currentItems.find(i => i.area === areaInfo.name);
-                                                const score = item?.score ?? 0;
                                                 const dataPoint: Record<string, string | number> = { area: areaInfo.name };
                                                 AREAS.forEach(a => {
                                                     const aItem = currentItems.find(i => i.area === a.name);
@@ -382,7 +380,7 @@ export default function WheelPage() {
                                                 });
                                                 return dataPoint;
                                             });
-                                        }, [editingValues, editItems, items])}
+                                        })()}
                                     >
                                         <PolarGrid stroke="#ffffff1a" />
                                         <PolarAngleAxis
@@ -409,9 +407,9 @@ export default function WheelPage() {
                                                 );
                                             }}
                                         />
-                                        <PolarRadiusAxis 
-                                            domain={[0, 10]} 
-                                            tickCount={6} 
+                                        <PolarRadiusAxis
+                                            domain={[0, 10]}
+                                            tickCount={6}
                                             tick={({ payload, x, y }) => {
                                                 const radiusValue = payload.value as number;
                                                 return (
