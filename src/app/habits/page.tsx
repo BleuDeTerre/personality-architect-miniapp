@@ -391,7 +391,7 @@ export default function HabitsPage() {
                     <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#120E2B] via-[#1c0f34] to-[#28124e] p-6 shadow-[0_30px_80px_rgba(10,4,24,0.7)]">
                         <div className="flex flex-col gap-3">
                             <p className="text-xs uppercase tracking-[0.4em] text-white/50">My Habits</p>
-                            <h1 className="text-3xl font-semibold leading-snug">Build routines faster, track completions, and unlock streak rewards.</h1>
+                            <h1 className="text-3xl font-semibold leading-snug text-[#8B5CF6]">Build routines faster, track completions, and unlock streak rewards.</h1>
                             <p className="text-white/70 text-sm">Stay consistent across health, focus, learning, and lifestyle.</p>
                         </div>
                     </section>

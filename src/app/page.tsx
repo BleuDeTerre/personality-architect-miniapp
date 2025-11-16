@@ -15,13 +15,14 @@ const supabase = createClient(
 
 const NAVIGATION = [
   { href: '/habits', label: 'Habits', icon: '✅', desc: 'Track your daily habits' },
-  { href: '/wheel', label: 'Wheel of Life', icon: '🔄', desc: 'Rate life areas' },
+  { href: '/wheel', label: 'Wheel of Life', icon: '🎡', desc: 'Rate life areas' },
   { href: '/goals', label: 'Goals', icon: '🎯', desc: 'Set & track goals' },
   { href: '/streaks', label: 'Streaks', icon: '🔥', desc: 'View your streaks' },
   { href: '/analytics', label: 'Analytics', icon: '📊', desc: 'Advanced insights' },
   { href: '/leaderboard', label: 'Leaderboard', icon: '🏅', desc: 'Top performers' },
   { href: '/chat', label: 'AI Coach', icon: '🤖', desc: 'Chat with your coach' },
-  { href: '/profile', label: 'Badges', icon: '🏆', desc: 'Your badges & mints' },
+  { href: '/profile', label: 'Achievements', icon: '🥇', desc: 'Track unlocked rewards' },
+  { href: '/profile', label: 'Profile', icon: '👤', desc: 'Account & badges' },
   { href: '/pricing', label: 'Pricing', icon: '💰', desc: 'Upgrade your plan' },
 ];
 
@@ -92,9 +93,9 @@ export default function DashboardPage() {
       <section className="space-y-6">
         <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#120E2B] to-[#211042] p-6 text-white shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
           <div className="flex flex-col gap-3">
-            <div className="text-sm uppercase tracking-[0.3em] text-white/60">Personality Architect</div>
-            <h1 className="text-3xl font-semibold leading-tight">“We are what we repeatedly do. Excellence, then, is not an act, but a habit.”</h1>
-            <p className="text-white/70 text-sm">— Aristotle</p>
+            <h1 className="text-4xl font-bold text-[#8B5CF6]">Personality Architect</h1>
+            <p className="text-white italic text-lg leading-relaxed">"We are what we repeatedly do. Excellence, then, is not an act, but a habit."</p>
+            <p className="text-white text-sm text-right">— Aristotle</p>
           </div>
           {gamificationStats && (
             <div className="mt-6 rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">

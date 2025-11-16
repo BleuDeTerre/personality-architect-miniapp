@@ -239,7 +239,7 @@ export default function GoalsPage() {
                 <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#1c0e35] via-[#2a1050] to-[#351365] p-6 shadow-[0_30px_80px_rgba(7,2,19,0.65)]">
                     <div className="flex flex-col gap-3">
                         <p className="text-xs uppercase tracking-[0.4em] text-white/60">Goal Command Center</p>
-                        <h1 className="text-3xl font-semibold leading-snug">Plot each objective, track execution, and ship your vision.</h1>
+                        <h1 className="text-3xl font-semibold leading-snug text-[#8B5CF6]">Plot each objective, track execution, and ship your vision.</h1>
                         <p className="text-white/70 text-sm">Active missions, completed arcs, and archived lessons — all in one board.</p>
                     </div>
                     <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">

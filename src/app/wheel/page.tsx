@@ -222,7 +222,7 @@ export default function WheelPage() {
                 <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#120e2b] via-[#1f0f3b] to-[#2f1450] p-6 shadow-[0_30px_80px_rgba(7,3,19,0.7)]">
                     <div className="flex flex-col gap-3">
                         <p className="text-xs uppercase tracking-[0.4em] text-white/60">Wheel of Life</p>
-                        <h1 className="text-3xl font-semibold leading-snug">Balance every area weekly and keep your momentum.</h1>
+                        <h1 className="text-3xl font-semibold leading-snug text-[#8B5CF6]">Balance every area weekly and keep your momentum.</h1>
                         <p className="text-white/70 text-sm">Track the 10 life arenas, highlight strengths, and spotlight areas that need attention.</p>
                     </div>
                     <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">

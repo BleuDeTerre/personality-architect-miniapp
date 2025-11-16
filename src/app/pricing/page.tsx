@@ -493,9 +493,9 @@ export default function PricingPage() {
                                             <button
                                                 onClick={() => mint(b.slug)}
                                                 disabled={loading || busyCode === b.slug || !canMint || !wallet}
-                                                className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint
-                                                    ? 'bg-white/20 border-white hover:scale-105 text-white'
-                                                    : 'opacity-50 cursor-not-allowed text-white/60'
+                                                className={`w-full rounded-2xl px-4 py-3 font-semibold transition ${canMint
+                                                    ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white hover:opacity-90 shadow-lg shadow-[#8B5CF6]/40'
+                                                    : 'border border-white/10 bg-white/5 text-white/60 opacity-50 cursor-not-allowed'
                                                     }`}
                                                 title={!wallet ? 'Add wallet address first' : (!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT')}
                                             >

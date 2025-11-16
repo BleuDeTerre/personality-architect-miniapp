@@ -339,7 +339,7 @@ export default function StreaksPage() {
             <div className="space-y-6">
                 <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#1C0F3A] via-[#2E1065] to-[#3E1075] p-6 shadow-[0_30px_80px_rgba(10,4,24,0.7)]">
                     <div className="flex flex-col gap-3">
-                        <h1 className="text-3xl font-semibold leading-snug text-white">Habit focus</h1>
+                        <h1 className="text-3xl font-semibold leading-snug text-[#8B5CF6]">Habit focus</h1>
                     </div>
                 </section>
                 <div className="flex flex-col gap-4">

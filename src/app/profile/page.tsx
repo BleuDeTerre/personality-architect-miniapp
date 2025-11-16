@@ -71,8 +71,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export default function ProfilePage() {
     // SDK debug
-    const [ctx, setCtx] = useState<FrameContext | null>(null);
-    const [authView, setAuthView] = useState<Record<string, unknown> | null>(null);
 
     // Profile
     const [p, setP] = useState<Profile>({
@@ -90,7 +88,7 @@ export default function ProfilePage() {
     const [statusMap, setStatusMap] = useState<Record<string, MintStatus>>({});
     const [eligMap, setEligMap] = useState<Record<string, { eligible: boolean; reason: string }>>({});
     const [busyCode, setBusyCode] = useState<string | null>(null);
-    const [walletInput, setWalletInput] = useState<string>('');
+    const [walletInput, setWalletInput] = useState<string | null>(null);
     const [walletSaving, setWalletSaving] = useState(false);
     const [walletError, setWalletError] = useState<string | null>(null);
 
@@ -196,7 +194,6 @@ export default function ProfilePage() {
                 }
             }
 
-            setCtx(frame);
 
             const fid = frame?.user?.fid ?? null;
             const wallet = frame?.user?.custodyAddress ?? frame?.user?.walletAddress ?? null;
@@ -223,7 +220,7 @@ export default function ProfilePage() {
                 plan: 'free',
                 plan_until: null,
             });
-            setWalletInput(wallet ?? '');
+            // Wallet input will be shown when user clicks "Change wallet"
 
             await refreshMints();
             await refreshEligibility();
@@ -270,15 +267,6 @@ export default function ProfilePage() {
         }
     }
 
-    // Manual Sign In via SDK (debug)
-    const signin = async () => {
-        try {
-            const res = await sdk.actions.signIn({ nonce: Math.random().toString(36).slice(2) });
-            setAuthView(isRecord(res) ? res : { value: res });
-        } catch (error) {
-            console.error(error);
-        }
-    };
 
     // Calculate XP and level - используем totalXP из таблицы xp_events, если доступен
     const xp = gamificationStats?.totalXP ?? (gamificationStats ? calculateXP(gamificationStats) : 0);
@@ -356,37 +344,37 @@ export default function ProfilePage() {
                                     <div className="h-4 bg-white/10 rounded w-24"></div>
                                 </div>
                             </div>
-                </div>
-                ) : neynarProfile ? (
+                        </div>
+                    ) : neynarProfile ? (
                         <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
                             <div className="flex items-start gap-4">
                                 {/* Profile Picture */}
                                 <div className="w-16 h-16 rounded-full overflow-hidden bg-white/10 flex items-center justify-center text-2xl font-semibold text-white/80 relative flex-shrink-0">
-                                {neynarProfile.pfpUrl ? (
-                                    <Image
-                                        src={neynarProfile.pfpUrl}
-                                        alt={neynarDisplayName ?? 'Farcaster user'}
-                                        className="object-cover"
-                                        fill
-                                        sizes="64px"
-                                        unoptimized
-                                    />
-                                ) : (
-                                    neynarInitials
-                                )}
-                            </div>
+                                    {neynarProfile.pfpUrl ? (
+                                        <Image
+                                            src={neynarProfile.pfpUrl}
+                                            alt={neynarDisplayName ?? 'Farcaster user'}
+                                            className="object-cover"
+                                            fill
+                                            sizes="64px"
+                                            unoptimized
+                                        />
+                                    ) : (
+                                        neynarInitials
+                                    )}
+                                </div>
 
                                 {/* User Info */}
                                 <div className="flex-1 min-w-0">
                                     <div className="text-xl font-bold text-white mb-1">
                                         {neynarProfile.displayName ?? neynarProfile.username ?? 'Farcaster User'}
                                     </div>
-                                {neynarProfile.username && (
+                                    {neynarProfile.username && (
                                         <div className="text-sm text-white/60 mb-1">@{neynarProfile.username}</div>
-                                )}
-                                {neynarProfile.fid && (
+                                    )}
+                                    {neynarProfile.fid && (
                                         <div className="text-sm text-white/60 mb-3">FID {neynarProfile.fid}</div>
-                                )}
+                                    )}
 
                                     {/* Bio Attributes */}
                                     {bioAttributes.length > 0 && (
@@ -403,15 +391,7 @@ export default function ProfilePage() {
                                 </div>
                             </div>
                         </div>
-                    ) : (
-                        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 text-white/60">
-                            {neynarError
-                                ? `Failed to load profile: ${neynarError}`
-                                : p.fid
-                                    ? 'Neynar profile not yet saved. Try again later.'
-                                    : 'Sign in with Farcaster to see your Neynar profile.'}
-                        </div>
-                    )}
+                    ) : null}
                 </section>
 
                 {/* Quest Board Section */}
@@ -433,6 +413,20 @@ export default function ProfilePage() {
                     </div>
                 </section>
 
+                {/* Export Data Section */}
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-xs uppercase tracking-wide text-white/60 mb-1">EXPORT DATA</p>
+                            <p className="text-lg font-semibold text-white">Download your data</p>
+                        </div>
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20">
+                            <span className="text-lg">⏳</span>
+                            <span className="text-sm font-medium text-white">COMING SOON</span>
+                        </div>
+                    </div>
+                </section>
+
                 {levelShareTemplates.length > 0 && (
                     <div className="mb-6">
                         <ShareCastComposer
@@ -444,234 +438,243 @@ export default function ProfilePage() {
                 )}
 
 
-            {/* Level & XP Card */}
-            {gamificationStats && (
+                {/* Level & XP Card */}
+                {gamificationStats && (
                     <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <div className={`text-2xl font-bold ${levelColor}`}>{levelName}</div>
-                            <div className="text-sm text-white/70">Level {level}</div>
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <div className={`text-2xl font-bold ${levelColor}`}>{levelName}</div>
+                                <div className="text-sm text-white/70">Level {level}</div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-2xl font-bold text-white">{xp.toLocaleString()}</div>
+                                <div className="text-sm text-white/70">Total XP</div>
+                            </div>
                         </div>
-                        <div className="text-right">
-                            <div className="text-2xl font-bold text-white">{xp.toLocaleString()}</div>
-                            <div className="text-sm text-white/70">Total XP</div>
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <div className="flex justify-between text-xs text-white/80">
-                            <span>Progress to Level {level + 1}</span>
-                            <span>{progress.toFixed(0)}%</span>
-                        </div>
-                        <div className="h-3 bg-white/20 rounded-full overflow-hidden">
-                            <div
-                                className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] transition-all duration-300"
-                                style={{ width: `${progress}%` }}
-                            ></div>
-                        </div>
-                        <div className="flex justify-between text-xs text-white/70">
-                            <span>
-                                {xpRemaining > 0
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-xs text-white/80">
+                                <span>Progress to Level {level + 1}</span>
+                                <span>{progress.toFixed(0)}%</span>
+                            </div>
+                            <div className="h-3 bg-white/20 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] transition-all duration-300"
+                                    style={{ width: `${progress}%` }}
+                                ></div>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/70">
+                                <span>
+                                    {xpRemaining > 0
                                         ? `Осталось ${xpRemaining.toLocaleString()} XP`
                                         : `Готов к уровню ${level + 1}!`}
-                            </span>
+                                </span>
                                 <span>{((level + 1) ** 2 * 100).toLocaleString()} XP всего</span>
+                            </div>
                         </div>
                     </div>
+                )}
+
+                {/* Profile cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    <Info label="FID" value={p.fid ?? '—'} />
+                    <Info label="Supabase User" value={p.supaUserId ?? '—'} />
+                    <Info label="Plan" value={(p.plan ?? 'free').toUpperCase()} />
                 </div>
-            )}
 
-            {/* Profile cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                <Info label="FID" value={p.fid ?? '—'} />
-                <Info label="Supabase User" value={p.supaUserId ?? '—'} />
-                <Info label="Wallet" value={p.wallet ?? '—'} mono />
-                <Info label="Plan" value={(p.plan ?? 'free').toUpperCase()} />
-            </div>
-
-            {/* Badges with Mint buttons */}
-            <section className="mb-6">
-                <h2 className="text-xl font-semibold mb-3">Badges Gallery</h2>
-                {loading ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {[1, 2, 3, 4, 5, 6].map(i => (
-                                <div key={i} className="rounded-3xl border border-white/10 bg-white/5 p-4 animate-pulse">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
-                                    <div className="flex-1 space-y-2">
-                                        <div className="h-4 bg-white/20 rounded w-3/4"></div>
-                                        <div className="h-3 bg-white/20 rounded w-full"></div>
-                                    </div>
-                                </div>
+                {/* Wallet Section */}
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 mb-6">
+                    <p className="text-xs uppercase tracking-wide text-white/60 mb-1">WALLET</p>
+                    {walletInput !== null && walletInput !== undefined ? (
+                        <>
+                            <div className="mb-4">
+                                <label className="text-xs text-white/70 mb-1 block">EVM Address</label>
+                                <input
+                                    value={walletInput}
+                                    onChange={e => setWalletInput(e.target.value)}
+                                    placeholder="0x..."
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-[#8B5CF6] focus:outline-none"
+                                />
+                                {walletError && <div className="text-xs text-red-400 mt-1">{walletError}</div>}
                             </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {BADGES.map(b => {
-                            const st = statusMap[b.slug] ?? 'none';
-                            const el = eligMap[b.slug]?.eligible ?? false;
-                            const reason = eligMap[b.slug]?.reason ?? '';
-                            const canMint = el && st === 'none';
-                            return (
-                                <div
-                                    key={b.slug}
-                                        className="rounded-3xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2 transition hover:bg-white/10"
-                                    title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
+                            <div className="flex gap-3 mb-4">
+                                <button
+                                    onClick={async () => {
+                                        setWalletError(null);
+                                        if (!walletInput || !/^0x[0-9a-fA-F]{40}$/.test(walletInput)) {
+                                            setWalletError('Invalid wallet address');
+                                            return;
+                                        }
+                                        setWalletSaving(true);
+                                        try {
+                                            const r = await fetch('/api/profile/wallet', {
+                                                method: 'POST',
+                                                headers: await authHeaders(),
+                                                body: JSON.stringify({ wallet: walletInput || '' }),
+                                            });
+                                            const j = await r.json();
+                                            if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+                                            setP(prev => ({ ...prev, wallet: walletInput }));
+                                            setWalletInput(null);
+                                        } catch (error) {
+                                            const message = error instanceof Error ? error.message : 'Error saving';
+                                            setWalletError(message);
+                                        } finally {
+                                            setWalletSaving(false);
+                                        }
+                                    }}
+                                    disabled={walletSaving}
+                                    className="flex-1 rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-white font-semibold transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40"
                                 >
+                                    {walletSaving ? 'Saving...' : 'Save'}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setWalletInput(null);
+                                        setWalletError(null);
+                                    }}
+                                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition hover:bg-white/10"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <p className="text-2xl font-bold text-white mb-4">
+                                {p.wallet ? `${p.wallet.slice(0, 6)}...${p.wallet.slice(-4)}` : '—'}
+                            </p>
+                            <button
+                                onClick={() => setWalletInput(p.wallet ?? '')}
+                                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition hover:bg-white/10 mb-4"
+                            >
+                                Change wallet
+                            </button>
+                            <p className="text-sm text-white/70">
+                                Personality Architect uses your Farcaster wallet (or any connected EVM address) for badge minting and onchain actions.
+                            </p>
+                        </>
+                    )}
+                </section>
+
+                {/* Badges with Mint buttons */}
+                <section className="mb-6">
+                    <h2 className="text-xl font-semibold mb-3">Badges Gallery</h2>
+                    {loading ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {[1, 2, 3, 4, 5, 6].map(i => (
+                                <div key={i} className="rounded-3xl border border-white/10 bg-white/5 p-4 animate-pulse">
                                     <div className="flex items-start gap-3">
-                                        <BadgeImage src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
-                                        <div className="flex-1">
-                                            <div className="font-medium">{b.title}</div>
-                                            <div className="text-xs text-white/70">{b.description}</div>
-                                            <div className="text-xs mt-1">
-                                                Status: <span className="font-mono">{st}</span>
-                                                {!el && <span className="ml-2 opacity-80">({reason})</span>}
-                                            </div>
+                                        <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
+                                        <div className="flex-1 space-y-2">
+                                            <div className="h-4 bg-white/20 rounded w-3/4"></div>
+                                            <div className="h-3 bg-white/20 rounded w-full"></div>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => mint(b.slug)}
-                                        disabled={loading || busyCode === b.slug || !canMint || !p.wallet}
-                                        className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
-                                        title={!p.wallet ? 'Add wallet address first' : (!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT')}
-                                    >
-                                        {busyCode === b.slug ? 'Minting…' : !p.wallet ? 'Add wallet' : (st === 'success' ? '✅ Minted' : 'Mint')}
-                                    </button>
                                 </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </section>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {BADGES.map(b => {
+                                const st = statusMap[b.slug] ?? 'none';
+                                const el = eligMap[b.slug]?.eligible ?? false;
+                                const reason = eligMap[b.slug]?.reason ?? '';
+                                const canMint = el && st === 'none';
+                                return (
+                                    <div
+                                        key={b.slug}
+                                        className="rounded-3xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2 transition hover:bg-white/10"
+                                        title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <BadgeImage src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                                            <div className="flex-1">
+                                                <div className="font-medium">{b.title}</div>
+                                                <div className="text-xs text-white/70">{b.description}</div>
+                                                <div className="text-xs mt-1">
+                                                    Status: <span className="font-mono">{st}</span>
+                                                    {!el && <span className="ml-2 opacity-80">({reason})</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => mint(b.slug)}
+                                            disabled={loading || busyCode === b.slug || !canMint || !p.wallet}
+                                            className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
+                                            title={!p.wallet ? 'Add wallet address first' : (!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT')}
+                                        >
+                                            {busyCode === b.slug ? 'Minting…' : !p.wallet ? 'Add wallet' : (st === 'success' ? '✅ Minted' : 'Mint')}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </section>
 
-            {/* Wallet setup */}
+
+                {/* Push Notifications Settings */}
+                <section className="mb-6">
+                    <PushNotificationSettings />
+                </section>
+
+                {/* Export Data */}
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                <h2 className="text-xl font-semibold mb-3">Wallet</h2>
-                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
-                    <div className="flex-1 w-full">
-                        <label className="text-xs opacity-70">EVM Address</label>
-                        <input
-                            value={walletInput}
-                            onChange={e => setWalletInput(e.target.value)}
-                            placeholder="0x..."
-                            className="mt-1 w-full px-3 py-2 rounded bg-white/5 border border-white/20"
-                        />
-                        {walletError && <div className="text-xs text-red-400 mt-1">{walletError}</div>}
+                    <h2 className="text-xl font-semibold mb-3">Export Data</h2>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={async () => {
+                                const hdrs = await authHeaders();
+                                const res = await fetch('/api/export/data?format=json', { headers: hdrs });
+                                if (res.ok) {
+                                    const blob = await res.blob();
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.json`;
+                                    a.click();
+                                }
+                            }}
+                            className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
+                        >
+                            📥 Download JSON
+                        </button>
+                        <button
+                            onClick={async () => {
+                                const hdrs = await authHeaders();
+                                const res = await fetch('/api/export/data?format=csv', { headers: hdrs });
+                                if (res.ok) {
+                                    const blob = await res.blob();
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.csv`;
+                                    a.click();
+                                }
+                            }}
+                            className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
+                        >
+                            📊 Download CSV
+                        </button>
+                        <button
+                            onClick={async () => {
+                                const hdrs = await authHeaders();
+                                const res = await fetch('/api/export/ical', { headers: hdrs });
+                                if (res.ok) {
+                                    const blob = await res.blob();
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `habits.ics`;
+                                    a.click();
+                                }
+                            }}
+                            className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
+                        >
+                            📅 Download iCal
+                        </button>
                     </div>
-                    <button
-                        onClick={async () => {
-                            setWalletError(null);
-                            if (!/^0x[0-9a-fA-F]{40}$/.test(walletInput)) {
-                                    setWalletError('Неверный адрес кошелька');
-                                return;
-                            }
-                            setWalletSaving(true);
-                            try {
-                                const r = await fetch('/api/profile/wallet', {
-                                    method: 'POST',
-                                    headers: await authHeaders(),
-                                    body: JSON.stringify({ wallet: walletInput }),
-                                });
-                                const j = await r.json();
-                                if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-                                setP(prev => ({ ...prev, wallet: walletInput }));
-                            } catch (error) {
-                                    const message = error instanceof Error ? error.message : 'Ошибка сохранения';
-                                setWalletError(message);
-                            } finally {
-                                setWalletSaving(false);
-                            }
-                        }}
-                        disabled={walletSaving}
-                        className="px-4 py-2 rounded bg-white/20 hover:bg-white/30 transition disabled:opacity-50"
-                    >
-                            {walletSaving ? 'Сохранение...' : 'Сохранить'}
-                    </button>
-                </div>
-            </section>
-
-            {/* Push Notifications Settings */}
-            <section className="mb-6">
-                <PushNotificationSettings />
-            </section>
-
-            {/* Export Data */}
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                <h2 className="text-xl font-semibold mb-3">Export Data</h2>
-                <div className="flex flex-wrap gap-2">
-                    <button
-                        onClick={async () => {
-                            const hdrs = await authHeaders();
-                            const res = await fetch('/api/export/data?format=json', { headers: hdrs });
-                            if (res.ok) {
-                                const blob = await res.blob();
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.json`;
-                                a.click();
-                            }
-                        }}
-                        className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
-                    >
-                        📥 Download JSON
-                    </button>
-                    <button
-                        onClick={async () => {
-                            const hdrs = await authHeaders();
-                            const res = await fetch('/api/export/data?format=csv', { headers: hdrs });
-                            if (res.ok) {
-                                const blob = await res.blob();
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.csv`;
-                                a.click();
-                            }
-                        }}
-                        className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
-                    >
-                        📊 Download CSV
-                    </button>
-                    <button
-                        onClick={async () => {
-                            const hdrs = await authHeaders();
-                            const res = await fetch('/api/export/ical', { headers: hdrs });
-                            if (res.ok) {
-                                const blob = await res.blob();
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `habits.ics`;
-                                a.click();
-                            }
-                        }}
-                        className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
-                    >
-                        📅 Download iCal
-                    </button>
-                </div>
-            </section>
-
-            {/* SDK Sign In and context debug */}
-            <button
-                onClick={signin}
-                className="w-full sm:w-auto px-6 py-3 rounded-xl font-medium text-lg transition-transform transform hover:scale-105 border-2 border-white/30 bg-white/10"
-            >
-                Sign in with Farcaster
-            </button>
-
-            <div className="bg-white/10 p-4 rounded-lg mt-4">
-                <h2 className="text-xl font-semibold mb-2">Context</h2>
-                <pre className="text-sm whitespace-pre-wrap break-words">{JSON.stringify(ctx, null, 2)}</pre>
-            </div>
-
-            {authView && (
-                <div className="bg-white/10 p-4 rounded-lg mt-4">
-                    <h2 className="text-xl font-semibold mb-2">Authorization (SDK)</h2>
-                    <pre className="text-sm whitespace-pre-wrap break-words">{JSON.stringify(authView, null, 2)}</pre>
-                </div>
-            )}
+                </section>
             </div>
         </MiniAppPage>
     );

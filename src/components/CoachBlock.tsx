@@ -30,15 +30,15 @@ export default function CoachBlock() {
     }
 
     return (
-        <div className="space-y-2">
+        <div className="space-y-3">
             <button
                 onClick={run}
-                className="px-3 py-2 rounded bg-[#8B5CF6] hover:bg-[#6D28D9] text-white transition"
+                className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-white font-semibold transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40"
                 disabled={loading}
             >
                 {loading ? 'Analyzing…' : '🤖 Get Coach Advice'}
             </button>
-            {advice && <div className="bg-[#121420] border border-[#2A2B3E] rounded-lg p-3 whitespace-pre-wrap text-[#E9ECF1]">{advice}</div>}
+            {advice && <div className="rounded-2xl border border-white/10 bg-white/5 p-4 whitespace-pre-wrap text-white">{advice}</div>}
         </div>
     );
 }

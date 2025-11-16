@@ -54,16 +54,16 @@ export default function PushNotificationSettings() {
 
     if (!mounted) {
         return (
-            <div className="p-4 bg-[#1A1B2E] border border-[#2A2B3E] rounded-lg">
-                <div className="h-20 bg-[#2A2B3E] rounded animate-pulse"></div>
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                <div className="h-20 rounded-2xl border border-white/10 bg-white/5 animate-pulse"></div>
             </div>
         );
     }
 
     if (typeof window !== 'undefined' && !('Notification' in window) && !('serviceWorker' in navigator)) {
         return (
-            <div className="p-4 bg-[#1A1B2E] border border-[#2A2B3E] rounded-lg">
-                <p className="text-sm text-[#AAB1C2]">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                <p className="text-sm text-white/70">
                     Ваш браузер не поддерживает push-уведомления
                 </p>
             </div>
@@ -71,10 +71,10 @@ export default function PushNotificationSettings() {
     }
 
     return (
-        <div className="p-4 bg-[#1A1B2E] border border-[#2A2B3E] rounded-lg">
-            <h3 className="text-lg font-semibold mb-3 text-[#E9ECF1]">Push-уведомления</h3>
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+            <h3 className="text-xl font-semibold mb-4 text-white">Push Notifications</h3>
 
-            <div className="mb-4 p-3 bg-yellow-900/20 border border-yellow-500/50 rounded text-sm text-yellow-300">
+            <div className="mb-4 p-4 rounded-2xl border border-yellow-500/50 bg-yellow-500/10 text-sm text-yellow-300">
                 <p className="font-semibold mb-1">Функционал временно отключен</p>
                 <p className="text-xs text-yellow-200/80">
                     Web Push уведомления отключены. В будущем будут реализованы уведомления через Farcaster.
@@ -82,10 +82,10 @@ export default function PushNotificationSettings() {
             </div>
 
             <div className="space-y-2 opacity-50">
-                <div className="text-sm text-[#AAB1C2]">
-                    Статус: <span className="font-semibold text-[#E9ECF1]">Недоступно</span>
+                <div className="text-sm text-white/70">
+                    Статус: <span className="font-semibold text-white">Недоступно</span>
                 </div>
-                <div className="text-xs text-[#AAB1C2]/60">
+                <div className="text-xs text-white/60">
                     Все кнопки отключены до реализации Farcaster уведомлений
                 </div>
             </div>
@@ -93,7 +93,7 @@ export default function PushNotificationSettings() {
             <div className="mt-4">
                 <button
                     disabled={true}
-                    className="px-4 py-2 bg-[#2A2B3E] text-[#AAB1C2] rounded-lg font-semibold opacity-50 cursor-not-allowed"
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white/60 font-semibold opacity-50 cursor-not-allowed"
                 >
                     Включить уведомления (скоро)
                 </button>

@@ -41,11 +41,11 @@ export default function Achievements() {
 
     if (loading) {
         return (
-            <div className="p-4 bg-[#1A1B2E] border border-[#2A2B3E] rounded-lg">
-                <h3 className="text-lg font-semibold mb-3 text-[#E9ECF1]">Достижения</h3>
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                <h3 className="text-xl font-semibold mb-4 text-white">Achievements</h3>
                 <div className="grid grid-cols-2 gap-3">
                     {[1, 2, 3, 4].map(i => (
-                        <div key={i} className="h-24 bg-[#2A2B3E] rounded animate-pulse"></div>
+                        <div key={i} className="h-24 rounded-2xl border border-white/10 bg-white/5 animate-pulse"></div>
                     ))}
                 </div>
             </div>
@@ -55,10 +55,10 @@ export default function Achievements() {
     const unlockedCount = achievements.filter(a => a.unlocked).length;
 
     return (
-        <div className="p-4 bg-[#1A1B2E] border border-[#2A2B3E] rounded-lg">
-            <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold text-[#E9ECF1]">Достижения</h3>
-                <span className="text-sm text-[#AAB1C2]">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-white">Achievements</h3>
+                <span className="text-sm text-white/60">
                     {unlockedCount}/{achievements.length}
                 </span>
             </div>
@@ -68,28 +68,27 @@ export default function Achievements() {
                     return (
                         <div
                             key={check.achievement.id}
-                            className={`p-3 rounded-lg border ${
-                                check.unlocked
-                                    ? 'bg-[#121420] border-[#8B5CF6]'
-                                    : 'bg-[#121420] border-[#2A2B3E] opacity-60'
-                            }`}
+                            className={`p-3 rounded-2xl border ${check.unlocked
+                                    ? 'border-[#8B5CF6]/50 bg-[#8B5CF6]/5'
+                                    : 'border-white/10 bg-white/5 opacity-60'
+                                }`}
                         >
                             <div className="text-2xl mb-2">{check.achievement.icon}</div>
-                            <div className="text-sm font-medium text-[#E9ECF1] mb-1">
+                            <div className="text-sm font-medium text-white mb-1">
                                 {check.achievement.title}
                             </div>
-                            <div className="text-xs text-[#AAB1C2] mb-2">
+                            <div className="text-xs text-white/70 mb-2">
                                 {check.achievement.description}
                             </div>
                             {!check.unlocked && check.progress > 0 && (
                                 <div className="space-y-1">
-                                    <div className="h-1 bg-[#2A2B3E] rounded-full overflow-hidden">
+                                    <div className="h-1 bg-white/20 rounded-full overflow-hidden">
                                         <div
                                             className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA]"
                                             style={{ width: `${check.progress}%` }}
                                         ></div>
                                     </div>
-                                    <div className="text-xs text-[#AAB1C2] text-right">
+                                    <div className="text-xs text-white/60 text-right">
                                         {check.progress}%
                                     </div>
                                 </div>
