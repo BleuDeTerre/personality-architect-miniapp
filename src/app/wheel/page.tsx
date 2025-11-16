@@ -13,6 +13,7 @@ import {
 import CoachBlock from '@/components/CoachBlock';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
+import AIWheelInsights from '@/components/AIWheelInsights';
 
 type Item = { area: string; score: number };
 
@@ -455,7 +456,9 @@ export default function WheelPage() {
                 )}
 
                 <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 space-y-4">
-                    <h2 className="text-xl font-semibold text-white">Coach</h2>
+                    <h2 className="text-xl font-semibold text-white mb-4">AI Insights</h2>
+                    <AIWheelInsights />
+                    <h2 className="text-xl font-semibold text-white mt-6">Coach</h2>
                     <div className="flex flex-col gap-3">
                         <button
                             onClick={loadTrends}

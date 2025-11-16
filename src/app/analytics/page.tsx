@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { sdk } from '@farcaster/miniapp-sdk';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
+import AICorrelationInsights from '@/components/AICorrelationInsights';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -944,6 +945,7 @@ export default function AnalyticsPage() {
                 {/* Habit Correlations Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 space-y-4">
                     <h2 className="text-2xl font-semibold text-white">Habit correlations</h2>
+                    <AICorrelationInsights />
                     {correlations && correlations.length > 0 ? (
                         <div className="space-y-2">
                             {correlations.map((corr, idx) => {

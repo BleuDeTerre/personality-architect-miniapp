@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { sdk } from '@farcaster/miniapp-sdk';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
+import AIStreakRecovery from '@/components/AIStreakRecovery';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -437,6 +438,9 @@ export default function StreaksPage() {
                         );
                     })()}
                 </section>
+
+                {/* Streak Recovery Coach */}
+                <AIStreakRecovery />
 
                 {/* Habit spotlight */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">

@@ -6,6 +6,8 @@ import { createClient } from '@supabase/supabase-js';
 import { calculateXP, calculateLevel, getLevelProgress, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
 import DailyQuests from '@/components/DailyQuests';
 import MiniAppPage from '@/components/MiniAppPage';
+import AIMotivationMessage from '@/components/AIMotivationMessage';
+import AIPredictiveAlerts from '@/components/AIPredictiveAlerts';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -121,6 +123,8 @@ export default function DashboardPage() {
           ))}
         </div>
 
+        <AIMotivationMessage />
+        <AIPredictiveAlerts />
         <DailyQuests />
       </section>
     </MiniAppPage>
