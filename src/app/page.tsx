@@ -1,13 +1,15 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { sdk } from "@farcaster/miniapp-sdk";
 import Link from "next/link";
 import { createClient } from '@supabase/supabase-js';
 import { calculateXP, calculateLevel, getLevelProgress, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
+import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
 import DailyQuests from '@/components/DailyQuests';
 import MiniAppPage from '@/components/MiniAppPage';
 import AIMotivationMessage from '@/components/AIMotivationMessage';
 import AIPredictiveAlerts from '@/components/AIPredictiveAlerts';
+import AddMiniAppModal from '@/components/AddMiniAppModal';
+import WalletSelectionModal from '@/components/WalletSelectionModal';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,25 +41,45 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    sdk.actions.ready();
+    initializeSDK();
   }, []);
 
   useEffect(() => {
     (async () => {
-      const ctx = await (sdk as any).context?.getFrameContext?.();
-      const fid = ctx?.user?.fid as number | undefined;
+      const fid = await getUserFid();
       if (!fid) return;
 
       const { data } = await supabase.auth.getUser();
       if (!data.user) {
+        // Получаем выбранный кошелек из localStorage (если был выбран)
+        const selectedWallet = localStorage.getItem('selected_wallet');
+        const walletType = localStorage.getItem('wallet_type') || 'farcaster';
+        
+        // Получаем Farcaster wallet из контекста
+        const { getFrameContext } = await import('@/lib/farcaster-sdk');
+        const context = await getFrameContext();
+        const farcasterWallet = context?.user?.custodyAddress || context?.user?.walletAddress || null;
+        
+        // Определяем финальный кошелек
+        const wallet = walletType === 'external' && selectedWallet 
+          ? selectedWallet 
+          : farcasterWallet;
+
         const res = await fetch('/api/auth/farcaster-login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fid }),
+          body: JSON.stringify({ 
+            fid,
+            wallet: wallet,
+            walletType: walletType,
+          }),
         });
         const { access_token } = await res.json();
         if (access_token) {
           await supabase.auth.setSession({ access_token, refresh_token: '' });
+          // Очищаем localStorage после успешной регистрации
+          localStorage.removeItem('selected_wallet');
+          localStorage.removeItem('wallet_type');
         }
       }
 
@@ -86,15 +108,15 @@ export default function DashboardPage() {
     <MiniAppPage>
       <section className="space-y-6">
         <div className="p-6">
-          <h1 className="text-4xl font-bold text-[#8B5CF6] mb-3">Personality Architect</h1>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-3">Personality Architect</h1>
           <div className="flex items-start justify-end gap-4">
-            <p className="text-white/90 italic text-lg leading-relaxed">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
+            <p className="text-[#c3c8d4] italic text-sm leading-relaxed">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
           </div>
           <div className="flex justify-end mt-2">
-            <p className="text-white/70 text-sm">— Aristotle</p>
+            <p className="text-[#8d92a3] text-xs italic">— Aristotle</p>
           </div>
           {gamificationStats && (
-            <div className="mt-6 rounded-3xl border border-white/10 bg-[#1a1a1a] p-4 backdrop-blur">
+            <div className="mt-6 rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 backdrop-blur">
               <div className="flex items-center justify-between text-sm text-white/70">
                 <span>{levelName} · Level {level}</span>
                 <span>{xp.toLocaleString()} XP</span>
@@ -112,7 +134,7 @@ export default function DashboardPage() {
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-3xl bg-[#1a1a1a] p-4 flex items-start gap-3 text-white hover:bg-[#252525] transition"
+              className="rounded-3xl bg-[#1a1b2e] p-4 flex items-start gap-3 text-white hover:bg-[#252640] transition"
             >
               <div className="text-2xl">{item.icon}</div>
               <div>
@@ -127,6 +149,8 @@ export default function DashboardPage() {
         <AIPredictiveAlerts />
         <DailyQuests />
       </section>
+      <AddMiniAppModal />
+      <WalletSelectionModal />
     </MiniAppPage>
   );
 }

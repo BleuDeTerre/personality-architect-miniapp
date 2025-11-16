@@ -3,10 +3,9 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import { createClient, type PostgrestError } from '@supabase/supabase-js';
-import { sdk } from '@farcaster/miniapp-sdk';
+import { initializeSDK, getFrameContext, getUserFid, addMiniApp, isRunningInMiniApp } from '@/lib/farcaster-sdk';
 import { BADGES } from '@/lib/badges';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
-import PushNotificationSettings from '@/components/PushNotificationSettings';
 import BadgeImage from '@/components/BadgeImage';
 import { type CastTemplate } from '@/components/share/ShareCastComposer';
 import QuestBoard from '@/components/QuestBoard';
@@ -181,16 +180,12 @@ export default function ProfilePage() {
 
     // Init: miniapp context, soft Supabase login, load mint status/eligibility
     useEffect(() => {
+        initializeSDK();
+    }, []);
+
+    useEffect(() => {
         (async () => {
-            try { await sdk.actions.ready(); } catch { /* noop */ }
-            let frame: FrameContext | null = null;
-            const rawContext = sdk.context as unknown;
-            if (rawContext && typeof rawContext === 'object') {
-                const miniAppContext = rawContext as MiniAppContext;
-                if (typeof miniAppContext.getFrameContext === 'function') {
-                    frame = await miniAppContext.getFrameContext().catch(() => null);
-                }
-            }
+            const frame = await getFrameContext();
 
 
             const fid = frame?.user?.fid ?? null;
@@ -328,10 +323,10 @@ export default function ProfilePage() {
             <div className="space-y-6">
                 {/* Profile Section */}
                 <section className="space-y-4">
-                    <h1 className="text-3xl font-semibold text-[#8B5CF6] mb-4">Profile</h1>
+                    <h1 className="text-3xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-4">Profile</h1>
 
                     {neynarLoading ? (
-                        <div className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 animate-pulse">
+                        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 animate-pulse">
                             <div className="flex items-center gap-4">
                                 <div className="w-16 h-16 rounded-full bg-white/10"></div>
                                 <div className="flex-1 space-y-2">
@@ -341,7 +336,7 @@ export default function ProfilePage() {
                             </div>
                         </div>
                     ) : neynarProfile ? (
-                        <div className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                             <div className="flex items-start gap-4">
                                 {/* Profile Picture */}
                                 <div className="w-16 h-16 rounded-full overflow-hidden bg-white/10 flex items-center justify-center text-2xl font-semibold text-white/80 relative flex-shrink-0">
@@ -392,8 +387,35 @@ export default function ProfilePage() {
                 {/* Quest Board Section */}
                 <QuestBoard className="mb-6" />
 
+                {/* Save Mini App Section */}
+                {isRunningInMiniApp() && (
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 mb-6">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <p className="text-xs uppercase tracking-wide text-white/60 mb-1">QUICK ACCESS</p>
+                                <p className="text-lg font-semibold text-white mb-2">Save this app</p>
+                                <p className="text-sm text-white/70">
+                                    Add Personality Architect to your favorites for quick access anytime.
+                                </p>
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        await addMiniApp();
+                                    } catch (error) {
+                                        console.error('[Profile] Failed to add mini app:', error);
+                                    }
+                                }}
+                                className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-center text-base font-semibold text-white transition hover:opacity-90 shadow-lg shadow-[#8B5CF6]/40 whitespace-nowrap"
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </section>
+                )}
+
                 {/* Current Plan Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 mb-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 mb-6">
                     <div className="flex items-start justify-between">
                         <div>
                             <p className="text-xs uppercase tracking-wide text-white/60 mb-1">CURRENT PLAN</p>
@@ -409,7 +431,7 @@ export default function ProfilePage() {
                 </section>
 
                 {/* Wallet Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 mb-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 mb-6">
                     <div className="flex items-start justify-between mb-4">
                         <div>
                             <p className="text-xs uppercase tracking-wide text-white/60 mb-1">WALLET</p>
@@ -431,7 +453,7 @@ export default function ProfilePage() {
                         {walletInput === null && (
                             <button
                                 onClick={() => setWalletInput(p.wallet ?? '')}
-                                className="rounded-2xl border border-white/10 bg-[#1a1a1a] px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10 whitespace-nowrap"
+                                className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10 whitespace-nowrap"
                             >
                                 Change wallet
                             </button>
@@ -445,7 +467,7 @@ export default function ProfilePage() {
                                     value={walletInput}
                                     onChange={e => setWalletInput(e.target.value)}
                                     placeholder="0x..."
-                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white placeholder:text-white/40 focus:border-[#8B5CF6] focus:outline-none"
+                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-[#8B5CF6] focus:outline-none"
                                 />
                                 {walletError && <div className="text-xs text-red-400 mt-1">{walletError}</div>}
                             </div>
@@ -485,7 +507,7 @@ export default function ProfilePage() {
                                         setWalletInput(null);
                                         setWalletError(null);
                                     }}
-                                    className="rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white font-semibold transition hover:bg-white/10"
+                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white font-semibold transition hover:bg-white/10"
                                 >
                                     Cancel
                                 </button>
@@ -500,7 +522,7 @@ export default function ProfilePage() {
                     {loading ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             {[1, 2, 3, 4, 5, 6].map(i => (
-                                <div key={i} className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-4 animate-pulse">
+                                <div key={i} className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
                                     <div className="flex items-start gap-3">
                                         <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
                                         <div className="flex-1 space-y-2">
@@ -521,7 +543,7 @@ export default function ProfilePage() {
                                 return (
                                     <div
                                         key={b.slug}
-                                        className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2 transition hover:bg-white/10"
+                                        className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2 transition hover:bg-white/10"
                                         title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
                                     >
                                         <div className="flex items-start gap-3">
@@ -551,18 +573,13 @@ export default function ProfilePage() {
                 </section>
 
 
-                {/* Push Notifications Settings */}
-                <section className="mb-6">
-                    <PushNotificationSettings />
-                </section>
-
                 {/* Achievements Section */}
                 <section className="mb-6">
                     <Achievements />
                 </section>
 
                 {/* Export Data */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 relative overflow-hidden">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 relative overflow-hidden">
                     {/* Content visible through blur */}
                     <div className="pointer-events-none">
                         <div className="flex items-start justify-between mb-4">
@@ -574,27 +591,27 @@ export default function ProfilePage() {
                         <div className="space-y-2">
                             <button
                                 disabled
-                                className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
+                                className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
                             >
                                 Export CSV
                             </button>
                             <button
                                 disabled
-                                className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
+                                className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
                             >
                                 Export Notion
                             </button>
                             <button
                                 disabled
-                                className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
+                                className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
                             >
                                 Export Obsidian
                             </button>
                         </div>
                     </div>
                     {/* COMING SOON overlay with blur effect */}
-                    <div className="absolute inset-0 flex items-center justify-center bg-[#1a1a1a]/70 backdrop-blur-md">
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1a1a1a] border border-white/10">
+                    <div className="absolute inset-0 flex items-center justify-center bg-[#1a1b2e]/70 backdrop-blur-md">
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1a1b2e] border border-white/10">
                             <span className="text-sm">⏳</span>
                             <span className="text-sm font-semibold text-white">COMING SOON</span>
                         </div>
@@ -613,7 +630,7 @@ function _Info({ label, value, mono = false }: { label: string; value: ReactNode
             : value ?? '—';
 
     return (
-        <div className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-4">
+        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
             <div className="text-xs text-white/80">{label}</div>
             <div className={mono ? 'font-mono break-all' : ''}>{content}</div>
         </div>

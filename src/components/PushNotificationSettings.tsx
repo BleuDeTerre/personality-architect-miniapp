@@ -54,15 +54,15 @@ export default function PushNotificationSettings() {
 
     if (!mounted) {
         return (
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                <div className="h-20 rounded-2xl border border-white/10 bg-white/5 animate-pulse"></div>
+            <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                <div className="h-20 rounded-2xl border border-white/10 bg-[#1a1b2e] animate-pulse"></div>
             </div>
         );
     }
 
     if (typeof window !== 'undefined' && !('Notification' in window) && !('serviceWorker' in navigator)) {
         return (
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+            <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                 <p className="text-sm text-white/70">
                     Ваш браузер не поддерживает push-уведомления
                 </p>
@@ -71,7 +71,7 @@ export default function PushNotificationSettings() {
     }
 
     return (
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
             <h3 className="text-xl font-semibold mb-4 text-white">Push Notifications</h3>
 
             <div className="mb-4 p-4 rounded-2xl border border-yellow-500/50 bg-yellow-500/10 text-sm text-yellow-300">
@@ -93,7 +93,7 @@ export default function PushNotificationSettings() {
             <div className="mt-4">
                 <button
                     disabled={true}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white/60 font-semibold opacity-50 cursor-not-allowed"
+                    className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white/60 font-semibold opacity-50 cursor-not-allowed"
                 >
                     Включить уведомления (скоро)
                 </button>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { sdk } from '@farcaster/miniapp-sdk';
+import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
 import { X, Loader2 } from 'lucide-react';
 import LevelUpAnimation from '@/components/LevelUpAnimation';
 import AchievementAnimation from '@/components/AchievementAnimation';
@@ -171,9 +171,22 @@ export default function HabitsPage() {
         try {
             const hdrs = await authHeaders();
             const res = await fetch('/api/habits/list', { headers: hdrs });
+
+            if (!res.ok) {
+                console.error('[HabitsPage] Failed to fetch habits:', res.status, res.statusText);
+                setHabits([]);
+                return;
+            }
+
             const base = await res.json();
 
-            if (!Array.isArray(base) || base.length === 0) {
+            if (!Array.isArray(base)) {
+                console.error('[HabitsPage] Invalid response format:', base);
+                setHabits([]);
+                return;
+            }
+
+            if (base.length === 0) {
                 setHabits([]);
                 return;
             }
@@ -184,10 +197,21 @@ export default function HabitsPage() {
                 headers: hdrs,
                 body: JSON.stringify({ ids }),
             });
+
+            if (!rs.ok) {
+                console.error('[HabitsPage] Failed to fetch streaks:', rs.status);
+                // Устанавливаем привычки без streak, если не удалось загрузить streaks
+                setHabits(base.map((h: any) => ({ ...h, streak: 0 })));
+                return;
+            }
+
             const sts: Array<{ habit_id: string; streak: number }> = await rs.json();
             const map = new Map(sts.map(x => [x.habit_id, x.streak]));
 
             setHabits(base.map((h: any) => ({ ...h, streak: map.get(h.id) ?? 0 })));
+        } catch (error) {
+            console.error('[HabitsPage] Error fetching habits:', error);
+            setHabits([]);
         } finally {
             setLoading(false);
         }
@@ -207,9 +231,12 @@ export default function HabitsPage() {
     }, [authHeaders]);
 
     useEffect(() => {
+        initializeSDK();
+    }, []);
+
+    useEffect(() => {
         (async () => {
-            const ctx = await (sdk as any).context?.getFrameContext?.();
-            const fid = ctx?.user?.fid as number | undefined;
+            const fid = await getUserFid();
             if (!fid) return;
 
             const { data } = await supabase.auth.getUser();
@@ -504,15 +531,15 @@ export default function HabitsPage() {
             <MiniAppPage>
                 <div className="space-y-6">
                     {/* Header Card */}
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-6">
-                        <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">My Habits</h1>
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
+                        <h1 className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">My Habits</h1>
                         <p className="text-sm text-white/80">
                             Build routines faster, track completions, and unlock streak rewards.
                         </p>
                     </section>
 
                     {/* Add Habit Form */}
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                         <form onSubmit={addHabit} className="flex flex-col gap-4">
                             <div className="relative">
                                 <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">EMOJI</label>
@@ -523,11 +550,11 @@ export default function HabitsPage() {
                                     onChange={(e) => setEmoji(e.target.value)}
                                     onClick={() => setShowEmojiPicker(true)}
                                     readOnly
-                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                                 />
                                 {showEmojiPicker && (
-                                    <div ref={emojiPickerRef} className="absolute z-10 mt-2 w-full max-w-xs rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 backdrop-blur max-h-64 overflow-y-auto">
-                                        <div className="grid grid-cols-5 gap-2">
+                                    <div ref={emojiPickerRef} className="absolute z-10 mt-2 w-full max-w-[240px] rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 backdrop-blur max-h-48 overflow-y-auto">
+                                        <div className="grid grid-cols-5 gap-1.5">
                                             {POPULAR_EMOJIS.map((emojiOption, idx) => (
                                                 <button
                                                     key={`${emojiOption}-${idx}`}
@@ -536,7 +563,7 @@ export default function HabitsPage() {
                                                         setEmoji(emojiOption);
                                                         setShowEmojiPicker(false);
                                                     }}
-                                                    className="rounded-xl p-3 text-2xl hover:bg-white/10 transition bg-[#1a1a1a] aspect-square flex items-center justify-center"
+                                                    className="rounded-xl p-2 text-xl hover:bg-white/10 transition bg-[#1a1b2e] aspect-square flex items-center justify-center"
                                                 >
                                                     {emojiOption}
                                                 </button>
@@ -548,7 +575,7 @@ export default function HabitsPage() {
                                                 setEmoji('');
                                                 setShowEmojiPicker(false);
                                             }}
-                                            className="mt-3 w-full rounded-xl border border-dashed border-white/20 bg-[#1a1a1a] px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition"
+                                            className="mt-2 w-full rounded-xl border border-dashed border-white/20 bg-[#1a1b2e] px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 transition"
                                         >
                                             Clear emoji
                                         </button>
@@ -562,7 +589,7 @@ export default function HabitsPage() {
                                     placeholder="Habit title"
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
-                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                                     required
                                 />
                             </div>
@@ -574,13 +601,13 @@ export default function HabitsPage() {
                                     max={7}
                                     value={targetDays}
                                     onChange={(e) => setTargetDays(Number(e.target.value))}
-                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                                 />
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setShowTemplates(!showTemplates)}
-                                className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white font-semibold transition hover:bg-white/10 flex items-center gap-2 justify-center"
+                                className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white font-semibold transition hover:bg-white/10 flex items-center gap-2 justify-center"
                             >
                                 <span>📚</span>
                                 <span>Browse Habit Library</span>
@@ -597,7 +624,7 @@ export default function HabitsPage() {
 
                     {/* Search and Filter */}
                     {habits.length > 0 && (
-                        <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                             <div className="flex flex-col gap-3">
                                 <div className="relative">
                                     <svg
@@ -618,17 +645,17 @@ export default function HabitsPage() {
                                         placeholder="Search habits..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] pl-10 pr-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                        className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] pl-10 pr-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                                     />
                                 </div>
                                 <select
                                     value={filterCompleted}
                                     onChange={(e) => setFilterCompleted(e.target.value as 'all' | 'completed' | 'active')}
-                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white focus:border-white/40 focus:outline-none appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat pr-10"
+                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white focus:border-white/40 focus:outline-none appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat pr-10"
                                 >
-                                    <option value="all" className="bg-[#1a1a1a] text-white">All</option>
-                                    <option value="active" className="bg-[#1a1a1a] text-white">Active</option>
-                                    <option value="completed" className="bg-[#1a1a1a] text-white">Completed</option>
+                                    <option value="all" className="bg-[#1a1b2e] text-white">All</option>
+                                    <option value="active" className="bg-[#1a1b2e] text-white">Active</option>
+                                    <option value="completed" className="bg-[#1a1b2e] text-white">Completed</option>
                                 </select>
                             </div>
                         </section>
@@ -636,7 +663,7 @@ export default function HabitsPage() {
 
                     {/* Share Section */}
                     {habitShareTemplates.length > 0 && (
-                        <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                             <ShareCastComposer
                                 templates={habitShareTemplates}
                                 sectionTitle="Share your habits"
@@ -647,10 +674,10 @@ export default function HabitsPage() {
 
                     {/* Habits Grid */}
                     {loading ? (
-                        <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                             <div className="grid grid-cols-2 gap-3">
                                 {[1, 2, 3, 4, 5, 6].map(i => (
-                                    <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 animate-pulse">
+                                    <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
                                         <div className="h-6 w-1/2 rounded bg-white/10" />
                                         <div className="mt-2 h-4 w-1/3 rounded bg-white/10" />
                                     </div>
@@ -658,7 +685,7 @@ export default function HabitsPage() {
                             </div>
                         </section>
                     ) : filteredHabits.length === 0 ? (
-                        <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-6 text-center text-white/70">
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6 text-center text-white/70">
                             No habits match your filters.
                         </section>
                     ) : (
@@ -670,7 +697,7 @@ export default function HabitsPage() {
                                 const titleText = h.title.replace(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)\s*/u, '').trim();
 
                                 return (
-                                    <div key={h.id} className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 flex flex-col gap-2">
+                                    <div key={h.id} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col gap-2">
                                         <div className="text-xl">{emoji}</div>
                                         <div className="text-sm font-semibold text-white">{titleText}</div>
                                         <div className="text-xs text-white/70">{h.target_days_per_week} days/week</div>
@@ -686,7 +713,7 @@ export default function HabitsPage() {
                                                 disabled={h.is_completed}
                                                 className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition ${h.is_completed
                                                     ? 'bg-[#22C55E] text-white'
-                                                    : 'bg-[#1a1a1a] text-white hover:bg-[#252525]'
+                                                    : 'bg-[#1a1b2e] text-white hover:bg-[#252640]'
                                                     }`}
                                             >
                                                 {h.is_completed ? 'Completed' : 'Mark done'}
@@ -719,40 +746,42 @@ export default function HabitsPage() {
 
             {showTemplates && (
                 <div className="fixed inset-0 z-50 flex flex-col bg-[#0c0f1a] overflow-hidden">
-                    {/* Header */}
-                    <div className="flex flex-col gap-4 p-6 border-b border-white/10">
-                        <div className="flex flex-col gap-2">
-                            <p className="text-sm text-white/70 text-center">Choose the habits you want to track. Tap a card to add or remove it instantly.</p>
-                            <div className="flex justify-center">
+                    {/* Header - Compact */}
+                    <div className="flex-shrink-0 border-b border-white/10 bg-[#0c0f1a]">
+                        <div className="flex flex-col gap-2 p-4">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs text-white/70">Choose the habits you want to track. Tap a card to add or remove it instantly.</p>
                                 <button
                                     onClick={() => setShowTemplates(false)}
-                                    className="flex items-center gap-2 rounded-full border border-white/20 bg-[#1a1a1a] px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 transition"
+                                    className="flex items-center gap-1.5 rounded-full border border-white/20 bg-[#1a1b2e] px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10 transition flex-shrink-0"
                                 >
-                                    <X className="h-4 w-4" />
+                                    <X className="h-3 w-3" />
                                     CLOSE
                                 </button>
                             </div>
-                        </div>
 
-                        {/* Category Filters */}
-                        <div className="flex gap-2 overflow-x-auto pb-2">
-                            {CATEGORIES.map((cat) => (
-                                <button
-                                    key={cat}
-                                    onClick={() => setSelectedCategory(cat)}
-                                    className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition whitespace-nowrap ${selectedCategory === cat
-                                        ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white'
-                                        : 'border border-white/10 bg-[#1a1a1a] text-white/70 hover:text-white hover:bg-white/10'
-                                        }`}
-                                >
-                                    {cat}
-                                </button>
-                            ))}
+                            {/* Category Filters - Sticky and Compact */}
+                            <div className="sticky top-0 z-10 bg-[#0c0f1a] pt-2 pb-2">
+                                <div className="flex flex-wrap gap-1.5 justify-center">
+                                    {CATEGORIES.map((cat) => (
+                                        <button
+                                            key={cat}
+                                            onClick={() => setSelectedCategory(cat)}
+                                            className={`rounded-full px-3 py-1 text-xs font-semibold transition whitespace-nowrap ${selectedCategory === cat
+                                                ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white'
+                                                : 'border border-white/10 bg-[#1a1b2e] text-white/70 hover:text-white hover:bg-white/10'
+                                                }`}
+                                        >
+                                            {cat}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     {/* Templates Grid */}
-                    <div className="flex-1 overflow-y-auto p-6">
+                    <div className="flex-1 overflow-y-auto p-6 pt-4">
                         <div className="grid grid-cols-2 gap-3 max-w-4xl mx-auto">
                             {filteredTemplates.map((template) => {
                                 const isInList = isTemplateInList(template);
@@ -761,8 +790,8 @@ export default function HabitsPage() {
                                         key={`${template.category}-${template.title}`}
                                         onClick={() => toggleTemplate(template)}
                                         className={`rounded-2xl border-2 p-4 text-left transition ${isInList
-                                            ? 'border-[#2BD4A4] bg-[#1a1a1a]'
-                                            : 'border-white/10 bg-[#1a1a1a] hover:border-white/20'
+                                            ? 'border-[#2BD4A4] bg-[#1a1b2e]'
+                                            : 'border-white/10 bg-[#1a1b2e] hover:border-white/20'
                                             }`}
                                     >
                                         <div className="text-3xl mb-2">{template.icon}</div>

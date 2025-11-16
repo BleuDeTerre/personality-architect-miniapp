@@ -86,7 +86,7 @@ export default function AIHabitDifficulty({ habitId, habitTitle, currentTarget, 
     const shouldKeep = data.recommendedTarget === data.currentTarget;
 
     return (
-        <div className="rounded-xl border border-white/10 bg-[#1a1a1a] p-3 space-y-2">
+        <div className="rounded-xl border border-white/10 bg-[#1a1b2e] p-3 space-y-2">
             <div className="flex items-start justify-between">
                 <div className="flex-1">
                     <p className="text-xs text-white/90 mb-1">{data.suggestion}</p>

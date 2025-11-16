@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { sdk } from '@farcaster/miniapp-sdk';
+import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
 import MiniAppPage from '@/components/MiniAppPage';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
 import { BADGES } from '@/lib/badges';
@@ -154,9 +154,12 @@ export default function PricingPage() {
     }, [authHeaders]);
 
     useEffect(() => {
+        initializeSDK();
+    }, []);
+
+    useEffect(() => {
         (async () => {
-            const ctx = await (sdk as any).context?.getFrameContext?.();
-            const fid = ctx?.user?.fid as number | undefined;
+            const fid = await getUserFid();
             if (!fid) return;
 
             const { data } = await supabase.auth.getUser();
@@ -285,7 +288,7 @@ export default function PricingPage() {
             <div className="space-y-6">
                 {/* Header */}
                 <section className="space-y-2">
-                    <h1 className="text-3xl font-semibold text-[#8B5CF6]">Choose Your Plan</h1>
+                    <h1 className="text-3xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Choose Your Plan</h1>
                     <p className="text-sm text-white/70">
                         Upgrade to unlock powerful insights and analytics
                     </p>
@@ -300,8 +303,8 @@ export default function PricingPage() {
                             <div
                                 key={plan.id}
                                 className={`rounded-3xl border p-6 flex flex-col ${plan.popular
-                                    ? 'border-[#8B5CF6] bg-[#1a1a1a]'
-                                    : 'border-white/10 bg-[#1a1a1a]'
+                                    ? 'border-[#8B5CF6] bg-[#1a1b2e]'
+                                    : 'border-white/10 bg-[#1a1b2e]'
                                     } ${isCurrent && plan.id !== 'free' ? 'border-[#8B5CF6]' : ''}`}
                             >
                                 {/* MOST POPULAR Badge */}
@@ -381,7 +384,7 @@ export default function PricingPage() {
 
                 {/* Level & XP Section */}
                 {gamificationStats && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                         <h2 className="text-xl font-semibold text-white mb-4">Your Level</h2>
                         <div className="flex items-center justify-between mb-4">
                             <div>

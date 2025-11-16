@@ -97,7 +97,7 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, o
     if (!breakdown) return null;
 
     return (
-        <div className="rounded-xl border border-white/10 bg-[#1a1a1a] p-4 space-y-4">
+        <div className="rounded-xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4">
             <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="h-4 w-4 text-purple-400" />
                 <h3 className="text-sm font-semibold text-white">AI Breakdown Plan</h3>

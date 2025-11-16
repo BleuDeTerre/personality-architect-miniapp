@@ -41,7 +41,7 @@ export default function AIMotivationMessage() {
 
     if (loading) {
         return (
-            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 animate-pulse">
+            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
                 <div className="h-4 w-3/4 rounded bg-white/10" />
             </div>
         );
@@ -50,7 +50,7 @@ export default function AIMotivationMessage() {
     if (!message) return null;
 
     return (
-        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4">
+        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
             <div className="flex items-start gap-3">
                 <div className="text-2xl">💬</div>
                 <p className="text-sm text-white/90 leading-relaxed">{message}</p>

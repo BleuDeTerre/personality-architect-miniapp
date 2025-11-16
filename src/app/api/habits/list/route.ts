@@ -18,7 +18,12 @@ export async function GET(req: NextRequest) {
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
 
-        if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+        if (error) {
+            console.error('[Habits List] Database error:', error);
+            return NextResponse.json({ error: error.message }, { status: 400 });
+        }
+
+        console.log(`[Habits List] Found ${data?.length || 0} habits for user ${userId}`);
         return NextResponse.json(data ?? []);
     } catch {
         return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

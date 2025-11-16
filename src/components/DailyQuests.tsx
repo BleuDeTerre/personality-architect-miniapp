@@ -45,14 +45,14 @@ export default function DailyQuests() {
 
     if (loading) {
         return (
-            <div className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+            <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-semibold text-white">Daily Quests</h3>
                     <span className="text-sm text-white/60">—/3</span>
                 </div>
                 <div className="space-y-3">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 animate-pulse">
+                        <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
                             <div className="h-5 w-1/3 rounded bg-white/10" />
                             <div className="mt-2 h-3 w-full rounded bg-white/10" />
                             <div className="mt-2 h-2 w-full rounded bg-white/10" />
@@ -65,12 +65,12 @@ export default function DailyQuests() {
 
     if (quests.length === 0) {
         return (
-            <div className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+            <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-semibold text-white">Daily Quests</h3>
                     <span className="text-sm text-white/60">0/3</span>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 text-center text-white/70">
+                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-6 text-center text-white/70">
                     No daily quests available. Create some habits to get started!
                 </div>
             </div>
@@ -100,7 +100,7 @@ export default function DailyQuests() {
                             key={quest.id}
                             className={`rounded-2xl border p-4 transition relative ${quest.completed
                                 ? 'border-[#22C55E]/50 bg-[#22C55E]/10'
-                                : 'border-white/10 bg-[#1a1a1a]'
+                                : 'border-white/10 bg-[#1a1b2e]'
                                 }`}
                         >
                             {quest.completed && (

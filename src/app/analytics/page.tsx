@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { sdk } from '@farcaster/miniapp-sdk';
+import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import AICorrelationInsights from '@/components/AICorrelationInsights';
@@ -294,9 +294,12 @@ export default function AnalyticsPage() {
     }, [selectedHabitId, fetchHabitTrend]);
 
     useEffect(() => {
+        initializeSDK();
+    }, []);
+
+    useEffect(() => {
         (async () => {
-            const ctx = await (sdk as any).context?.getFrameContext?.();
-            const fid = ctx?.user?.fid as number | undefined;
+            const fid = await getUserFid();
             if (!fid) return;
 
             const { data } = await supabase.auth.getUser();
@@ -598,8 +601,8 @@ export default function AnalyticsPage() {
         <MiniAppPage>
             <div className="space-y-6">
                 {/* Advanced Analytics Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
-                    <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">Advanced Analytics</h1>
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Advanced Analytics</h1>
                     <p className="text-sm text-white/70">
                         First wave of dashboards arrives here. Core metrics show up as soon as we collect enough data. Below that — the roadmap of smarter insights we&apos;re building next.
                     </p>
@@ -607,7 +610,7 @@ export default function AnalyticsPage() {
 
                 {/* Share Your Insights Section */}
                 {shareTemplates.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                         <ShareCastComposer
                             templates={shareTemplates}
                             sectionTitle="Share your insights"
@@ -617,12 +620,12 @@ export default function AnalyticsPage() {
                 )}
 
                 {/* Core Metrics Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 space-y-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-6">
                     <h2 className="text-2xl font-semibold text-white">Core metrics</h2>
                     {loading ? (
                         <div className="grid grid-cols-2 gap-4">
                             {[1, 2, 3, 4, 5, 6].map(i => (
-                                <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5 animate-pulse">
+                                <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5 animate-pulse">
                                     <div className="h-6 bg-white/10 rounded w-32 mb-3"></div>
                                     <div className="h-8 bg-white/10 rounded w-20 mb-3"></div>
                                     <div className="h-4 bg-white/10 rounded w-full"></div>
@@ -632,7 +635,7 @@ export default function AnalyticsPage() {
                     ) : (
                         <div className="grid grid-cols-2 gap-4">
                             {/* Completion rate */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5">
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5">
                                 <h3 className="text-base font-semibold text-white mb-3">Completion rate</h3>
                                 {completionRate !== null ? (
                                     <>
@@ -647,7 +650,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             {/* Streaks */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5">
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5">
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-base font-semibold text-white">Streaks</h3>
                                     <div className="h-px w-12 bg-[#8B5CF6]"></div>
@@ -666,7 +669,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             {/* Focus areas */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5">
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5">
                                 <h3 className="text-base font-semibold text-white mb-3">Focus areas</h3>
                                 {topHabit && topHabitIcon && topHabitTitle ? (
                                     <>
@@ -684,7 +687,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             {/* Average completion time */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5">
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5">
                                 <h3 className="text-base font-semibold text-white mb-3">Average completion time</h3>
                                 {mostActiveDay ? (
                                     <>
@@ -701,7 +704,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             {/* Goal progress */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5">
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5">
                                 <div className="flex items-start justify-between mb-3">
                                     <h3 className="text-base font-semibold text-white">Goal progress</h3>
                                     {goalProgress && (
@@ -724,7 +727,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             {/* Wheel delta */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5">
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5">
                                 <h3 className="text-base font-semibold text-white mb-3">Wheel delta</h3>
                                 {topWheelDeltas.length > 0 ? (
                                     <>
@@ -753,7 +756,7 @@ export default function AnalyticsPage() {
                 </section>
 
                 {/* Week Comparison Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 space-y-4">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-4">
                     <h2 className="text-2xl font-semibold text-white">Week comparison</h2>
                     {comparative ? (
                         <>
@@ -765,7 +768,7 @@ export default function AnalyticsPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <p className="text-sm font-medium text-white">Last week</p>
-                                    <p className="text-3xl font-semibold text-[#A78BFA]">{comparative.last_week.completed_total}</p>
+                                    <p className="text-3xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">{comparative.last_week.completed_total}</p>
                                     <p className="text-sm text-white/70">completed logs</p>
                                 </div>
                             </div>
@@ -774,7 +777,7 @@ export default function AnalyticsPage() {
                                     ? 'bg-[#22C55E]/20 border border-[#22C55E]/50'
                                     : comparative.comparison.trend === 'down'
                                         ? 'bg-red-400/20 border border-red-400/50'
-                                        : 'border border-white/10 bg-[#1a1a1a]'
+                                        : 'border border-white/10 bg-[#1a1b2e]'
                                     }`}>
                                     <p className="text-base font-semibold text-white mb-1">
                                         {comparative.comparison.message} {comparative.comparison.trend === 'up' ? '🔥' : ''}
@@ -791,7 +794,7 @@ export default function AnalyticsPage() {
                 </section>
 
                 {/* Habit Trend Prototypes Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 space-y-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-6">
                     <div>
                         <h2 className="text-2xl font-semibold text-white mb-2">Habit trend prototypes</h2>
                         <p className="text-sm text-white/70">
@@ -808,7 +811,7 @@ export default function AnalyticsPage() {
                                     <select
                                         value={selectedHabitId}
                                         onChange={(e) => setSelectedHabitId(e.target.value)}
-                                        className="w-full appearance-none rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 pr-10 text-white focus:border-white/40 focus:outline-none"
+                                        className="w-full appearance-none rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 pr-10 text-white focus:border-white/40 focus:outline-none"
                                     >
                                         {habits.map(h => {
                                             const emojiMatch = h.title?.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
@@ -831,7 +834,7 @@ export default function AnalyticsPage() {
 
                             {/* Sparkline chart */}
                             {loadingTrend ? (
-                                <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 animate-pulse space-y-4">
+                                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-6 animate-pulse space-y-4">
                                     <div className="h-6 bg-white/10 rounded w-32 mb-4"></div>
                                     <div className="h-32 bg-white/10 rounded"></div>
                                     <div className="h-6 bg-white/10 rounded w-48"></div>
@@ -839,7 +842,7 @@ export default function AnalyticsPage() {
                             ) : habitTrendData.length > 0 ? (
                                 <div className="space-y-6">
                                     {/* Sparkline streak trend */}
-                                    <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5 space-y-4">
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5 space-y-4">
                                         <div>
                                             <h3 className="text-base font-semibold text-white mb-1">Sparkline streak trend (last 90 days)</h3>
                                             <p className="text-sm text-white/70">Max streak: {maxStreak} day{maxStreak !== 1 ? 's' : ''}</p>
@@ -850,7 +853,7 @@ export default function AnalyticsPage() {
                                     </div>
 
                                     {/* Weekly capsule timeline */}
-                                    <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5 space-y-4">
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5 space-y-4">
                                         <div>
                                             <h3 className="text-base font-semibold text-white mb-1">Weekly capsule timeline (8 weeks)</h3>
                                             <p className="text-sm text-white/70">Each capsule shows completion rate and longest run for the week.</p>
@@ -914,7 +917,7 @@ export default function AnalyticsPage() {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 text-center text-white/60">
+                                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-6 text-center text-white/60">
                                     No trend data available for this habit yet.
                                 </div>
                             )}
@@ -926,7 +929,7 @@ export default function AnalyticsPage() {
 
                 {/* AI Facts Section */}
                 {facts && facts.facts && facts.facts.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 space-y-4">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-4">
                         <h2 className="text-2xl font-semibold text-white flex items-center gap-2">
                             <span className="text-2xl">🤖</span>
                             <span>AI facts</span>
@@ -943,7 +946,7 @@ export default function AnalyticsPage() {
                 )}
 
                 {/* Habit Correlations Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 space-y-4">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-4">
                     <h2 className="text-2xl font-semibold text-white">Habit correlations</h2>
                     <AICorrelationInsights />
                     {correlations && correlations.length > 0 ? (
@@ -978,11 +981,11 @@ export default function AnalyticsPage() {
 
 
                 {/* Advanced Insights Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 space-y-4">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-4">
                     <h2 className="text-2xl font-semibold text-white">Advanced insights</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Weak windows */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Weak windows</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
@@ -995,7 +998,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Energy peaks */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Energy peaks</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
@@ -1008,7 +1011,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Linked habits */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Linked habits</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
@@ -1030,7 +1033,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Wheel impact */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Wheel impact</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
@@ -1059,7 +1062,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Fatigue alerts */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Fatigue alerts</h3>
                                 <span className="text-xs font-semibold text-orange-400 uppercase">NEED DATA</span>
@@ -1068,7 +1071,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Goal forecast */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Goal forecast</h3>
                                 <span className={`text-xs font-semibold uppercase ${goals.filter(g => g.due_date).length > 0 ? 'text-green-400' : 'text-orange-400'}`}>
@@ -1083,7 +1086,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Habit recommendations */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Habit recommendations</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
@@ -1096,7 +1099,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Risk notifications */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Risk notifications</h3>
                                 <span className={`text-xs font-semibold uppercase ${predictive.filter(p => p.risk_score > 0).length > 0 ? 'text-green-400' : 'text-orange-400'}`}>
@@ -1111,7 +1114,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Micro-rewards */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Micro-rewards</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>

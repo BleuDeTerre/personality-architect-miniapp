@@ -49,7 +49,7 @@ export default function AIWheelInsights() {
 
     if (loading) {
         return (
-            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 animate-pulse">
+            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
                 <div className="h-4 w-1/2 rounded bg-white/10 mb-2" />
                 <div className="h-3 w-full rounded bg-white/10" />
             </div>
@@ -63,7 +63,7 @@ export default function AIWheelInsights() {
             {insights.map((insight, idx) => {
                 const isPositive = insight.change.toLowerCase().includes('improved') || insight.change.toLowerCase().includes('increased');
                 return (
-                    <div key={idx} className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4">
+                    <div key={idx} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                         <div className="flex items-start gap-3">
                             {isPositive ? (
                                 <TrendingUp className="h-4 w-4 text-green-400 flex-shrink-0 mt-0.5" />

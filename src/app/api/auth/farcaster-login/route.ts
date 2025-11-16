@@ -49,12 +49,22 @@ export async function POST(req: NextRequest) {
         let userId = existingUser?.id;
         const email = existingUser?.email ?? `farcaster-${fid}@example.com`;
 
+        // Получаем выбранный кошелек из body (если передан)
+        const selectedWallet = body?.wallet || body?.walletAddress || null;
+        const walletType = body?.walletType || 'farcaster'; // 'farcaster' или 'external'
+        
+        // Определяем финальный кошелек:
+        // Если передан selectedWallet - используем его (для external wallet)
+        // Для Farcaster wallet - будет получен из контекста на клиенте
+        const finalWallet = selectedWallet || null;
+
         const baseMetadata: Record<string, any> = {
             fid,
             neynar_username: neynarProfile?.username ?? null,
             neynar_display_name: neynarProfile?.displayName ?? null,
             neynar_pfp_url: neynarProfile?.pfpUrl ?? null,
             neynar_profile: neynarProfile,
+            wallet_type: walletType,
         };
 
         // 2) create auth user + row in users if absent
@@ -69,7 +79,12 @@ export async function POST(req: NextRequest) {
 
             const { error: insErr } = await admin
                 .from('users')
-                .insert({ id: userId, fid, email })
+                .insert({ 
+                    id: userId, 
+                    fid, 
+                    email,
+                    wallet_address: finalWallet, // Сохраняем выбранный кошелек
+                })
                 .single();
             if (insErr) throw insErr;
         } else {

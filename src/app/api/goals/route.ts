@@ -19,9 +19,11 @@ export async function GET(req: NextRequest) {
             .order('created_at', { ascending: false });
 
         if (error) {
-            console.error('[Goals GET] Error:', error);
+            console.error('[Goals GET] Database error:', error);
             return NextResponse.json({ error: 'Failed to fetch goals', details: error.message }, { status: 500 });
         }
+
+        console.log(`[Goals GET] Found ${data?.length || 0} goals for user ${userId}`);
         return NextResponse.json({ items: data ?? [] });
     } catch (error: any) {
         console.error('[Goals GET] Unexpected error:', error);

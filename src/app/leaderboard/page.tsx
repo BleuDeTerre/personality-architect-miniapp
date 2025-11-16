@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { sdk } from '@farcaster/miniapp-sdk';
+import { initializeSDK, getUserFid, getFrameContext } from '@/lib/farcaster-sdk';
 import { createClient } from '@supabase/supabase-js';
 import Image from 'next/image';
 import MiniAppPage from '@/components/MiniAppPage';
@@ -37,11 +37,14 @@ export default function LeaderboardPage() {
     const [_ctx, setCtx] = useState<any>(null);
 
     useEffect(() => {
-        sdk.actions.ready();
+        initializeSDK();
+    }, []);
+
+    useEffect(() => {
         (async () => {
-            const context = await (sdk as any).context?.getFrameContext?.();
+            const context = await getFrameContext();
             setCtx(context);
-            const fid = context?.user?.fid as number | undefined;
+            const fid = await getUserFid();
             if (!fid) return;
 
             const { data } = await supabase.auth.getUser();
@@ -107,8 +110,8 @@ export default function LeaderboardPage() {
         <MiniAppPage>
             <div className="space-y-6">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-6">
-                    <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">Leaderboard</h1>
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Leaderboard</h1>
                     <p className="text-sm text-white/80">
                         Ranked by best streak. All time leaders in habit consistency! 🔥
                     </p>
@@ -116,7 +119,7 @@ export default function LeaderboardPage() {
 
                 {/* User Card */}
                 {myEntry && myPosition && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                         <div className="flex items-start gap-4">
                             {/* Medal */}
                             <div className="relative flex-shrink-0">
@@ -199,12 +202,12 @@ export default function LeaderboardPage() {
 
                 {/* Loading State */}
                 {loading ? (
-                    <div className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 animate-pulse">
+                    <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 animate-pulse">
                         <div className="h-6 bg-white/10 rounded w-3/4 mb-4"></div>
                         <div className="h-4 bg-white/10 rounded w-1/2"></div>
                     </div>
                 ) : entries.length === 0 ? (
-                    <div className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-8 text-center text-white/60">
+                    <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-8 text-center text-white/60">
                         <div className="text-lg mb-2">No leaderboard data yet</div>
                         <div className="text-sm">Complete some habits to appear on the leaderboard!</div>
                     </div>

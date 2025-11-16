@@ -120,14 +120,14 @@ export default function QuestBoard({ className }: QuestBoardProps) {
     }, [quests]);
 
     return (
-        <section className={`rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 ${className ?? ''}`}>
+        <section className={`rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 ${className ?? ''}`}>
             <div className="flex flex-col gap-4">
                 <div>
                     <h2 className="text-2xl font-semibold text-white mb-1">Quest Board</h2>
                     <p className="text-sm text-white/70">Track daily, weekly, and monthly challenges.</p>
                 </div>
 
-                <div className="flex gap-2 rounded-2xl bg-white/5 p-1">
+                <div className="flex gap-2 rounded-2xl bg-[#1a1b2e] p-1">
                     {(['daily', 'weekly', 'monthly'] as Tab[]).map(key => (
                         <button
                             key={key}
@@ -142,7 +142,7 @@ export default function QuestBoard({ className }: QuestBoardProps) {
                 {loading ? (
                     <div className="grid gap-3">
                         {[1, 2, 3].map(i => (
-                            <div key={i} className="rounded-2xl border border-white/10 bg-white/5 p-4 animate-pulse">
+                            <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
                                 <div className="h-5 w-1/3 rounded bg-white/10" />
                                 <div className="mt-3 h-3 w-full rounded bg-white/10" />
                                 <div className="mt-3 h-2 w-full rounded bg-white/10" />
@@ -150,7 +150,7 @@ export default function QuestBoard({ className }: QuestBoardProps) {
                         ))}
                     </div>
                 ) : activeList.length === 0 ? (
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-white/70">
+                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-6 text-center text-white/70">
                         No quests yet. Come back after logging habits.
                     </div>
                 ) : (
@@ -160,7 +160,7 @@ export default function QuestBoard({ className }: QuestBoardProps) {
                             return (
                                 <div
                                     key={quest.id}
-                                    className="rounded-2xl border border-white/10 bg-white/5 p-4 flex items-start gap-4"
+                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex items-start gap-4"
                                 >
                                     {/* Icon */}
                                     <div className="text-2xl flex-shrink-0">{quest.icon}</div>

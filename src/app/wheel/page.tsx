@@ -225,9 +225,9 @@ export default function WheelPage() {
         <MiniAppPage>
             <div className="space-y-6">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
                     <p className="text-xs uppercase tracking-wide text-white/60 mb-2">WHEEL OF LIFE — WEEK {week}</p>
-                    <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">Life Balance Overview</h1>
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Life Balance Overview</h1>
                     <p className="text-sm text-white/80 mb-4">
                         Rate each area of your life from 1-10 to visualize your overall balance.
                     </p>
@@ -246,14 +246,14 @@ export default function WheelPage() {
                                 }, 100);
                             }
                         }}
-                        className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white font-semibold transition hover:bg-white/10"
+                        className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white font-semibold transition hover:bg-white/10"
                     >
                         Edit Values
                     </button>
                 </section>
 
                 {editingValues && (
-                    <section data-wheel-section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                    <section data-wheel-section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                         <div className="flex flex-col gap-6">
                             {/* Header */}
                             <div className="flex items-start justify-between">
@@ -269,7 +269,7 @@ export default function WheelPage() {
                                             setEditItems([...items]);
                                             setEditingValues(false);
                                         }}
-                                        className="rounded-2xl border border-white/10 bg-[#1a1a1a] px-6 py-3 text-white font-semibold transition hover:bg-white/10"
+                                        className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-6 py-3 text-white font-semibold transition hover:bg-white/10"
                                     >
                                         Cancel
                                     </button>
@@ -295,7 +295,7 @@ export default function WheelPage() {
                                         type="week"
                                         value={week}
                                         onChange={(e) => setWeek(e.target.value)}
-                                        className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white focus:border-white/40 focus:outline-none"
+                                        className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white focus:border-white/40 focus:outline-none"
                                     />
                                 </div>
                                 <div>
@@ -312,7 +312,7 @@ export default function WheelPage() {
                             {weekLoading ? (
                                 <div className="space-y-3">
                                     {AREAS.map(area => (
-                                        <div key={area.name} className="h-20 rounded-2xl border border-white/10 bg-[#1a1a1a] animate-pulse" />
+                                        <div key={area.name} className="h-20 rounded-2xl border border-white/10 bg-[#1a1b2e] animate-pulse" />
                                     ))}
                                 </div>
                             ) : (
@@ -321,7 +321,7 @@ export default function WheelPage() {
                                         const areaInfo = AREAS.find(a => a.name === it.area);
                                         const areaColor = areaInfo?.color ?? '#8B5CF6';
                                         return (
-                                            <div key={it.area} className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-3">
+                                            <div key={it.area} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-3">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-xl">{areaInfo?.icon ?? '•'}</span>
@@ -361,12 +361,12 @@ export default function WheelPage() {
                 )}
 
                 {/* Radar Chart and Category Grid */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5">
                     <div className="flex flex-col gap-6">
                         {/* Radar Chart */}
                         <div className="flex-1 h-96">
                             {weekLoading ? (
-                                <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-[#1a1a1a] text-white/60">
+                                <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-[#1a1b2e] text-white/60">
                                     Loading chart…
                                 </div>
                             ) : (
@@ -426,7 +426,7 @@ export default function WheelPage() {
                                     return (
                                         <div
                                             key={item.area}
-                                            className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 flex flex-col items-center gap-2"
+                                            className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col items-center gap-2"
                                         >
                                             <span className="text-2xl">{areaInfo?.icon ?? '•'}</span>
                                             <span className="text-xs font-semibold text-white text-center leading-tight">{item.area}</span>
@@ -446,7 +446,7 @@ export default function WheelPage() {
 
                 {/* Share Section */}
                 {shareTemplates.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                         <ShareCastComposer
                             templates={shareTemplates}
                             sectionTitle="Share your wheel"
@@ -455,14 +455,14 @@ export default function WheelPage() {
                     </section>
                 )}
 
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 space-y-4">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 space-y-4">
                     <h2 className="text-xl font-semibold text-white mb-4">AI Insights</h2>
                     <AIWheelInsights />
                     <h2 className="text-xl font-semibold text-white mt-6">Coach</h2>
                     <div className="flex flex-col gap-3">
                         <button
                             onClick={loadTrends}
-                            className="rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 w-full"
+                            className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 w-full"
                             disabled={trendsLoading}
                         >
                             {trendsLoading ? 'Updating…' : 'REFRESH TRENDS'}
@@ -471,7 +471,7 @@ export default function WheelPage() {
                     </div>
                 </section>
 
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 space-y-4">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 space-y-4">
                     <h2 className="text-xl font-semibold text-white">Trends</h2>
                     <div className="overflow-x-auto rounded-2xl border border-white/10">
                         <table className="min-w-full border-collapse text-sm text-white/80">

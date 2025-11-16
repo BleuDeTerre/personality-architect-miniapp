@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { sdk } from '@farcaster/miniapp-sdk';
+import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import AIStreakRecovery from '@/components/AIStreakRecovery';
@@ -242,11 +242,14 @@ export default function StreaksPage() {
         }
     }, [authHeaders, last7Days, last8Weeks]);
 
+    useEffect(() => {
+        initializeSDK();
+    }, []);
+
     // Загружаем данные
     useEffect(() => {
         (async () => {
-            const ctx = await (sdk as any).context?.getFrameContext?.();
-            const fid = ctx?.user?.fid as number | undefined;
+            const fid = await getUserFid();
             if (!fid) return;
 
             const { data } = await supabase.auth.getUser();
@@ -340,8 +343,8 @@ export default function StreaksPage() {
         <MiniAppPage>
             <div className="space-y-6">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-6">
-                    <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">Streaks Analytics</h1>
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Streaks Analytics</h1>
                     <p className="text-sm text-white/70">
                         Track consecutive wins, discover weak spots, and plan the next badge.
                     </p>
@@ -349,14 +352,14 @@ export default function StreaksPage() {
 
                 {/* Share Section */}
                 {shareTemplates.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                         <div className="flex items-start justify-between mb-4">
                             <div>
                                 <h2 className="text-xl font-semibold text-white mb-1">Share your streak</h2>
                                 <p className="text-sm text-white/70">Let everyone know how close you are to the next badge.</p>
                             </div>
                             {nextBadgeDays !== null && (
-                                <div className="rounded-full border border-[#8B5CF6] bg-[#1a1a1a] px-4 py-2 text-sm font-medium text-white">
+                                <div className="rounded-full border border-[#8B5CF6] bg-[#1a1b2e] px-4 py-2 text-sm font-medium text-white">
                                     Next badge ({nextBadgeDays} {nextBadgeDays === 1 ? 'day' : 'days'})
                                 </div>
                             )}
@@ -370,25 +373,25 @@ export default function StreaksPage() {
                 )}
 
                 {/* Statistics Cards and Progress */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                     {/* 2x2 Grid of Statistics Cards */}
                     <div className="grid grid-cols-2 gap-4 mb-6">
                         {/* Current Streak */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                             <div className="text-sm font-semibold text-white mb-2">Current Streak</div>
                             <div className="text-4xl font-bold text-[#2BD4A4] mb-1">{stats.current_streak || 0}</div>
                             <div className="text-sm text-white/70">days</div>
                         </div>
 
                         {/* Best Streak */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                             <div className="text-sm font-semibold text-white mb-2">Best Streak</div>
-                            <div className="text-4xl font-bold text-[#A78BFA] mb-1">{stats.best_streak || 0}</div>
+                            <div className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{stats.best_streak || 0}</div>
                             <div className="text-sm text-white/70">days</div>
                         </div>
 
                         {/* Last Activity */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                             <div className="text-sm font-semibold text-white mb-2">Last Activity</div>
                             <div className="text-xl font-bold text-white mb-1">
                                 {stats.last_completed
@@ -399,9 +402,9 @@ export default function StreaksPage() {
                         </div>
 
                         {/* Next Badge */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4">
-                            <div className="text-sm font-semibold text-[#A78BFA] mb-2">Next Badge</div>
-                            <div className="text-4xl font-bold text-[#A78BFA] mb-1">{nextBadgeDays || 0}</div>
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
+                            <div className="text-sm font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Next Badge</div>
+                            <div className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{nextBadgeDays || 0}</div>
                             <div className="text-sm text-white/70">days remaining</div>
                         </div>
                     </div>
@@ -414,7 +417,7 @@ export default function StreaksPage() {
                         const progressPercent = (currentStreak / nextMilestone) * 100;
 
                         return (
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4">
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                                 <div className="text-sm font-semibold text-white mb-3">Progress to next milestone</div>
                                 <div className="text-lg font-semibold text-white mb-3">
                                     {currentStreak} / {nextMilestone} days
@@ -443,7 +446,7 @@ export default function StreaksPage() {
                 <AIStreakRecovery />
 
                 {/* Habit spotlight */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                     <h2 className="text-3xl font-bold text-white mb-2">Habit spotlight</h2>
                     <p className="text-sm text-white/70 mb-4">Deep dive into all habits performance over time.</p>
 
@@ -458,7 +461,7 @@ export default function StreaksPage() {
                                 <select
                                     value={selectedHabitId || ''}
                                     onChange={(e) => setSelectedHabitId(e.target.value || null)}
-                                    className="w-full rounded-xl border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none appearance-none pr-8 truncate"
+                                    className="w-full rounded-xl border border-white/10 bg-[#1a1b2e] px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none appearance-none pr-8 truncate"
                                 >
                                     <option value="">Select a habit</option>
                                     {habitsWithStats.map((habit) => {
@@ -487,21 +490,21 @@ export default function StreaksPage() {
                     {/* Statistics Cards 2x2 Grid */}
                     <div className="grid grid-cols-2 gap-4 mb-6">
                         {/* CURRENT STREAK */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                             <div className="text-xs uppercase tracking-wide text-white/60 mb-2">CURRENT STREAK</div>
                             <div className="text-4xl font-bold text-[#2BD4A4] mb-1">{stats.current_streak || 0}</div>
                             <div className="text-xs text-white/60">days in a row</div>
                         </div>
 
                         {/* BEST STREAK */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                             <div className="text-xs uppercase tracking-wide text-white/60 mb-2">BEST STREAK</div>
-                            <div className="text-4xl font-bold text-[#A78BFA] mb-1">{stats.best_streak || 0}</div>
+                            <div className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{stats.best_streak || 0}</div>
                             <div className="text-xs text-white/60">personal record</div>
                         </div>
 
                         {/* LAST ACTIVITY */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                             <div className="text-xs uppercase tracking-wide text-white/60 mb-2">LAST ACTIVITY</div>
                             <div className="text-2xl font-bold text-white mb-1">
                                 {stats.last_completed
@@ -513,7 +516,7 @@ export default function StreaksPage() {
                         </div>
 
                         {/* PREFERRED TIME */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                             <div className="text-xs uppercase tracking-wide text-white/60 mb-2">PREFERRED TIME</div>
                             <div className="text-2xl font-bold text-white mb-1">—</div>
                             <div className="text-xs text-white/60">when you usually complete it</div>
@@ -522,12 +525,12 @@ export default function StreaksPage() {
                 </section>
 
                 {/* Habit focus */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                     <h2 className="text-2xl font-semibold text-white mb-4">Habit focus</h2>
                     {loading ? (
                         <div className="grid grid-cols-2 gap-4">
                             {[1, 2, 3, 4, 5, 6].map(i => (
-                                <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 animate-pulse">
+                                <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
                                     <div className="h-6 bg-white/10 rounded w-3/4 mb-3"></div>
                                     <div className="h-4 bg-white/10 rounded w-1/2 mb-2"></div>
                                     <div className="h-4 bg-white/10 rounded w-1/2 mb-3"></div>
@@ -540,7 +543,7 @@ export default function StreaksPage() {
                             ))}
                         </div>
                     ) : habitsWithStats.length === 0 ? (
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 text-center text-white/60">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-6 text-center text-white/60">
                             No active habits yet. Create habits to track your streaks!
                         </div>
                     ) : (
@@ -548,7 +551,7 @@ export default function StreaksPage() {
                             {habitsWithStats.map((habit) => (
                                 <div
                                     key={habit.id}
-                                    className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-3"
+                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-3"
                                 >
                                     <div className="flex items-center gap-2">
                                         {habit.icon && <span className="text-2xl">{habit.icon}</span>}
@@ -577,7 +580,7 @@ export default function StreaksPage() {
                 </section>
 
                 {/* Momentum Timeline */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                     <h2 className="text-2xl font-semibold text-white mb-6">Momentum timeline</h2>
                     {loading ? (
                         <div className="space-y-4">

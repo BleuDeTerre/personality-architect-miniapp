@@ -9,13 +9,19 @@ interface MiniAppPageProps {
 
 export default function MiniAppPage({ children, className, footerSlot }: MiniAppPageProps) {
     return (
-        <div className="min-h-screen bg-[#0c0f1a] text-white flex flex-col">
-            <div className={["w-full max-w-5xl mx-auto px-4 py-6 sm:px-8 flex-1", className ?? ""].join(" ").trim()}>
+        <div className="min-h-screen bg-[#0c0f1a] text-white pb-20">
+            <div className={["w-full max-w-5xl mx-auto px-4 py-6 sm:px-8", className ?? ""].join(" ").trim()}>
                 {children}
             </div>
-            <div className="w-full max-w-3xl mx-auto px-4 pb-4 pt-6">
-                {footerSlot}
-                <MiniAppTabBar />
+            {footerSlot && (
+                <div className="w-full max-w-3xl mx-auto px-4 pb-4 pt-6">
+                    {footerSlot}
+                </div>
+            )}
+            <div className="fixed bottom-0 left-0 right-0 w-full z-50">
+                <div className="w-full max-w-3xl mx-auto px-4 pb-4 pt-6">
+                    <MiniAppTabBar />
+                </div>
             </div>
         </div>
     );

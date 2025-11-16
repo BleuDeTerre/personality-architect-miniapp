@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { sdk } from '@farcaster/miniapp-sdk';
+import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import AIGoalBreakdown from '@/components/AIGoalBreakdown';
 import AIGoalReview from '@/components/AIGoalReview';
+import DatePicker from '@/components/DatePicker';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -60,23 +61,31 @@ export default function GoalsPage() {
             const headers = await authHeaders();
             const res = await fetch('/api/goals', { headers });
             if (!res.ok) {
-                console.error('Failed to fetch goals:', res.status, res.statusText);
+                console.error('[GoalsPage] Failed to fetch goals:', res.status, res.statusText);
+                const errorData = await res.json().catch(() => ({}));
+                console.error('[GoalsPage] Error details:', errorData);
+                setGoals([]);
                 return;
             }
             const data = await res.json();
             const goalsList = Array.isArray(data.items) ? data.items : (Array.isArray(data) ? data : []);
+            console.log(`[GoalsPage] Loaded ${goalsList.length} goals`);
             setGoals(goalsList);
         } catch (error) {
-            console.error('Failed to fetch goals', error);
+            console.error('[GoalsPage] Error fetching goals:', error);
+            setGoals([]);
         } finally {
             setLoading(false);
         }
     }, [authHeaders]);
 
     useEffect(() => {
+        initializeSDK();
+    }, []);
+
+    useEffect(() => {
         (async () => {
-            const ctx = await (sdk as any).context?.getFrameContext?.();
-            const fid = ctx?.user?.fid as number | undefined;
+            const fid = await getUserFid();
             if (!fid) return;
 
             const { data } = await supabase.auth.getUser();
@@ -267,8 +276,8 @@ export default function GoalsPage() {
         <MiniAppPage>
             <div className="space-y-6">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-6">
-                    <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">My Goals</h1>
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">My Goals</h1>
                     <p className="text-sm text-white/70">
                         Capture targets, track completions, and celebrate the finish line.
                     </p>
@@ -276,7 +285,7 @@ export default function GoalsPage() {
 
                 {/* Share Section */}
                 {goalShareTemplates.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                         <ShareCastComposer
                             templates={goalShareTemplates}
                             sectionTitle="Share your goals"
@@ -289,7 +298,7 @@ export default function GoalsPage() {
                 <AIGoalReview />
 
                 {/* Goal Creation Form */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
                     <form
                         onSubmit={(e) => {
                             e.preventDefault();
@@ -303,7 +312,7 @@ export default function GoalsPage() {
                                 placeholder="Goal title"
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
+                                className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
                                 required
                             />
                             {title && (
@@ -320,7 +329,7 @@ export default function GoalsPage() {
                                 placeholder="Metric (e.g., days, reps)"
                                 value={metric}
                                 onChange={(e) => setMetric(e.target.value)}
-                                className="rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
+                                className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
                             />
                             <input
                                 type="number"
@@ -328,7 +337,7 @@ export default function GoalsPage() {
                                 placeholder="Target"
                                 value={target}
                                 onChange={(e) => setTarget(e.target.value)}
-                                className="rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
+                                className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
@@ -337,27 +346,13 @@ export default function GoalsPage() {
                                 placeholder="Unit"
                                 value={unit}
                                 onChange={(e) => setUnit(e.target.value)}
-                                className="rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
+                                className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
                             />
-                            <input
-                                type="text"
+                            <DatePicker
+                                value={dueDate}
+                                onChange={(date) => setDueDate(date)}
                                 placeholder="MM/DD/YYYY"
-                                value={dueDate ? new Date(dueDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : ''}
-                                onChange={(e) => {
-                                    const dateStr = e.target.value;
-                                    // Parse MM/DD/YYYY format
-                                    const parts = dateStr.split('/');
-                                    if (parts.length === 3) {
-                                        const month = parts[0].padStart(2, '0');
-                                        const day = parts[1].padStart(2, '0');
-                                        const year = parts[2];
-                                        const date = new Date(`${year}-${month}-${day}`);
-                                        if (!isNaN(date.getTime())) {
-                                            setDueDate(date.toISOString().split('T')[0]);
-                                        }
-                                    }
-                                }}
-                                className="rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
+                                className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
                             />
                         </div>
                         <button
@@ -371,7 +366,7 @@ export default function GoalsPage() {
                 </section>
 
                 {/* Search and Filter */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 space-y-4">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-4">
                     {/* Search Bar */}
                     <div className="relative">
                         <svg
@@ -392,7 +387,7 @@ export default function GoalsPage() {
                             placeholder="Search goals..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] pl-12 pr-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
+                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] pl-12 pr-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
                         />
                     </div>
 
@@ -402,7 +397,7 @@ export default function GoalsPage() {
                             onClick={() => setFilterStatus('active')}
                             className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition ${filterStatus === 'active'
                                 ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white shadow-lg shadow-[#8B5CF6]/40'
-                                : 'border border-white/10 bg-[#1a1a1a] text-white/70 hover:bg-[#1a1a1a]'
+                                : 'border border-white/10 bg-[#1a1b2e] text-white/70 hover:bg-[#1a1b2e]'
                                 }`}
                         >
                             Active goals
@@ -411,7 +406,7 @@ export default function GoalsPage() {
                             onClick={() => setFilterStatus('completed')}
                             className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition ${filterStatus === 'completed'
                                 ? 'bg-gradient-to-r from-[#2BD4A4] to-[#14b8a6] text-[#041812] shadow-lg shadow-[#2BD4A4]/40'
-                                : 'border border-white/10 bg-[#1a1a1a] text-white/70 hover:bg-[#1a1a1a]'
+                                : 'border border-white/10 bg-[#1a1b2e] text-white/70 hover:bg-[#1a1b2e]'
                                 }`}
                         >
                             Completed goals
@@ -422,14 +417,14 @@ export default function GoalsPage() {
                 {loading && goals.length === 0 ? (
                     <div className="space-y-3">
                         {[1, 2, 3].map(i => (
-                            <div key={i} className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-4 animate-pulse">
+                            <div key={i} className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
                                 <div className="h-6 w-2/3 rounded bg-white/10" />
                                 <div className="mt-3 h-3 w-1/3 rounded bg-white/10" />
                             </div>
                         ))}
                     </div>
                 ) : filteredGoals.length === 0 ? (
-                    <div className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-6 text-center text-white/60">
+                    <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6 text-center text-white/60">
                         No goals yet. Add your first goal above!
                     </div>
                 ) : (
@@ -440,7 +435,7 @@ export default function GoalsPage() {
                             return (
                                 <div
                                     key={goal.id}
-                                    className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-4"
+                                    className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-4"
                                 >
                                     {editing ? (
                                         <div className="flex-1 space-y-3">
@@ -448,7 +443,7 @@ export default function GoalsPage() {
                                                 type="text"
                                                 value={goal.title}
                                                 onChange={(e) => setGoals(goals.map(g => g.id === goal.id ? { ...g, title: e.target.value } : g))}
-                                                className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-3 py-2 text-white focus:border-white/30 focus:outline-none"
+                                                className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-3 py-2 text-white focus:border-white/30 focus:outline-none"
                                             />
                                             <div className="flex gap-2">
                                                 <button
@@ -460,7 +455,7 @@ export default function GoalsPage() {
                                                 </button>
                                                 <button
                                                     onClick={() => setEditingId(null)}
-                                                    className="rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
+                                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
                                                 >
                                                     Cancel
                                                 </button>

@@ -39,7 +39,7 @@ export default function CoachBlock() {
                 <span>🤖</span>
                 <span>{loading ? 'Analyzing…' : 'Get Coach Advice'}</span>
             </button>
-            {advice && <div className="rounded-2xl border border-white/10 bg-white/5 p-4 whitespace-pre-wrap text-white">{advice}</div>}
+            {advice && <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 whitespace-pre-wrap text-white">{advice}</div>}
         </div>
     );
 }

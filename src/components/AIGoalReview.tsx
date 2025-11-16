@@ -51,7 +51,7 @@ export default function AIGoalReview() {
 
     if (loading) {
         return (
-            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 animate-pulse">
+            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
                 <div className="h-4 w-1/2 rounded bg-white/10 mb-2" />
                 <div className="h-3 w-full rounded bg-white/10" />
             </div>

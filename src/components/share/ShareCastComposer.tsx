@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { SHARE_PREVIEW_VERSION } from "@/lib/sharePreviewVersion";
+import { composeCast, isRunningInMiniApp, openUrl } from "@/lib/farcaster-sdk";
 
 export type CastTemplate = {
     key: string;
@@ -73,7 +74,53 @@ export default function ShareCastComposer({
     async function publishCast() {
         if (!selected) return;
         setLoading(true);
+
+        const isInMiniApp = isRunningInMiniApp();
+        const method = isInMiniApp ? 'native_composeCast' : 'api_publishCast';
+
         try {
+            // Пробуем нативный метод, если в Mini App
+            if (isInMiniApp) {
+                const embeds: string[] = [];
+
+                // Добавляем preview изображение
+                if (ogImageUrl) {
+                    embeds.push(ogImageUrl);
+                }
+
+                // Добавляем target URL, если есть
+                if (selected.targetPath) {
+                    embeds.push(`${origin}${selected.targetPath}`);
+                }
+
+                await composeCast(selected.text, embeds.length > 0 ? embeds : undefined);
+
+                // Логируем успешное использование нативного метода
+                try {
+                    await fetch('/api/share/log', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(prepareHeaders ? await prepareHeaders() : {}),
+                        },
+                        body: JSON.stringify({
+                            method: 'native_composeCast',
+                            success: true,
+                            kind: selected.kind,
+                        }),
+                    });
+                } catch (logError) {
+                    console.warn('[ShareCastComposer] Failed to log native share:', logError);
+                }
+
+                toast.success("Composer opened 🎉", {
+                    description: "Edit and publish your cast in the composer.",
+                });
+                setLoading(false);
+                return;
+            }
+
+            // Fallback: используем API метод
             const headers = {
                 "Content-Type": "application/json",
                 ...(prepareHeaders ? await prepareHeaders() : {}),
@@ -90,13 +137,33 @@ export default function ShareCastComposer({
                 }),
             });
             const data = (await res.json()) as ShareResponse;
+
+            // Логируем использование API метода
+            try {
+                await fetch('/api/share/log', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(prepareHeaders ? await prepareHeaders() : {}),
+                    },
+                    body: JSON.stringify({
+                        method: 'api_publishCast',
+                        success: res.ok,
+                        kind: selected.kind,
+                        error: res.ok ? undefined : (data.error ?? 'Unknown error'),
+                    }),
+                });
+            } catch (logError) {
+                console.warn('[ShareCastComposer] Failed to log API share:', logError);
+            }
+
             if (!res.ok) {
                 if (data.fallback) {
                     toast.error("Auto cast failed. Open composer to share manually.", {
                         description: data.error ?? "Try again later.",
                         action: {
                             label: "Open",
-                            onClick: () => window.open(data.fallback!, "_blank"),
+                            onClick: () => openUrl(data.fallback!),
                         },
                     });
                     return;
@@ -107,7 +174,7 @@ export default function ShareCastComposer({
                 description: "Check Warpcast feed for your update.",
             });
             if (data.castUrl) {
-                window.open(data.castUrl, "_blank");
+                await openUrl(data.castUrl);
             }
         } catch (error: any) {
             toast.error("Unable to publish cast", {
@@ -168,7 +235,7 @@ export default function ShareCastComposer({
             {ogImageUrl && (
                 <div className="space-y-2">
                     <p className="text-sm uppercase tracking-wide text-white/60">PREVIEW</p>
-                    <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4">
+                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                         <Image
                             src={ogImageUrl}
                             alt="Cast preview"

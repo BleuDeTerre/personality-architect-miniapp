@@ -30,16 +30,20 @@ export function isNeynarEnabled(): boolean {
  * Получение профиля пользователя по FID
  * 
  * @param fid - Farcaster ID пользователя
+ * @param viewerFid - Опциональный FID текущего пользователя для персонализации данных
  * @returns Профиль пользователя или null если не найден
  */
-export async function getUserProfile(fid: number) {
+export async function getUserProfile(fid: number, viewerFid?: number) {
     if (!neynarClient) {
         console.warn("Neynar client is not configured");
         return null;
     }
 
     try {
-        const response = await neynarClient.fetchBulkUsers({ fids: [fid] });
+        const response = await neynarClient.fetchBulkUsers({ 
+            fids: [fid],
+            viewerFid, // Добавляем для персонализации (например, подписан ли viewer)
+        });
         const user = response.users?.[0];
         if (!user) {
             return null;
@@ -52,9 +56,19 @@ export async function getUserProfile(fid: number) {
             bio: user.profile?.bio?.text,
             followerCount: user.follower_count,
             followingCount: user.following_count,
+            // Персонализированные данные (если viewerFid передан)
+            viewerContext: viewerFid ? {
+                following: user.viewer_context?.following ?? false,
+                followedBy: user.viewer_context?.followed_by ?? false,
+            } : undefined,
         };
-    } catch (error) {
-        console.error(`Failed to fetch user profile for FID ${fid}:`, error);
+    } catch (error: any) {
+        console.error(`[Neynar] Failed to fetch user profile for FID ${fid}:`, {
+            error: error?.message,
+            statusCode: error?.statusCode,
+            fid,
+            viewerFid,
+        });
         return null;
     }
 }
@@ -83,8 +97,13 @@ export async function publishCast(
             embeds: embeds || [],
         });
         return result.cast.hash;
-    } catch (error) {
-        console.error("Failed to publish cast:", error);
+    } catch (error: any) {
+        console.error("[Neynar] Failed to publish cast:", {
+            error: error?.message,
+            statusCode: error?.statusCode,
+            textLength: text.length,
+            embedsCount: embeds?.length || 0,
+        });
         throw error;
     }
 }
@@ -153,8 +172,12 @@ export async function recastCast(
             parent: castHash,
         });
         return result;
-    } catch (error) {
-        console.error("Failed to recast cast:", error);
+    } catch (error: any) {
+        console.error("[Neynar] Failed to recast cast:", {
+            error: error?.message,
+            statusCode: error?.statusCode,
+            castHash,
+        });
         throw error;
     }
 }
@@ -200,8 +223,12 @@ export async function getCast(castHash: string) {
             type: 'hash' as any, // Тип hash для поиска по hash
         });
         return result.cast;
-    } catch (error) {
-        console.error("Failed to get cast:", error);
+    } catch (error: any) {
+        console.error("[Neynar] Failed to get cast:", {
+            error: error?.message,
+            statusCode: error?.statusCode,
+            castHash,
+        });
         throw error;
     }
 }
@@ -210,9 +237,10 @@ export async function getCast(castHash: string) {
  * Получение списка пользователей по FIDs
  * 
  * @param fids - Массив Farcaster ID
+ * @param viewerFid - Опциональный FID текущего пользователя для персонализации данных
  * @returns Массив профилей пользователей
  */
-export async function getBulkUsers(fids: number[]) {
+export async function getBulkUsers(fids: number[], viewerFid?: number) {
     if (!neynarClient) {
         throw new Error("Neynar client is not configured");
     }
@@ -222,11 +250,90 @@ export async function getBulkUsers(fids: number[]) {
     }
 
     try {
-        const result = await neynarClient.fetchBulkUsers({ fids });
+        const result = await neynarClient.fetchBulkUsers({ 
+            fids,
+            viewerFid, // Добавляем для персонализации
+        });
         return result.users || [];
-    } catch (error) {
-        console.error("Failed to fetch bulk users:", error);
+    } catch (error: any) {
+        console.error("[Neynar] Failed to fetch bulk users:", {
+            error: error?.message,
+            statusCode: error?.statusCode,
+            fidsCount: fids.length,
+            viewerFid,
+        });
         throw error;
+    }
+}
+
+/**
+ * Поиск пользователя по username
+ * 
+ * @param username - Username пользователя (без @)
+ * @param viewerFid - Опциональный FID текущего пользователя для персонализации
+ * @returns Профиль пользователя или null если не найден
+ */
+export async function searchUserByUsername(username: string, viewerFid?: number) {
+    if (!neynarClient) {
+        console.warn("Neynar client is not configured");
+        return null;
+    }
+
+    if (!username || username.trim().length === 0) {
+        return null;
+    }
+
+    // Убираем @ если есть
+    const cleanUsername = username.replace(/^@/, '').trim();
+
+    try {
+        const result = await neynarClient.lookupUserByUsername({
+            username: cleanUsername,
+            viewerFid,
+        });
+        return result.result?.user || null;
+    } catch (error: any) {
+        console.error(`[Neynar] Failed to search user by username "${username}":`, {
+            error: error?.message,
+            statusCode: error?.statusCode,
+            username: cleanUsername,
+            viewerFid,
+        });
+        return null;
+    }
+}
+
+/**
+ * Поиск пользователя по Ethereum адресу
+ * 
+ * @param address - Ethereum адрес (0x...)
+ * @param viewerFid - Опциональный FID текущего пользователя для персонализации
+ * @returns Профиль пользователя или null если не найден
+ */
+export async function searchUserByWallet(address: string, viewerFid?: number) {
+    if (!neynarClient) {
+        console.warn("Neynar client is not configured");
+        return null;
+    }
+
+    if (!address || !address.startsWith('0x')) {
+        return null;
+    }
+
+    try {
+        const result = await neynarClient.lookupUserByEthereumAddress({
+            address,
+            viewerFid,
+        });
+        return result.result?.user || null;
+    } catch (error: any) {
+        console.error(`[Neynar] Failed to search user by wallet "${address}":`, {
+            error: error?.message,
+            statusCode: error?.statusCode,
+            address,
+            viewerFid,
+        });
+        return null;
     }
 }
 
