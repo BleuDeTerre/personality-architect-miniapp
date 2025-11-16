@@ -40,6 +40,7 @@ type QuestDefinition = {
 };
 
 const DAILY_POOL: QuestDefinition[] = [
+    // Всегда первый - Complete all habits (фиксированный)
     {
         id: 'all_active',
         icon: '✅',
@@ -50,16 +51,7 @@ const DAILY_POOL: QuestDefinition[] = [
         xp: stats => Math.max(30, stats.totalHabits * 8),
         eligible: stats => stats.totalHabits > 0,
     },
-    {
-        id: 'keep_momentum',
-        icon: '⚡️',
-        title: 'Keep momentum',
-        description: () => 'Maintain a 3-day streak.',
-        target: () => 3,
-        current: stats => Math.min(stats.currentStreak, 3),
-        xp: () => 20,
-        eligible: stats => stats.currentStreak >= 0,
-    },
+    // Динамические квесты (выбираются 2 случайных каждый день)
     {
         id: 'hit_80_percent',
         icon: '🎯',
@@ -68,7 +60,7 @@ const DAILY_POOL: QuestDefinition[] = [
         target: stats => Math.max(1, Math.ceil(stats.totalHabits * 0.8)),
         current: stats => stats.completedToday,
         xp: stats => Math.max(25, Math.ceil(stats.totalHabits * 0.8) * 10),
-        eligible: stats => stats.totalHabits > 0,
+        eligible: stats => stats.totalHabits >= 3,
     },
     {
         id: 'keep_streak',
@@ -78,26 +70,85 @@ const DAILY_POOL: QuestDefinition[] = [
         target: stats => Math.max(3, stats.currentStreak || 3),
         current: stats => Math.min(stats.currentStreak, Math.max(3, stats.currentStreak || 3)),
         xp: stats => Math.max(20, stats.currentStreak * 5),
-        eligible: stats => stats.currentStreak > 0,
+        eligible: stats => stats.currentStreak >= 2,
     },
     {
-        id: 'momentum',
-        icon: '⚡️',
+        id: 'early_bird',
+        icon: '🌅',
         title: 'Early bird',
-        description: () => 'Log 3 habits before noon',
+        description: () => 'Log at least 3 habits before noon',
         target: () => 3,
         current: stats => Math.min(stats.logsToday, 3),
         xp: () => 18,
+        eligible: stats => stats.totalHabits >= 3,
     },
     {
-        id: 'perfect_day',
-        icon: '🌟',
-        title: 'Perfect day',
-        description: stats => `Hit all ${stats.totalHabits} habits`,
+        id: 'consistency_king',
+        icon: '👑',
+        title: 'Consistency king',
+        description: () => 'Log habits 5 times today',
+        target: () => 5,
+        current: stats => Math.min(stats.logsToday, 5),
+        xp: () => 22,
+        eligible: stats => stats.totalHabits >= 5,
+    },
+    {
+        id: 'streak_milestone',
+        icon: '🏆',
+        title: 'Streak milestone',
+        description: stats => `Reach ${Math.ceil((stats.currentStreak || 0) / 7) * 7} day streak`,
+        target: stats => {
+            const current = stats.currentStreak || 0;
+            if (current === 0) return 7;
+            return Math.ceil(current / 7) * 7;
+        },
+        current: stats => Math.min(stats.currentStreak || 0, Math.ceil((stats.currentStreak || 0) / 7) * 7),
+        xp: stats => Math.max(30, Math.ceil((stats.currentStreak || 0) / 7) * 7 * 4),
+        eligible: stats => stats.currentStreak >= 1,
+    },
+    {
+        id: 'half_day',
+        icon: '📊',
+        title: 'Half day champion',
+        description: stats => `Complete at least ${Math.ceil(stats.totalHabits / 2)} habits`,
+        target: stats => Math.max(1, Math.ceil(stats.totalHabits / 2)),
+        current: stats => stats.completedToday,
+        xp: stats => Math.max(15, Math.ceil(stats.totalHabits / 2) * 8),
+        eligible: stats => stats.totalHabits >= 2,
+    },
+    {
+        id: 'momentum_builder',
+        icon: '⚡️',
+        title: 'Momentum builder',
+        description: () => 'Log at least 4 different habits today',
+        target: () => 4,
+        current: stats => Math.min(stats.completedToday, 4),
+        xp: () => 20,
+        eligible: stats => stats.totalHabits >= 4,
+    },
+    {
+        id: 'weekend_warrior',
+        icon: '🎮',
+        title: 'Weekend warrior',
+        description: () => 'Complete all habits on weekend',
         target: stats => stats.totalHabits,
         current: stats => stats.completedToday,
-        xp: stats => stats.totalHabits * 10,
-        eligible: stats => stats.totalHabits >= 4,
+        xp: stats => Math.max(35, stats.totalHabits * 12),
+        eligible: stats => {
+            const today = new Date();
+            const day = today.getDay();
+            return (day === 0 || day === 6) && stats.totalHabits > 0;
+        },
+    },
+    {
+        id: 'comeback',
+        icon: '💪',
+        title: 'Comeback',
+        description: () => 'Log habits after a break',
+        target: () => 1,
+        current: stats => stats.currentStreak > 0 ? 1 : 0,
+        xp: () => 25,
+        eligible: stats => stats.currentStreak === 1, // Только для тех, кто вернулся после перерыва
     },
 ];
 

@@ -116,6 +116,10 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Инвалидируем кеш аналитики при изменении данных
+      const { invalidateAnalyticsCache } = await import('@/lib/analytics-cache');
+      await invalidateAnalyticsCache(supa, userId);
+
       // Проверяем повышение уровня
       const { data: currentXPData } = await supa
         .rpc('get_user_total_xp', { p_user_id: userId })

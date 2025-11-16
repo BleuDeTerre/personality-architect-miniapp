@@ -45,14 +45,14 @@ export default function DailyQuests() {
 
     if (loading) {
         return (
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+            <div className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-semibold text-white">Daily Quests</h3>
                     <span className="text-sm text-white/60">—/3</span>
                 </div>
                 <div className="space-y-3">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className="rounded-2xl border border-white/10 bg-white/5 p-4 animate-pulse">
+                        <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 animate-pulse">
                             <div className="h-5 w-1/3 rounded bg-white/10" />
                             <div className="mt-2 h-3 w-full rounded bg-white/10" />
                             <div className="mt-2 h-2 w-full rounded bg-white/10" />
@@ -65,12 +65,12 @@ export default function DailyQuests() {
 
     if (quests.length === 0) {
         return (
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+            <div className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-semibold text-white">Daily Quests</h3>
                     <span className="text-sm text-white/60">0/3</span>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-white/70">
+                <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 text-center text-white/70">
                     No daily quests available. Create some habits to get started!
                 </div>
             </div>
@@ -93,34 +93,26 @@ export default function DailyQuests() {
                 {displayQuests.map(quest => {
                     const progress = calculateQuestProgress(quest);
                     const progressPercent = Math.round(progress);
-                    
-                    // Determine icon background based on quest type
-                    const getIconBackground = () => {
-                        if (quest.completed) return 'bg-[#2BD4A4]';
-                        if (quest.icon === '✅' || quest.icon.includes('✅')) return 'bg-[#2BD4A4]';
-                        if (quest.icon === '⚡' || quest.icon === '⚡️' || quest.icon.includes('⚡')) return 'bg-yellow-500';
-                        if (quest.icon === '🏆' || quest.icon.includes('🏆')) return 'bg-yellow-500';
-                        return 'bg-white/10';
-                    };
+
 
                     return (
                         <div
                             key={quest.id}
                             className={`rounded-2xl border p-4 transition relative ${quest.completed
-                                ? 'border-[#2BD4A4]/50 bg-[#2BD4A4]/10'
-                                : 'border-white/10 bg-white/5'
+                                ? 'border-[#22C55E]/50 bg-[#22C55E]/10'
+                                : 'border-white/10 bg-[#1a1a1a]'
                                 }`}
                         >
                             {quest.completed && (
                                 <div className="absolute top-3 right-3">
-                                    <div className="w-5 h-5 rounded-full bg-[#2BD4A4] flex items-center justify-center">
+                                    <div className="w-5 h-5 rounded-full bg-[#22C55E] flex items-center justify-center">
                                         <span className="text-white text-xs">✓</span>
                                     </div>
                                 </div>
                             )}
                             <div className="flex items-start gap-3">
-                                <div className={`w-10 h-10 rounded-lg ${getIconBackground()} flex items-center justify-center flex-shrink-0`}>
-                                    <span className="text-xl">{quest.icon}</span>
+                                <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-2xl">{quest.icon}</span>
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <h4 className="text-base font-semibold text-white mb-1">{quest.title}</h4>
@@ -134,14 +126,14 @@ export default function DailyQuests() {
                                     <div className="h-2 rounded-full bg-white/10 overflow-hidden mb-2">
                                         <div
                                             className={`h-full transition-all ${quest.completed
-                                                ? 'bg-[#2BD4A4]'
+                                                ? 'bg-[#22C55E]'
                                                 : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9]'
                                                 }`}
                                             style={{ width: `${Math.min(100, progress)}%` }}
                                         />
                                     </div>
                                     {quest.completed && quest.xpReward > 0 && (
-                                        <div className="text-sm text-[#2BD4A4] font-medium">
+                                        <div className="text-sm text-[#22C55E] font-medium">
                                             +{quest.xpReward} XP
                                         </div>
                                     )}

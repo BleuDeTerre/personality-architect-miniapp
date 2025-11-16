@@ -453,8 +453,67 @@ export default function AnalyticsPage() {
         return topHabit.habit.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || topHabit.habit;
     }, [topHabit]);
 
+
     const shareTemplates = useMemo<CastTemplate[]>(() => {
         const templates: CastTemplate[] = [];
+
+        // Current streak
+        if (stats.current_streak > 0) {
+            templates.push({
+                key: 'current-streak',
+                label: `Current streak (${stats.current_streak})`,
+                title: 'Current Streak Progress',
+                kind: 'streaks',
+                text: `🔥 ${stats.current_streak} day streak! Building consistency with Personality Architect.`,
+                previewParams: {
+                    variant: 'streaks:current',
+                    description: 'Current streak',
+                    statLabel: 'CURRENT STREAK',
+                    statValue: `${stats.current_streak} days`,
+                    tag: 'HABIT STREAK',
+                },
+                targetPath: '/analytics',
+            });
+        }
+
+        // Best streak
+        if (stats.best_streak > 0) {
+            templates.push({
+                key: 'best-streak',
+                label: `Best streak (${stats.best_streak})`,
+                title: 'Best Streak Record',
+                kind: 'streaks',
+                text: `🏆 Personal best: ${stats.best_streak} day streak! Celebrating consistency milestones.`,
+                previewParams: {
+                    variant: 'streaks:best',
+                    description: 'Best streak',
+                    statLabel: 'BEST STREAK',
+                    statValue: `${stats.best_streak} days`,
+                    tag: 'PERSONAL RECORD',
+                },
+                targetPath: '/analytics',
+            });
+        }
+
+        // Next badge
+        if (nextStreakBadge) {
+            templates.push({
+                key: 'next-badge',
+                label: `Next badge (${nextStreakBadge.days} days)`,
+                title: 'Next Badge Progress',
+                kind: 'streaks',
+                text: `🎯 ${nextStreakBadge.days} days until my next streak badge (${nextStreakBadge.milestone} days). The journey continues!`,
+                previewParams: {
+                    variant: 'streaks:next',
+                    description: `Next badge: ${nextStreakBadge.milestone} days`,
+                    statLabel: 'Next badge',
+                    statValue: `${nextStreakBadge.days} days`,
+                    tag: 'NEXT MILESTONE',
+                },
+                targetPath: '/analytics',
+            });
+        }
+
         if (comparative) {
             templates.push({
                 key: 'weekly',
@@ -486,14 +545,59 @@ export default function AnalyticsPage() {
                 targetPath: '/analytics',
             });
         }
+
+        // Goal progress
+        const activeGoals = goals.filter(g => g.status === 'active');
+        if (activeGoals.length > 0) {
+            const completedGoals = goals.filter(g => g.status === 'completed');
+            templates.push({
+                key: 'goal-progress',
+                label: 'Goal progress',
+                title: 'Goal Progress Summary',
+                kind: 'goals',
+                text: `🎯 Working through ${activeGoals.length} active goals and already completed ${completedGoals.length}.`,
+                previewParams: {
+                    variant: 'goals:summary',
+                    description: `${activeGoals.length} active • ${completedGoals.length} completed`,
+                    statLabel: 'Active goals',
+                    statValue: `${activeGoals.length}`,
+                    tag: 'GOAL DASHBOARD',
+                },
+                targetPath: '/analytics',
+            });
+        }
+
+        // Wheel shift
+        if (wheelTrends && wheelTrends.length > 0) {
+            const topShift = wheelTrends
+                .filter(t => t.delta4 > 0)
+                .sort((a, b) => b.delta4 - a.delta4)[0];
+            if (topShift) {
+                templates.push({
+                    key: `wheel-shift-${topShift.area}`,
+                    label: `Wheel shift: ${topShift.area}`,
+                    title: 'Wheel of Life Shift',
+                    kind: 'wheel',
+                    text: `🎯 ${topShift.area} improved by ${topShift.delta4 > 0 ? '+' : ''}${topShift.delta4.toFixed(1)} points. Building momentum!`,
+                    previewParams: {
+                        variant: 'wheel:shift',
+                        a: topShift.area,
+                        delta: topShift.delta4 > 0 ? `+${topShift.delta4.toFixed(1)}` : topShift.delta4.toFixed(1),
+                        current: topShift.last.toFixed(1),
+                    },
+                    targetPath: '/analytics',
+                });
+            }
+        }
+
         return templates;
-    }, [comparative, facts]);
+    }, [stats, nextStreakBadge, comparative, facts, goals, wheelTrends]);
 
     return (
         <MiniAppPage>
             <div className="space-y-6">
                 {/* Advanced Analytics Section */}
-                <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
                     <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">Advanced Analytics</h1>
                     <p className="text-sm text-white/70">
                         First wave of dashboards arrives here. Core metrics show up as soon as we collect enough data. Below that — the roadmap of smarter insights we&apos;re building next.
@@ -502,7 +606,7 @@ export default function AnalyticsPage() {
 
                 {/* Share Your Insights Section */}
                 {shareTemplates.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
                         <ShareCastComposer
                             templates={shareTemplates}
                             sectionTitle="Share your insights"
@@ -512,12 +616,12 @@ export default function AnalyticsPage() {
                 )}
 
                 {/* Core Metrics Section */}
-                <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 space-y-6">
                     <h2 className="text-2xl font-semibold text-white">Core metrics</h2>
                     {loading ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
                             {[1, 2, 3, 4, 5, 6].map(i => (
-                                <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 animate-pulse">
+                                <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5 animate-pulse">
                                     <div className="h-6 bg-white/10 rounded w-32 mb-3"></div>
                                     <div className="h-8 bg-white/10 rounded w-20 mb-3"></div>
                                     <div className="h-4 bg-white/10 rounded w-full"></div>
@@ -525,9 +629,9 @@ export default function AnalyticsPage() {
                             ))}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
                             {/* Completion rate */}
-                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5">
                                 <h3 className="text-base font-semibold text-white mb-3">Completion rate</h3>
                                 {completionRate !== null ? (
                                     <>
@@ -542,7 +646,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             {/* Streaks */}
-                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5">
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-base font-semibold text-white">Streaks</h3>
                                     <div className="h-px w-12 bg-[#8B5CF6]"></div>
@@ -561,7 +665,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             {/* Focus areas */}
-                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5">
                                 <h3 className="text-base font-semibold text-white mb-3">Focus areas</h3>
                                 {topHabit && topHabitIcon && topHabitTitle ? (
                                     <>
@@ -579,7 +683,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             {/* Average completion time */}
-                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5">
                                 <h3 className="text-base font-semibold text-white mb-3">Average completion time</h3>
                                 {mostActiveDay ? (
                                     <>
@@ -596,7 +700,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             {/* Goal progress */}
-                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5">
                                 <div className="flex items-start justify-between mb-3">
                                     <h3 className="text-base font-semibold text-white">Goal progress</h3>
                                     {goalProgress && (
@@ -619,7 +723,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             {/* Wheel delta */}
-                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5">
                                 <h3 className="text-base font-semibold text-white mb-3">Wheel delta</h3>
                                 {topWheelDeltas.length > 0 ? (
                                     <>
@@ -647,171 +751,181 @@ export default function AnalyticsPage() {
                     )}
                 </section>
 
+                {/* Week Comparison Section */}
+                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 space-y-4">
+                    <h2 className="text-2xl font-semibold text-white">Week comparison</h2>
+                    {comparative ? (
+                        <>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium text-white">This week</p>
+                                    <p className="text-3xl font-semibold text-[#22C55E]">{comparative.this_week.completed_total}</p>
+                                    <p className="text-sm text-white/70">completed logs</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium text-white">Last week</p>
+                                    <p className="text-3xl font-semibold text-[#A78BFA]">{comparative.last_week.completed_total}</p>
+                                    <p className="text-sm text-white/70">completed logs</p>
+                                </div>
+                            </div>
+                            {comparative.comparison && (
+                                <div className={`rounded-2xl px-4 py-3 ${comparative.comparison.trend === 'up'
+                                    ? 'bg-[#22C55E]/20 border border-[#22C55E]/50'
+                                    : comparative.comparison.trend === 'down'
+                                        ? 'bg-red-400/20 border border-red-400/50'
+                                        : 'border border-white/10 bg-[#1a1a1a]'
+                                    }`}>
+                                    <p className="text-base font-semibold text-white mb-1">
+                                        {comparative.comparison.message} {comparative.comparison.trend === 'up' ? '🔥' : ''}
+                                    </p>
+                                    <p className="text-sm text-white/70">
+                                        {comparative.comparison.percent_change > 0 ? '+' : ''}{comparative.comparison.percent_change}% change
+                                    </p>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <p className="text-sm text-white/60">No data yet</p>
+                    )}
+                </section>
+
                 {/* Habit Trend Prototypes Section */}
-                {habits.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-6">
-                        <div>
-                            <h2 className="text-2xl font-semibold text-white mb-2">Habit trend prototypes</h2>
-                            <p className="text-sm text-white/70">
-                                Compare streak momentum for any habit. We&apos;ll use these prototypes to decide how to evolve the Streaks dashboard.
-                            </p>
-                        </div>
+                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 space-y-6">
+                    <div>
+                        <h2 className="text-2xl font-semibold text-white mb-2">Habit trend prototypes</h2>
+                        <p className="text-sm text-white/70">
+                            Compare streak momentum for any habit. We&apos;ll use these prototypes to decide how to evolve the Streaks dashboard.
+                        </p>
+                    </div>
 
-                        {/* Habit selector */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-white">Habit</label>
-                            <div className="relative">
-                                <select
-                                    value={selectedHabitId}
-                                    onChange={(e) => setSelectedHabitId(e.target.value)}
-                                    className="w-full appearance-none rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 pr-10 text-white focus:border-white/40 focus:outline-none"
-                                >
-                                    {habits.map(h => {
-                                        const emojiMatch = h.title?.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
-                                        const icon = emojiMatch ? emojiMatch[0] : '';
-                                        const title = h.title?.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || h.title;
-                                        return (
-                                            <option key={h.id} value={h.id}>
-                                                {icon ? `${icon} ` : ''}{title}
-                                            </option>
-                                        );
-                                    })}
-                                </select>
-                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                                    <svg className="h-5 w-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Sparkline chart */}
-                        {loadingTrend ? (
-                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 animate-pulse space-y-4">
-                                <div className="h-6 bg-white/10 rounded w-32 mb-4"></div>
-                                <div className="h-32 bg-white/10 rounded"></div>
-                                <div className="h-6 bg-white/10 rounded w-48"></div>
-                            </div>
-                        ) : habitTrendData.length > 0 ? (
-                            <div className="space-y-6">
-                                {/* Sparkline streak trend */}
-                                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
-                                    <div>
-                                        <h3 className="text-base font-semibold text-white mb-1">Sparkline streak trend (last 90 days)</h3>
-                                        <p className="text-sm text-white/70">Max streak: {maxStreak} day{maxStreak !== 1 ? 's' : ''}</p>
-                                    </div>
-                                    <div className="relative h-32 w-full">
-                                        <SparklineChart data={habitTrendData} maxStreak={maxStreak} />
+                    {habits.length > 0 ? (
+                        <>
+                            {/* Habit selector */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-white">Habit</label>
+                                <div className="relative">
+                                    <select
+                                        value={selectedHabitId}
+                                        onChange={(e) => setSelectedHabitId(e.target.value)}
+                                        className="w-full appearance-none rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 pr-10 text-white focus:border-white/40 focus:outline-none"
+                                    >
+                                        {habits.map(h => {
+                                            const emojiMatch = h.title?.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
+                                            const icon = emojiMatch ? emojiMatch[0] : '';
+                                            const title = h.title?.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || h.title;
+                                            return (
+                                                <option key={h.id} value={h.id}>
+                                                    {icon ? `${icon} ` : ''}{title}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                        <svg className="h-5 w-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
                                     </div>
                                 </div>
+                            </div>
 
-                                {/* Weekly capsule timeline */}
-                                {weeklyCapsules.length > 0 && (
-                                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+                            {/* Sparkline chart */}
+                            {loadingTrend ? (
+                                <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 animate-pulse space-y-4">
+                                    <div className="h-6 bg-white/10 rounded w-32 mb-4"></div>
+                                    <div className="h-32 bg-white/10 rounded"></div>
+                                    <div className="h-6 bg-white/10 rounded w-48"></div>
+                                </div>
+                            ) : habitTrendData.length > 0 ? (
+                                <div className="space-y-6">
+                                    {/* Sparkline streak trend */}
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5 space-y-4">
+                                        <div>
+                                            <h3 className="text-base font-semibold text-white mb-1">Sparkline streak trend (last 90 days)</h3>
+                                            <p className="text-sm text-white/70">Max streak: {maxStreak} day{maxStreak !== 1 ? 's' : ''}</p>
+                                        </div>
+                                        <div className="relative h-32 w-full">
+                                            <SparklineChart data={habitTrendData} maxStreak={maxStreak} />
+                                        </div>
+                                    </div>
+
+                                    {/* Weekly capsule timeline */}
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5 space-y-4">
                                         <div>
                                             <h3 className="text-base font-semibold text-white mb-1">Weekly capsule timeline (8 weeks)</h3>
                                             <p className="text-sm text-white/70">Each capsule shows completion rate and longest run for the week.</p>
                                         </div>
-                                        <div className="flex gap-3 overflow-x-auto pb-2">
-                                            {weeklyCapsules.map((capsule, idx) => {
-                                                const startStr = capsule.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                                                const endStr = capsule.weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                        {weeklyCapsules.length > 0 ? (
+                                            <div className="flex gap-3 overflow-x-auto pb-2">
+                                                {weeklyCapsules.map((capsule, idx) => {
+                                                    const startStr = capsule.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                                    const endStr = capsule.weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-                                                // Determine colors based on completion rate
-                                                let bgColor = 'bg-red-500/30';
-                                                let borderColor = 'border-red-500/50';
-                                                const textColor = 'text-white';
+                                                    // Determine colors based on completion rate
+                                                    let bgColor = 'bg-red-500/30';
+                                                    let borderColor = 'border-red-500/50';
+                                                    const textColor = 'text-white';
 
-                                                if (capsule.completedDays === 7) {
-                                                    // Green for perfect week
-                                                    bgColor = 'bg-green-500/30';
-                                                    borderColor = 'border-green-500/50';
-                                                } else if (capsule.completedDays >= 4) {
-                                                    // Yellow for good progress
-                                                    bgColor = 'bg-yellow-500/30';
-                                                    borderColor = 'border-yellow-500/50';
-                                                } else if (capsule.completedDays > 0) {
-                                                    // Brown/orange for partial progress
-                                                    bgColor = 'bg-orange-600/30';
-                                                    borderColor = 'border-orange-600/50';
-                                                }
+                                                    if (capsule.completedDays === 7) {
+                                                        // Green for perfect week
+                                                        bgColor = 'bg-green-500/30';
+                                                        borderColor = 'border-green-500/50';
+                                                    } else if (capsule.completedDays >= 4) {
+                                                        // Yellow for good progress
+                                                        bgColor = 'bg-yellow-500/30';
+                                                        borderColor = 'border-yellow-500/50';
+                                                    } else if (capsule.completedDays > 0) {
+                                                        // Brown/orange for partial progress
+                                                        bgColor = 'bg-orange-600/30';
+                                                        borderColor = 'border-orange-600/50';
+                                                    }
 
-                                                return (
-                                                    <div
-                                                        key={idx}
-                                                        className={`flex-shrink-0 rounded-2xl border ${borderColor} ${bgColor} p-4 min-w-[180px] flex flex-col gap-3`}
-                                                    >
-                                                        <div className="text-xs text-white/60 text-center">
-                                                            {startStr} → {endStr}
+                                                    return (
+                                                        <div
+                                                            key={idx}
+                                                            className={`flex-shrink-0 rounded-2xl border ${borderColor} ${bgColor} p-4 min-w-[180px] flex flex-col gap-3`}
+                                                        >
+                                                            <div className="text-xs text-white/60 text-center">
+                                                                {startStr} → {endStr}
+                                                            </div>
+                                                            <div className={`text-lg font-semibold ${textColor} text-center`}>
+                                                                {capsule.completedDays}/{capsule.totalDays}
+                                                            </div>
+                                                            <div className={`text-sm ${textColor} text-center`}>
+                                                                {capsule.longestRun === 0 ? 'Longest Break' : `Longest ${capsule.longestRun}d`}
+                                                            </div>
+                                                            {/* Progress bar */}
+                                                            <div className="relative w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={`h-full rounded-full ${capsule.completedDays === 7 ? 'bg-green-500' :
+                                                                        capsule.completedDays >= 4 ? 'bg-yellow-500' :
+                                                                            capsule.completedDays > 0 ? 'bg-orange-600' : 'bg-transparent'
+                                                                        }`}
+                                                                    style={{ width: `${(capsule.completedDays / capsule.totalDays) * 100}%` }}
+                                                                />
+                                                            </div>
                                                         </div>
-                                                        <div className={`text-lg font-semibold ${textColor} text-center`}>
-                                                            {capsule.completedDays}/{capsule.totalDays}
-                                                        </div>
-                                                        <div className={`text-sm ${textColor} text-center`}>
-                                                            {capsule.longestRun === 0 ? 'Longest Break' : `Longest ${capsule.longestRun}d`}
-                                                        </div>
-                                                        {/* Progress bar */}
-                                                        <div className="relative w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                                                            <div
-                                                                className={`h-full rounded-full ${capsule.completedDays === 7 ? 'bg-green-500' :
-                                                                    capsule.completedDays >= 4 ? 'bg-yellow-500' :
-                                                                        capsule.completedDays > 0 ? 'bg-orange-600' : 'bg-transparent'
-                                                                    }`}
-                                                                style={{ width: `${(capsule.completedDays / capsule.totalDays) * 100}%` }}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-white/60">No data yet</p>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center text-white/60">
-                                No trend data available for this habit yet.
-                            </div>
-                        )}
-                    </section>
-                )}
-
-                {/* Week Comparison Section */}
-                {comparative && (
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
-                        <h2 className="text-2xl font-semibold text-white">Week comparison</h2>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <p className="text-sm font-medium text-white">This week</p>
-                                <p className="text-3xl font-semibold text-[#2BD4A4]">{comparative.this_week.completed_total}</p>
-                                <p className="text-sm text-white/70">completed logs</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm font-medium text-white">Last week</p>
-                                <p className="text-3xl font-semibold text-[#A78BFA]">{comparative.last_week.completed_total}</p>
-                                <p className="text-sm text-white/70">completed logs</p>
-                            </div>
-                        </div>
-                        {comparative.comparison && (
-                            <div className={`rounded-2xl px-4 py-3 ${comparative.comparison.trend === 'up'
-                                ? 'bg-[#2BD4A4]/20 border border-[#2BD4A4]/50'
-                                : comparative.comparison.trend === 'down'
-                                    ? 'bg-red-400/20 border border-red-400/50'
-                                    : 'border border-white/10 bg-white/[0.03]'
-                                }`}>
-                                <p className="text-base font-semibold text-white mb-1">
-                                    {comparative.comparison.message} {comparative.comparison.trend === 'up' ? '🔥' : ''}
-                                </p>
-                                <p className="text-sm text-white/70">
-                                    {comparative.comparison.percent_change > 0 ? '+' : ''}{comparative.comparison.percent_change}% change
-                                </p>
-                            </div>
-                        )}
-                    </section>
-                )}
+                                </div>
+                            ) : (
+                                <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 text-center text-white/60">
+                                    No trend data available for this habit yet.
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <p className="text-sm text-white/60">No habits yet. Create habits to see trend data.</p>
+                    )}
+                </section>
 
                 {/* AI Facts Section */}
                 {facts && facts.facts && facts.facts.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 space-y-4">
                         <h2 className="text-2xl font-semibold text-white flex items-center gap-2">
                             <span className="text-2xl">🤖</span>
                             <span>AI facts</span>
@@ -828,9 +942,9 @@ export default function AnalyticsPage() {
                 )}
 
                 {/* Habit Correlations Section */}
-                {correlations && correlations.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
-                        <h2 className="text-2xl font-semibold text-white">Habit correlations</h2>
+                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 space-y-4">
+                    <h2 className="text-2xl font-semibold text-white">Habit correlations</h2>
+                    {correlations && correlations.length > 0 ? (
                         <div className="space-y-2">
                             {correlations.map((corr, idx) => {
                                 // Extract emoji and title for habit_a
@@ -855,16 +969,18 @@ export default function AnalyticsPage() {
                                 );
                             })}
                         </div>
-                    </section>
-                )}
+                    ) : (
+                        <p className="text-sm text-white/60">No data yet</p>
+                    )}
+                </section>
 
 
                 {/* Advanced Insights Section */}
-                <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 space-y-4">
                     <h2 className="text-2xl font-semibold text-white">Advanced insights</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Weak windows */}
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Weak windows</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
@@ -877,7 +993,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Energy peaks */}
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Energy peaks</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
@@ -890,7 +1006,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Linked habits */}
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Linked habits</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
@@ -912,7 +1028,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Wheel impact */}
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Wheel impact</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
@@ -941,7 +1057,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Fatigue alerts */}
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Fatigue alerts</h3>
                                 <span className="text-xs font-semibold text-orange-400 uppercase">NEED DATA</span>
@@ -950,7 +1066,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Goal forecast */}
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Goal forecast</h3>
                                 <span className={`text-xs font-semibold uppercase ${goals.filter(g => g.due_date).length > 0 ? 'text-green-400' : 'text-orange-400'}`}>
@@ -965,7 +1081,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Habit recommendations */}
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Habit recommendations</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
@@ -978,7 +1094,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Risk notifications */}
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Risk notifications</h3>
                                 <span className={`text-xs font-semibold uppercase ${predictive.filter(p => p.risk_score > 0).length > 0 ? 'text-green-400' : 'text-orange-400'}`}>
@@ -993,7 +1109,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Micro-rewards */}
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Micro-rewards</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>

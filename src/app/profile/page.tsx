@@ -331,7 +331,7 @@ export default function ProfilePage() {
                     <h1 className="text-3xl font-semibold text-[#8B5CF6] mb-4">Profile</h1>
 
                     {neynarLoading ? (
-                        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 animate-pulse">
+                        <div className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 animate-pulse">
                             <div className="flex items-center gap-4">
                                 <div className="w-16 h-16 rounded-full bg-white/10"></div>
                                 <div className="flex-1 space-y-2">
@@ -339,37 +339,37 @@ export default function ProfilePage() {
                                     <div className="h-4 bg-white/10 rounded w-24"></div>
                                 </div>
                             </div>
-                </div>
-                ) : neynarProfile ? (
-                        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                        </div>
+                    ) : neynarProfile ? (
+                        <div className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
                             <div className="flex items-start gap-4">
                                 {/* Profile Picture */}
                                 <div className="w-16 h-16 rounded-full overflow-hidden bg-white/10 flex items-center justify-center text-2xl font-semibold text-white/80 relative flex-shrink-0">
-                                {neynarProfile.pfpUrl ? (
-                                    <Image
-                                        src={neynarProfile.pfpUrl}
-                                        alt={neynarDisplayName ?? 'Farcaster user'}
-                                        className="object-cover"
-                                        fill
-                                        sizes="64px"
-                                        unoptimized
-                                    />
-                                ) : (
-                                    neynarInitials
-                                )}
-                            </div>
+                                    {neynarProfile.pfpUrl ? (
+                                        <Image
+                                            src={neynarProfile.pfpUrl}
+                                            alt={neynarDisplayName ?? 'Farcaster user'}
+                                            className="object-cover"
+                                            fill
+                                            sizes="64px"
+                                            unoptimized
+                                        />
+                                    ) : (
+                                        neynarInitials
+                                    )}
+                                </div>
 
                                 {/* User Info */}
                                 <div className="flex-1 min-w-0">
                                     <div className="text-xl font-bold text-white mb-1">
                                         {neynarProfile.displayName ?? neynarProfile.username ?? 'Farcaster User'}
                                     </div>
-                                {neynarProfile.username && (
+                                    {neynarProfile.username && (
                                         <div className="text-sm text-white/60 mb-1">@{neynarProfile.username}</div>
-                                )}
-                                {neynarProfile.fid && (
+                                    )}
+                                    {neynarProfile.fid && (
                                         <div className="text-sm text-white/60 mb-3">FID {neynarProfile.fid}</div>
-                                )}
+                                    )}
 
                                     {/* Bio Attributes */}
                                     {bioAttributes.length > 0 && (
@@ -393,7 +393,7 @@ export default function ProfilePage() {
                 <QuestBoard className="mb-6" />
 
                 {/* Current Plan Section */}
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 mb-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 mb-6">
                     <div className="flex items-start justify-between">
                         <div>
                             <p className="text-xs uppercase tracking-wide text-white/60 mb-1">CURRENT PLAN</p>
@@ -409,7 +409,7 @@ export default function ProfilePage() {
                 </section>
 
                 {/* Wallet Section */}
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 mb-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 mb-6">
                     <div className="flex items-start justify-between mb-4">
                         <div>
                             <p className="text-xs uppercase tracking-wide text-white/60 mb-1">WALLET</p>
@@ -431,7 +431,7 @@ export default function ProfilePage() {
                         {walletInput === null && (
                             <button
                                 onClick={() => setWalletInput(p.wallet ?? '')}
-                                className="rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10 whitespace-nowrap"
+                                className="rounded-2xl border border-white/10 bg-[#1a1a1a] px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10 whitespace-nowrap"
                             >
                                 Change wallet
                             </button>
@@ -445,10 +445,10 @@ export default function ProfilePage() {
                                     value={walletInput}
                                     onChange={e => setWalletInput(e.target.value)}
                                     placeholder="0x..."
-                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-[#8B5CF6] focus:outline-none"
+                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white placeholder:text-white/40 focus:border-[#8B5CF6] focus:outline-none"
                                 />
                                 {walletError && <div className="text-xs text-red-400 mt-1">{walletError}</div>}
-                </div>
+                            </div>
                             <div className="flex gap-3 mb-4">
                                 <button
                                     onClick={async () => {
@@ -485,115 +485,121 @@ export default function ProfilePage() {
                                         setWalletInput(null);
                                         setWalletError(null);
                                     }}
-                                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition hover:bg-white/10"
+                                    className="rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white font-semibold transition hover:bg-white/10"
                                 >
                                     Cancel
                                 </button>
-            </div>
+                            </div>
                         </>
                     ) : null}
                 </section>
 
-            {/* Badges with Mint buttons */}
-            <section className="mb-6">
-                <h2 className="text-xl font-semibold mb-3">Badges Gallery</h2>
-                {loading ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {[1, 2, 3, 4, 5, 6].map(i => (
-                                <div key={i} className="rounded-3xl border border-white/10 bg-white/5 p-4 animate-pulse">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
-                                    <div className="flex-1 space-y-2">
-                                        <div className="h-4 bg-white/20 rounded w-3/4"></div>
-                                        <div className="h-3 bg-white/20 rounded w-full"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {BADGES.map(b => {
-                            const st = statusMap[b.slug] ?? 'none';
-                            const el = eligMap[b.slug]?.eligible ?? false;
-                            const reason = eligMap[b.slug]?.reason ?? '';
-                            const canMint = el && st === 'none';
-                            return (
-                                <div
-                                    key={b.slug}
-                                        className="rounded-3xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2 transition hover:bg-white/10"
-                                    title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
-                                >
+                {/* Badges with Mint buttons */}
+                <section className="mb-6">
+                    <h2 className="text-xl font-semibold mb-3">Badges Gallery</h2>
+                    {loading ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {[1, 2, 3, 4, 5, 6].map(i => (
+                                <div key={i} className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-4 animate-pulse">
                                     <div className="flex items-start gap-3">
-                                        <BadgeImage src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
-                                        <div className="flex-1">
-                                            <div className="font-medium">{b.title}</div>
-                                            <div className="text-xs text-white/70">{b.description}</div>
-                                            <div className="text-xs mt-1">
-                                                Status: <span className="font-mono">{st}</span>
-                                                {!el && <span className="ml-2 opacity-80">({reason})</span>}
-                                            </div>
+                                        <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
+                                        <div className="flex-1 space-y-2">
+                                            <div className="h-4 bg-white/20 rounded w-3/4"></div>
+                                            <div className="h-3 bg-white/20 rounded w-full"></div>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => mint(b.slug)}
-                                        disabled={loading || busyCode === b.slug || !canMint || !p.wallet}
-                                        className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
-                                        title={!p.wallet ? 'Add wallet address first' : (!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT')}
-                                    >
-                                        {busyCode === b.slug ? 'Minting…' : !p.wallet ? 'Add wallet' : (st === 'success' ? '✅ Minted' : 'Mint')}
-                                    </button>
                                 </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </section>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {BADGES.map(b => {
+                                const st = statusMap[b.slug] ?? 'none';
+                                const el = eligMap[b.slug]?.eligible ?? false;
+                                const reason = eligMap[b.slug]?.reason ?? '';
+                                const canMint = el && st === 'none';
+                                return (
+                                    <div
+                                        key={b.slug}
+                                        className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-2 transition hover:bg-white/10"
+                                        title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <BadgeImage src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                                            <div className="flex-1">
+                                                <div className="font-medium">{b.title}</div>
+                                                <div className="text-xs text-white/70">{b.description}</div>
+                                                <div className="text-xs mt-1">
+                                                    Status: <span className="font-mono">{st}</span>
+                                                    {!el && <span className="ml-2 opacity-80">({reason})</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => mint(b.slug)}
+                                            disabled={loading || busyCode === b.slug || !canMint || !p.wallet}
+                                            className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
+                                            title={!p.wallet ? 'Add wallet address first' : (!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT')}
+                                        >
+                                            {busyCode === b.slug ? 'Minting…' : !p.wallet ? 'Add wallet' : (st === 'success' ? '✅ Minted' : 'Mint')}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </section>
 
 
-            {/* Push Notifications Settings */}
-            <section className="mb-6">
-                <PushNotificationSettings />
-            </section>
+                {/* Push Notifications Settings */}
+                <section className="mb-6">
+                    <PushNotificationSettings />
+                </section>
 
                 {/* Achievements Section */}
                 <section className="mb-6">
                     <Achievements />
-            </section>
+                </section>
 
-            {/* Export Data */}
-                <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
-                    <div className="flex items-start justify-between mb-4">
-                        <div>
-                            <p className="text-xs uppercase tracking-wide text-white/60 mb-1">EXPORT DATA</p>
-                            <p className="text-xl font-bold text-white">Download your data</p>
+                {/* Export Data */}
+                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 relative overflow-hidden">
+                    {/* Content visible through blur */}
+                    <div className="pointer-events-none">
+                        <div className="flex items-start justify-between mb-4">
+                            <div>
+                                <p className="text-xs uppercase tracking-wide text-white/60 mb-1">EXPORT DATA</p>
+                                <p className="text-xl font-bold text-white">Download your data</p>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/10">
-                            <span className="text-sm">⏳</span>
-                            <span className="text-xs font-medium text-white">COMING SOON</span>
+                        <div className="space-y-2">
+                            <button
+                                disabled
+                                className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
+                            >
+                                Export CSV
+                            </button>
+                            <button
+                                disabled
+                                className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
+                            >
+                                Export Notion
+                            </button>
+                            <button
+                                disabled
+                                className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
+                            >
+                                Export Obsidian
+                            </button>
                         </div>
                     </div>
-                    <div className="space-y-2">
-                    <button
-                            disabled
-                            className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
-                    >
-                            Export CSV
-                    </button>
-                    <button
-                            disabled
-                            className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
-                    >
-                            Export Notion
-                    </button>
-                    <button
-                            disabled
-                            className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
-                    >
-                            Export Obsidian
-                    </button>
-                </div>
-            </section>
+                    {/* COMING SOON overlay with blur effect */}
+                    <div className="absolute inset-0 flex items-center justify-center bg-[#1a1a1a]/70 backdrop-blur-md">
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1a1a1a] border border-white/10">
+                            <span className="text-sm">⏳</span>
+                            <span className="text-sm font-semibold text-white">COMING SOON</span>
+                        </div>
+                    </div>
+                </section>
             </div>
         </MiniAppPage>
     );
@@ -607,7 +613,7 @@ function _Info({ label, value, mono = false }: { label: string; value: ReactNode
             : value ?? '—';
 
     return (
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+        <div className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-4">
             <div className="text-xs text-white/80">{label}</div>
             <div className={mono ? 'font-mono break-all' : ''}>{content}</div>
         </div>

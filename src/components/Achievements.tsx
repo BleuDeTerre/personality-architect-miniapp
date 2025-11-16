@@ -41,11 +41,11 @@ export default function Achievements() {
 
     if (loading) {
         return (
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+            <div className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
                 <h3 className="text-xl font-semibold mb-4 text-white">Achievements</h3>
                 <div className="grid grid-cols-2 gap-3">
                     {[1, 2, 3, 4].map(i => (
-                        <div key={i} className="h-24 rounded-2xl border border-white/10 bg-white/5 animate-pulse"></div>
+                        <div key={i} className="h-24 rounded-2xl border border-white/10 bg-[#1a1a1a] animate-pulse"></div>
                     ))}
                 </div>
             </div>
@@ -55,7 +55,7 @@ export default function Achievements() {
     const unlockedCount = achievements.filter(a => a.unlocked).length;
 
     return (
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+        <div className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-semibold text-white">Achievements</h3>
                 <span className="text-sm text-white/60">
@@ -69,8 +69,8 @@ export default function Achievements() {
                         <div
                             key={check.achievement.id}
                             className={`p-3 rounded-2xl border ${check.unlocked
-                                    ? 'border-[#8B5CF6]/50 bg-[#8B5CF6]/5'
-                                    : 'border-white/10 bg-white/5 opacity-60'
+                                ? 'border-[#8B5CF6]/50 bg-[#8B5CF6]/10'
+                                : 'border-white/10 bg-[#1a1a1a] opacity-60'
                                 }`}
                         >
                             <div className="text-2xl mb-2">{check.achievement.icon}</div>

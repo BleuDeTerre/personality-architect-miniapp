@@ -127,3 +127,103 @@ export async function publishNotification({ targetFids, title, body, targetUrl, 
     }
 }
 
+/**
+ * Рекаст каста (требует signer)
+ * 
+ * @param signerUuid - UUID signer'а для подписи рекаста
+ * @param castHash - Hash каста для рекаста
+ * @returns Результат рекаста
+ */
+export async function recastCast(
+    signerUuid: string,
+    castHash: string
+) {
+    if (!neynarClient) {
+        throw new Error("Neynar client is not configured");
+    }
+
+    try {
+        const result = await neynarClient.recastCast({
+            signerUuid,
+            castHash,
+        });
+        return result;
+    } catch (error) {
+        console.error("Failed to recast cast:", error);
+        throw error;
+    }
+}
+
+/**
+ * Лайк каста (требует signer)
+ * 
+ * @param signerUuid - UUID signer'а для подписи лайка
+ * @param castHash - Hash каста для лайка
+ * @returns Результат лайка
+ */
+export async function likeCast(
+    signerUuid: string,
+    castHash: string
+) {
+    if (!neynarClient) {
+        throw new Error("Neynar client is not configured");
+    }
+
+    try {
+        const result = await neynarClient.likeCast({
+            signerUuid,
+            castHash,
+        });
+        return result;
+    } catch (error) {
+        console.error("Failed to like cast:", error);
+        throw error;
+    }
+}
+
+/**
+ * Получение каста по hash
+ * 
+ * @param castHash - Hash каста
+ * @returns Информация о касте
+ */
+export async function getCast(castHash: string) {
+    if (!neynarClient) {
+        throw new Error("Neynar client is not configured");
+    }
+
+    try {
+        const result = await neynarClient.lookUpCastByHash({
+            castHash,
+        });
+        return result.cast;
+    } catch (error) {
+        console.error("Failed to get cast:", error);
+        throw error;
+    }
+}
+
+/**
+ * Получение списка пользователей по FIDs
+ * 
+ * @param fids - Массив Farcaster ID
+ * @returns Массив профилей пользователей
+ */
+export async function getBulkUsers(fids: number[]) {
+    if (!neynarClient) {
+        throw new Error("Neynar client is not configured");
+    }
+
+    if (!fids || fids.length === 0) {
+        return [];
+    }
+
+    try {
+        const result = await neynarClient.fetchBulkUsers({ fids });
+        return result.users || [];
+    } catch (error) {
+        console.error("Failed to fetch bulk users:", error);
+        throw error;
+    }
+}
+

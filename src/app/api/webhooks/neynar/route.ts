@@ -42,7 +42,7 @@ async function findUserIdByFid(fid: number) {
 
 async function handleNotificationEvent(userId: string, type: string, payload: any) {
     const targetUrl = String(payload?.data?.target_url ?? '') || null;
-    if (type === 'notifications.enabled') {
+    if (type === 'notifications.enabled' || type === 'notifications_enabled') {
         const { error } = await supabaseAdmin
             .from('push_subscriptions')
             .upsert({
@@ -51,7 +51,7 @@ async function handleNotificationEvent(userId: string, type: string, payload: an
                 keys: { targetUrl, source: 'neynar' },
             }, { onConflict: 'user_id' });
         if (error) console.error('[Neynar webhook] Failed to upsert neynar subscription', error);
-    } else if (type === 'notifications.disabled') {
+    } else if (type === 'notifications.disabled' || type === 'notifications_disabled') {
         const { error } = await supabaseAdmin
             .from('push_subscriptions')
             .delete()
@@ -59,6 +59,23 @@ async function handleNotificationEvent(userId: string, type: string, payload: an
             .eq('endpoint', `neynar:${userId}`);
         if (error) console.error('[Neynar webhook] Failed to delete neynar subscription', error);
     }
+}
+
+async function handleCastEvent(userId: string, type: string, payload: any) {
+    // Обработка событий связанных с кастами
+    // cast.created, cast.recasted, cast.liked и т.д.
+    const castHash = payload?.data?.cast?.hash || payload?.cast?.hash || payload?.hash;
+    const castUrl = castHash ? `https://warpcast.com/~/casts/${castHash}` : null;
+
+    // Логируем событие
+    await supabaseAdmin
+        .from('events_log')
+        .insert({
+            user_id: userId,
+            name: `neynar_cast:${type}`,
+            props: { type, castHash, castUrl, payload },
+        })
+        .catch(err => console.error('[Neynar webhook] Failed to log cast event:', err));
 }
 
 export async function POST(req: NextRequest) {
@@ -81,17 +98,24 @@ export async function POST(req: NextRequest) {
         try {
             userId = await findUserIdByFid(fid);
             if (userId) {
-                if (type === 'notifications.enabled' || type === 'notifications.disabled') {
+                // Обработка событий уведомлений
+                if (type.includes('notification')) {
                     await handleNotificationEvent(userId, type, payload);
                 }
+                // Обработка событий кастов
+                else if (type.includes('cast') || type.includes('recast') || type.includes('like')) {
+                    await handleCastEvent(userId, type, payload);
+                }
 
+                // Логируем все события
                 await supabaseAdmin
                     .from('events_log')
                     .insert({
                         user_id: userId,
                         name: `neynar_webhook:${type}`,
-                        props: { fid, payload },
-                    });
+                        props: { fid, type, payload },
+                    })
+                    .catch(err => console.error('[Neynar webhook] Failed to log event:', err));
             }
         } catch (err) {
             console.error('[Neynar webhook] Failed to persist event:', err);

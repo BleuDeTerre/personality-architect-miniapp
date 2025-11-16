@@ -20,9 +20,7 @@ const NAVIGATION = [
   { href: '/analytics', label: 'Analytics', icon: '📊', desc: 'Advanced insights' },
   { href: '/leaderboard', label: 'Leaderboard', icon: '🏅', desc: 'Top performers' },
   { href: '/chat', label: 'AI Coach', icon: '🤖', desc: 'Chat with your coach' },
-  { href: '/profile', label: 'Achievements', icon: '🥇', desc: 'Track unlocked rewards' },
   { href: '/profile', label: 'Profile', icon: '👤', desc: 'Account & badges' },
-  { href: '/pricing', label: 'Pricing', icon: '💰', desc: 'Upgrade your plan' },
 ];
 
 export default function DashboardPage() {
@@ -85,7 +83,7 @@ export default function DashboardPage() {
   return (
     <MiniAppPage>
       <section className="space-y-6">
-        <div className="bg-gradient-to-br from-[#120E2B] via-[#1c0f34] to-[#28124e] p-6">
+        <div className="p-6">
           <h1 className="text-4xl font-bold text-[#8B5CF6] mb-3">Personality Architect</h1>
           <div className="flex items-start justify-end gap-4">
             <p className="text-white/90 italic text-lg leading-relaxed">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
@@ -94,7 +92,7 @@ export default function DashboardPage() {
             <p className="text-white/70 text-sm">— Aristotle</p>
           </div>
           {gamificationStats && (
-            <div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur">
+            <div className="mt-6 rounded-3xl border border-white/10 bg-[#1a1a1a] p-4 backdrop-blur">
               <div className="flex items-center justify-between text-sm text-white/70">
                 <span>{levelName} · Level {level}</span>
                 <span>{xp.toLocaleString()} XP</span>
@@ -112,7 +110,7 @@ export default function DashboardPage() {
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 flex items-start gap-3 text-white hover:bg-white/10 transition"
+              className="rounded-3xl bg-[#1a1a1a] p-4 flex items-start gap-3 text-white hover:bg-[#252525] transition"
             >
               <div className="text-2xl">{item.icon}</div>
               <div>

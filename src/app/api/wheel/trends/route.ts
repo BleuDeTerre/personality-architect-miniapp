@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { getCachedAnalytics, setCachedAnalytics } from '@/lib/analytics-cache';
 
 const DEV_UID =
     process.env.NODE_ENV !== 'production'
@@ -37,11 +38,24 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const weeks = Math.max(4, Math.min(26, Number(searchParams.get('weeks') ?? 12)));
 
+    // Проверяем кеш (только для стандартного запроса с 12 неделями)
+    if (weeks === 12) {
+        const cached = await getCachedAnalytics<{ weeks: number; areas: any[] }>(supa, userId, 'wheel_trends');
+        if (cached) {
+            return NextResponse.json(cached);
+        }
+    }
+
     const { data, error } = await supa
         .from('wheel_scores')
         .select('area, score, week')
-        .eq('user_id', userId);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        .eq('user_id', userId)
+        .order('week', { ascending: true });
+
+    if (error) {
+        console.error('[Wheel Trends] Error fetching scores:', error);
+        return NextResponse.json({ error: 'Failed to fetch wheel scores', details: error.message }, { status: 500 });
+    }
 
     const byArea = new Map<string, { week: string; score: number }[]>();
     for (const r of data ?? []) {
@@ -118,5 +132,12 @@ export async function GET(req: NextRequest) {
 
     out.sort((a, b) => a.delta4 - b.delta4 || a.area.localeCompare(b.area));
 
-    return NextResponse.json({ weeks, areas: out });
+    const result = { weeks, areas: out };
+
+    // Сохраняем в кеш (только для стандартного запроса)
+    if (weeks === 12) {
+        await setCachedAnalytics(supa, userId, 'wheel_trends', result);
+    }
+
+    return NextResponse.json(result);
 }

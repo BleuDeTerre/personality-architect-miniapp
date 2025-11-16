@@ -15,8 +15,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     // Habits achievements
     {
         id: 'first_habit',
-        title: 'Первая привычка',
-        description: 'Создайте свою первую привычку',
+        title: 'First Habit',
+        description: 'Create your first habit',
         icon: '🌱',
         category: 'habits',
         xpReward: 10,
@@ -24,8 +24,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     },
     {
         id: 'five_habits',
-        title: 'Коллекционер',
-        description: 'Создайте 5 активных привычек',
+        title: 'Collector',
+        description: 'Create 5 active habits',
         icon: '📚',
         category: 'habits',
         xpReward: 50,
@@ -33,8 +33,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     },
     {
         id: 'ten_habits',
-        title: 'Мастер привычек',
-        description: 'Создайте 10 активных привычек',
+        title: 'Habit Master',
+        description: 'Create 10 active habits',
         icon: '👑',
         category: 'habits',
         xpReward: 100,
@@ -43,8 +43,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     // Streaks achievements
     {
         id: 'streak_3',
-        title: 'Три дня подряд',
-        description: 'Поддерживайте streak 3 дня',
+        title: 'Three Days in a Row',
+        description: 'Maintain a 3-day streak',
         icon: '🔥',
         category: 'streaks',
         xpReward: 30,
@@ -52,8 +52,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     },
     {
         id: 'streak_7',
-        title: 'Неделя силы',
-        description: 'Поддерживайте streak 7 дней',
+        title: 'Week of Strength',
+        description: 'Maintain a 7-day streak',
         icon: '💪',
         category: 'streaks',
         xpReward: 70,
@@ -61,8 +61,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     },
     {
         id: 'streak_30',
-        title: 'Месяц дисциплины',
-        description: 'Поддерживайте streak 30 дней',
+        title: 'Month of Discipline',
+        description: 'Maintain a 30-day streak',
         icon: '🏆',
         category: 'streaks',
         xpReward: 300,
@@ -71,8 +71,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     // Consistency achievements
     {
         id: 'perfect_week',
-        title: 'Идеальная неделя',
-        description: 'Выполните все привычки всю неделю',
+        title: 'Perfect Week',
+        description: 'Complete all habits for a week',
         icon: '⭐',
         category: 'consistency',
         xpReward: 100,
@@ -80,8 +80,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     },
     {
         id: 'perfect_month',
-        title: 'Идеальный месяц',
-        description: 'Выполните все привычки весь месяц',
+        title: 'Perfect Month',
+        description: 'Complete all habits for a month',
         icon: '🌟',
         category: 'consistency',
         xpReward: 500,
@@ -89,8 +89,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     },
     {
         id: 'hundred_logs',
-        title: 'Сотня выполнений',
-        description: 'Запишите 100 выполненных привычек',
+        title: 'Hundred Completions',
+        description: 'Log 100 habit completions',
         icon: '💯',
         category: 'milestones',
         xpReward: 200,
@@ -98,8 +98,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     },
     {
         id: 'thousand_logs',
-        title: 'Тысяча выполнений',
-        description: 'Запишите 1000 выполненных привычек',
+        title: 'Thousand Completions',
+        description: 'Log 1000 habit completions',
         icon: '🎯',
         category: 'milestones',
         xpReward: 1000,
@@ -108,8 +108,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     // Social achievements
     {
         id: 'first_share',
-        title: 'Первая публикация',
-        description: 'Поделитесь своим прогрессом в Farcaster',
+        title: 'First Share',
+        description: 'Share your progress on Farcaster',
         icon: '📢',
         category: 'social',
         xpReward: 25,

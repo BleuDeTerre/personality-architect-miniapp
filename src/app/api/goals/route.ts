@@ -18,10 +18,14 @@ export async function GET(req: NextRequest) {
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
 
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        if (error) {
+            console.error('[Goals GET] Error:', error);
+            return NextResponse.json({ error: 'Failed to fetch goals', details: error.message }, { status: 500 });
+        }
         return NextResponse.json({ items: data ?? [] });
-    } catch {
-        return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    } catch (error: any) {
+        console.error('[Goals GET] Unexpected error:', error);
+        return NextResponse.json({ error: 'Failed to fetch goals', message: error?.message || 'Unknown error' }, { status: 500 });
     }
 }
 
@@ -51,10 +55,19 @@ export async function POST(req: NextRequest) {
             .select()
             .single();
 
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        if (error) {
+            console.error('[Goals POST] Error:', error);
+            return NextResponse.json({ error: 'Failed to create goal', details: error.message }, { status: 500 });
+        }
+
+        // Инвалидируем кеш аналитики
+        const { invalidateAnalyticsCache } = await import('@/lib/analytics-cache');
+        await invalidateAnalyticsCache(supa, userId);
+
         return NextResponse.json({ item: data });
-    } catch {
-        return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    } catch (error: any) {
+        console.error('[Goals POST] Unexpected error:', error);
+        return NextResponse.json({ error: 'Failed to create goal', message: error?.message || 'Unknown error' }, { status: 500 });
     }
 }
 

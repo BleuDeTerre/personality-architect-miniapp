@@ -126,16 +126,25 @@ const POPULAR_EMOJIS = [
 export default function HabitsPage() {
     const [habits, setHabits] = useState<Habit[]>([]);
     const [title, setTitle] = useState('');
-    const [emoji, setEmoji] = useState<string>('✅');
+    const [emoji, setEmoji] = useState<string>('');
     const [targetDays, setTargetDays] = useState(3);
     const [loading, setLoading] = useState(false);
     const [plan, setPlan] = useState<string>('free');
     const [showTemplates, setShowTemplates] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filterCompleted, setFilterCompleted] = useState<'all' | 'completed' | 'active'>('all');
+    const [searchQuery, setSearchQuery] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('habits_searchQuery') || '';
+        }
+        return '';
+    });
+    const [filterCompleted, setFilterCompleted] = useState<'all' | 'completed' | 'active'>(() => {
+        if (typeof window !== 'undefined') {
+            return (localStorage.getItem('habits_filterCompleted') as 'all' | 'completed' | 'active') || 'all';
+        }
+        return 'all';
+    });
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const [emojiPage, setEmojiPage] = useState(0);
     const emojiPickerRef = useRef<HTMLDivElement>(null);
     const [removingHabitId, setRemovingHabitId] = useState<string | null>(null);
     const [levelUpState, setLevelUpState] = useState<{ level: number } | null>(null);
@@ -220,6 +229,19 @@ export default function HabitsPage() {
         })();
     }, [fetchHabits, loadPlan]);
 
+    // Save filter state to localStorage
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('habits_searchQuery', searchQuery);
+        }
+    }, [searchQuery]);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('habits_filterCompleted', filterCompleted);
+        }
+    }, [filterCompleted]);
+
     // Close emoji picker when clicking outside
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -255,7 +277,7 @@ export default function HabitsPage() {
         });
         if (res.ok) {
             setTitle('');
-            setEmoji('✅');
+            setEmoji('');
             setTargetDays(3);
             fetchHabits();
         }
@@ -482,7 +504,7 @@ export default function HabitsPage() {
             <MiniAppPage>
                 <div className="space-y-6">
                     {/* Header Card */}
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-6">
                         <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">My Habits</h1>
                         <p className="text-sm text-white/80">
                             Build routines faster, track completions, and unlock streak rewards.
@@ -490,23 +512,23 @@ export default function HabitsPage() {
                     </section>
 
                     {/* Add Habit Form */}
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
                         <form onSubmit={addHabit} className="flex flex-col gap-4">
                             <div className="relative">
                                 <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">EMOJI</label>
                                 <input
                                     type="text"
-                                    placeholder="Pick emoji"
+                                    placeholder="EMOJI"
                                     value={emoji}
                                     onChange={(e) => setEmoji(e.target.value)}
                                     onClick={() => setShowEmojiPicker(true)}
                                     readOnly
-                                    className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                                 />
                                 {showEmojiPicker && (
-                                    <div ref={emojiPickerRef} className="absolute z-10 mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur">
+                                    <div ref={emojiPickerRef} className="absolute z-10 mt-2 w-full max-w-xs rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 backdrop-blur max-h-64 overflow-y-auto">
                                         <div className="grid grid-cols-5 gap-2">
-                                            {POPULAR_EMOJIS.slice(emojiPage * 20, (emojiPage + 1) * 20).map((emojiOption, idx) => (
+                                            {POPULAR_EMOJIS.map((emojiOption, idx) => (
                                                 <button
                                                     key={`${emojiOption}-${idx}`}
                                                     type="button"
@@ -514,24 +536,9 @@ export default function HabitsPage() {
                                                         setEmoji(emojiOption);
                                                         setShowEmojiPicker(false);
                                                     }}
-                                                    className="rounded-xl p-3 text-2xl hover:bg-white/10 transition bg-white/[0.03] aspect-square flex items-center justify-center"
+                                                    className="rounded-xl p-3 text-2xl hover:bg-white/10 transition bg-[#1a1a1a] aspect-square flex items-center justify-center"
                                                 >
                                                     {emojiOption}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        <div className="mt-3 flex gap-2">
-                                            {[0, 1, 2, 3].map((page) => (
-                                                <button
-                                                    key={page}
-                                                    type="button"
-                                                    onClick={() => setEmojiPage(page)}
-                                                    className={`flex-1 rounded-xl px-3 py-2 text-xs font-medium transition ${emojiPage === page
-                                                        ? 'bg-white/10 text-white'
-                                                        : 'bg-white/[0.03] text-white/70 hover:bg-white/10'
-                                                        }`}
-                                                >
-                                                    {page + 1}
                                                 </button>
                                             ))}
                                         </div>
@@ -541,7 +548,7 @@ export default function HabitsPage() {
                                                 setEmoji('');
                                                 setShowEmojiPicker(false);
                                             }}
-                                            className="mt-3 w-full rounded-xl border border-dashed border-white/20 bg-white/[0.03] px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition"
+                                            className="mt-3 w-full rounded-xl border border-dashed border-white/20 bg-[#1a1a1a] px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition"
                                         >
                                             Clear emoji
                                         </button>
@@ -555,7 +562,7 @@ export default function HabitsPage() {
                                     placeholder="Habit title"
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
-                                    className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                                     required
                                 />
                             </div>
@@ -567,13 +574,13 @@ export default function HabitsPage() {
                                     max={7}
                                     value={targetDays}
                                     onChange={(e) => setTargetDays(Number(e.target.value))}
-                                    className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                                 />
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setShowTemplates(!showTemplates)}
-                                className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white font-semibold transition hover:bg-white/10 flex items-center gap-2 justify-center"
+                                className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white font-semibold transition hover:bg-white/10 flex items-center gap-2 justify-center"
                             >
                                 <span>📚</span>
                                 <span>Browse Habit Library</span>
@@ -590,7 +597,7 @@ export default function HabitsPage() {
 
                     {/* Search and Filter */}
                     {habits.length > 0 && (
-                        <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
                             <div className="flex flex-col gap-3">
                                 <div className="relative">
                                     <svg
@@ -611,13 +618,13 @@ export default function HabitsPage() {
                                         placeholder="Search habits..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full rounded-2xl border border-white/10 bg-white/[0.03] pl-10 pr-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                        className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] pl-10 pr-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                                     />
                                 </div>
                                 <select
                                     value={filterCompleted}
                                     onChange={(e) => setFilterCompleted(e.target.value as 'all' | 'completed' | 'active')}
-                                    className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white focus:border-white/40 focus:outline-none appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat pr-10"
+                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white focus:border-white/40 focus:outline-none appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat pr-10"
                                 >
                                     <option value="all" className="bg-[#1a1a1a] text-white">All</option>
                                     <option value="active" className="bg-[#1a1a1a] text-white">Active</option>
@@ -629,7 +636,7 @@ export default function HabitsPage() {
 
                     {/* Share Section */}
                     {habitShareTemplates.length > 0 && (
-                        <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
                             <ShareCastComposer
                                 templates={habitShareTemplates}
                                 sectionTitle="Share your habits"
@@ -640,10 +647,10 @@ export default function HabitsPage() {
 
                     {/* Habits Grid */}
                     {loading ? (
-                        <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
                             <div className="grid grid-cols-2 gap-3">
                                 {[1, 2, 3, 4, 5, 6].map(i => (
-                                    <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 animate-pulse">
+                                    <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 animate-pulse">
                                         <div className="h-6 w-1/2 rounded bg-white/10" />
                                         <div className="mt-2 h-4 w-1/3 rounded bg-white/10" />
                                     </div>
@@ -651,7 +658,7 @@ export default function HabitsPage() {
                             </div>
                         </section>
                     ) : filteredHabits.length === 0 ? (
-                        <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center text-white/70">
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-6 text-center text-white/70">
                             No habits match your filters.
                         </section>
                     ) : (
@@ -663,33 +670,42 @@ export default function HabitsPage() {
                                 const titleText = h.title.replace(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)\s*/u, '').trim();
 
                                 return (
-                                    <div key={h.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-3">
-                                        <div className="text-2xl">{emoji}</div>
-                                        <div className="text-base font-semibold text-white">{titleText}</div>
-                                        <div className="text-sm text-white/70">{h.target_days_per_week} days/week</div>
-                                        <div className="text-sm text-white/70">🔥 {h.streak ?? 0}d streak</div>
+                                    <div key={h.id} className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 flex flex-col gap-2">
+                                        <div className="text-xl">{emoji}</div>
+                                        <div className="text-sm font-semibold text-white">{titleText}</div>
+                                        <div className="text-xs text-white/70">{h.target_days_per_week} days/week</div>
+                                        <div className="text-xs text-white/70">🔥 {h.streak ?? 0}d streak</div>
                                         <div className="flex items-center gap-2 mt-auto">
                                             <button
-                                                onClick={() => markComplete(h.id, h.is_completed)}
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    markComplete(h.id, h.is_completed);
+                                                }}
                                                 disabled={h.is_completed}
-                                                className={`flex-1 rounded-2xl px-3 py-2 text-sm font-semibold transition ${h.is_completed
-                                                    ? 'bg-gradient-to-r from-[#2BD4A4] to-[#14b8a6] text-white'
-                                                    : 'bg-white/10 text-white hover:bg-white/20'
+                                                className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition ${h.is_completed
+                                                    ? 'bg-[#22C55E] text-white'
+                                                    : 'bg-[#1a1a1a] text-white hover:bg-[#252525]'
                                                     }`}
                                             >
                                                 {h.is_completed ? 'Completed' : 'Mark done'}
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => removeHabit(h.id)}
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    removeHabit(h.id);
+                                                }}
                                                 disabled={removingHabitId === h.id}
-                                                className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 transition hover:bg-white/10 hover:text-red-400 disabled:opacity-50"
+                                                className="flex h-7 w-7 items-center justify-center rounded-full text-white/70 transition hover:bg-white/10 hover:text-red-400 disabled:opacity-50"
                                                 aria-label="Remove habit"
                                             >
                                                 {removingHabitId === h.id ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                    <Loader2 className="h-3 w-3 animate-spin" />
                                                 ) : (
-                                                    <X className="h-4 w-4" />
+                                                    <X className="h-3 w-3" />
                                                 )}
                                             </button>
                                         </div>
@@ -710,7 +726,7 @@ export default function HabitsPage() {
                             <div className="flex justify-center">
                                 <button
                                     onClick={() => setShowTemplates(false)}
-                                    className="flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.03] px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 transition"
+                                    className="flex items-center gap-2 rounded-full border border-white/20 bg-[#1a1a1a] px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 transition"
                                 >
                                     <X className="h-4 w-4" />
                                     CLOSE
@@ -726,7 +742,7 @@ export default function HabitsPage() {
                                     onClick={() => setSelectedCategory(cat)}
                                     className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition whitespace-nowrap ${selectedCategory === cat
                                         ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white'
-                                        : 'border border-white/10 bg-white/[0.03] text-white/70 hover:text-white hover:bg-white/10'
+                                        : 'border border-white/10 bg-[#1a1a1a] text-white/70 hover:text-white hover:bg-white/10'
                                         }`}
                                 >
                                     {cat}
@@ -745,8 +761,8 @@ export default function HabitsPage() {
                                         key={`${template.category}-${template.title}`}
                                         onClick={() => toggleTemplate(template)}
                                         className={`rounded-2xl border-2 p-4 text-left transition ${isInList
-                                            ? 'border-[#2BD4A4] bg-white/[0.03]'
-                                            : 'border-white/10 bg-white/[0.03] hover:border-white/20'
+                                            ? 'border-[#2BD4A4] bg-[#1a1a1a]'
+                                            : 'border-white/10 bg-[#1a1a1a] hover:border-white/20'
                                             }`}
                                     >
                                         <div className="text-3xl mb-2">{template.icon}</div>

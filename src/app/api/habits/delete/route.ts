@@ -18,11 +18,16 @@ export async function POST(req: NextRequest) {
         const supa = createUserServerClient(token);
 
         // Delete habit logs first (if they exist)
-        await supa
+        const { error: logsError } = await supa
             .from('habit_logs')
             .delete()
             .eq('habit_id', habitId)
             .eq('user_id', userId);
+
+        if (logsError) {
+            console.error('[Habits Delete] Error deleting logs:', logsError);
+            // Продолжаем даже если логи не удалились
+        }
 
         // Delete habit
         const { error } = await supa
@@ -31,10 +36,19 @@ export async function POST(req: NextRequest) {
             .eq('id', habitId)
             .eq('user_id', userId);
 
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        if (error) {
+            console.error('[Habits Delete] Error:', error);
+            return NextResponse.json({ error: 'Failed to delete habit', details: error.message }, { status: 500 });
+        }
+
+        // Инвалидируем кеш аналитики
+        const { invalidateAnalyticsCache } = await import('@/lib/analytics-cache');
+        await invalidateAnalyticsCache(supa, userId);
+
         return NextResponse.json({ ok: true });
     } catch (e: any) {
-        return NextResponse.json({ error: e?.message || 'unauthorized' }, { status: 401 });
+        console.error('[Habits Delete] Unexpected error:', e);
+        return NextResponse.json({ error: 'Failed to delete habit', message: e?.message || 'Unknown error' }, { status: 500 });
     }
 }
 

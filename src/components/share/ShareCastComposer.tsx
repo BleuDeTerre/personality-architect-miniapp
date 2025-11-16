@@ -168,7 +168,7 @@ export default function ShareCastComposer({
             {ogImageUrl && (
                 <div className="space-y-2">
                     <p className="text-sm uppercase tracking-wide text-white/60">PREVIEW</p>
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4">
                         <Image
                             src={ogImageUrl}
                             alt="Cast preview"

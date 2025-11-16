@@ -111,13 +111,13 @@ export default function ChatPage() {
         <MiniAppPage>
             <div className="flex flex-col h-full space-y-6">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-6">
                     <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">AI Coach Chat</h1>
                     <p className="text-sm text-white/80">Ask about your habits, goals, or progress. Your coach is here 24/7.</p>
                 </section>
 
                 {/* Chat Area */}
-                <div className="flex-1 min-h-[400px] overflow-y-auto rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
+                <div className="flex-1 min-h-[400px] overflow-y-auto rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6 space-y-4">
                 {messages.length === 0 ? (
                         <div className="flex items-center justify-center h-full">
                             <div className="text-center">
@@ -134,7 +134,7 @@ export default function ChatPage() {
                             <div
                                     className={`max-w-[80%] rounded-2xl p-4 ${msg.role === 'user'
                                         ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white'
-                                        : 'bg-white/5 border border-white/10'
+                                        : 'bg-[#1a1a1a] border border-white/10'
                                     }`}
                             >
                                     <div className="text-sm whitespace-pre-wrap text-white">{msg.content}</div>
@@ -149,7 +149,7 @@ export default function ChatPage() {
                 )}
                 {loading && (
                     <div className="flex justify-start">
-                            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4">
                             <div className="flex gap-1">
                                 <span className="w-2 h-2 bg-[#8B5CF6] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                                 <span className="w-2 h-2 bg-[#8B5CF6] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
@@ -174,7 +174,7 @@ export default function ChatPage() {
                         }
                     }}
                         placeholder="Ask me anything about your habits..."
-                        className="flex-1 rounded-2xl border border-white/10 bg-white/5 text-white px-4 py-3 placeholder:text-white/40 focus:border-white/40 focus:outline-none disabled:opacity-50"
+                        className="flex-1 rounded-2xl border border-white/10 bg-[#1a1a1a] text-white px-4 py-3 placeholder:text-white/40 focus:border-white/40 focus:outline-none disabled:opacity-50"
                     disabled={loading}
                 />
                 <button

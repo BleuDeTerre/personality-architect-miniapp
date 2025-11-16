@@ -54,6 +54,23 @@ export async function POST(req: NextRequest) {
         .select('id, area, score, week, updated_at')
         .order('area', { ascending: true });
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+        console.error('[Wheel Save] Error:', error);
+        return NextResponse.json({ error: 'Failed to save wheel scores', details: error.message }, { status: 500 });
+    }
+
+    // Инвалидируем кеш аналитики (wheel_trends)
+    if (userId) {
+        try {
+            const { invalidateAnalyticsCache } = await import('@/lib/analytics-cache');
+            const { createUserServerClient } = await import('@/lib/supabase');
+            const supa = createUserServerClient('dev-token-not-used');
+            await invalidateAnalyticsCache(supa, userId, 'wheel_trends');
+        } catch (cacheError) {
+            // Игнорируем ошибки кеша - не критично
+            console.error('[Wheel Save] Cache invalidation error:', cacheError);
+        }
+    }
+
     return NextResponse.json({ items: data ?? [] });
 }

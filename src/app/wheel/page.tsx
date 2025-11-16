@@ -224,7 +224,7 @@ export default function WheelPage() {
         <MiniAppPage>
             <div className="space-y-6">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-6">
                     <p className="text-xs uppercase tracking-wide text-white/60 mb-2">WHEEL OF LIFE — WEEK {week}</p>
                     <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">Life Balance Overview</h1>
                     <p className="text-sm text-white/80 mb-4">
@@ -245,14 +245,14 @@ export default function WheelPage() {
                                 }, 100);
                             }
                         }}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition hover:bg-white/10"
+                        className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white font-semibold transition hover:bg-white/10"
                     >
                         Edit Values
                     </button>
                 </section>
 
                 {editingValues && (
-                    <section data-wheel-section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                    <section data-wheel-section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
                         <div className="flex flex-col gap-6">
                             {/* Header */}
                             <div className="flex items-start justify-between">
@@ -268,7 +268,7 @@ export default function WheelPage() {
                                             setEditItems([...items]);
                                             setEditingValues(false);
                                         }}
-                                        className="rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-white font-semibold transition hover:bg-white/10"
+                                        className="rounded-2xl border border-white/10 bg-[#1a1a1a] px-6 py-3 text-white font-semibold transition hover:bg-white/10"
                                     >
                                         Cancel
                                     </button>
@@ -294,7 +294,7 @@ export default function WheelPage() {
                                         type="week"
                                         value={week}
                                         onChange={(e) => setWeek(e.target.value)}
-                                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white focus:border-white/40 focus:outline-none"
+                                        className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-white focus:border-white/40 focus:outline-none"
                                     />
                                 </div>
                                 <div>
@@ -311,7 +311,7 @@ export default function WheelPage() {
                             {weekLoading ? (
                                 <div className="space-y-3">
                                     {AREAS.map(area => (
-                                        <div key={area.name} className="h-20 rounded-2xl border border-white/10 bg-white/5 animate-pulse" />
+                                        <div key={area.name} className="h-20 rounded-2xl border border-white/10 bg-[#1a1a1a] animate-pulse" />
                                     ))}
                                 </div>
                             ) : (
@@ -320,7 +320,7 @@ export default function WheelPage() {
                                         const areaInfo = AREAS.find(a => a.name === it.area);
                                         const areaColor = areaInfo?.color ?? '#8B5CF6';
                                         return (
-                                            <div key={it.area} className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3">
+                                            <div key={it.area} className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 flex flex-col gap-3">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-xl">{areaInfo?.icon ?? '•'}</span>
@@ -359,12 +359,13 @@ export default function WheelPage() {
                     </section>
                 )}
 
-                <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                {/* Radar Chart and Category Grid */}
+                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5">
                     <div className="flex flex-col gap-6">
                         {/* Radar Chart */}
                         <div className="flex-1 h-96">
                             {weekLoading ? (
-                                <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/60">
+                                <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-[#1a1a1a] text-white/60">
                                     Loading chart…
                                 </div>
                             ) : (
@@ -409,42 +410,42 @@ export default function WheelPage() {
                                 </ResponsiveContainer>
                             )}
                         </div>
-                    </div>
 
-                    {/* Category Grid Below Chart */}
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                        {useMemo(() => {
-                            const currentItems = editingValues ? editItems : items;
-                            // Order: Spirituality, Career, Relationships, Health, Personal Growth, Joy & Leisure, Social, Finances, Environment, Inner State
-                            const displayOrder = ['Spirituality', 'Career', 'Relationships', 'Health', 'Personal Growth', 'Joy & Leisure', 'Social', 'Finances', 'Environment', 'Inner State'];
-                            return displayOrder.map(areaName => {
-                                const item = currentItems.find(i => i.area === areaName);
-                                if (!item) return null;
-                                const areaInfo = AREAS.find(a => a.name === areaName);
-                                const areaColor = areaInfo?.color ?? '#8B5CF6';
-                                return (
-                                    <div
-                                        key={item.area}
-                                        className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 flex flex-col items-center gap-2"
-                                    >
-                                        <span className="text-2xl">{areaInfo?.icon ?? '•'}</span>
-                                        <span className="text-xs font-semibold text-white text-center leading-tight">{item.area}</span>
-                                        <span
-                                            className="text-xs font-medium rounded-full px-3 py-1"
-                                            style={{ backgroundColor: `${areaColor}20`, color: areaColor, border: `1px solid ${areaColor}` }}
+                        {/* Category Grid Below Chart */}
+                        <div className="grid grid-cols-2 gap-3">
+                            {useMemo(() => {
+                                const currentItems = editingValues ? editItems : items;
+                                // Order: Spirituality, Career, Relationships, Health, Personal Growth, Joy & Leisure, Social, Finances, Environment, Inner State
+                                const displayOrder = ['Spirituality', 'Career', 'Relationships', 'Health', 'Personal Growth', 'Joy & Leisure', 'Social', 'Finances', 'Environment', 'Inner State'];
+                                return displayOrder.map(areaName => {
+                                    const item = currentItems.find(i => i.area === areaName);
+                                    if (!item) return null;
+                                    const areaInfo = AREAS.find(a => a.name === areaName);
+                                    const areaColor = areaInfo?.color ?? '#8B5CF6';
+                                    return (
+                                        <div
+                                            key={item.area}
+                                            className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 flex flex-col items-center gap-2"
                                         >
-                                            {item.score}/10
-                                        </span>
-                                    </div>
-                                );
-                            }).filter(Boolean);
-                        }, [editingValues, editItems, items])}
+                                            <span className="text-2xl">{areaInfo?.icon ?? '•'}</span>
+                                            <span className="text-xs font-semibold text-white text-center leading-tight">{item.area}</span>
+                                            <span
+                                                className="text-xs font-medium rounded-full px-3 py-1"
+                                                style={{ backgroundColor: `${areaColor}20`, color: areaColor, border: `1px solid ${areaColor}` }}
+                                            >
+                                                {item.score}/10
+                                            </span>
+                                        </div>
+                                    );
+                                }).filter(Boolean);
+                            }, [editingValues, editItems, items])}
+                        </div>
                     </div>
                 </section>
 
                 {/* Share Section */}
                 {shareTemplates.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
                         <ShareCastComposer
                             templates={shareTemplates}
                             sectionTitle="Share your wheel"
@@ -453,12 +454,12 @@ export default function WheelPage() {
                     </section>
                 )}
 
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 space-y-4">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 space-y-4">
                     <h2 className="text-xl font-semibold text-white">Coach</h2>
                     <div className="flex flex-col gap-3">
                         <button
                             onClick={loadTrends}
-                            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 w-full"
+                            className="rounded-2xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 w-full"
                             disabled={trendsLoading}
                         >
                             {trendsLoading ? 'Updating…' : 'REFRESH TRENDS'}
@@ -467,7 +468,7 @@ export default function WheelPage() {
                     </div>
                 </section>
 
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 space-y-4">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 space-y-4">
                     <h2 className="text-xl font-semibold text-white">Trends</h2>
                     <div className="overflow-x-auto rounded-2xl border border-white/10">
                         <table className="min-w-full border-collapse text-sm text-white/80">

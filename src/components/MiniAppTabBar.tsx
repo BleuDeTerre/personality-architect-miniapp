@@ -92,7 +92,7 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
                                 "flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs transition-all whitespace-nowrap",
                                 "flex-shrink-0",
                                 isActive
-                                    ? "bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white shadow-lg shadow-[#8B5CF6]/40"
+                                    ? "bg-white/10 text-white"
                                     : "text-white/70 hover:text-white hover:bg-white/5",
                             ].join(" ")}
                         >

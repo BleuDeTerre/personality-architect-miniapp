@@ -4,31 +4,66 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getCachedAnalytics, setCachedAnalytics } from '@/lib/analytics-cache';
 
 export async function GET(req: NextRequest) {
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-        if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+        if (!token) {
+            return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+        }
 
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
+
+        // Проверяем кеш
+        const cached = await getCachedAnalytics<{ facts: string[]; top_habits: any[]; day_stats: any[] }>(supa, userId, 'facts');
+        if (cached) {
+            return NextResponse.json(cached);
+        }
 
         // Получаем данные за последние 90 дней
         const since90 = new Date();
         since90.setDate(since90.getDate() - 90);
         const since90Str = since90.toISOString().slice(0, 10);
 
-        const { data: logs } = await supa
-            .from('habit_logs')
-            .select('habit_id, date, value')
-            .eq('user_id', userId)
-            .eq('value', true)
-            .gte('date', since90Str);
+        // Оптимизация: получаем логи и привычки параллельно
+        const [logsRes, habitsRes] = await Promise.all([
+            supa
+                .from('habit_logs')
+                .select('habit_id, date, value')
+                .eq('user_id', userId)
+                .eq('value', true)
+                .gte('date', since90Str),
+            supa
+                .from('habits')
+                .select('id, title')
+                .eq('user_id', userId)
+                .eq('is_active', true),
+        ]);
 
-        const { data: habits } = await supa
-            .from('habits')
-            .select('id, title')
-            .eq('user_id', userId);
+        if (logsRes.error) {
+            console.error('[Analytics Facts] Error fetching logs:', logsRes.error);
+            return NextResponse.json({
+                facts: [],
+                top_habits: [],
+                day_stats: [],
+                error: 'Failed to fetch logs',
+            }, { status: 200 }); // Возвращаем 200 чтобы не ломать UI
+        }
+
+        if (habitsRes.error) {
+            console.error('[Analytics Facts] Error fetching habits:', habitsRes.error);
+            return NextResponse.json({
+                facts: [],
+                top_habits: [],
+                day_stats: [],
+                error: 'Failed to fetch habits',
+            }, { status: 200 });
+        }
+
+        const logs = logsRes.data ?? [];
+        const habits = habitsRes.data ?? [];
 
         const habitsMap = new Map((habits ?? []).map(h => [h.id, h.title]));
 
@@ -115,20 +150,25 @@ export async function GET(req: NextRequest) {
             response_format: { type: 'json_object' },
         });
 
-        const result = JSON.parse(chat.choices[0]?.message?.content || '{}');
-        const facts = Array.isArray(result.facts) ? result.facts : [];
+        const aiResult = JSON.parse(chat.choices[0]?.message?.content || '{}');
+        const facts = Array.isArray(aiResult.facts) ? aiResult.facts : [];
 
         console.log('[Analytics Facts] Generated facts:', facts.length);
 
-        return NextResponse.json({ facts, top_habits: topHabits, day_stats: daysStats });
+        const result = { facts, top_habits: topHabits, day_stats: daysStats };
+
+        // Сохраняем в кеш
+        await setCachedAnalytics(supa, userId, 'facts', result);
+
+        return NextResponse.json(result);
     } catch (error: any) {
-        console.error('[Analytics Facts] Error:', error);
+        console.error('[Analytics Facts] Unexpected error:', error);
         // Return empty facts instead of error to prevent UI breakage
         return NextResponse.json({
             facts: [],
             top_habits: [],
             day_stats: [],
-            error: error?.message || 'Failed to generate facts'
+            error: error?.message || 'Failed to generate facts',
         }, { status: 200 });
     }
 }

@@ -26,9 +26,18 @@ export async function POST(req: NextRequest) {
             .select()
             .single();
 
-        if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+        if (error) {
+            console.error('[Habits Create] Error:', error);
+            return NextResponse.json({ error: 'Failed to create habit', details: error.message }, { status: 400 });
+        }
+
+        // Инвалидируем кеш аналитики
+        const { invalidateAnalyticsCache } = await import('@/lib/analytics-cache');
+        await invalidateAnalyticsCache(supa, userId);
+
         return NextResponse.json({ ok: true, habit: data });
-    } catch {
-        return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    } catch (error: any) {
+        console.error('[Habits Create] Unexpected error:', error);
+        return NextResponse.json({ error: 'Failed to create habit', message: error?.message || 'Unknown error' }, { status: 500 });
     }
 }

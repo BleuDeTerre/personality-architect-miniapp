@@ -287,84 +287,84 @@ export default function PricingPage() {
                 <section className="space-y-2">
                     <h1 className="text-3xl font-semibold text-[#8B5CF6]">Choose Your Plan</h1>
                     <p className="text-sm text-white/70">
-                    Upgrade to unlock powerful insights and analytics
-                </p>
+                        Upgrade to unlock powerful insights and analytics
+                    </p>
                 </section>
 
                 {/* Plans Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {PLANS.map((plan) => {
-                    const isCurrent = currentPlan === plan.id;
+                    {PLANS.map((plan) => {
+                        const isCurrent = currentPlan === plan.id;
 
-                    return (
-                        <div
-                            key={plan.id}
+                        return (
+                            <div
+                                key={plan.id}
                                 className={`rounded-3xl border p-6 flex flex-col ${plan.popular
-                                    ? 'border-[#8B5CF6] bg-white/5'
-                                    : 'border-white/10 bg-white/5'
+                                    ? 'border-[#8B5CF6] bg-[#1a1a1a]'
+                                    : 'border-white/10 bg-[#1a1a1a]'
                                     } ${isCurrent && plan.id !== 'free' ? 'border-[#8B5CF6]' : ''}`}
                             >
                                 {/* MOST POPULAR Badge */}
-                            {plan.popular && (
+                                {plan.popular && (
                                     <div className="flex justify-center mb-4">
                                         <div className="rounded-full bg-[#8B5CF6] px-4 py-1 text-xs font-semibold text-white">
-                                    MOST POPULAR
+                                            MOST POPULAR
                                         </div>
-                                </div>
-                            )}
+                                    </div>
+                                )}
 
                                 {/* Plan Name */}
                                 <h2 className="text-2xl font-bold text-white mb-3">{plan.name}</h2>
 
                                 {/* Price */}
-                            <div className="mb-6">
+                                <div className="mb-6">
                                     <span className="text-3xl font-bold text-[#8B5CF6]">
-                                    ${plan.price}
-                                </span>
-                                {plan.price > 0 && (
+                                        ${plan.price}
+                                    </span>
+                                    {plan.price > 0 && (
                                         <span className="text-white/70 text-lg">/{plan.period}</span>
-                                )}
-                            </div>
+                                    )}
+                                </div>
 
                                 {/* Features */}
                                 <ul className="space-y-3 mb-6 flex-1">
-                                {plan.features.map((feature, idx) => (
+                                    {plan.features.map((feature, idx) => (
                                         <li key={idx} className="flex items-start gap-2">
                                             <span className="text-[#2BD4A4] text-lg flex-shrink-0">✓</span>
                                             <span className="text-sm text-white/70">{feature}</span>
-                                    </li>
-                                ))}
-                            </ul>
+                                        </li>
+                                    ))}
+                                </ul>
 
                                 {/* CTA Button */}
-                            <button
+                                <button
                                     onClick={() => {
                                         if (plan.id === 'free') return;
                                         if (isCurrent) return;
                                         handleUpgrade(plan.id);
                                     }}
-                                disabled={isCurrent || loading || plan.id === 'free'}
+                                    disabled={isCurrent || loading || plan.id === 'free'}
                                     className={`w-full rounded-2xl py-3 px-4 font-semibold transition ${isCurrent
                                         ? 'bg-white/10 text-white/60 cursor-not-allowed'
                                         : plan.id === 'free'
                                             ? 'bg-white/10 text-white/70 cursor-default'
-                                    : plan.popular
+                                            : plan.popular
                                                 ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white hover:opacity-90 shadow-lg shadow-[#8B5CF6]/40'
                                                 : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white hover:opacity-90 shadow-lg shadow-[#8B5CF6]/40'
                                         } disabled:opacity-50`}
-                            >
-                                {isCurrent
-                                    ? 'Current Plan'
-                                    : plan.id === 'free'
-                                        ? 'Always Free'
-                                        : loading
-                                            ? 'Processing...'
-                                            : plan.cta}
-                            </button>
-                        </div>
-                    );
-                })}
-            </div>
+                                >
+                                    {isCurrent
+                                        ? 'Current Plan'
+                                        : plan.id === 'free'
+                                            ? 'Always Free'
+                                            : loading
+                                                ? 'Processing...'
+                                                : plan.cta}
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
 
                 {/* All Plans Include */}
                 <section className="space-y-4">
@@ -379,31 +379,9 @@ export default function PricingPage() {
                     </div>
                 </section>
 
-                {/* Wallet Section */}
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
-                    <h2 className="text-xl font-semibold text-white">Wallet</h2>
-                    <div className="space-y-3">
-                        <input
-                            type="text"
-                            placeholder="0x..."
-                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 focus:border-[#8B5CF6] focus:outline-none"
-                            value={walletInput}
-                            onChange={(e) => setWalletInput(e.target.value)}
-                        />
-                        {walletError && <div className="text-xs text-red-400">{walletError}</div>}
-                        <button
-                            onClick={handleWalletSave}
-                            disabled={walletSaving || walletInput === wallet}
-                            className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-center text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40"
-                        >
-                            {walletSaving ? 'Saving...' : 'Save Wallet'}
-                        </button>
-                    </div>
-                </section>
-
                 {/* Level & XP Section */}
                 {gamificationStats && (
-                    <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
                         <h2 className="text-xl font-semibold text-white mb-4">Your Level</h2>
                         <div className="flex items-center justify-between mb-4">
                             <div>
@@ -433,8 +411,8 @@ export default function PricingPage() {
                                         : `Ready for level ${level + 1}!`}
                                 </span>
                                 <span>{((level + 1) ** 2 * 100).toLocaleString()} XP total</span>
-                </div>
-            </div>
+                            </div>
+                        </div>
                     </section>
                 )}
 
@@ -448,66 +426,6 @@ export default function PricingPage() {
                         />
                     </div>
                 )}
-
-                {/* Badges Gallery */}
-                <section className="mb-6">
-                    <h2 className="text-xl font-semibold text-white mb-2">Badges Gallery</h2>
-                    <p className="text-sm text-white/60 mb-4">Mint badges directly to your Farcaster wallet.</p>
-                    {loading ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {[1, 2, 3, 4, 5, 6].map(i => (
-                                <div key={i} className="rounded-3xl border border-white/10 bg-white/5 p-4 animate-pulse">
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
-                                        <div className="flex-1 space-y-2">
-                                            <div className="h-4 bg-white/20 rounded w-3/4"></div>
-                                            <div className="h-3 bg-white/20 rounded w-full"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {BADGES.map(b => {
-                                const st = statusMap[b.slug] ?? 'none';
-                                const el = eligMap[b.slug]?.eligible ?? false;
-                                const reason = eligMap[b.slug]?.reason ?? '';
-                                const canMint = el && st === 'none';
-                                return (
-                                    <div
-                                        key={b.slug}
-                                        className="rounded-3xl border border-white/10 bg-white/5 p-4 flex gap-3 transition hover:bg-white/10"
-                                        title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
-                                    >
-                                        <BadgeImage src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
-                                        <div className="flex-1 flex flex-col gap-2">
-                                            <div>
-                                                <div className="font-medium text-white">{b.title}</div>
-                                                <div className="text-xs text-white/70">{b.description}</div>
-                                                <div className="text-xs text-white/60 mt-1">
-                                                    Status: <span className="font-mono">{st}</span>
-                                                    {!el && <span className="ml-2 opacity-80">({reason})</span>}
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={() => mint(b.slug)}
-                                                disabled={loading || busyCode === b.slug || !canMint || !wallet}
-                                                className={`w-full rounded-2xl px-4 py-3 font-semibold transition ${canMint
-                                                    ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white hover:opacity-90 shadow-lg shadow-[#8B5CF6]/40'
-                                                    : 'border border-white/10 bg-white/5 text-white/60 opacity-50 cursor-not-allowed'
-                                                    }`}
-                                                title={!wallet ? 'Add wallet address first' : (!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT')}
-                                            >
-                                                {busyCode === b.slug ? 'Minting…' : !wallet ? 'Add wallet' : (st === 'success' ? '✅ Minted' : 'Mint')}
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-            </div>
-                    )}
-                </section>
             </div>
         </MiniAppPage>
     );

@@ -3,36 +3,56 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { getCachedAnalytics, setCachedAnalytics } from '@/lib/analytics-cache';
 
 export async function GET(req: NextRequest) {
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-        if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+        if (!token) {
+            return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+        }
 
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
+
+        // Проверяем кеш
+        const cached = await getCachedAnalytics<{ correlations: Array<{ habit_a: string; habit_b: string; correlation: number }> }>(supa, userId, 'correlations');
+        if (cached) {
+            return NextResponse.json(cached);
+        }
 
         // Получаем все логи за последние 90 дней
         const since90 = new Date();
         since90.setDate(since90.getDate() - 90);
         const since90Str = since90.toISOString().slice(0, 10);
 
-        const { data: logs, error: logsErr } = await supa
-            .from('habit_logs')
-            .select('habit_id, date, value')
-            .eq('user_id', userId)
-            .eq('value', true)
-            .gte('date', since90Str);
+        // Оптимизация: получаем логи и привычки параллельно
+        const [logsRes, habitsRes] = await Promise.all([
+            supa
+                .from('habit_logs')
+                .select('habit_id, date, value')
+                .eq('user_id', userId)
+                .eq('value', true)
+                .gte('date', since90Str),
+            supa
+                .from('habits')
+                .select('id, title')
+                .eq('user_id', userId)
+                .eq('is_active', true),
+        ]);
 
-        if (logsErr) return NextResponse.json({ error: logsErr.message }, { status: 500 });
+        if (logsRes.error) {
+            console.error('[Analytics Correlations] Error fetching logs:', logsRes.error);
+            return NextResponse.json({ error: 'Failed to fetch logs', details: logsRes.error.message }, { status: 500 });
+        }
 
-        // Получаем названия привычек
-        const { data: habits, error: habitsErr } = await supa
-            .from('habits')
-            .select('id, title')
-            .eq('user_id', userId);
+        if (habitsRes.error) {
+            console.error('[Analytics Correlations] Error fetching habits:', habitsRes.error);
+            return NextResponse.json({ error: 'Failed to fetch habits', details: habitsRes.error.message }, { status: 500 });
+        }
 
-        if (habitsErr) return NextResponse.json({ error: habitsErr.message }, { status: 500 });
+        const logs = logsRes.data ?? [];
+        const habits = habitsRes.data ?? [];
 
         const habitsMap = new Map((habits ?? []).map(h => [h.id, h.title]));
 
@@ -87,16 +107,24 @@ export async function GET(req: NextRequest) {
         correlations.sort((a, b) => b.correlation - a.correlation);
 
         // Добавляем названия
-        const result = correlations.slice(0, 10).map(c => ({
-            habit_a: habitsMap.get(c.habit_a) || c.habit_a,
-            habit_b: habitsMap.get(c.habit_b) || c.habit_b,
-            correlation: c.correlation,
-        }));
+        const result = {
+            correlations: correlations.slice(0, 10).map(c => ({
+                habit_a: habitsMap.get(c.habit_a) || c.habit_a,
+                habit_b: habitsMap.get(c.habit_b) || c.habit_b,
+                correlation: c.correlation,
+            })),
+        };
 
-        return NextResponse.json({ correlations: result });
+        // Сохраняем в кеш
+        await setCachedAnalytics(supa, userId, 'correlations', result);
+
+        return NextResponse.json(result);
     } catch (error: any) {
-        console.error('[Analytics Correlations] Error:', error);
-        return NextResponse.json({ error: error?.message || 'Failed to calculate correlations' }, { status: 500 });
+        console.error('[Analytics Correlations] Unexpected error:', error);
+        return NextResponse.json(
+            { error: 'Failed to calculate correlations', message: error?.message || 'Unknown error' },
+            { status: 500 }
+        );
     }
 }
 

@@ -37,12 +37,22 @@ export async function PUT(req: NextRequest, ctx: any) {
             .select()
             .single();
 
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-        if (!data) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+        if (error) {
+            console.error('[Goals PUT] Error:', error);
+            return NextResponse.json({ error: 'Failed to update goal', details: error.message }, { status: 500 });
+        }
+        if (!data) {
+            return NextResponse.json({ error: 'Goal not found' }, { status: 404 });
+        }
+
+        // Инвалидируем кеш аналитики
+        const { invalidateAnalyticsCache } = await import('@/lib/analytics-cache');
+        await invalidateAnalyticsCache(supa, userId);
 
         return NextResponse.json({ item: data });
-    } catch {
-        return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    } catch (error: any) {
+        console.error('[Goals PUT] Unexpected error:', error);
+        return NextResponse.json({ error: 'Failed to update goal', message: error?.message || 'Unknown error' }, { status: 500 });
     }
 }
 
@@ -63,10 +73,19 @@ export async function DELETE(req: NextRequest, ctx: any) {
             .eq('id', goalId)
             .eq('user_id', userId);
 
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        if (error) {
+            console.error('[Goals DELETE] Error:', error);
+            return NextResponse.json({ error: 'Failed to delete goal', details: error.message }, { status: 500 });
+        }
+
+        // Инвалидируем кеш аналитики
+        const { invalidateAnalyticsCache } = await import('@/lib/analytics-cache');
+        await invalidateAnalyticsCache(supa, userId);
+
         return NextResponse.json({ ok: true });
-    } catch {
-        return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    } catch (error: any) {
+        console.error('[Goals DELETE] Unexpected error:', error);
+        return NextResponse.json({ error: 'Failed to delete goal', message: error?.message || 'Unknown error' }, { status: 500 });
     }
 }
 
