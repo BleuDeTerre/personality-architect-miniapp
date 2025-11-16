@@ -17,14 +17,6 @@ export default function AddMiniAppModal() {
     const [checking, setChecking] = useState(true);
 
     useEffect(() => {
-        // Показываем только если:
-        // 1. Приложение запущено в Mini App
-        // 2. Пользователь не залогинен (нет сессии)
-        if (!isRunningInMiniApp()) {
-            setChecking(false);
-            return;
-        }
-
         const checkUser = async () => {
             try {
                 const { data } = await supabase.auth.getUser();
@@ -55,11 +47,9 @@ export default function AddMiniAppModal() {
                 setShow(false);
             } else {
                 // Пользователь разлогинился - показываем окно
-                if (isRunningInMiniApp()) {
-                    setTimeout(() => {
-                        setShow(true);
-                    }, 500);
-                }
+                setTimeout(() => {
+                    setShow(true);
+                }, 500);
             }
         });
 
@@ -71,7 +61,10 @@ export default function AddMiniAppModal() {
     const handleAddToFarcaster = async () => {
         setAdding(true);
         try {
-            await addMiniApp();
+            // Вызываем addMiniApp только если в Mini App
+            if (isRunningInMiniApp()) {
+                await addMiniApp();
+            }
             setShow(false);
         } catch (error) {
             console.error('[AddMiniAppModal] Failed to add mini app:', error);
@@ -114,8 +107,12 @@ export default function AddMiniAppModal() {
                 {/* App Icon */}
                 <div className="flex justify-center mb-6">
                     <div className="relative">
-                        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#8B5CF6] to-[#6D28D9] flex items-center justify-center text-4xl shadow-lg">
-                            🎯
+                        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#8B5CF6] to-[#6D28D9] flex items-center justify-center shadow-lg overflow-hidden">
+                            <img 
+                                src="/miniapp/icon.png" 
+                                alt="Personality Architect" 
+                                className="w-full h-full object-cover"
+                            />
                         </div>
                         <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-[#8B5CF6] flex items-center justify-center">
                             <span className="text-white text-xs font-bold">+</span>

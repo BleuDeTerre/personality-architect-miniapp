@@ -79,7 +79,7 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
                 .join(" ")
                 .trim()}
         >
-            <nav className="flex items-center gap-2 px-5 py-4 min-w-max">
+            <nav className="flex items-center gap-1.5 px-4 py-2.5 min-w-max">
                 {NAV_ITEMS.map((item, index) => {
                     const isActive = index === activeIndex;
                     return (
@@ -89,14 +89,14 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
                             ref={isActive ? activeLinkRef : null}
                             onClick={handleLinkClick}
                             className={[
-                                "flex flex-col items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm transition-all whitespace-nowrap",
-                                "flex-shrink-0 w-24",
+                                "flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-xs transition-all whitespace-nowrap",
+                                "flex-shrink-0 w-20",
                                 isActive
                                     ? "bg-white/10 text-white"
                                     : "text-white/70 hover:text-white hover:bg-white/5",
                             ].join(" ")}
                         >
-                            <span className="text-xl leading-none">{item.icon}</span>
+                            <span className="text-lg leading-none">{item.icon}</span>
                             <span className="font-medium">{item.label}</span>
                         </Link>
                     );

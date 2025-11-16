@@ -21,24 +21,18 @@ export default function WalletSelectionModal() {
     const [checking, setChecking] = useState(true);
 
     useEffect(() => {
-        // Показываем только если:
-        // 1. Приложение запущено в Mini App
-        // 2. Пользователь не залогинен
-        if (!isRunningInMiniApp()) {
-            setChecking(false);
-            return;
-        }
-
         const checkUser = async () => {
             try {
                 const { data } = await supabase.auth.getUser();
                 
                 // Показываем для всех незалогиненных пользователей
                 if (!data.user) {
-                    // Получаем Farcaster wallet из контекста
-                    const context = await getFrameContext();
-                    const wallet = context?.user?.custodyAddress || context?.user?.walletAddress || null;
-                    setFarcasterWallet(wallet);
+                    // Получаем Farcaster wallet из контекста (только если в Mini App)
+                    if (isRunningInMiniApp()) {
+                        const context = await getFrameContext();
+                        const wallet = context?.user?.custodyAddress || context?.user?.walletAddress || null;
+                        setFarcasterWallet(wallet);
+                    }
                     
                     // Небольшая задержка для плавного появления
                     setTimeout(() => {
@@ -61,8 +55,8 @@ export default function WalletSelectionModal() {
             if (session?.user) {
                 setShow(false);
             } else {
+                // Обновляем Farcaster wallet при разлогине (только если в Mini App)
                 if (isRunningInMiniApp()) {
-                    // Обновляем Farcaster wallet при разлогине
                     getFrameContext().then(context => {
                         const wallet = context?.user?.custodyAddress || context?.user?.walletAddress || null;
                         setFarcasterWallet(wallet);
@@ -70,6 +64,11 @@ export default function WalletSelectionModal() {
                             setShow(true);
                         }, 500);
                     });
+                } else {
+                    // В браузере просто показываем модальное окно
+                    setTimeout(() => {
+                        setShow(true);
+                    }, 500);
                 }
             }
         });
