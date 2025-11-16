@@ -468,6 +468,17 @@ export default function AnalyticsPage() {
                     </p>
                 </section>
 
+                {/* Share Your Insights Section */}
+                {shareTemplates.length > 0 && (
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                        <ShareCastComposer
+                            templates={shareTemplates}
+                            sectionTitle="Share your insights"
+                            prepareHeaders={authHeaders}
+                        />
+                    </section>
+                )}
+
                 {/* Core Metrics Section */}
                 <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-6">
                     <h2 className="text-2xl font-semibold text-white">Core metrics</h2>
@@ -603,17 +614,6 @@ export default function AnalyticsPage() {
                         </div>
                     )}
                 </section>
-
-                {/* Share Your Insights Section */}
-                {shareTemplates.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
-                        <ShareCastComposer
-                            templates={shareTemplates}
-                            sectionTitle="Share your insights"
-                            prepareHeaders={authHeaders}
-                        />
-                    </section>
-                )}
 
                 {/* Habit Trend Prototypes Section */}
                 {habits.length > 0 && (

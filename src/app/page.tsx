@@ -85,14 +85,11 @@ export default function DashboardPage() {
   return (
     <MiniAppPage>
       <section className="space-y-6">
-        <div className="rounded-3xl bg-gradient-to-br from-[#120E2B] via-[#1c0f34] to-[#28124e] p-6 text-white shadow-[0_30px_80px_rgba(10,4,24,0.7)]">
+        <div className="bg-gradient-to-br from-[#120E2B] via-[#1c0f34] to-[#28124e] p-6 text-white">
           <h1 className="text-4xl font-bold text-[#8B5CF6] mb-3">Personality Architect</h1>
-          <div className="flex items-start justify-between gap-4">
-            <p className="text-white italic text-lg leading-relaxed flex-1">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
-            <p className="text-white text-sm whitespace-nowrap">— Aristotle</p>
-          </div>
+          <p className="text-white italic text-lg leading-relaxed">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot; — Aristotle</p>
           {gamificationStats && (
-            <div className="mt-6 rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+            <div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur">
               <div className="flex items-center justify-between text-sm text-white/70">
                 <span>{levelName} · Level {level}</span>
                 <span>{xp.toLocaleString()} XP</span>
@@ -110,7 +107,7 @@ export default function DashboardPage() {
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-3xl border border-white/10 bg-white/5 p-4 flex items-start gap-3 text-white/80 hover:bg-white/10 transition"
+              className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 flex items-start gap-3 text-white hover:bg-white/10 transition"
             >
               <div className="text-2xl">{item.icon}</div>
               <div>

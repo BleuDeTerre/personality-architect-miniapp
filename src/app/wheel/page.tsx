@@ -358,8 +358,8 @@ export default function WheelPage() {
                     </section>
                 )}
 
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                    <div className="flex gap-6">
+                <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                    <div className="flex flex-col gap-6">
                         {/* Radar Chart */}
                         <div className="flex-1 h-96">
                             {weekLoading ? (
@@ -385,45 +385,12 @@ export default function WheelPage() {
                                         <PolarGrid stroke="#ffffff1a" />
                                         <PolarAngleAxis
                                             dataKey="area"
-                                            tick={({ payload, x, y, textAnchor }) => {
-                                                const areaInfo = AREAS.find(a => a.name === payload.value);
-                                                const currentItems = editingValues ? editItems : items;
-                                                const item = currentItems.find(i => i.area === payload.value);
-                                                const areaColor = areaInfo?.color ?? '#ffffffa3';
-                                                const score = item?.score ?? 0;
-                                                return (
-                                                    <g>
-                                                        <text
-                                                            x={x}
-                                                            y={y}
-                                                            fill={areaColor}
-                                                            fontSize={11}
-                                                            textAnchor={textAnchor || 'middle'}
-                                                            fontWeight="500"
-                                                        >
-                                                            {areaInfo?.icon ?? ''} {payload.value} {score}/10
-                                                        </text>
-                                                    </g>
-                                                );
-                                            }}
+                                            tick={false}
                                         />
                                         <PolarRadiusAxis
                                             domain={[0, 10]}
                                             tickCount={6}
-                                            tick={({ payload, x, y }) => {
-                                                const radiusValue = payload.value as number;
-                                                return (
-                                                    <text
-                                                        x={x}
-                                                        y={y}
-                                                        fill="#ffffff80"
-                                                        fontSize={10}
-                                                        textAnchor="middle"
-                                                    >
-                                                        {radiusValue}
-                                                    </text>
-                                                );
-                                            }}
+                                            tick={false}
                                         />
                                         {AREAS.map((areaInfo) => (
                                             <Radar
@@ -431,8 +398,9 @@ export default function WheelPage() {
                                                 name={areaInfo.name}
                                                 dataKey={areaInfo.name}
                                                 stroke={areaInfo.color}
+                                                strokeWidth={2}
                                                 fill={areaInfo.color}
-                                                fillOpacity={0.5}
+                                                fillOpacity={0.6}
                                                 dot={false}
                                             />
                                         ))}
@@ -440,43 +408,36 @@ export default function WheelPage() {
                                 </ResponsiveContainer>
                             )}
                         </div>
-                        {/* Category List - Right Side */}
-                        <div className="w-64 flex-shrink-0">
-                            <div className="space-y-2">
-                                {useMemo(() => {
-                                    const currentItems = editingValues ? editItems : items;
-                                    // Order for right side list: Spirituality, Career, Relationships, Health, Personal Growth, Joy & Leisure, Social, Finances, Environment, Inner State
-                                    const rightSideOrder = ['Spirituality', 'Career', 'Relationships', 'Health', 'Personal Growth', 'Joy & Leisure', 'Social', 'Finances', 'Environment', 'Inner State'];
-                                    return rightSideOrder.map(areaName => {
-                                        const item = currentItems.find(i => i.area === areaName);
-                                        if (!item) return null;
-                                        const areaInfo = AREAS.find(a => a.name === areaName);
-                                        const areaColor = areaInfo?.color ?? '#8B5CF6';
-                                        return (
-                                            <button
-                                                key={item.area}
-                                                onClick={() => {
-                                                    const slider = document.querySelector(`input[type="range"][data-area="${item.area}"]`) as HTMLInputElement;
-                                                    if (slider) slider.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                }}
-                                                className="w-full rounded-2xl border border-white/10 bg-white/5 p-3 flex items-center justify-between hover:bg-white/10 transition"
-                                            >
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <span className="text-lg flex-shrink-0">{areaInfo?.icon ?? '•'}</span>
-                                                    <span className="text-sm font-semibold text-white truncate">{item.area}</span>
-                                                </div>
-                                                <span
-                                                    className="text-xs font-medium flex-shrink-0"
-                                                    style={{ color: areaColor }}
-                                                >
-                                                    {item.score}/10
-                                                </span>
-                                            </button>
-                                        );
-                                    }).filter(Boolean);
-                                }, [editingValues, editItems, items])}
-                            </div>
-                        </div>
+                    </div>
+
+                    {/* Category Grid Below Chart */}
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                        {useMemo(() => {
+                            const currentItems = editingValues ? editItems : items;
+                            // Order: Spirituality, Career, Relationships, Health, Personal Growth, Joy & Leisure, Social, Finances, Environment, Inner State
+                            const displayOrder = ['Spirituality', 'Career', 'Relationships', 'Health', 'Personal Growth', 'Joy & Leisure', 'Social', 'Finances', 'Environment', 'Inner State'];
+                            return displayOrder.map(areaName => {
+                                const item = currentItems.find(i => i.area === areaName);
+                                if (!item) return null;
+                                const areaInfo = AREAS.find(a => a.name === areaName);
+                                const areaColor = areaInfo?.color ?? '#8B5CF6';
+                                return (
+                                    <div
+                                        key={item.area}
+                                        className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 flex flex-col items-center gap-2"
+                                    >
+                                        <span className="text-2xl">{areaInfo?.icon ?? '•'}</span>
+                                        <span className="text-xs font-semibold text-white text-center leading-tight">{item.area}</span>
+                                        <span
+                                            className="text-xs font-medium rounded-full px-3 py-1"
+                                            style={{ backgroundColor: `${areaColor}20`, color: areaColor, border: `1px solid ${areaColor}` }}
+                                        >
+                                            {item.score}/10
+                                        </span>
+                                    </div>
+                                );
+                            }).filter(Boolean);
+                        }, [editingValues, editItems, items])}
                     </div>
                 </section>
 
