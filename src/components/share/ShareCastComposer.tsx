@@ -124,7 +124,7 @@ export default function ShareCastComposer({
     const maxLength = 320;
 
     return (
-        <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
+        <div className="space-y-4">
             {sectionTitle ? <h3 className="text-xl font-semibold text-white mb-4">{sectionTitle}</h3> : null}
 
             {/* Template selection buttons */}
@@ -166,7 +166,7 @@ export default function ShareCastComposer({
             {ogImageUrl && (
                 <div className="space-y-2">
                     <p className="text-sm uppercase tracking-wide text-white/60">PREVIEW</p>
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                         <Image
                             src={ogImageUrl}
                             alt="Cast preview"
@@ -178,7 +178,7 @@ export default function ShareCastComposer({
                     </div>
                 </div>
             )}
-        </section>
+        </div>
     );
 }
 

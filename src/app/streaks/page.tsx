@@ -337,26 +337,41 @@ export default function StreaksPage() {
     return (
         <MiniAppPage>
             <div className="space-y-6">
-                <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#1C0F3A] via-[#2E1065] to-[#3E1075] p-6 shadow-[0_30px_80px_rgba(10,4,24,0.7)]">
-                    <div className="flex flex-col gap-3">
-                        <h1 className="text-3xl font-semibold leading-snug text-[#8B5CF6]">Habit focus</h1>
-                    </div>
+                {/* Header Card */}
+                <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+                    <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">Streaks Analytics</h1>
+                    <p className="text-sm text-white/70">
+                        Track consecutive wins, discover weak spots, and plan the next badge.
+                    </p>
                 </section>
-                <div className="flex flex-col gap-4">
-                    {shareTemplates.length > 0 && (
+
+                {/* Share Section */}
+                {shareTemplates.length > 0 && (
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                        <div className="flex items-start justify-between mb-4">
+                            <div>
+                                <h2 className="text-xl font-semibold text-white mb-1">Share your streak</h2>
+                                <p className="text-sm text-white/70">Let everyone know how close you are to the next badge.</p>
+                            </div>
+                            {nextBadgeDays !== null && (
+                                <div className="rounded-full border border-[#8B5CF6] bg-white/[0.03] px-4 py-2 text-sm font-medium text-white">
+                                    Next badge ({nextBadgeDays} {nextBadgeDays === 1 ? 'day' : 'days'})
+                                </div>
+                            )}
+                        </div>
                         <ShareCastComposer
                             templates={shareTemplates}
-                            sectionTitle="Share your streak"
+                            sectionTitle={undefined}
                             prepareHeaders={authHeaders}
                         />
-                    )}
-                </div>
+                    </section>
+                )}
 
                 {/* Habit Cards Grid - 2 columns */}
                 {loading ? (
                     <div className="grid grid-cols-2 gap-4">
                         {[1, 2, 3, 4, 5, 6].map(i => (
-                            <div key={i} className="rounded-3xl border border-white/10 bg-white/5 p-4 animate-pulse">
+                            <div key={i} className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 animate-pulse">
                                 <div className="h-6 bg-white/10 rounded w-3/4 mb-3"></div>
                                 <div className="h-4 bg-white/10 rounded w-1/2 mb-2"></div>
                                 <div className="h-4 bg-white/10 rounded w-1/2 mb-3"></div>
@@ -369,7 +384,7 @@ export default function StreaksPage() {
                         ))}
                     </div>
                 ) : habitsWithStats.length === 0 ? (
-                    <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-center text-white/70">
+                    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center text-white/60">
                         No active habits yet. Create habits to track your streaks!
                     </div>
                 ) : (
@@ -377,7 +392,7 @@ export default function StreaksPage() {
                         {habitsWithStats.map((habit) => (
                             <div
                                 key={habit.id}
-                                className="rounded-3xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3"
+                                className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-3"
                             >
                                 <div className="flex items-center gap-2">
                                     {habit.icon && <span className="text-2xl">{habit.icon}</span>}
@@ -407,7 +422,7 @@ export default function StreaksPage() {
                 )}
 
                 {/* Momentum Timeline */}
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
                     <h2 className="text-2xl font-semibold text-white mb-6">Momentum timeline</h2>
                     {loading ? (
                         <div className="space-y-4">

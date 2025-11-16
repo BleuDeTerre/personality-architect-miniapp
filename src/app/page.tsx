@@ -91,11 +91,11 @@ export default function DashboardPage() {
   return (
     <MiniAppPage>
       <section className="space-y-6">
-        <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#120E2B] to-[#211042] p-6 text-white shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
-          <div className="flex flex-col gap-3">
-            <h1 className="text-4xl font-bold text-[#8B5CF6]">Personality Architect</h1>
-            <p className="text-white italic text-lg leading-relaxed">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
-            <p className="text-white text-sm text-right">— Aristotle</p>
+        <div className="rounded-3xl bg-gradient-to-br from-[#120E2B] via-[#1c0f34] to-[#28124e] p-6 text-white shadow-[0_30px_80px_rgba(10,4,24,0.7)]">
+          <h1 className="text-4xl font-bold text-[#8B5CF6] mb-3">Personality Architect</h1>
+          <div className="flex items-start justify-between gap-4">
+            <p className="text-white italic text-lg leading-relaxed flex-1">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
+            <p className="text-white text-sm whitespace-nowrap">— Aristotle</p>
           </div>
           {gamificationStats && (
             <div className="mt-6 rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
@@ -111,7 +111,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {NAVIGATION.map(item => (
             <Link
               key={item.href}

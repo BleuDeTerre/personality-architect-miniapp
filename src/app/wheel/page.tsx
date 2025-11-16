@@ -66,6 +66,8 @@ export default function WheelPage() {
     const [saving, setSaving] = useState(false);
     const [trends, setTrends] = useState<TrendArea[]>([]);
     const [trendsLoading, setTrendsLoading] = useState(false);
+    const [editingValues, setEditingValues] = useState(false);
+    const [editItems, setEditItems] = useState<Item[]>([]);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -145,6 +147,12 @@ export default function WheelPage() {
     }, [week, loadWeek]);
 
     useEffect(() => {
+        if (items.length > 0 && !editingValues) {
+            setEditItems([...items]);
+        }
+    }, [items, editingValues]);
+
+    useEffect(() => {
         loadTrends();
     }, [loadTrends]);
 
@@ -155,7 +163,7 @@ export default function WheelPage() {
             await Promise.all(
                 items.map(it =>
                     fetch('/api/wheel', {
-                        method: 'POST',
+                method: 'POST',
                         headers,
                         body: JSON.stringify({ week, area: it.area, score: clamp010(it.score) }),
                     })
@@ -224,13 +232,21 @@ export default function WheelPage() {
                     <p className="text-xs uppercase tracking-wide text-white/60 mb-2">WHEEL OF LIFE — WEEK {week}</p>
                     <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">Life Balance Overview</h1>
                     <p className="text-sm text-white/80 mb-4">
-                        Rate each area of your life from 1-10 to visualize your overall balance.
-                    </p>
+                            Rate each area of your life from 1-10 to visualize your overall balance.
+                        </p>
                     <button
                         onClick={() => {
-                            const wheelSection = document.querySelector('[data-wheel-section]');
-                            if (wheelSection) {
-                                wheelSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            if (!editingValues) {
+                                setEditItems([...items]);
+                            }
+                            setEditingValues(!editingValues);
+                            if (!editingValues) {
+                                setTimeout(() => {
+                                    const wheelSection = document.querySelector('[data-wheel-section]');
+                                    if (wheelSection) {
+                                        wheelSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    }
+                                }, 100);
                             }
                         }}
                         className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition hover:bg-white/10"
@@ -239,178 +255,213 @@ export default function WheelPage() {
                     </button>
                 </section>
 
-                <section data-wheel-section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                    <div className="flex flex-col gap-4">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <p className="text-xs uppercase tracking-wide text-white/60">Weekly tracking</p>
-                                <h2 className="text-2xl font-semibold text-white">Update the wheel</h2>
+                {editingValues && (
+                    <section data-wheel-section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                        <div className="flex flex-col gap-6">
+                            {/* Header */}
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <h2 className="text-2xl font-semibold text-white mb-2">Adjust weekly scores</h2>
+                                    <p className="text-sm text-white/70">
+                                        Update the ratings for week {week}. Changes update the chart instantly.
+                                    </p>
+                                </div>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => {
+                                            setEditItems([...items]);
+                                            setEditingValues(false);
+                                        }}
+                                        className="rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-white font-semibold transition hover:bg-white/10"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            setItems([...editItems]);
+                                            await saveWeek();
+                                            setEditingValues(false);
+                                        }}
+                                        disabled={weekLoading || saving}
+                                        className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-white font-semibold transition hover:opacity-90 disabled:opacity-60 shadow-lg shadow-[#8B5CF6]/40"
+                                    >
+                                        {saving ? 'Saving…' : 'Save changes'}
+                                    </button>
+                                </div>
                             </div>
-                            <div className="flex flex-wrap items-center gap-3">
-                                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2">
-                                    <label className="text-xs uppercase tracking-wide text-white/60">Week</label>
+
+                            {/* ISO Week and Average */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">ISO Week</label>
                                     <input
                                         type="week"
                                         value={week}
                                         onChange={(e) => setWeek(e.target.value)}
-                                        className="mt-1 bg-transparent text-white focus:outline-none"
+                                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white focus:border-white/40 focus:outline-none"
                                     />
                                 </div>
-                                <button
-                                    onClick={loadTrends}
-                                    className="rounded-2xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10"
-                                    disabled={trendsLoading}
-                                >
-                                    {trendsLoading ? 'Updating…' : 'Refresh trends'}
-                                </button>
+                                <div>
+                                    <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">Average this week</label>
+                                    <div className="text-3xl font-bold text-white">
+                                        {editItems.length > 0 
+                                            ? (editItems.reduce((sum, item) => sum + item.score, 0) / editItems.length).toFixed(1)
+                                            : '0.0'}/10
+                                    </div>
+                                </div>
                             </div>
-                        </div>
 
-                        {weekLoading ? (
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                {AREAS.map(area => (
-                                    <div key={area.name} className="h-32 rounded-2xl border border-white/10 bg-white/5 animate-pulse" />
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                {items.map((it, idx) => {
-                                    const areaInfo = AREAS.find(a => a.name === it.area);
-                                    const areaColor = areaInfo?.color ?? '#8B5CF6';
-                                    return (
-                                        <div key={it.area} className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3">
-                                            <div className="flex items-center justify-between">
-                                                <div className="text-sm uppercase tracking-wide text-white/60">
-                                                    {areaInfo?.icon ?? '•'} {it.area}
+                            {/* Category List */}
+                            {weekLoading ? (
+                                <div className="space-y-3">
+                                    {AREAS.map(area => (
+                                        <div key={area.name} className="h-20 rounded-2xl border border-white/10 bg-white/5 animate-pulse" />
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {editItems.map((it, idx) => {
+                                        const areaInfo = AREAS.find(a => a.name === it.area);
+                                        const areaColor = areaInfo?.color ?? '#8B5CF6';
+                                        return (
+                                            <div key={it.area} className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xl">{areaInfo?.icon ?? '•'}</span>
+                                                        <span className="text-sm font-semibold text-white">{it.area}</span>
+                                                    </div>
+                                                    <span
+                                                        className="text-sm font-medium rounded-full px-3 py-1"
+                                                        style={{ backgroundColor: `${areaColor}20`, color: areaColor }}
+                                                    >
+                                                        {it.score}/10
+                                                    </span>
                                                 </div>
-                                                <span className="text-lg font-semibold text-white">{it.score}/10</span>
+                                                <input
+                                                    type="range"
+                                                    min={0}
+                                                    max={10}
+                                                    value={it.score}
+                                                    onChange={(e) => {
+                                                        const newItems = [...editItems];
+                                                        newItems[idx].score = Number(e.target.value);
+                                                        setEditItems(newItems);
+                                                    }}
+                                                    className="w-full"
+                                                    style={{ accentColor: areaColor }}
+                                                />
+                                                <div className="flex items-center justify-between text-xs text-white/50">
+                                                    <span>0</span>
+                                                    <span>10</span>
+                                                </div>
                                             </div>
-                                            <input
-                                                type="range"
-                                                min={0}
-                                                max={10}
-                                                value={it.score}
-                                                onChange={(e) => setScore(idx, Number(e.target.value))}
-                                                data-area={it.area}
-                                                className="w-full"
-                                                style={{ accentColor: areaColor }}
-                                            />
-                                            <div className="flex items-center justify-between text-xs text-white/50">
-                                                <span>0</span>
-                                                <span>10</span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                            <button
-                                onClick={saveWeek}
-                                disabled={weekLoading || saving}
-                                className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-center text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
-                            >
-                                {saving ? 'Saving…' : 'Save week'}
-                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
-                    </div>
-                </section>
+                    </section>
+                )}
 
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
                     <h2 className="text-xl font-semibold text-white mb-4">Balance radar</h2>
-                    <div className="h-96">
-                        {weekLoading ? (
-                            <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/60">
-                                Loading chart…
-                            </div>
+                    <div className="flex gap-6">
+                        {/* Radar Chart */}
+                        <div className="flex-1 h-96">
+                            {weekLoading ? (
+                                <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/60">
+                                    Loading chart…
+                </div>
                         ) : (
                             <ResponsiveContainer width="100%" height="100%">
-                                <RadarChart data={items}>
+                                <RadarChart data={editingValues ? editItems : items}>
                                     <PolarGrid stroke="#ffffff1a" />
                                     <PolarAngleAxis
                                         dataKey="area"
                                         tick={({ payload, x, y, textAnchor }) => {
                                             const areaInfo = AREAS.find(a => a.name === payload.value);
+                                            const currentItems = editingValues ? editItems : items;
+                                            const item = currentItems.find(i => i.area === payload.value);
                                             const areaColor = areaInfo?.color ?? '#ffffffa3';
+                                            const score = item?.score ?? 0;
                                             return (
-                                                <text
-                                                    x={x}
-                                                    y={y}
-                                                    fill={areaColor}
-                                                    fontSize={12}
-                                                    textAnchor={textAnchor || 'middle'}
-                                                >
-                                                    {payload.value}
-                                                </text>
+                                                <g>
+                                                    <text
+                                                        x={x}
+                                                        y={y}
+                                                        fill={areaColor}
+                                                        fontSize={12}
+                                                        textAnchor={textAnchor || 'middle'}
+                                                        fontWeight="500"
+                                                    >
+                                                        {payload.value} {score}/10
+                                                    </text>
+                                                </g>
                                             );
                                         }}
                                     />
                                     <PolarRadiusAxis domain={[0, 10]} tickCount={6} tick={{ fill: '#ffffff80', fontSize: 10 }} />
-                                    {AREAS.map((area) => {
-                                        const item = items.find(i => i.area === area.name);
-                                        if (!item) return null;
-                                        return (
-                                            <Radar
-                                                key={area.name}
-                                                name={area.name}
-                                                dataKey={(data: Item) => data.area === area.name ? data.score : 0}
-                                                stroke={area.color}
-                                                fill={area.color}
-                                                fillOpacity={0.6}
-                                                dot={false}
-                                            />
-                                        );
-                                    })}
+                                    <Radar
+                                        name="Score"
+                                        dataKey="score"
+                                        stroke="#8B5CF6"
+                                        fill="#8B5CF6"
+                                        fillOpacity={0.5}
+                                        dot={false}
+                                    />
                                 </RadarChart>
                             </ResponsiveContainer>
                         )}
-                    </div>
-                    {/* All category cards in 5x2 grid */}
-                    <div className="mt-6 grid grid-cols-2 gap-3">
-                        {items.map((item) => {
-                            const areaInfo = AREAS.find(a => a.name === item.area);
-                            const areaColor = areaInfo?.color ?? '#8B5CF6';
-                            const itemIdx = items.findIndex(i => i.area === item.area);
-                            return (
-                                <button
-                                    key={item.area}
-                                    onClick={() => {
-                                        if (itemIdx >= 0) {
-                                            const slider = document.querySelector(`input[type="range"][data-area="${item.area}"]`) as HTMLInputElement;
-                                            if (slider) slider.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                        }
-                                    }}
-                                    className="rounded-2xl border border-white/10 bg-white/5 p-4 flex items-center justify-between hover:bg-white/10 transition"
-                                >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <span className="text-2xl flex-shrink-0">{areaInfo?.icon ?? '•'}</span>
-                                        <span className="text-sm font-semibold text-white truncate">{item.area}</span>
-                                    </div>
-                                    <span
-                                        className="text-xs font-medium rounded-full px-3 py-1 flex-shrink-0"
-                                        style={{ backgroundColor: `${areaColor}20`, color: areaColor }}
-                                    >
-                                        {item.score}/10
-                                    </span>
-                                </button>
-                            );
-                        })}
+                        </div>
+                        {/* Category List - Right Side */}
+                        <div className="w-64 flex-shrink-0">
+                            <div className="space-y-2">
+                                {(editingValues ? editItems : items).map((item) => {
+                                    const areaInfo = AREAS.find(a => a.name === item.area);
+                                    const areaColor = areaInfo?.color ?? '#8B5CF6';
+                                    const currentItems = editingValues ? editItems : items;
+                                    const itemIdx = currentItems.findIndex(i => i.area === item.area);
+                                    return (
+                                        <button
+                                            key={item.area}
+                                            onClick={() => {
+                                                if (itemIdx >= 0) {
+                                                    const slider = document.querySelector(`input[type="range"][data-area="${item.area}"]`) as HTMLInputElement;
+                                                    if (slider) slider.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                }
+                                            }}
+                                            className="w-full rounded-2xl border border-white/10 bg-white/5 p-3 flex items-center justify-between hover:bg-white/10 transition"
+                                        >
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <span className="text-lg flex-shrink-0">{areaInfo?.icon ?? '•'}</span>
+                                                <span className="text-sm font-semibold text-white truncate">{item.area}</span>
+                                            </div>
+                                            <span
+                                                className="text-xs font-medium flex-shrink-0"
+                                                style={{ color: areaColor }}
+                                            >
+                                                {item.score}/10
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
                 </section>
 
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-5 space-y-4">
                     <h2 className="text-xl font-semibold text-white">Coach</h2>
                     <div className="flex flex-col gap-3">
-                        <button
-                            onClick={loadTrends}
+                    <button
+                        onClick={loadTrends}
                             className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 w-full"
-                            disabled={trendsLoading}
-                        >
+                        disabled={trendsLoading}
+                    >
                             {trendsLoading ? 'Updating…' : 'REFRESH TRENDS'}
-                        </button>
-                        <CoachBlock />
-                    </div>
+                    </button>
+                <CoachBlock />
+            </div>
                 </section>
 
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-5 space-y-4">
@@ -418,15 +469,15 @@ export default function WheelPage() {
                     <div className="overflow-x-auto rounded-2xl border border-white/10">
                         <table className="min-w-full border-collapse text-sm text-white/80">
                             <thead className="bg-white/10 text-white/70">
-                                <tr>
+                            <tr>
                                     <th className="p-3 text-left">Area</th>
-                                    <th className="p-3 text-right">Last</th>
-                                    <th className="p-3 text-right">Avg 4w</th>
-                                    <th className="p-3 text-right">Avg 12w</th>
-                                    <th className="p-3 text-right">Δ 4w</th>
-                                    <th className="p-3 text-right">Δ 12w</th>
-                                </tr>
-                            </thead>
+                                <th className="p-3 text-right">Last</th>
+                                <th className="p-3 text-right">Avg 4w</th>
+                                <th className="p-3 text-right">Avg 12w</th>
+                                <th className="p-3 text-right">Δ 4w</th>
+                                <th className="p-3 text-right">Δ 12w</th>
+                            </tr>
+                        </thead>
                             <tbody>
                                 {trends.map((area) => (
                                     <tr key={area.area} className="border-t border-white/5">
@@ -436,22 +487,22 @@ export default function WheelPage() {
                                         <td className="p-3 text-right">{area.avg12?.toFixed?.(1) ?? area.avg12}</td>
                                         <td className={`p-3 text-right ${area.delta4 < 0 ? 'text-red-400' : area.delta4 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
                                             {area.delta4?.toFixed?.(1) ?? area.delta4}
-                                        </td>
+                                    </td>
                                         <td className={`p-3 text-right ${area.delta12 < 0 ? 'text-red-400' : area.delta12 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
                                             {area.delta12?.toFixed?.(1) ?? area.delta12}
-                                        </td>
-                                    </tr>
-                                ))}
-                                {!trends.length && (
-                                    <tr>
+                                    </td>
+                                </tr>
+                            ))}
+                            {!trends.length && (
+                                <tr>
                                         <td colSpan={6} className="p-4 text-center text-white/50">
                                             No trend data yet.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
                     <p className="text-xs text-white/50">Δ — change vs previous window. Positive is improvement, negative is decline.</p>
                 </section>
             </div>

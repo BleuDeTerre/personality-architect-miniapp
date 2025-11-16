@@ -61,7 +61,7 @@ function SparklineChart({ data, maxStreak }: { data: TrendPoint[]; maxStreak: nu
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
+    };
 
     return (
         <div className="w-full h-full relative">
@@ -197,7 +197,7 @@ export default function AnalyticsPage() {
                 for (let j = i; j >= 0; j--) {
                     if (completedDates.has(dates[j])) {
                         currentStreak++;
-            } else {
+                    } else {
                         break;
                     }
                 }
@@ -252,9 +252,9 @@ export default function AnalyticsPage() {
                         if (daysDiff === 1) {
                             currentRun++;
                             longestRun = Math.max(longestRun, currentRun);
-            } else {
+                        } else {
                             currentRun = 1;
-            }
+                        }
                     }
                 }
 
@@ -264,7 +264,7 @@ export default function AnalyticsPage() {
                     color = 'green';
                 } else if (completedDays > 0) {
                     color = 'yellow';
-            }
+                }
 
                 capsules.push({
                     weekStart,
@@ -461,30 +461,30 @@ export default function AnalyticsPage() {
         <MiniAppPage>
             <div className="space-y-6">
                 {/* Advanced Analytics Section */}
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                    <h1 className="text-3xl font-semibold text-[#8B5CF6] mb-4">Advanced Analytics</h1>
-                    <p className="text-white/70 text-sm leading-relaxed">
-                    First wave of dashboards arrives here. Core metrics show up as soon as we collect enough data. Below that — the roadmap of smarter insights we&apos;re building next.
-                </p>
+                <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                    <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">Advanced Analytics</h1>
+                    <p className="text-sm text-white/70">
+                        First wave of dashboards arrives here. Core metrics show up as soon as we collect enough data. Below that — the roadmap of smarter insights we&apos;re building next.
+                    </p>
                 </section>
 
                 {/* Core Metrics Section */}
-                <section className="space-y-6">
+                <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-6">
                     <h2 className="text-2xl font-semibold text-white">Core metrics</h2>
-            {loading ? (
+                    {loading ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {[1, 2, 3, 4, 5, 6].map(i => (
-                                <div key={i} className="rounded-3xl border border-white/10 bg-white/5 p-5 animate-pulse">
+                                <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 animate-pulse">
                                     <div className="h-6 bg-white/10 rounded w-32 mb-3"></div>
                                     <div className="h-8 bg-white/10 rounded w-20 mb-3"></div>
                                     <div className="h-4 bg-white/10 rounded w-full"></div>
-                        </div>
+                                </div>
                             ))}
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {/* Completion rate */}
-                            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                                 <h3 className="text-base font-semibold text-white mb-3">Completion rate</h3>
                                 {completionRate !== null ? (
                                     <>
@@ -496,14 +496,14 @@ export default function AnalyticsPage() {
                                 ) : (
                                     <p className="text-sm text-white/60">No data yet</p>
                                 )}
-                    </div>
+                            </div>
 
                             {/* Streaks */}
-                            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-base font-semibold text-white">Streaks</h3>
                                     <div className="h-px w-12 bg-[#8B5CF6]"></div>
-                </div>
+                                </div>
                                 <div className="space-y-2 mb-3">
                                     <p className="text-sm text-white/70">
                                         <span className="text-[#8B5CF6] font-semibold">Current:</span> {stats.current_streak}d
@@ -518,7 +518,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             {/* Focus areas */}
-                            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                                 <h3 className="text-base font-semibold text-white mb-3">Focus areas</h3>
                                 {topHabit && topHabitIcon && topHabitTitle ? (
                                     <>
@@ -536,7 +536,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             {/* Average completion time */}
-                            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                                 <h3 className="text-base font-semibold text-white mb-3">Average completion time</h3>
                                 {mostActiveDay ? (
                                     <>
@@ -550,10 +550,10 @@ export default function AnalyticsPage() {
                                 ) : (
                                     <p className="text-sm text-white/60">No data yet</p>
                                 )}
-                                    </div>
+                            </div>
 
                             {/* Goal progress */}
-                            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                                 <div className="flex items-start justify-between mb-3">
                                     <h3 className="text-base font-semibold text-white">Goal progress</h3>
                                     {goalProgress && (
@@ -563,7 +563,7 @@ export default function AnalyticsPage() {
                                                 <span className="h-1.5 w-1.5 rounded-full bg-[#8B5CF6]"></span>
                                             </p>
                                             <p className="text-sm text-[#8B5CF6]">{goalProgress.avg}% avg</p>
-                                </div>
+                                        </div>
                                     )}
                                 </div>
                                 {goalProgress ? (
@@ -576,7 +576,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             {/* Wheel delta */}
-                            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                                 <h3 className="text-base font-semibold text-white mb-3">Wheel delta</h3>
                                 {topWheelDeltas.length > 0 ? (
                                     <>
@@ -591,7 +591,7 @@ export default function AnalyticsPage() {
                                                     </span>
                                                 ))}
                                             </p>
-                        </div>
+                                        </div>
                                         <p className="text-sm text-white/70">
                                             Change in Wheel of Life areas over time. Connects behavior to perceived balance.
                                         </p>
@@ -602,30 +602,41 @@ export default function AnalyticsPage() {
                             </div>
                         </div>
                     )}
+                </section>
+
+                {/* Share Your Insights Section */}
+                {shareTemplates.length > 0 && (
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                        <ShareCastComposer
+                            templates={shareTemplates}
+                            sectionTitle="Share your insights"
+                            prepareHeaders={authHeaders}
+                        />
                     </section>
+                )}
 
                 {/* Week Comparison Section */}
-                    {comparative && (
-                    <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
+                {comparative && (
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
                         <h2 className="text-2xl font-semibold text-white">Week comparison</h2>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <p className="text-xs uppercase tracking-wide text-white/60">This week</p>
                                 <p className="text-3xl font-semibold text-[#2BD4A4]">{comparative.this_week.completed_total}</p>
                                 <p className="text-sm text-white/70">completed logs</p>
-                                </div>
+                            </div>
                             <div className="space-y-2">
                                 <p className="text-xs uppercase tracking-wide text-white/60">Last week</p>
                                 <p className="text-3xl font-semibold text-[#A78BFA]">{comparative.last_week.completed_total}</p>
                                 <p className="text-sm text-white/70">completed logs</p>
-                                </div>
                             </div>
+                        </div>
                         {comparative.comparison && (
                             <div className={`rounded-2xl border px-4 py-3 ${comparative.comparison.trend === 'up'
                                 ? 'border-[#2BD4A4] bg-[#2BD4A4]/10'
-                                    : comparative.comparison.trend === 'down'
+                                : comparative.comparison.trend === 'down'
                                     ? 'border-red-400 bg-red-400/10'
-                                    : 'border-white/10 bg-white/5'
+                                    : 'border-white/10 bg-white/[0.03]'
                                 }`}>
                                 <p className="text-base font-semibold text-white mb-1">
                                     {comparative.comparison.message} {comparative.comparison.trend === 'up' ? '🔥' : ''}
@@ -633,14 +644,14 @@ export default function AnalyticsPage() {
                                 <p className="text-sm text-white/70">
                                     {comparative.comparison.percent_change > 0 ? '+' : ''}{comparative.comparison.percent_change}% change
                                 </p>
-                                </div>
+                            </div>
                         )}
                     </section>
                 )}
 
                 {/* AI Facts Section */}
                 {facts && facts.facts && facts.facts.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
                         <h2 className="text-2xl font-semibold text-white flex items-center gap-2">
                             <span>🤖</span>
                             <span>AI facts</span>
@@ -650,17 +661,17 @@ export default function AnalyticsPage() {
                                 <div key={idx} className="flex items-start gap-3">
                                     <span className="text-white/60 mt-1">•</span>
                                     <p className="text-sm text-white flex-1">{fact}</p>
-                            </div>
+                                </div>
                             ))}
                         </div>
                     </section>
-                    )}
+                )}
 
                 {/* Habit Correlations Section */}
                 {correlations && correlations.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
                         <h2 className="text-2xl font-semibold text-white">Habit correlations</h2>
-                            <div className="space-y-3">
+                        <div className="space-y-3">
                             {correlations.map((corr, idx) => {
                                 // Extract emoji and title for habit_a
                                 const emojiA = corr.habit_a.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u)?.[0] || '';
@@ -673,28 +684,145 @@ export default function AnalyticsPage() {
                                 const percentage = Math.round(corr.correlation * 100);
 
                                 return (
-                                    <div key={idx} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                                    <div key={idx} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                                         <p className="text-sm text-white flex-1">
-                                            <span className="font-semibold">
-                                                {emojiA ? `${emojiA} ` : ''}{titleA}
+                                            <span>
+                                                {emojiA ? `${emojiA} ` : ''}<span className="font-semibold">{titleA}</span>
                                             </span>
-                                            {' ↔️ '}
-                                            <span className="font-semibold">
-                                                {emojiB ? `${emojiB} ` : ''}{titleB}
+                                            {' ↔ '}
+                                            <span>
+                                                {emojiB ? `${emojiB} ` : ''}<span className="font-semibold">{titleB}</span>
                                             </span>
                                         </p>
-                                        <span className="text-sm font-mono text-[#8B5CF6] ml-3 flex-shrink-0">
+                                        <span className="text-sm font-semibold text-[#8B5CF6] ml-3 flex-shrink-0">
                                             {percentage}%
                                         </span>
-                                        </div>
+                                    </div>
                                 );
                             })}
-                                            </div>
+                        </div>
                     </section>
-                                        )}
+                )}
+
+                {/* Habit Trend Prototypes Section */}
+                {habits.length > 0 && (
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
+                        <div>
+                            <h2 className="text-2xl font-semibold text-white mb-2">Habit trend prototypes</h2>
+                            <p className="text-sm text-white/70">
+                                Compare streak momentum for any habit. We&apos;ll use these prototypes to decide how to evolve the Streaks dashboard.
+                            </p>
+                        </div>
+
+                        {/* Habit selector */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-white">Habit</label>
+                            <div className="relative">
+                                <select
+                                    value={selectedHabitId}
+                                    onChange={(e) => setSelectedHabitId(e.target.value)}
+                                    className="w-full appearance-none rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 pr-10 text-white focus:border-white/40 focus:outline-none"
+                                >
+                                    {habits.map(h => {
+                                        const emojiMatch = h.title?.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
+                                        const icon = emojiMatch ? emojiMatch[0] : '';
+                                        const title = h.title?.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || h.title;
+                                        return (
+                                            <option key={h.id} value={h.id}>
+                                                {icon ? `${icon} ` : ''}{title}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                    <svg className="h-5 w-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Sparkline chart */}
+                        {loadingTrend ? (
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 animate-pulse space-y-4">
+                                <div className="h-6 bg-white/10 rounded w-32 mb-4"></div>
+                                <div className="h-32 bg-white/10 rounded"></div>
+                                <div className="h-6 bg-white/10 rounded w-48"></div>
+                            </div>
+                        ) : habitTrendData.length > 0 ? (
+                            <div className="space-y-6">
+                                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+                                    <div>
+                                        <h3 className="text-base font-semibold text-white mb-1">Sparkline streak trend (last 90 days)</h3>
+                                        <p className="text-sm text-white/70">Max streak: {maxStreak} days</p>
+                                    </div>
+                                    <div className="relative h-32 w-full">
+                                        <SparklineChart data={habitTrendData} maxStreak={maxStreak} />
+                                    </div>
+                                </div>
+
+                                {/* Weekly capsule timeline */}
+                                {weeklyCapsules.length > 0 && (
+                                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+                                        <div>
+                                            <h3 className="text-base font-semibold text-white mb-1">Weekly capsule timeline (8 weeks)</h3>
+                                            <p className="text-sm text-white/70">Each capsule shows completion rate and longest run for the week.</p>
+                                        </div>
+                                        <div className="flex gap-3 overflow-x-auto pb-2">
+                                            {weeklyCapsules.map((capsule, idx) => {
+                                                const startStr = capsule.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                                const endStr = capsule.weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+                                                // Determine colors based on completion rate (gradient from red to green)
+                                                let bgColor = 'bg-red-500/30';
+                                                let borderColor = 'border-red-500/50';
+                                                let textColor = 'text-white';
+
+                                                if (capsule.completedDays === 7) {
+                                                    // Green for perfect week
+                                                    bgColor = 'bg-green-500/30';
+                                                    borderColor = 'border-green-500/50';
+                                                } else if (capsule.completedDays >= 4) {
+                                                    // Yellow/orange for good progress
+                                                    bgColor = 'bg-yellow-500/30';
+                                                    borderColor = 'border-yellow-500/50';
+                                                } else if (capsule.completedDays > 0) {
+                                                    // Brown/orange for partial progress
+                                                    bgColor = 'bg-orange-600/30';
+                                                    borderColor = 'border-orange-600/50';
+                                                }
+
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        className={`flex-shrink-0 rounded-2xl border ${borderColor} ${bgColor} p-4 min-w-[180px] flex flex-col gap-2`}
+                                                    >
+                                                        <div className={`text-lg font-semibold ${textColor} text-center`}>
+                                                            {capsule.completedDays}/{capsule.totalDays}
+                                                        </div>
+                                                        <div className={`text-sm ${textColor} text-center`}>
+                                                            Longest {capsule.longestRun === 0 ? '0d' : `${capsule.longestRun}d`}
+                                                        </div>
+                                                        <div className="text-xs text-white/60 text-center mt-1">
+                                                            {startStr} → {endStr}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center text-white/60">
+                                No trend data available for this habit yet.
+                            </div>
+                        )}
+                    </section>
+                )}
 
                 {/* Advanced Insights Section */}
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
+                <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 space-y-4">
                     <h2 className="text-2xl font-semibold text-white">Advanced insights</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Weak windows */}
@@ -702,20 +830,20 @@ export default function AnalyticsPage() {
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Weak windows</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
-                                    </div>
+                            </div>
                             {weakWindows ? (
                                 <p className="text-sm text-white/70">{weakWindows.day}: {weakWindows.count} check-ins</p>
                             ) : (
                                 <p className="text-sm text-white/60">No data yet</p>
                             )}
-                            </div>
+                        </div>
 
                         {/* Energy peaks */}
                         <div className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Energy peaks</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
-                        </div>
+                            </div>
                             {energyPeaks ? (
                                 <p className="text-sm text-white/70">{energyPeaks.day} is your strongest day ({energyPeaks.count} check-ins)</p>
                             ) : (
@@ -728,7 +856,7 @@ export default function AnalyticsPage() {
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Linked habits</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
-                        </div>
+                            </div>
                             {linkedHabits ? (
                                 <div className="flex flex-col gap-1">
                                     <div className="flex items-center gap-2 text-sm text-white/70">
@@ -789,21 +917,21 @@ export default function AnalyticsPage() {
                                 <h3 className="text-base font-semibold text-white">Goal forecast</h3>
                                 <span className={`text-xs font-semibold uppercase ${goals.filter(g => g.due_date).length > 0 ? 'text-green-400' : 'text-orange-400'}`}>
                                     {goals.filter(g => g.due_date).length > 0 ? 'LIVE' : 'NEED DATA'}
-                                        </span>
-                                    </div>
+                                </span>
+                            </div>
                             {goals.filter(g => g.due_date).length > 0 ? (
                                 <p className="text-sm text-white/70">Forecasting completion for {goals.filter(g => g.due_date && g.status === 'active').length} goals with due dates.</p>
                             ) : (
                                 <p className="text-sm text-white/70">Set due dates to forecast goal completion.</p>
                             )}
-                            </div>
+                        </div>
 
                         {/* Habit recommendations */}
                         <div className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Habit recommendations</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
-                        </div>
+                            </div>
                             {habitRecommendations ? (
                                 <p className="text-sm text-white/70">Add support for {habitRecommendations.area} (down {Math.abs(habitRecommendations.delta).toFixed(1)})</p>
                             ) : (
@@ -818,7 +946,7 @@ export default function AnalyticsPage() {
                                 <span className={`text-xs font-semibold uppercase ${predictive.filter(p => p.risk_score > 0).length > 0 ? 'text-green-400' : 'text-orange-400'}`}>
                                     {predictive.filter(p => p.risk_score > 0).length > 0 ? 'LIVE' : 'NEED DATA'}
                                 </span>
-                        </div>
+                            </div>
                             {predictive.filter(p => p.risk_score > 0).length > 0 ? (
                                 <p className="text-sm text-white/70">{predictive.filter(p => p.risk_score > 0).length} habits at risk of breaking streak.</p>
                             ) : (
@@ -841,140 +969,7 @@ export default function AnalyticsPage() {
                     </div>
                 </section>
 
-                {/* Habit Trend Prototypes Section */}
-                {habits.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
-                                <div>
-                            <h2 className="text-2xl font-semibold text-white mb-2">Habit trend prototypes</h2>
-                            <p className="text-sm text-white/70">
-                                Compare streak momentum for any habit. We&apos;ll use these prototypes to decide how to evolve the Streaks dashboard.
-                            </p>
-                                </div>
 
-                        {/* Habit selector */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-white">Habit</label>
-                            <div className="relative">
-                                    <select
-                                    value={selectedHabitId}
-                                    onChange={(e) => setSelectedHabitId(e.target.value)}
-                                    className="w-full appearance-none rounded-2xl border border-white/10 bg-white/5 px-4 py-3 pr-10 text-white focus:border-white/40 focus:outline-none"
-                                >
-                                    {habits.map(h => {
-                                        const emojiMatch = h.title?.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
-                                        const icon = emojiMatch ? emojiMatch[0] : '';
-                                        const title = h.title?.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || h.title;
-                                        return (
-                                            <option key={h.id} value={h.id}>
-                                                {icon ? `${icon} ` : ''}{title}
-                                            </option>
-                                        );
-                                    })}
-                                    </select>
-                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                                    <svg className="h-5 w-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </div>
-                                </div>
-                            </div>
-
-                        {/* Sparkline chart */}
-                        {loadingTrend ? (
-                            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 animate-pulse space-y-4">
-                                <div className="h-6 bg-white/10 rounded w-32 mb-4"></div>
-                                <div className="h-32 bg-white/10 rounded"></div>
-                                <div className="h-6 bg-white/10 rounded w-48"></div>
-                                <div className="flex gap-3">
-                                    {[1, 2, 3].map(i => (
-                                        <div key={i} className="h-24 w-32 bg-white/10 rounded"></div>
-                                    ))}
-                                </div>
-                                </div>
-                        ) : habitTrendData.length > 0 ? (
-                            <div className="space-y-6">
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
-                                    <div>
-                                        <h3 className="text-base font-semibold text-white mb-1">Sparkline streak trend (last 90 days)</h3>
-                                        <p className="text-sm text-white/70">Max streak: {maxStreak} days</p>
-                                    </div>
-                                    <div className="relative h-32 w-full">
-                                        <SparklineChart data={habitTrendData} maxStreak={maxStreak} />
-                                    </div>
-                            </div>
-
-                                {/* Weekly capsule timeline */}
-                                {weeklyCapsules.length > 0 && (
-                                    <div className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
-                                        <div>
-                                            <h3 className="text-base font-semibold text-white mb-1">Weekly capsule timeline (8 weeks)</h3>
-                                            <p className="text-sm text-white/70">Each capsule shows completion rate and longest run for the week.</p>
-                                </div>
-                                        <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-                                            {weeklyCapsules.map((capsule, idx) => {
-                                                const startStr = capsule.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                                                const endStr = capsule.weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-                                                // Determine colors based on completion rate (gradient from red to green)
-                                                let bgColor = 'bg-red-500/20';
-                                                let borderColor = 'border-red-500/50';
-                                                let textColor = 'text-red-400';
-
-                                                if (capsule.completedDays === 7) {
-                                                    // Green for perfect week
-                                                    bgColor = 'bg-green-500/20';
-                                                    borderColor = 'border-green-500/50';
-                                                    textColor = 'text-green-400';
-                                                } else if (capsule.completedDays >= 4) {
-                                                    // Yellow/orange for good progress
-                                                    bgColor = 'bg-yellow-500/20';
-                                                    borderColor = 'border-yellow-500/50';
-                                                    textColor = 'text-yellow-400';
-                                                } else if (capsule.completedDays > 0) {
-                                                    // Brown/orange for partial progress
-                                                    bgColor = 'bg-orange-600/20';
-                                                    borderColor = 'border-orange-600/50';
-                                                    textColor = 'text-orange-400';
-                                                }
-                                                // Red for zero completion (default)
-
-                                            return (
-                                                    <div
-                                                        key={idx}
-                                                        className={`flex-shrink-0 rounded-2xl border ${borderColor} ${bgColor} p-4 min-w-[200px] flex flex-col gap-2`}
-                                                    >
-                                                        <div className="text-xs text-white/60">
-                                                            {startStr} → {endStr}
-                                                    </div>
-                                                        <div className={`text-lg font-semibold ${textColor}`}>
-                                                            {capsule.completedDays}/{capsule.totalDays}
-                                                        </div>
-                                                        <div className="text-xs text-white/70">
-                                                            Longest {capsule.longestRun === 0 ? '0 Break' : `${capsule.longestRun}d`}
-                                                        </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                                )}
-                                    </div>
-                        ) : (
-                            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-white/60">
-                                No trend data available for this habit yet.
-                                </div>
-                        )}
-                    </section>
-                )}
-
-                {/* Share Your Insights Section */}
-                {shareTemplates.length > 0 && (
-                    <ShareCastComposer
-                        templates={shareTemplates}
-                        sectionTitle="Share your insights"
-                        prepareHeaders={authHeaders}
-                    />
-            )}
 
             </div>
         </MiniAppPage>
