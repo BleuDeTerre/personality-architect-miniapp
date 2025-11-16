@@ -150,7 +150,7 @@ export default function GoalsPage() {
 
     const activeGoals = useMemo(() => goals.filter(g => g.status === 'active'), [goals]);
     const completedGoals = useMemo(() => goals.filter(g => g.status === 'completed'), [goals]);
-    const archivedGoals = useMemo(() => goals.filter(g => g.status === 'archived'), [goals]);
+    const _archivedGoals = useMemo(() => goals.filter(g => g.status === 'archived'), [goals]);
 
     const nextDeadline = useMemo(() => {
         return goals
@@ -402,7 +402,7 @@ export default function GoalsPage() {
                     <div className="space-y-3">
                         {filteredGoals.map(goal => {
                             const editing = editingId === goal.id;
-                            const dueLabel = goal.due_date ? new Date(goal.due_date).toLocaleDateString() : 'Flexible';
+                            const _dueLabel = goal.due_date ? new Date(goal.due_date).toLocaleDateString() : 'Flexible';
                             return (
                                 <div
                                     key={goal.id}

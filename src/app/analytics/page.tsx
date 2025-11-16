@@ -316,7 +316,7 @@ export default function AnalyticsPage() {
         if (!facts?.day_stats?.length) return null;
         return [...facts.day_stats].sort((a, b) => b.count - a.count)[0];
     }, [facts]);
-    const riskyHabits = useMemo(
+    const _riskyHabits = useMemo(
         () => predictive.filter(p => p.risk_score > 0).sort((a, b) => b.risk_score - a.risk_score).slice(0, 4),
         [predictive]
     );
@@ -337,7 +337,7 @@ export default function AnalyticsPage() {
     const goalProgress = useMemo(() => {
         if (activeGoals.length === 0) return null;
         const completedCount = goals.filter(g => g.status === 'completed').length;
-        const avgProgress = activeGoals.reduce((sum, goal) => {
+        const avgProgress = activeGoals.reduce((sum, _goal) => {
             // Simplified progress calculation - assume 50% average for active goals
             return sum + 50;
         }, 0) / activeGoals.length;

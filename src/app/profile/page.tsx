@@ -65,9 +65,6 @@ type MiniAppContext = {
     getFrameContext?: () => Promise<FrameContext | null>;
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 export default function ProfilePage() {
     // SDK debug
@@ -82,7 +79,7 @@ export default function ProfilePage() {
     });
     const [neynarProfile, setNeynarProfile] = useState<NeynarProfile | null>(null);
     const [neynarLoading, setNeynarLoading] = useState(false);
-    const [neynarError, setNeynarError] = useState<string | null>(null);
+    const [_neynarError, setNeynarError] = useState<string | null>(null);
 
     // Mints
     const [statusMap, setStatusMap] = useState<Record<string, MintStatus>>({});
@@ -288,9 +285,6 @@ export default function ProfilePage() {
         ? (neynarDisplayName.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || 'FC')
         : 'FC';
 
-    const neynarUpdatedAt = neynarProfile?.updatedAt
-        ? new Date(neynarProfile.updatedAt).toLocaleString()
-        : null;
     const levelShareTemplates = useMemo<CastTemplate[]>(() => {
         const templates: CastTemplate[] = [];
         if (gamificationStats) {

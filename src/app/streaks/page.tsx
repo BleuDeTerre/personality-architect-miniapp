@@ -34,10 +34,10 @@ type WeekStats = {
 };
 
 export default function StreaksPage() {
-    const [habits, setHabits] = useState<Habit[]>([]);
+    const [_habits, setHabits] = useState<Habit[]>([]);
     const [habitsWithStats, setHabitsWithStats] = useState<HabitWithStats[]>([]);
     const [weekStats, setWeekStats] = useState<WeekStats[]>([]);
-    const [logs, setLogs] = useState<Log[]>([]);
+    const [_logs, setLogs] = useState<Log[]>([]);
     const [stats, setStats] = useState<Stats>({ current_streak: 0, best_streak: 0, last_completed: null });
     const [loading, setLoading] = useState(false);
 

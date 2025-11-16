@@ -29,7 +29,7 @@ const NAVIGATION = [
 export default function DashboardPage() {
   const [stats, setStats] = useState<{ current_streak: number; best_streak: number; last_completed: string | null } | null>(null);
   const [gamificationStats, setGamificationStats] = useState<UserStats | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [_loading, setLoading] = useState(false);
   const [_showOnboarding, _setShowOnboarding] = useState(false);
 
   const authHeaders = useCallback(async () => {
@@ -84,7 +84,7 @@ export default function DashboardPage() {
   const level = calculateLevel(xp);
   const progress = getLevelProgress(xp, level);
   const levelName = getLevelName(level);
-  const levelColor = getLevelColor(level);
+  const _levelColor = getLevelColor(level);
   const xpTarget = (level + 1) ** 2 * 100;
   const xpRemaining = Math.max(0, xpTarget - xp);
 
@@ -94,7 +94,7 @@ export default function DashboardPage() {
         <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#120E2B] to-[#211042] p-6 text-white shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
           <div className="flex flex-col gap-3">
             <h1 className="text-4xl font-bold text-[#8B5CF6]">Personality Architect</h1>
-            <p className="text-white italic text-lg leading-relaxed">"We are what we repeatedly do. Excellence, then, is not an act, but a habit."</p>
+            <p className="text-white italic text-lg leading-relaxed">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
             <p className="text-white text-sm text-right">— Aristotle</p>
           </div>
           {gamificationStats && (
