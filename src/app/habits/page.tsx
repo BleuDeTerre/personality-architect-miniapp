@@ -73,7 +73,7 @@ const HABIT_TEMPLATES = [
 
 const CATEGORIES = ['All', 'Wellness', 'Fitness', 'Mindset', 'Productivity', 'Lifestyle', 'Anti-harm', 'Finance', 'Social', 'Digital'];
 
-const EMOJIS = [
+const _EMOJIS = [
     // Основные
     '✅', '🔥', '🎯', '🚀',
     // Фитнес и спорт

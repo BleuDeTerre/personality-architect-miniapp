@@ -11,7 +11,6 @@ import {
     ResponsiveContainer,
 } from 'recharts';
 import CoachBlock from '@/components/CoachBlock';
-import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 
 type Item = { area: string; score: number };

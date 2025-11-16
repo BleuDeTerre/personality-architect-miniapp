@@ -8,7 +8,7 @@ import { BADGES } from '@/lib/badges';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
 import PushNotificationSettings from '@/components/PushNotificationSettings';
 import BadgeImage from '@/components/BadgeImage';
-import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
+import { type CastTemplate } from '@/components/share/ShareCastComposer';
 import QuestBoard from '@/components/QuestBoard';
 import MiniAppPage from '@/components/MiniAppPage';
 
@@ -268,13 +268,13 @@ export default function ProfilePage() {
     // Calculate XP and level - используем totalXP из таблицы xp_events, если доступен
     const xp = gamificationStats?.totalXP ?? (gamificationStats ? calculateXP(gamificationStats) : 0);
     const level = calculateLevel(xp);
-    const progress = getLevelProgress(xp, level);
+    const _progress = getLevelProgress(xp, level);
     const xpGap = xpForNextLevel(level);
     const xpForCurrentLevel = (level ** 2) * 100;
     const xpInCurrentLevel = Math.max(xp - xpForCurrentLevel, 0);
     const xpRemaining = Math.max(xpGap - xpInCurrentLevel, 0);
     const levelName = getLevelName(level);
-    const levelColor = getLevelColor(level);
+    const _levelColor = getLevelColor(level);
 
     const neynarDisplayName =
         neynarProfile?.displayName ??
@@ -285,7 +285,7 @@ export default function ProfilePage() {
         ? (neynarDisplayName.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || 'FC')
         : 'FC';
 
-    const levelShareTemplates = useMemo<CastTemplate[]>(() => {
+    const _levelShareTemplates = useMemo<CastTemplate[]>(() => {
         const templates: CastTemplate[] = [];
         if (gamificationStats) {
             templates.push({
@@ -594,7 +594,7 @@ export default function ProfilePage() {
 }
 
 // Info card
-function Info({ label, value, mono = false }: { label: string; value: ReactNode; mono?: boolean }) {
+function _Info({ label, value, mono = false }: { label: string; value: ReactNode; mono?: boolean }) {
     const content =
         typeof value === 'string' || typeof value === 'number'
             ? value

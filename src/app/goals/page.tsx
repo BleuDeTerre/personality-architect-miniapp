@@ -166,7 +166,7 @@ export default function GoalsPage() {
         });
     }, [goals, searchQuery, filterStatus]);
 
-    const goalShareTemplates = useMemo<CastTemplate[]>(() => {
+    const _goalShareTemplates = useMemo<CastTemplate[]>(() => {
         if (!goals.length) return [];
         const templates: CastTemplate[] = [];
 
