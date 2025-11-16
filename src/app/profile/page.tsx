@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import { createClient, type PostgrestError } from '@supabase/supabase-js';
 import { sdk } from '@farcaster/miniapp-sdk';
@@ -8,6 +8,9 @@ import { BADGES } from '@/lib/badges';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
 import PushNotificationSettings from '@/components/PushNotificationSettings';
 import BadgeImage from '@/components/BadgeImage';
+import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
+import QuestBoard from '@/components/QuestBoard';
+import MiniAppPage from '@/components/MiniAppPage';
 
 // Supabase client
 const supabase = createClient(
@@ -93,6 +96,7 @@ export default function ProfilePage() {
 
     const [loading, setLoading] = useState(true);
     const [gamificationStats, setGamificationStats] = useState<UserStats | null>(null);
+    const [currentPlan, setCurrentPlan] = useState<'free' | 'pro' | 'premium'>('free');
 
     // Headers with Bearer
     const authHeaders = useCallback(async () => {
@@ -231,6 +235,13 @@ export default function ProfilePage() {
                 const stats = await statsRes.json();
                 setGamificationStats(stats);
             }
+
+            // Load current plan
+            const planRes = await fetch('/api/plan', { headers: await authHeaders() });
+            if (planRes.ok) {
+                const planData = await planRes.json();
+                setCurrentPlan(planData.plan || 'free');
+            }
         })().finally(() => setLoading(false));
     }, [refreshMints, refreshEligibility, loadNeynarProfile, authHeaders]);
 
@@ -292,293 +303,377 @@ export default function ProfilePage() {
     const neynarUpdatedAt = neynarProfile?.updatedAt
         ? new Date(neynarProfile.updatedAt).toLocaleString()
         : null;
+    const levelShareTemplates = useMemo<CastTemplate[]>(() => {
+        const templates: CastTemplate[] = [];
+        if (gamificationStats) {
+            templates.push({
+                key: 'level',
+                label: `Level ${level} ${levelName}`,
+                title: 'Level Up',
+                kind: 'level',
+                text: `⚡️ Reached ${levelName} (Level ${level}) with ${xp.toLocaleString()} XP in Personality Architect!`,
+                previewParams: {
+                    preset: 'level:up',
+                    lvl: String(level),
+                    xp: String(xp),
+                    gap: String(Math.max(xpRemaining, 0)),
+                },
+                targetPath: '/profile',
+            });
+        }
+        return templates;
+    }, [gamificationStats, level, levelName, xp, xpRemaining]);
+
+    // Parse bio into attributes/tags
+    const bioAttributes = useMemo(() => {
+        if (!neynarProfile?.bio) return [];
+        // Split bio by "|" and extract emoji + text
+        return neynarProfile.bio
+            .split('|')
+            .map(attr => attr.trim())
+            .filter(Boolean)
+            .map(attr => {
+                const emojiMatch = attr.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
+                const emoji = emojiMatch ? emojiMatch[0] : '';
+                const text = attr.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim();
+                return { emoji, text };
+            });
+    }, [neynarProfile?.bio]);
 
     return (
-        <div className="min-h-screen p-6 text-white" style={{ background: 'linear-gradient(135deg, #7C5CFC, #9F7CFF)' }}>
-            <h1 className="text-3xl font-bold mb-4">Profile</h1>
+        <MiniAppPage>
+            <div className="space-y-6">
+                {/* Profile Section */}
+                <section className="space-y-4">
+                    <h1 className="text-3xl font-semibold text-[#8B5CF6] mb-4">Profile</h1>
 
-            <div className="mb-6 bg-white/10 p-6 rounded-xl border border-white/20">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold">Farcaster Profile</h2>
-                    {neynarUpdatedAt && (
-                        <span className="text-xs text-white/60">
-                            Updated {neynarUpdatedAt}
-                        </span>
-                    )}
-                </div>
-                {neynarLoading ? (
-                    <div className="text-sm text-white/70 animate-pulse">Loading profile…</div>
-                ) : neynarProfile ? (
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-full overflow-hidden bg-white/20 flex items-center justify-center text-2xl font-semibold text-white/80 relative">
-                                {neynarProfile.pfpUrl ? (
-                                    <Image
-                                        src={neynarProfile.pfpUrl}
-                                        alt={neynarDisplayName ?? 'Farcaster user'}
-                                        className="object-cover"
-                                        fill
-                                        sizes="64px"
-                                        unoptimized
-                                    />
-                                ) : (
-                                    neynarInitials
-                                )}
-                            </div>
-                            <div>
-                                <div className="text-xl font-bold text-white">{neynarDisplayName ?? 'Farcaster User'}</div>
-                                {neynarProfile.username && (
-                                    <div className="text-sm text-white/70">@{neynarProfile.username}</div>
-                                )}
-                                {neynarProfile.fid && (
-                                    <div className="text-xs text-white/60">FID {neynarProfile.fid}</div>
-                                )}
-                            </div>
-                        </div>
-                        {neynarProfile.bio && (
-                            <p className="text-sm text-white/80 leading-relaxed whitespace-pre-line">{neynarProfile.bio}</p>
-                        )}
-                    </div>
-                ) : (
-                    <div className="text-sm text-white/70">
-                        {neynarError
-                            ? `Не удалось загрузить профиль Neynar: ${neynarError}`
-                            : p.fid
-                                ? 'Профиль Neynar пока не сохранён. Попробуйте позднее.'
-                                : 'Авторизуйтесь через Farcaster, чтобы увидеть Neynar профиль.'}
-                    </div>
-                )}
-            </div>
-
-            {/* Level & XP Card */}
-            {gamificationStats && (
-                <div className="mb-6 bg-white/10 p-6 rounded-xl border border-white/20">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <div className={`text-2xl font-bold ${levelColor}`}>{levelName}</div>
-                            <div className="text-sm text-white/70">Level {level}</div>
-                        </div>
-                        <div className="text-right">
-                            <div className="text-2xl font-bold text-white">{xp.toLocaleString()}</div>
-                            <div className="text-sm text-white/70">Total XP</div>
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <div className="flex justify-between text-xs text-white/80">
-                            <span>Progress to Level {level + 1}</span>
-                            <span>{progress.toFixed(0)}%</span>
-                        </div>
-                        <div className="h-3 bg-white/20 rounded-full overflow-hidden">
-                            <div
-                                className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] transition-all duration-300"
-                                style={{ width: `${progress}%` }}
-                            ></div>
-                        </div>
-                        <div className="flex justify-between text-xs text-white/70">
-                            <span>
-                                {xpRemaining > 0
-                                    ? `Осталось ${xpRemaining.toLocaleString()} XP`
-                                    : `Готов к уровню ${level + 1}!`}
-                            </span>
-                            <span>{((level + 1) ** 2 * 100).toLocaleString()} XP всего</span>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Profile cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                <Info label="FID" value={p.fid ?? '—'} />
-                <Info label="Supabase User" value={p.supaUserId ?? '—'} />
-                <Info label="Wallet" value={p.wallet ?? '—'} mono />
-                <Info label="Plan" value={(p.plan ?? 'free').toUpperCase()} />
-            </div>
-
-            {/* Badges with Mint buttons */}
-            <section className="mb-6">
-                <h2 className="text-xl font-semibold mb-3">Badges Gallery</h2>
-                {loading ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {[1, 2, 3, 4, 5, 6].map(i => (
-                            <div key={i} className="border border-white/30 rounded-xl p-3 bg-white/10 animate-pulse">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
-                                    <div className="flex-1 space-y-2">
-                                        <div className="h-4 bg-white/20 rounded w-3/4"></div>
-                                        <div className="h-3 bg-white/20 rounded w-full"></div>
-                                    </div>
+                    {neynarLoading ? (
+                        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 animate-pulse">
+                            <div className="flex items-center gap-4">
+                                <div className="w-16 h-16 rounded-full bg-white/10"></div>
+                                <div className="flex-1 space-y-2">
+                                    <div className="h-6 bg-white/10 rounded w-32"></div>
+                                    <div className="h-4 bg-white/10 rounded w-24"></div>
                                 </div>
                             </div>
-                        ))}
+                        </div>
+                    ) : neynarProfile ? (
+                        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                            <div className="flex items-start gap-4">
+                                {/* Profile Picture */}
+                                <div className="w-16 h-16 rounded-full overflow-hidden bg-white/10 flex items-center justify-center text-2xl font-semibold text-white/80 relative flex-shrink-0">
+                                    {neynarProfile.pfpUrl ? (
+                                        <Image
+                                            src={neynarProfile.pfpUrl}
+                                            alt={neynarDisplayName ?? 'Farcaster user'}
+                                            className="object-cover"
+                                            fill
+                                            sizes="64px"
+                                            unoptimized
+                                        />
+                                    ) : (
+                                        neynarInitials
+                                    )}
+                                </div>
+
+                                {/* User Info */}
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-xl font-bold text-white mb-1">
+                                        {neynarProfile.displayName ?? neynarProfile.username ?? 'Farcaster User'}
+                                    </div>
+                                    {neynarProfile.username && (
+                                        <div className="text-sm text-white/60 mb-1">@{neynarProfile.username}</div>
+                                    )}
+                                    {neynarProfile.fid && (
+                                        <div className="text-sm text-white/60 mb-3">FID {neynarProfile.fid}</div>
+                                    )}
+
+                                    {/* Bio Attributes */}
+                                    {bioAttributes.length > 0 && (
+                                        <div className="text-sm text-white/70 flex flex-wrap items-center gap-1">
+                                            {bioAttributes.map((attr, idx) => (
+                                                <span key={idx} className="flex items-center gap-1">
+                                                    {attr.emoji && <span>{attr.emoji}</span>}
+                                                    <span>{attr.text}</span>
+                                                    {idx < bioAttributes.length - 1 && <span className="text-white/40 mx-1">|</span>}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 text-white/60">
+                            {neynarError
+                                ? `Failed to load profile: ${neynarError}`
+                                : p.fid
+                                    ? 'Neynar profile not yet saved. Try again later.'
+                                    : 'Sign in with Farcaster to see your Neynar profile.'}
+                        </div>
+                    )}
+                </section>
+
+                {/* Quest Board Section */}
+                <QuestBoard className="mb-6" />
+
+                {/* Current Plan Section */}
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-xs uppercase tracking-wide text-white/60 mb-1">CURRENT PLAN</p>
+                            <p className="text-2xl font-bold text-white">{currentPlan.toUpperCase()}</p>
+                        </div>
+                        <a
+                            href="/pricing"
+                            className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-center text-base font-semibold text-white transition hover:opacity-90 shadow-lg shadow-[#8B5CF6]/40"
+                        >
+                            Change plan
+                        </a>
                     </div>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {BADGES.map(b => {
-                            const st = statusMap[b.slug] ?? 'none';
-                            const el = eligMap[b.slug]?.eligible ?? false;
-                            const reason = eligMap[b.slug]?.reason ?? '';
-                            const canMint = el && st === 'none';
-                            return (
+                </section>
+
+                {levelShareTemplates.length > 0 && (
+                    <div className="mb-6">
+                        <ShareCastComposer
+                            templates={levelShareTemplates}
+                            sectionTitle="Share your level"
+                            prepareHeaders={authHeaders}
+                        />
+                    </div>
+                )}
+
+
+                {/* Level & XP Card */}
+                {gamificationStats && (
+                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <div className={`text-2xl font-bold ${levelColor}`}>{levelName}</div>
+                                <div className="text-sm text-white/70">Level {level}</div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-2xl font-bold text-white">{xp.toLocaleString()}</div>
+                                <div className="text-sm text-white/70">Total XP</div>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-xs text-white/80">
+                                <span>Progress to Level {level + 1}</span>
+                                <span>{progress.toFixed(0)}%</span>
+                            </div>
+                            <div className="h-3 bg-white/20 rounded-full overflow-hidden">
                                 <div
-                                    key={b.slug}
-                                    className="border border-white/30 rounded-xl p-3 bg-white/10 flex flex-col gap-2 transition hover:bg-white/15"
-                                    title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
-                                >
+                                    className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] transition-all duration-300"
+                                    style={{ width: `${progress}%` }}
+                                ></div>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/70">
+                                <span>
+                                    {xpRemaining > 0
+                                        ? `Осталось ${xpRemaining.toLocaleString()} XP`
+                                        : `Готов к уровню ${level + 1}!`}
+                                </span>
+                                <span>{((level + 1) ** 2 * 100).toLocaleString()} XP всего</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Profile cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    <Info label="FID" value={p.fid ?? '—'} />
+                    <Info label="Supabase User" value={p.supaUserId ?? '—'} />
+                    <Info label="Wallet" value={p.wallet ?? '—'} mono />
+                    <Info label="Plan" value={(p.plan ?? 'free').toUpperCase()} />
+                </div>
+
+                {/* Badges with Mint buttons */}
+                <section className="mb-6">
+                    <h2 className="text-xl font-semibold mb-3">Badges Gallery</h2>
+                    {loading ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {[1, 2, 3, 4, 5, 6].map(i => (
+                                <div key={i} className="rounded-3xl border border-white/10 bg-white/5 p-4 animate-pulse">
                                     <div className="flex items-start gap-3">
-                                        <BadgeImage src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
-                                        <div className="flex-1">
-                                            <div className="font-medium">{b.title}</div>
-                                            <div className="text-xs text-white/70">{b.description}</div>
-                                            <div className="text-xs mt-1">
-                                                Status: <span className="font-mono">{st}</span>
-                                                {!el && <span className="ml-2 opacity-80">({reason})</span>}
-                                            </div>
+                                        <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
+                                        <div className="flex-1 space-y-2">
+                                            <div className="h-4 bg-white/20 rounded w-3/4"></div>
+                                            <div className="h-3 bg-white/20 rounded w-full"></div>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => mint(b.slug)}
-                                        disabled={loading || busyCode === b.slug || !canMint || !p.wallet}
-                                        className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
-                                        title={!p.wallet ? 'Add wallet address first' : (!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT')}
-                                    >
-                                        {busyCode === b.slug ? 'Minting…' : !p.wallet ? 'Add wallet' : (st === 'success' ? '✅ Minted' : 'Mint')}
-                                    </button>
                                 </div>
-                            );
-                        })}
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {BADGES.map(b => {
+                                const st = statusMap[b.slug] ?? 'none';
+                                const el = eligMap[b.slug]?.eligible ?? false;
+                                const reason = eligMap[b.slug]?.reason ?? '';
+                                const canMint = el && st === 'none';
+                                return (
+                                    <div
+                                        key={b.slug}
+                                        className="rounded-3xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2 transition hover:bg-white/10"
+                                        title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <BadgeImage src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                                            <div className="flex-1">
+                                                <div className="font-medium">{b.title}</div>
+                                                <div className="text-xs text-white/70">{b.description}</div>
+                                                <div className="text-xs mt-1">
+                                                    Status: <span className="font-mono">{st}</span>
+                                                    {!el && <span className="ml-2 opacity-80">({reason})</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => mint(b.slug)}
+                                            disabled={loading || busyCode === b.slug || !canMint || !p.wallet}
+                                            className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
+                                            title={!p.wallet ? 'Add wallet address first' : (!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT')}
+                                        >
+                                            {busyCode === b.slug ? 'Minting…' : !p.wallet ? 'Add wallet' : (st === 'success' ? '✅ Minted' : 'Mint')}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </section>
+
+                {/* Wallet setup */}
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                    <h2 className="text-xl font-semibold mb-3">Wallet</h2>
+                    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+                        <div className="flex-1 w-full">
+                            <label className="text-xs opacity-70">EVM Address</label>
+                            <input
+                                value={walletInput}
+                                onChange={e => setWalletInput(e.target.value)}
+                                placeholder="0x..."
+                                className="mt-1 w-full px-3 py-2 rounded bg-white/5 border border-white/20"
+                            />
+                            {walletError && <div className="text-xs text-red-400 mt-1">{walletError}</div>}
+                        </div>
+                        <button
+                            onClick={async () => {
+                                setWalletError(null);
+                                if (!/^0x[0-9a-fA-F]{40}$/.test(walletInput)) {
+                                    setWalletError('Неверный адрес кошелька');
+                                    return;
+                                }
+                                setWalletSaving(true);
+                                try {
+                                    const r = await fetch('/api/profile/wallet', {
+                                        method: 'POST',
+                                        headers: await authHeaders(),
+                                        body: JSON.stringify({ wallet: walletInput }),
+                                    });
+                                    const j = await r.json();
+                                    if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+                                    setP(prev => ({ ...prev, wallet: walletInput }));
+                                } catch (error) {
+                                    const message = error instanceof Error ? error.message : 'Ошибка сохранения';
+                                    setWalletError(message);
+                                } finally {
+                                    setWalletSaving(false);
+                                }
+                            }}
+                            disabled={walletSaving}
+                            className="px-4 py-2 rounded bg-white/20 hover:bg-white/30 transition disabled:opacity-50"
+                        >
+                            {walletSaving ? 'Сохранение...' : 'Сохранить'}
+                        </button>
+                    </div>
+                </section>
+
+                {/* Push Notifications Settings */}
+                <section className="mb-6">
+                    <PushNotificationSettings />
+                </section>
+
+                {/* Export Data */}
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                    <h2 className="text-xl font-semibold mb-3">Export Data</h2>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={async () => {
+                                const hdrs = await authHeaders();
+                                const res = await fetch('/api/export/data?format=json', { headers: hdrs });
+                                if (res.ok) {
+                                    const blob = await res.blob();
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.json`;
+                                    a.click();
+                                }
+                            }}
+                            className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
+                        >
+                            📥 Download JSON
+                        </button>
+                        <button
+                            onClick={async () => {
+                                const hdrs = await authHeaders();
+                                const res = await fetch('/api/export/data?format=csv', { headers: hdrs });
+                                if (res.ok) {
+                                    const blob = await res.blob();
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.csv`;
+                                    a.click();
+                                }
+                            }}
+                            className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
+                        >
+                            📊 Download CSV
+                        </button>
+                        <button
+                            onClick={async () => {
+                                const hdrs = await authHeaders();
+                                const res = await fetch('/api/export/ical', { headers: hdrs });
+                                if (res.ok) {
+                                    const blob = await res.blob();
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `habits.ics`;
+                                    a.click();
+                                }
+                            }}
+                            className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
+                        >
+                            📅 Download iCal
+                        </button>
+                    </div>
+                </section>
+
+                {/* SDK Sign In and context debug */}
+                <button
+                    onClick={signin}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl font-medium text-lg transition-transform transform hover:scale-105 border-2 border-white/30 bg-white/10"
+                >
+                    Sign in with Farcaster
+                </button>
+
+                <div className="bg-white/10 p-4 rounded-lg mt-4">
+                    <h2 className="text-xl font-semibold mb-2">Context</h2>
+                    <pre className="text-sm whitespace-pre-wrap break-words">{JSON.stringify(ctx, null, 2)}</pre>
+                </div>
+
+                {authView && (
+                    <div className="bg-white/10 p-4 rounded-lg mt-4">
+                        <h2 className="text-xl font-semibold mb-2">Authorization (SDK)</h2>
+                        <pre className="text-sm whitespace-pre-wrap break-words">{JSON.stringify(authView, null, 2)}</pre>
                     </div>
                 )}
-            </section>
-
-            {/* Wallet setup */}
-            <section className="mb-6 bg-white/10 p-4 rounded-lg">
-                <h2 className="text-xl font-semibold mb-3">Wallet</h2>
-                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
-                    <div className="flex-1 w-full">
-                        <label className="text-xs opacity-70">EVM Address</label>
-                        <input
-                            value={walletInput}
-                            onChange={e => setWalletInput(e.target.value)}
-                            placeholder="0x..."
-                            className="mt-1 w-full px-3 py-2 rounded bg-white/5 border border-white/20"
-                        />
-                        {walletError && <div className="text-xs text-red-400 mt-1">{walletError}</div>}
-                    </div>
-                    <button
-                        onClick={async () => {
-                            setWalletError(null);
-                            if (!/^0x[0-9a-fA-F]{40}$/.test(walletInput)) {
-                                setWalletError('Неверный адрес кошелька');
-                                return;
-                            }
-                            setWalletSaving(true);
-                            try {
-                                const r = await fetch('/api/profile/wallet', {
-                                    method: 'POST',
-                                    headers: await authHeaders(),
-                                    body: JSON.stringify({ wallet: walletInput }),
-                                });
-                                const j = await r.json();
-                                if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-                                setP(prev => ({ ...prev, wallet: walletInput }));
-                            } catch (error) {
-                                const message = error instanceof Error ? error.message : 'Ошибка сохранения';
-                                setWalletError(message);
-                            } finally {
-                                setWalletSaving(false);
-                            }
-                        }}
-                        disabled={walletSaving}
-                        className="px-4 py-2 rounded bg-white/20 hover:bg-white/30 transition disabled:opacity-50"
-                    >
-                        {walletSaving ? 'Сохранение...' : 'Сохранить'}
-                    </button>
-                </div>
-            </section>
-
-            {/* Push Notifications Settings */}
-            <section className="mb-6">
-                <PushNotificationSettings />
-            </section>
-
-            {/* Export Data */}
-            <section className="mb-6 bg-white/10 p-4 rounded-lg">
-                <h2 className="text-xl font-semibold mb-3">Export Data</h2>
-                <div className="flex flex-wrap gap-2">
-                    <button
-                        onClick={async () => {
-                            const hdrs = await authHeaders();
-                            const res = await fetch('/api/export/data?format=json', { headers: hdrs });
-                            if (res.ok) {
-                                const blob = await res.blob();
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.json`;
-                                a.click();
-                            }
-                        }}
-                        className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
-                    >
-                        📥 Download JSON
-                    </button>
-                    <button
-                        onClick={async () => {
-                            const hdrs = await authHeaders();
-                            const res = await fetch('/api/export/data?format=csv', { headers: hdrs });
-                            if (res.ok) {
-                                const blob = await res.blob();
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.csv`;
-                                a.click();
-                            }
-                        }}
-                        className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
-                    >
-                        📊 Download CSV
-                    </button>
-                    <button
-                        onClick={async () => {
-                            const hdrs = await authHeaders();
-                            const res = await fetch('/api/export/ical', { headers: hdrs });
-                            if (res.ok) {
-                                const blob = await res.blob();
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `habits.ics`;
-                                a.click();
-                            }
-                        }}
-                        className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
-                    >
-                        📅 Download iCal
-                    </button>
-                </div>
-            </section>
-
-            {/* SDK Sign In and context debug */}
-            <button
-                onClick={signin}
-                className="w-full sm:w-auto px-6 py-3 rounded-xl font-medium text-lg transition-transform transform hover:scale-105 border-2 border-white/30 bg-white/10"
-            >
-                Sign in with Farcaster
-            </button>
-
-            <div className="bg-white/10 p-4 rounded-lg mt-4">
-                <h2 className="text-xl font-semibold mb-2">Context</h2>
-                <pre className="text-sm whitespace-pre-wrap break-words">{JSON.stringify(ctx, null, 2)}</pre>
             </div>
-
-            {authView && (
-                <div className="bg-white/10 p-4 rounded-lg mt-4">
-                    <h2 className="text-xl font-semibold mb-2">Authorization (SDK)</h2>
-                    <pre className="text-sm whitespace-pre-wrap break-words">{JSON.stringify(authView, null, 2)}</pre>
-                </div>
-            )}
-        </div>
+        </MiniAppPage>
     );
 }
 
@@ -590,7 +685,7 @@ function Info({ label, value, mono = false }: { label: string; value: ReactNode;
             : value ?? '—';
 
     return (
-        <div className="border border-white/30 rounded-lg p-3 bg-white/10">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
             <div className="text-xs text-white/80">{label}</div>
             <div className={mono ? 'font-mono break-all' : ''}>{content}</div>
         </div>

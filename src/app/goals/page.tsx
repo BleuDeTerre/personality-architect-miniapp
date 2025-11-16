@@ -1,16 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { sdk } from '@farcaster/miniapp-sdk';
+import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
+import MiniAppPage from '@/components/MiniAppPage';
 
-// Инициализация Supabase клиента
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Тип цели
 type Goal = {
     id: number;
     title: string;
@@ -32,9 +32,8 @@ export default function GoalsPage() {
     const [loading, setLoading] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'completed' | 'archived'>('all');
+    const [filterStatus, setFilterStatus] = useState<'active' | 'completed'>('active');
 
-    // Заголовки с Bearer для вызовов /api/*
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
         return {
@@ -43,22 +42,20 @@ export default function GoalsPage() {
         };
     }, []);
 
-    // Загрузка целей
     const fetchGoals = useCallback(async () => {
         setLoading(true);
         try {
-            const hdrs = await authHeaders();
-            const res = await fetch('/api/goals', { headers: hdrs });
+            const headers = await authHeaders();
+            const res = await fetch('/api/goals', { headers });
             const data = await res.json();
             setGoals(Array.isArray(data.items) ? data.items : []);
-        } catch (err) {
-            console.error('Failed to fetch goals:', err);
+        } catch (error) {
+            console.error('Failed to fetch goals', error);
         } finally {
             setLoading(false);
         }
     }, [authHeaders]);
 
-    // Онбординг через Farcaster Mini App + первичная загрузка
     useEffect(() => {
         (async () => {
             const ctx = await (sdk as any).context?.getFrameContext?.();
@@ -72,24 +69,24 @@ export default function GoalsPage() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ fid }),
                 });
-                const j = await res.json();
-                if (!res.ok) console.error('Login failed:', j);
+                if (!res.ok) {
+                    console.error('Login failed', await res.json());
+                    return;
+                }
             }
 
             await fetchGoals();
         })();
     }, [fetchGoals]);
 
-    // Добавление новой цели
     async function addGoal() {
         if (!title.trim()) return;
-
         setLoading(true);
         try {
-            const hdrs = await authHeaders();
+            const headers = await authHeaders();
             const res = await fetch('/api/goals', {
                 method: 'POST',
-                headers: hdrs,
+                headers,
                 body: JSON.stringify({
                     title,
                     metric: metric || null,
@@ -111,14 +108,13 @@ export default function GoalsPage() {
         }
     }
 
-    // Обновление цели
     async function updateGoal(goal: Goal) {
         setLoading(true);
         try {
-            const hdrs = await authHeaders();
+            const headers = await authHeaders();
             const res = await fetch(`/api/goals/${goal.id}`, {
                 method: 'PUT',
-                headers: hdrs,
+                headers,
                 body: JSON.stringify(goal),
             });
             if (res.ok) {
@@ -130,210 +126,381 @@ export default function GoalsPage() {
         }
     }
 
-    // Удаление цели
     async function deleteGoal(id: number) {
         if (!confirm('Delete this goal?')) return;
-
         setLoading(true);
         try {
-            const hdrs = await authHeaders();
+            const headers = await authHeaders();
             const res = await fetch(`/api/goals/${id}`, {
                 method: 'DELETE',
-                headers: hdrs,
+                headers,
             });
-            if (res.ok) await fetchGoals();
+            if (res.ok) {
+                await fetchGoals();
+            }
         } finally {
             setLoading(false);
         }
     }
 
-    // Переключение статуса
     async function toggleStatus(goal: Goal) {
-        const newStatus = goal.status === 'active' ? 'completed' : 'active';
-        await updateGoal({ ...goal, status: newStatus });
+        const nextStatus = goal.status === 'active' ? 'completed' : 'active';
+        await updateGoal({ ...goal, status: nextStatus });
     }
 
-    return (
-        <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-6 max-w-xl mx-auto space-y-6">
-            <h1 className="text-2xl font-bold text-[#E9ECF1]">My Goals</h1>
+    const activeGoals = useMemo(() => goals.filter(g => g.status === 'active'), [goals]);
+    const completedGoals = useMemo(() => goals.filter(g => g.status === 'completed'), [goals]);
+    const archivedGoals = useMemo(() => goals.filter(g => g.status === 'archived'), [goals]);
 
-            {/* Форма добавления */}
-            <form onSubmit={(e) => { e.preventDefault(); addGoal(); }} className="space-y-2 border border-[#2A2B3E] bg-[#121420] p-4 rounded-lg">
+    const nextDeadline = useMemo(() => {
+        return goals
+            .filter(g => g.status === 'active' && g.due_date)
+            .sort((a, b) => new Date(a.due_date ?? '').getTime() - new Date(b.due_date ?? '').getTime())[0];
+    }, [goals]);
+
+    const filteredGoals = useMemo(() => {
+        return goals.filter(goal => {
+            const matchesSearch = goal.title.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesFilter = goal.status === filterStatus;
+            return matchesSearch && matchesFilter;
+        });
+    }, [goals, searchQuery, filterStatus]);
+
+    const goalShareTemplates = useMemo<CastTemplate[]>(() => {
+        if (!goals.length) return [];
+        const templates: CastTemplate[] = [];
+
+        templates.push({
+            key: 'summary',
+            label: `Summary (${activeGoals.length} active)`,
+            title: 'Goal Progress Summary',
+            kind: 'goals',
+            text: `🎯 Working through ${activeGoals.length} active goals and already completed ${completedGoals.length}.`,
+            previewParams: {
+                variant: 'goals:summary',
+                description: `${activeGoals.length} active • ${completedGoals.length} completed`,
+                statLabel: 'Active goals',
+                statValue: `${activeGoals.length}`,
+                tag: 'GOAL DASHBOARD',
+            },
+            targetPath: '/goals',
+        });
+
+        const recentCompleted = completedGoals
+            .slice()
+            .sort((a, b) => new Date(b.due_date ?? b.created_at).getTime() - new Date(a.due_date ?? a.created_at).getTime())[0];
+
+        if (recentCompleted) {
+            templates.push({
+                key: `completed-${recentCompleted.id}`,
+                label: `Completed: ${recentCompleted.title}`,
+                title: 'Goal Completed',
+                kind: 'goals',
+                text: `✅ Just checked off “${recentCompleted.title}” in Personality Architect!`,
+                previewParams: {
+                    variant: 'goals:completed',
+                    description: `Completed: ${recentCompleted.title}`,
+                    statLabel: 'Completed',
+                    statValue: recentCompleted.title,
+                    tag: 'FINISHED',
+                },
+                targetPath: '/goals',
+            });
+        }
+
+        if (nextDeadline) {
+            const due = nextDeadline.due_date ? new Date(nextDeadline.due_date) : null;
+            const now = new Date();
+            const daysLeft = due ? Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
+            const dueLabel = due ? due.toLocaleDateString() : 'soon';
+            templates.push({
+                key: `upcoming-${nextDeadline.id}`,
+                label: `Next: ${nextDeadline.title}`,
+                title: 'Upcoming Goal',
+                kind: 'goals',
+                text: `🚀 “${nextDeadline.title}” is coming up (${dueLabel}). Keeping the momentum going!`,
+                previewParams: {
+                    variant: 'goals:upcoming',
+                    description: daysLeft !== null ? `Due in ${daysLeft} days` : `Due ${dueLabel}`,
+                    statLabel: 'Next deadline',
+                    statValue: daysLeft !== null ? `${daysLeft} days` : dueLabel,
+                    tag: 'NEXT TARGET',
+                },
+                targetPath: '/goals',
+            });
+        }
+
+        return templates;
+    }, [goals, activeGoals, completedGoals, nextDeadline]);
+
+    return (
+        <MiniAppPage>
+            <div className="space-y-6">
+                <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#1c0e35] via-[#2a1050] to-[#351365] p-6 shadow-[0_30px_80px_rgba(7,2,19,0.65)]">
+                    <div className="flex flex-col gap-3">
+                        <p className="text-xs uppercase tracking-[0.4em] text-white/60">Goal Command Center</p>
+                        <h1 className="text-3xl font-semibold leading-snug">Plot each objective, track execution, and ship your vision.</h1>
+                        <p className="text-white/70 text-sm">Active missions, completed arcs, and archived lessons — all in one board.</p>
+                    </div>
+                    <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <div className="text-xs uppercase tracking-wide text-white/60">Active</div>
+                            <div className="text-3xl font-semibold text-white">{activeGoals.length}</div>
+                        </div>
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <div className="text-xs uppercase tracking-wide text-white/60">Completed</div>
+                            <div className="text-3xl font-semibold text-[#2BD4A4]">{completedGoals.length}</div>
+                        </div>
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <div className="text-xs uppercase tracking-wide text-white/60">Next due</div>
+                            <div className="text-lg font-semibold text-white">
+                                {nextDeadline?.due_date ? new Date(nextDeadline.due_date).toLocaleDateString() : '—'}
+                            </div>
+                            <div className="text-xs text-white/60">{nextDeadline?.title ?? 'No deadlines yet'}</div>
+                        </div>
+                    </div>
+                </section>
+
+                {goalShareTemplates.length > 0 && (
+                    <ShareCastComposer
+                        templates={goalShareTemplates}
+                        sectionTitle="Share your goals"
+                        prepareHeaders={authHeaders}
+                    />
+                )}
+
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            addGoal();
+                        }}
+                        className="flex flex-col gap-4"
+                    >
                 <input
                     type="text"
                     placeholder="Goal title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="bg-[#0D0F1A] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
+                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                     required
                 />
-                <div className="grid grid-cols-2 gap-2">
                     <input
                         type="text"
                         placeholder="Metric (e.g., days, reps)"
                         value={metric}
                         onChange={(e) => setMetric(e.target.value)}
-                        className="bg-[#0D0F1A] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
+                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                     />
                     <input
                         type="number"
+                            min={0}
                         placeholder="Target"
                         value={target}
                         onChange={(e) => setTarget(e.target.value)}
-                        className="bg-[#0D0F1A] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
+                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                     />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
                     <input
                         type="text"
                         placeholder="Unit"
                         value={unit}
                         onChange={(e) => setUnit(e.target.value)}
-                        className="bg-[#0D0F1A] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
+                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                     />
-                    <input
-                        type="date"
-                        placeholder="Due date"
-                        value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
-                        className="bg-[#0D0F1A] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
-                    />
-                </div>
-                <button type="submit" disabled={loading} className="bg-[#8B5CF6] hover:bg-[#6D28D9] text-white px-4 py-2 rounded w-full disabled:opacity-50 transition">
-                    {loading ? 'Adding...' : 'Add Goal'}
-                </button>
-            </form>
-
-            {/* Search & Filter */}
-            {goals.length > 0 && (
-                <div className="flex gap-2">
                     <input
                         type="text"
-                        placeholder="🔍 Search goals..."
+                        placeholder="MM/DD/YYYY"
+                            value={dueDate ? new Date(dueDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : ''}
+                        onChange={(e) => {
+                                const dateStr = e.target.value;
+                                // Parse MM/DD/YYYY format
+                                const parts = dateStr.split('/');
+                                if (parts.length === 3) {
+                                    const month = parts[0].padStart(2, '0');
+                                    const day = parts[1].padStart(2, '0');
+                                    const year = parts[2];
+                                    const date = new Date(`${year}-${month}-${day}`);
+                                    if (!isNaN(date.getTime())) {
+                                        setDueDate(date.toISOString().split('T')[0]);
+                                    }
+                            }
+                        }}
+                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                    />
+                <button
+                    type="submit"
+                    disabled={loading}
+                            className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-center font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+                >
+                            {loading ? 'Saving…' : 'Add Goal'}
+                </button>
+            </form>
+                </section>
+
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                    <div className="relative">
+                        <svg
+                            className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                            />
+                        </svg>
+                    <input
+                        type="text"
+                            placeholder="Search goals..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="flex-1 bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 rounded"
+                            className="w-full rounded-2xl border border-white/10 bg-white/5 pl-10 pr-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                     />
-                    <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value as any)}
-                        className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 rounded"
-                    >
-                        <option value="all">All</option>
-                        <option value="active">Active</option>
-                        <option value="completed">Completed</option>
-                        <option value="archived">Archived</option>
-                    </select>
+                    </div>
+                </section>
+
+                {goals.length > 0 && (
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => setFilterStatus('active')}
+                            className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition ${filterStatus === 'active'
+                                ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white shadow-lg shadow-[#8B5CF6]/40'
+                                : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                                }`}
+                        >
+                            Active goals
+                        </button>
+                        <button
+                            onClick={() => setFilterStatus('completed')}
+                            className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition ${filterStatus === 'completed'
+                                ? 'bg-gradient-to-r from-[#2BD4A4] to-[#14b8a6] text-[#041812] shadow-lg shadow-[#2BD4A4]/40'
+                                : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                                }`}
+                        >
+                            Completed goals
+                        </button>
                 </div>
             )}
 
-            {/* Список */}
             {loading && goals.length === 0 ? (
                 <div className="space-y-3">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className="bg-[#121420] border border-[#2A2B3E] rounded-lg p-4 animate-pulse">
-                            <div className="h-6 bg-[#2A2B3E] rounded w-3/4 mb-2"></div>
-                            <div className="h-4 bg-[#2A2B3E] rounded w-1/2"></div>
+                            <div key={i} className="rounded-3xl border border-white/10 bg-white/5 p-4 animate-pulse">
+                                <div className="h-6 w-2/3 rounded bg-white/10" />
+                                <div className="mt-3 h-3 w-1/3 rounded bg-white/10" />
                         </div>
                     ))}
                 </div>
-            ) : (
-                <ul className="space-y-2">
-                    {goals
-                        .filter(g => {
-                            const matchesSearch = g.title.toLowerCase().includes(searchQuery.toLowerCase());
-                            const matchesFilter =
-                                filterStatus === 'all' ||
-                                g.status === filterStatus;
-                            return matchesSearch && matchesFilter;
-                        })
-                        .map((g) => (
-                            <li key={g.id} className="flex justify-between items-start border border-[#2A2B3E] bg-[#121420] p-4 rounded-lg">
-                                {editingId === g.id ? (
-                                    <div className="flex-1 space-y-2">
+                ) : filteredGoals.length === 0 ? (
+                    <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-center text-white/70">
+                        No goals match your filters.
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {filteredGoals.map(goal => {
+                            const editing = editingId === goal.id;
+                            const dueLabel = goal.due_date ? new Date(goal.due_date).toLocaleDateString() : 'Flexible';
+                            return (
+                                <div
+                                    key={goal.id}
+                                    className="rounded-3xl border border-white/10 bg-white/5 p-4 flex flex-col gap-4"
+                                >
+                                    {editing ? (
+                                        <div className="flex-1 space-y-3">
                                         <input
                                             type="text"
-                                            value={g.title}
-                                            onChange={(e) => setGoals(goals.map(goal => goal.id === g.id ? { ...goal, title: e.target.value } : goal))}
-                                            className="bg-[#0D0F1A] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
-                                        />
-                                        {g.due_date && (
-                                            <div className="text-xs text-[#AAB1C2]">
-                                                Due: {new Date(g.due_date).toLocaleDateString()}
-                                            </div>
-                                        )}
-                                        <div className="flex gap-2">
+                                                value={goal.title}
+                                                onChange={(e) => setGoals(goals.map(g => g.id === goal.id ? { ...g, title: e.target.value } : g))}
+                                                className="w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-white/40 focus:outline-none"
+                                            />
+                                            <div className="flex gap-2">
                                             <button
-                                                onClick={() => updateGoal(g)}
+                                                    onClick={() => updateGoal(goal)}
                                                 disabled={loading}
-                                                className="bg-[#2BD4A4] hover:bg-[#24C997] text-white px-3 py-1 rounded text-sm transition"
+                                                    className="rounded-2xl bg-gradient-to-r from-[#2BD4A4] to-[#12b886] px-4 py-2 text-sm font-semibold text-[#041812] transition disabled:opacity-60"
                                             >
                                                 Save
                                             </button>
                                             <button
                                                 onClick={() => setEditingId(null)}
-                                                className="bg-[#2A2B3E] hover:bg-[#3A3B4E] text-[#E9ECF1] px-3 py-1 rounded text-sm transition"
+                                                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
                                             >
                                                 Cancel
                                             </button>
                                         </div>
                                     </div>
                                 ) : (
+                                        <>
                                     <div className="flex-1">
-                                        <div className={`font-medium text-[#E9ECF1] ${g.status === 'completed' ? 'line-through text-[#5B6785]' : ''}`}>
-                                            {g.title}
-                                        </div>
-                                        {g.metric && g.target && (
-                                            <div className="text-sm text-[#AAB1C2]">
-                                                {g.target} {g.unit || g.metric}
+                                                <h3 className={`text-xl font-semibold ${goal.status === 'completed' ? 'text-white/50 line-through' : 'text-white'}`}>
+                                                    {goal.title}
+                                                </h3>
+                                                {(goal.target || goal.unit) && (
+                                                    <div className="mt-2 text-sm text-white/70">
+                                                        {goal.target || ''} {goal.unit || ''}
                                             </div>
                                         )}
-                                        {g.due_date && (
-                                            <div className="text-xs text-[#AAB1C2] mt-1">
-                                                Due: {new Date(g.due_date).toLocaleDateString()}
+                                                {goal.status && (
+                                                    <div className="mt-1 text-sm text-white/60">{goal.status}</div>
+                                                )}
                                             </div>
-                                        )}
-                                        <div className="text-xs text-[#AAB1C2] mt-1">
-                                            {g.status}
-                                        </div>
-                                    </div>
-                                )}
-                                {editingId !== g.id && (
-                                    <div className="flex gap-2">
+                                            <div className="flex items-center gap-2">
                                         <button
-                                            onClick={() => toggleStatus(g)}
-                                            className={`px-3 py-1 rounded text-sm transition ${g.status === 'completed' ? 'bg-[#2BD4A4] text-white hover:bg-[#24C997]' : 'bg-[#2A2B3E] text-[#E9ECF1] hover:bg-[#3A3B4E]'}`}
-                                            disabled={loading}
-                                        >
-                                            {g.status === 'completed' ? '✓' : '⏳'}
+                                                    onClick={() => toggleStatus(goal)}
+                                                    className={`flex h-10 w-10 items-center justify-center rounded-full transition ${goal.status === 'completed'
+                                                        ? 'bg-gradient-to-r from-[#2BD4A4] to-[#14b8a6] text-[#041812]'
+                                                        : 'bg-white/10 text-white hover:bg-white/20'
+                                                }`}
+                                                    disabled={loading}
+                                                    aria-label={goal.status === 'completed' ? 'Completed' : 'Mark done'}
+                                                >
+                                                    <svg
+                                                        className="h-5 w-5"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            strokeWidth={2}
+                                                            d="M5 13l4 4L19 7"
+                                                        />
+                                                    </svg>
                                         </button>
                                         <button
-                                            onClick={() => setEditingId(g.id)}
-                                            className="px-3 py-1 rounded text-sm bg-[#8B5CF6] text-white hover:bg-[#6D28D9] transition"
-                                            disabled={loading}
+                                                    onClick={() => setEditingId(goal.id)}
+                                                    className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+                                                    disabled={loading}
                                         >
                                             Edit
                                         </button>
                                         <button
-                                            onClick={() => deleteGoal(g.id)}
-                                            className="px-3 py-1 rounded text-sm bg-[#FF6B6B] hover:bg-[#E65A5A] text-white transition"
-                                            disabled={loading}
+                                                    onClick={() => deleteGoal(goal.id)}
+                                                    className="rounded-2xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-white/10 disabled:opacity-60"
+                                                    disabled={loading}
                                         >
-                                            Delete
+                                                    Delete
                                         </button>
                                     </div>
+                                        </>
                                 )}
-                            </li>
-                        ))}
-                </ul>
+                                </div>
+                            );
+                        })}
+                    </div>
             )}
 
             {goals.length === 0 && !loading && (
-                <div className="text-center text-[#AAB1C2] py-8">
-                    No goals yet. Add your first goal above!
+                    <div className="rounded-3xl border border-dashed border-white/20 bg-white/5 p-8 text-center text-white/60">
+                        No goals yet — add your first objective above.
                 </div>
             )}
-        </div>
+            </div>
+        </MiniAppPage>
     );
 }
 

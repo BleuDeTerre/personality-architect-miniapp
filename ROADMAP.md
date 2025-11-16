@@ -32,7 +32,6 @@
 - ✅ Middleware для защиты платных эндпоинтов
 - ✅ Subscription tiers (Free/Pro/Premium)
 - ✅ Pricing page with upgrade flows
-- ✅ Dark theme applied to all pages
 - ✅ Habit templates & categories
 - ✅ Search & filters (Habits & Goals)
 - ✅ Loading skeletons & empty states (ALL pages)
@@ -40,9 +39,8 @@
 - ✅ PWA manifest
 - ✅ AI Chat interface
 - ✅ Leaderboards
-- ✅ iCal export
 - ✅ Share to Farcaster
-- ✅ Calendar view (Streaks heatmap 365 days)
+- ✅ Calendar view 
 - ✅ **Gamification** - полная система геймификации:
   - ✅ XP система (начисление и расчет)
   - ✅ Уровни (10 уровней с именами)

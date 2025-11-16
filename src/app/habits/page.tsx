@@ -1,52 +1,126 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { sdk } from '@farcaster/miniapp-sdk';
+import { X, Loader2 } from 'lucide-react';
 import LevelUpAnimation from '@/components/LevelUpAnimation';
 import AchievementAnimation from '@/components/AchievementAnimation';
+import MiniAppPage from '@/components/MiniAppPage';
 
-// Инициализация Supabase клиента
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Тип привычки (+ streak)
 type Habit = {
     id: string;
     title: string;
     target_days_per_week: number;
     is_completed: boolean;
-    streak?: number; // дни подряд
+    streak?: number;
 };
 
-// Шаблоны популярных привычек
 const HABIT_TEMPLATES = [
-    { title: 'Meditation', icon: '🧘‍♂️', targetDays: 7, category: 'Health' },
-    { title: 'Exercise', icon: '💪', targetDays: 4, category: 'Health' },
-    { title: 'Reading', icon: '📚', targetDays: 5, category: 'Learning' },
-    { title: 'Journaling', icon: '📝', targetDays: 5, category: 'Growth' },
-    { title: 'Hydration', icon: '💧', targetDays: 7, category: 'Health' },
-    { title: 'Early Wake', icon: '🌅', targetDays: 7, category: 'Health' },
-    { title: 'No Phone AM', icon: '📵', targetDays: 7, category: 'Focus' },
-    { title: 'Gratitude', icon: '🙏', targetDays: 7, category: 'Growth' },
-    { title: 'Walks', icon: '🚶', targetDays: 5, category: 'Health' },
-    { title: 'Code Practice', icon: '💻', targetDays: 5, category: 'Learning' },
+    // Wellness
+    { title: 'Meditation', icon: '🧘', targetDays: 7, category: 'Wellness' },
+    { title: 'Breathwork', icon: '🌬️', targetDays: 7, category: 'Wellness' },
+    { title: 'Hydration', icon: '💧', targetDays: 7, category: 'Wellness' },
+    { title: 'Sleep Before 23:00', icon: '🛏️', targetDays: 7, category: 'Wellness' },
+    { title: 'Stretching', icon: '🤸', targetDays: 7, category: 'Wellness' },
+    // Fitness
+    { title: 'Exercise', icon: '💪', targetDays: 7, category: 'Fitness' },
+    { title: 'Strength Training', icon: '🏋️', targetDays: 7, category: 'Fitness' },
+    { title: 'Walks', icon: '🚶', targetDays: 7, category: 'Fitness' },
+    { title: 'Yoga Flow', icon: '🧘‍♀️', targetDays: 7, category: 'Fitness' },
+    // Mindset
+    { title: 'Reading', icon: '📚', targetDays: 7, category: 'Mindset' },
+    { title: 'Journaling', icon: '📝', targetDays: 7, category: 'Mindset' },
+    { title: 'Gratitude', icon: '🙏', targetDays: 7, category: 'Mindset' },
+    { title: 'Learning Session', icon: '🧠', targetDays: 7, category: 'Mindset' },
+    // Productivity
+    { title: 'Code Practice', icon: '💻', targetDays: 7, category: 'Productivity' },
+    { title: 'Daily Planning', icon: '🗂️', targetDays: 7, category: 'Productivity' },
+    { title: 'Inbox Zero', icon: '📫', targetDays: 7, category: 'Productivity' },
+    { title: 'Deep Work Block', icon: '⏱️', targetDays: 7, category: 'Productivity' },
+    // Lifestyle
+    { title: 'No Phone AM', icon: '📵', targetDays: 7, category: 'Lifestyle' },
+    { title: 'Meal Prep', icon: '🍱', targetDays: 7, category: 'Lifestyle' },
+    { title: 'Home Reset', icon: '🧹', targetDays: 7, category: 'Lifestyle' },
+    { title: 'Outdoor Time', icon: '🌳', targetDays: 7, category: 'Lifestyle' },
+    // Anti-harm
+    { title: 'No Smoking', icon: '🚭', targetDays: 7, category: 'Anti-harm' },
+    { title: 'No Alcohol', icon: '🍷', targetDays: 7, category: 'Anti-harm' },
+    { title: 'Limit Junk Food', icon: '🍔', targetDays: 7, category: 'Anti-harm' },
+    { title: 'No Sugary Drinks', icon: '🥤', targetDays: 7, category: 'Anti-harm' },
+    { title: 'No Drugs', icon: '🚫', targetDays: 7, category: 'Anti-harm' },
+    // Finance
+    { title: 'Budget Review', icon: '💸', targetDays: 7, category: 'Finance' },
+    { title: 'Expense Tracking', icon: '🧾', targetDays: 7, category: 'Finance' },
+    { title: 'Investing Check', icon: '📈', targetDays: 7, category: 'Finance' },
+    { title: 'Savings Transfer', icon: '🏦', targetDays: 7, category: 'Finance' },
+    // Social
+    { title: 'Meet a Friend', icon: '🤝', targetDays: 7, category: 'Social' },
+    { title: 'Community Post', icon: '🗣️', targetDays: 7, category: 'Social' },
+    { title: 'Gratitude Text', icon: '💬', targetDays: 7, category: 'Social' },
+    { title: 'Call Family', icon: '📞', targetDays: 7, category: 'Social' },
+    // Digital
+    { title: 'Content Detox', icon: '📱', targetDays: 7, category: 'Digital' },
+    { title: 'Creator Session', icon: '🎥', targetDays: 7, category: 'Digital' },
+    { title: 'Learning Reel', icon: '🎬', targetDays: 7, category: 'Digital' },
+    { title: 'Newsletter Write', icon: '✉️', targetDays: 7, category: 'Digital' },
 ];
+
+const CATEGORIES = ['All', 'Wellness', 'Fitness', 'Mindset', 'Productivity', 'Lifestyle', 'Anti-harm', 'Finance', 'Social', 'Digital'];
+
+const EMOJIS = [
+    // Основные
+    '✅', '🔥', '🎯', '🚀',
+    // Фитнес и спорт
+    '🧘', '🧘‍♀️', '🧘‍♂️', '🏃', '🚶', '🏋️', '🤸', '🏊', '🚴', '💪',
+    // Здоровье и уход
+    '🧼', '🧴', '🪒', '🧽', '🛀', '🛁', '🪥', '💧', '💤', '🛏️',
+    // Еда и напитки
+    '🌿', '🍃', '🫧', '🥗', '🥦', '🍋', '🥛', '☕', '🍵', '💊', '🚰', '🍔', '🍷', '🌳',
+    // Учеба и развитие
+    '📚', '📖', '📝', '✒️', '🧠', '💻', '📁', '📊', '🗓️', '🕒',
+    // Цифровое
+    '📵', '📱', '📷', '🎬', '📧',
+    // Финансы
+    '💰', '💳', '💵', '🪙', '📈', '🏦', '🧾',
+    // Социальное
+    '💬', '📞', '🤝', '🗣️', '🎉',
+    // Время и природа
+    '☀️', '🌙', '🌅', '🌬️', '🌱',
+    // Разное
+    '🎵', '📫', '⏱️', '👑', '💎', '🛑', '🚫', '📿',
+];
+
+const MAX_FREE_HABITS = 5;
 
 export default function HabitsPage() {
     const [habits, setHabits] = useState<Habit[]>([]);
     const [title, setTitle] = useState('');
+    const [emoji, setEmoji] = useState<string>('✅');
     const [targetDays, setTargetDays] = useState(3);
     const [loading, setLoading] = useState(false);
+    const [plan, setPlan] = useState<string>('free');
     const [showTemplates, setShowTemplates] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState<string>('All');
     const [searchQuery, setSearchQuery] = useState('');
     const [filterCompleted, setFilterCompleted] = useState<'all' | 'completed' | 'active'>('all');
+    const [removingHabitId, setRemovingHabitId] = useState<string | null>(null);
     const [levelUpState, setLevelUpState] = useState<{ level: number } | null>(null);
-    const [achievementState, setAchievementState] = useState<{ id: string; title: string; icon: string; xpReward: number; description: string; category: string; rarity: string } | null>(null);
+    const [achievementState, setAchievementState] = useState<{
+        id: string;
+        title: string;
+        icon: string;
+        xpReward: number;
+        description: string;
+        category: string;
+        rarity: string;
+    } | null>(null);
 
-    // Заголовки с Bearer для вызовов /api/*
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
         return {
@@ -55,13 +129,10 @@ export default function HabitsPage() {
         };
     }, []);
 
-    // Загрузка: список привычек + батч‑стриков
     const fetchHabits = useCallback(async () => {
         setLoading(true);
         try {
             const hdrs = await authHeaders();
-
-            // 1) базовый список
             const res = await fetch('/api/habits/list', { headers: hdrs });
             const base = await res.json();
 
@@ -70,7 +141,6 @@ export default function HabitsPage() {
                 return;
             }
 
-            // 2) стрики по всем id
             const ids = base.map((h: any) => h.id);
             const rs = await fetch('/api/habits/streaks', {
                 method: 'POST',
@@ -80,14 +150,25 @@ export default function HabitsPage() {
             const sts: Array<{ habit_id: string; streak: number }> = await rs.json();
             const map = new Map(sts.map(x => [x.habit_id, x.streak]));
 
-            // 3) мержим
             setHabits(base.map((h: any) => ({ ...h, streak: map.get(h.id) ?? 0 })));
         } finally {
             setLoading(false);
         }
     }, [authHeaders]);
 
-    // Онбординг через Farcaster Mini App + первичная загрузка
+    const loadPlan = useCallback(async () => {
+        try {
+            const hdrs = await authHeaders();
+            const res = await fetch('/api/plan', { headers: hdrs });
+            if (res.ok) {
+                const data = await res.json();
+                setPlan(data.plan || 'free');
+            }
+        } catch (e) {
+            console.error('[HabitsPage] Failed to load plan', e);
+        }
+    }, [authHeaders]);
+
     useEffect(() => {
         (async () => {
             const ctx = await (sdk as any).context?.getFrameContext?.();
@@ -106,47 +187,81 @@ export default function HabitsPage() {
                     await supabase.auth.setSession({ access_token, refresh_token: '' });
                 }
             }
-            fetchHabits(); // загрузка списка + стриков
+            await loadPlan();
+            fetchHabits();
         })();
-    }, [fetchHabits]);
+    }, [fetchHabits, loadPlan]);
 
-    // Создать привычку
     async function addHabit(e: React.FormEvent) {
         e.preventDefault();
         if (!title.trim()) return;
+
+        // Check habit limit for free plan
+        if (plan === 'free' && habits.length >= MAX_FREE_HABITS) {
+            const { toast } = await import('sonner');
+            toast.error('Habit limit reached', {
+                description: `Free plan allows up to ${MAX_FREE_HABITS} habits. Upgrade to Pro for unlimited habits.`,
+            });
+            return;
+        }
+
         const res = await fetch('/api/habits/create', {
             method: 'POST',
             headers: await authHeaders(),
-            body: JSON.stringify({ title, target_days_per_week: targetDays }),
+            body: JSON.stringify({ title: `${emoji} ${title}`.trim(), target_days_per_week: targetDays }),
         });
         if (res.ok) {
             setTitle('');
+            setEmoji('✅');
             setTargetDays(3);
             fetchHabits();
         }
     }
 
-    // Отметить выполненной/снять отметку за сегодня
+    async function removeHabit(id: string) {
+        setRemovingHabitId(id);
+        try {
+            const res = await fetch('/api/habits/delete', {
+                method: 'POST',
+                headers: await authHeaders(),
+                body: JSON.stringify({ habit_id: id }),
+            });
+            if (res.ok) {
+                fetchHabits();
+            }
+        } finally {
+            setRemovingHabitId(null);
+        }
+    }
+
     async function markComplete(id: string, current?: boolean) {
+        // Prevent marking if already completed
+        if (current) return;
+
+        const { toast } = await import('sonner');
+
         const res = await fetch('/api/habits/logs', {
             method: 'POST',
             headers: await authHeaders(),
             body: JSON.stringify({
                 habit_id: id,
                 date: new Date().toISOString().slice(0, 10),
-                value: !current,
+                value: true, // Always mark as completed, never unmark
             }),
         });
 
         if (res.ok) {
             const data = await res.json();
+
+            // Show success toast
+            toast.success('Nice! Habit marked for today.', {
+                description: 'Habit completed',
+                duration: 3000,
+            });
+
             fetchHabits();
 
-            // Показываем уведомления о полученном XP
             if (data.xp_earned > 0 && data.xp_events) {
-                const { toast } = await import('sonner');
-
-                // Показываем анимацию достижений (если есть)
                 if (data.achievements_unlocked && data.achievements_unlocked.length > 0) {
                     const firstAchievement = data.achievements_unlocked[0];
                     const { ACHIEVEMENTS } = await import('@/lib/achievements');
@@ -165,44 +280,91 @@ export default function HabitsPage() {
                     }
                 }
 
-                // Показываем анимацию повышения уровня
                 if (data.level_up) {
                     const levelEvent = data.xp_events.find((e: any) => e.type === 'level_up');
                     if (levelEvent && levelEvent.metadata?.level) {
-                        // Задержка перед показом level up, если есть достижение
                         setTimeout(() => {
                             setLevelUpState({ level: levelEvent.metadata.level });
                         }, data.achievements_unlocked?.length > 0 ? 3500 : 0);
                     }
                 }
 
-                // Показываем уведомление о полученном XP
+                // Show XP toast only if there's XP gained (separate from completion toast)
                 const xpGained = data.xp_events.filter((e: any) => e.type !== 'level_up' && e.type !== 'achievement');
                 if (xpGained.length > 0) {
-                    toast.success(`+${data.xp_earned} XP`, {
-                        description: xpGained.map((e: any) => e.description).join(', '),
-                        duration: 3000,
-                    });
+                    setTimeout(() => {
+                        const descriptions = xpGained.map((e: any) => e.description).join(', ');
+                        toast.success(`+${data.xp_earned} XP`, {
+                            description: descriptions,
+                            duration: 3000,
+                        });
+                    }, 500);
                 }
             }
         }
     }
 
-    // Добавить привычку из шаблона
-    async function addFromTemplate(template: typeof HABIT_TEMPLATES[0]) {
-        const res = await fetch('/api/habits/create', {
-            method: 'POST',
-            headers: await authHeaders(),
-            body: JSON.stringify({ title: `${template.icon} ${template.title}`, target_days_per_week: template.targetDays }),
-        });
-        if (res.ok) {
-            setShowTemplates(false);
-            fetchHabits();
+    const userHabitTitles = useMemo(() => {
+        return new Set(habits.map(h => h.title));
+    }, [habits]);
+
+    const isTemplateInList = useCallback((template: typeof HABIT_TEMPLATES[0]) => {
+        const fullTitle = `${template.icon} ${template.title}`;
+        return userHabitTitles.has(fullTitle);
+    }, [userHabitTitles]);
+
+    async function toggleTemplate(template: typeof HABIT_TEMPLATES[0]) {
+        const fullTitle = `${template.icon} ${template.title}`;
+        const isInList = userHabitTitles.has(fullTitle);
+
+        if (isInList) {
+            // Remove habit
+            const habit = habits.find(h => h.title === fullTitle);
+            if (habit) {
+                await removeHabit(habit.id);
+            }
+        } else {
+            // Check habit limit for free plan
+            if (plan === 'free' && habits.length >= MAX_FREE_HABITS) {
+                const { toast } = await import('sonner');
+                toast.error('Habit limit reached', {
+                    description: `Free plan allows up to ${MAX_FREE_HABITS} habits. Upgrade to Pro for unlimited habits.`,
+                });
+                return;
+            }
+
+            // Add habit
+            const res = await fetch('/api/habits/create', {
+                method: 'POST',
+                headers: await authHeaders(),
+                body: JSON.stringify({ title: fullTitle, target_days_per_week: template.targetDays }),
+            });
+            if (res.ok) {
+                fetchHabits();
+            }
         }
     }
 
+    const filteredTemplates = useMemo(() => {
+        return HABIT_TEMPLATES.filter(template => {
+            if (selectedCategory === 'All') return true;
+            return template.category === selectedCategory;
+        });
+    }, [selectedCategory]);
+
+    const filteredHabits = useMemo(() => {
+        return habits.filter(h => {
+            const matchesSearch = h.title.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesFilter =
+                filterCompleted === 'all' ||
+                (filterCompleted === 'completed' && h.is_completed) ||
+                (filterCompleted === 'active' && !h.is_completed);
+            return matchesSearch && matchesFilter;
+        });
+    }, [habits, searchQuery, filterCompleted]);
+
     return (
-        <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-6 max-w-xl mx-auto space-y-6">
+        <>
             {achievementState && (
                 <AchievementAnimation
                     achievement={{
@@ -223,130 +385,248 @@ export default function HabitsPage() {
                     onComplete={() => setLevelUpState(null)}
                 />
             )}
-            <h1 className="text-2xl font-bold text-[#E9ECF1]">My Habits</h1>
 
-            {/* Форма добавления */}
-            <form onSubmit={addHabit} className="space-y-2">
-                <input
-                    type="text"
-                    placeholder="Habit title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
-                    required
-                />
-                <div className="flex gap-2">
-                    <input
-                        type="number"
-                        min={1}
-                        max={7}
-                        value={targetDays}
-                        onChange={(e) => setTargetDays(Number(e.target.value))}
-                        className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
-                    />
-                    <button type="submit" className="bg-[#8B5CF6] hover:bg-[#6D28D9] text-white px-4 py-2 rounded transition">
-                        Add
-                    </button>
+            <MiniAppPage>
+                <div className="space-y-6">
+                    <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#120E2B] via-[#1c0f34] to-[#28124e] p-6 shadow-[0_30px_80px_rgba(10,4,24,0.7)]">
+                        <div className="flex flex-col gap-3">
+                            <p className="text-xs uppercase tracking-[0.4em] text-white/50">My Habits</p>
+                            <h1 className="text-3xl font-semibold leading-snug">Build routines faster, track completions, and unlock streak rewards.</h1>
+                            <p className="text-white/70 text-sm">Stay consistent across health, focus, learning, and lifestyle.</p>
+                        </div>
+                    </section>
+
+                    <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                        <div className="flex flex-col gap-4">
+                            <div>
+                                <p className="text-xs uppercase tracking-wide text-white/60">Create habit</p>
+                                <h2 className="text-2xl font-semibold text-white">Design a behavior you’ll repeat daily</h2>
+                            </div>
+                            <form onSubmit={addHabit} className="grid gap-4">
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                        <label className="text-xs uppercase tracking-wide text-white/50">Emoji</label>
+                                        <div className="mt-2 grid grid-cols-5 gap-2 rounded-2xl border border-white/10 bg-white/5 p-3 max-h-[400px] overflow-y-auto">
+                                            {EMOJIS.map(symbol => (
+                                                <button
+                                                    key={symbol}
+                                                    type="button"
+                                                    onClick={() => setEmoji(symbol)}
+                                                    className={`rounded-2xl border px-2 py-1 text-lg transition ${emoji === symbol ? 'border-white bg-white text-[#0D0F1A]' : 'border-transparent text-white/70 hover:text-white'}`}
+                                                >
+                                                    {symbol}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="text-xs uppercase tracking-wide text-white/50">Habit title</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Morning walk"
+                                                value={title}
+                                                onChange={(e) => setTitle(e.target.value)}
+                                                className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs uppercase tracking-wide text-white/50">Target days per week</label>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={7}
+                                                value={targetDays}
+                                                onChange={(e) => setTargetDays(Number(e.target.value))}
+                                                className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-3 sm:flex-row">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowTemplates(!showTemplates)}
+                                        className="flex-1 rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-center font-semibold text-white/80 transition hover:bg-white/10"
+                                    >
+                                        📚 Browse habit library
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="flex-1 rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-center font-semibold text-white transition hover:opacity-90"
+                                    >
+                                        Add habit
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </section>
+
+                    <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                        <div className="flex flex-col gap-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-white/60">Your routines</p>
+                                    <h2 className="text-2xl font-semibold text-white">Stay accountable every day</h2>
+                                </div>
+                                {habits.length > 0 && (
+                                    <div className="flex flex-col gap-3">
+                                        <input
+                                            type="text"
+                                            placeholder="Search habits…"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                        />
+                                        <div className="flex gap-2 rounded-2xl bg-white/5 p-1">
+                                            {(['all', 'active', 'completed'] as const).map((filter) => (
+                                                <button
+                                                    key={filter}
+                                                    onClick={() => setFilterCompleted(filter)}
+                                                    className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${filterCompleted === filter
+                                                        ? 'bg-white text-[#0D0F1A]'
+                                                        : 'text-white/70 hover:text-white'
+                                                        }`}
+                                                >
+                                                    {filter === 'all' ? 'All' : filter === 'active' ? 'Active' : 'Completed'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {loading ? (
+                                <div className="space-y-3">
+                                    {[1, 2, 3, 4].map(i => (
+                                        <div key={i} className="rounded-2xl border border-white/10 bg-white/5 p-4 animate-pulse">
+                                            <div className="h-5 w-1/3 rounded bg-white/10" />
+                                            <div className="mt-2 h-3 w-1/2 rounded bg-white/10" />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : filteredHabits.length === 0 ? (
+                                <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-white/70">
+                                    No habits match your filters.
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {filteredHabits.map(h => (
+                                        <div key={h.id} className="rounded-3xl border border-white/10 bg-white/5 p-4 flex items-center justify-between gap-4">
+                                            <div className="flex flex-col flex-1">
+                                                <div className={`text-lg font-semibold ${h.is_completed ? 'text-white/50 line-through' : 'text-white'}`}>
+                                                    {h.title}
+                                                </div>
+                                                <div className="flex items-center gap-3 text-sm text-white/70">
+                                                    <span>{h.target_days_per_week} days/week</span>
+                                                    <span>🔥 {h.streak ?? 0}d streak</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => markComplete(h.id, h.is_completed)}
+                                                    disabled={h.is_completed}
+                                                    className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${h.is_completed ? 'bg-gradient-to-r from-[#2BD4A4] to-[#14b8a6] text-[#041812]' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                                                >
+                                                    {h.is_completed ? 'Completed' : 'Mark done'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeHabit(h.id)}
+                                                    disabled={removingHabitId === h.id}
+                                                    className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 transition hover:bg-white/10 hover:text-red-400 disabled:opacity-50"
+                                                    aria-label="Remove habit"
+                                                >
+                                                    {removingHabitId === h.id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <X className="h-4 w-4" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </section>
                 </div>
-                <button
-                    type="button"
-                    onClick={() => setShowTemplates(!showTemplates)}
-                    className="w-full bg-[#121420] border border-[#2A2B3E] hover:bg-[#1A1B2E] text-[#AAB1C2] px-4 py-2 rounded transition"
-                >
-                    {showTemplates ? '❌ Cancel' : '📋 Use Template'}
-                </button>
-            </form>
+            </MiniAppPage>
 
-            {/* Шаблоны */}
             {showTemplates && (
-                <div className="bg-[#121420] border border-[#2A2B3E] rounded-lg p-4">
-                    <h3 className="font-semibold mb-3 text-[#E9ECF1]">Popular Habits</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                        {HABIT_TEMPLATES.map((t, i) => (
+                <div className="fixed inset-0 z-50 flex flex-col bg-[#05060d] overflow-hidden">
+                    {/* Header */}
+                    <div className="flex flex-col gap-4 p-6 border-b border-white/10">
+                        <div className="flex items-center justify-between">
+                            <div className="flex flex-col gap-2">
+                                <h2 className="text-xl font-semibold text-white">Choose the habits you want to track.</h2>
+                                <p className="text-sm text-white/70">Tap a card to add or remove it instantly.</p>
+                            </div>
                             <button
-                                key={i}
-                                onClick={() => addFromTemplate(t)}
-                                className="text-left bg-[#1A1B2E] border border-[#2A2B3E] hover:border-[#8B5CF6] p-3 rounded transition"
+                                onClick={() => setShowTemplates(false)}
+                                className="flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 transition"
                             >
-                                <div className="text-lg mb-1">{t.icon}</div>
-                                <div className="text-sm font-medium text-[#E9ECF1]">{t.title}</div>
-                                <div className="text-xs text-[#AAB1C2]">{t.targetDays}/week</div>
+                                <X className="h-4 w-4" />
+                                CLOSE
                             </button>
-                        ))}
+                        </div>
+                        {plan === 'free' && (
+                            <p className="text-xs text-white/60">
+                                {habits.length}/{MAX_FREE_HABITS} habits used. Upgrade to Pro for unlimited habits.
+                            </p>
+                        )}
+
+                        {/* Category Filters */}
+                        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                            {CATEGORIES.map((cat) => (
+                                <button
+                                    key={cat}
+                                    onClick={() => setSelectedCategory(cat)}
+                                    className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition whitespace-nowrap ${selectedCategory === cat
+                                        ? 'bg-[#8B5CF6] text-white'
+                                        : 'border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/10'
+                                        }`}
+                                >
+                                    {cat}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Templates Grid */}
+                    <div className="flex-1 overflow-y-auto p-6">
+                        <div className="grid grid-cols-2 gap-4 max-w-4xl mx-auto">
+                            {filteredTemplates.map((template) => {
+                                const isInList = isTemplateInList(template);
+                                return (
+                                    <button
+                                        key={`${template.category}-${template.title}`}
+                                        onClick={() => toggleTemplate(template)}
+                                        className={`rounded-3xl border p-4 text-left transition ${isInList
+                                            ? 'border-[#2BD4A4] bg-white/5'
+                                            : 'border-white/10 bg-white/5 hover:bg-white/10'
+                                            }`}
+                                    >
+                                        <div className="text-3xl mb-3">{template.icon}</div>
+                                        <div className="text-lg font-semibold text-white mb-1">{template.title}</div>
+                                        <div className="text-sm text-white/70 mb-3">
+                                            {template.targetDays}/week · {template.category}
+                                        </div>
+                                        <div
+                                            className={`text-sm font-medium ${isInList ? 'text-[#2BD4A4]' : 'text-white/70'
+                                                }`}
+                                        >
+                                            {isInList ? 'In your list — click to remove' : 'Click to add'}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             )}
-
-            {/* Search & Filter */}
-            {habits.length > 0 && (
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        placeholder="🔍 Search habits..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="flex-1 bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 rounded"
-                    />
-                    <select
-                        value={filterCompleted}
-                        onChange={(e) => setFilterCompleted(e.target.value as any)}
-                        className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 rounded"
-                    >
-                        <option value="all">All</option>
-                        <option value="active">Active</option>
-                        <option value="completed">Completed</option>
-                    </select>
-                </div>
-            )}
-
-            {/* Список */}
-            {loading ? (
-                <div className="space-y-2">
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="bg-[#121420] border border-[#2A2B3E] p-3 rounded animate-pulse">
-                            <div className="h-5 bg-[#2A2B3E] rounded w-3/4"></div>
-                        </div>
-                    ))}
-                </div>
-            ) : habits.length === 0 ? (
-                <div className="text-center py-12 text-[#AAB1C2]">
-                    <div className="text-lg mb-2">No habits yet</div>
-                    <div className="text-sm">Add your first habit above!</div>
-                </div>
-            ) : (
-                <ul className="space-y-2">
-                    {habits
-                        .filter(h => {
-                            const matchesSearch = h.title.toLowerCase().includes(searchQuery.toLowerCase());
-                            const matchesFilter =
-                                filterCompleted === 'all' ||
-                                (filterCompleted === 'completed' && h.is_completed) ||
-                                (filterCompleted === 'active' && !h.is_completed);
-                            return matchesSearch && matchesFilter;
-                        })
-                        .map((h) => (
-                            <li key={h.id} className="bg-[#121420] border border-[#2A2B3E] flex justify-between items-center p-3 rounded">
-                                <div className="flex items-center">
-                                    <span className={h.is_completed ? 'line-through text-[#5B6785]' : 'text-[#E9ECF1]'}>
-                                        {h.title}
-                                    </span>
-                                    <span className="text-sm text-[#AAB1C2] ml-2">
-                                        ({h.target_days_per_week} days/week)
-                                    </span>
-                                    <span className="text-sm text-[#8B5CF6] ml-3">🔥 {h.streak ?? 0}d</span>
-                                </div>
-
-                                <button
-                                    onClick={() => markComplete(h.id, h.is_completed)}
-                                    className={`px-3 py-1 rounded transition ${h.is_completed ? 'bg-[#2BD4A4] text-white' : 'bg-[#2A2B3E] text-[#E9ECF1] hover:bg-[#3A3B4E]'}`}
-                                    aria-label={h.is_completed ? 'Completed today' : 'Mark as done today'}
-                                >
-                                    {h.is_completed ? '✔' : 'Mark'}
-                                </button>
-                            </li>
-                        ))}
-                </ul>
-            )}
-        </div>
+        </>
     );
 }
+

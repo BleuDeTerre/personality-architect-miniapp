@@ -1,0 +1,2 @@
+export const SHARE_PREVIEW_VERSION = '2024-11-15-v1';
+

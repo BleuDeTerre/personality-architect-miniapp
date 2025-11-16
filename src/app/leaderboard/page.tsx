@@ -1,9 +1,9 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { createClient } from '@supabase/supabase-js';
-import Link from 'next/link';
 import Image from 'next/image';
+import MiniAppPage from '@/components/MiniAppPage';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -88,123 +88,116 @@ export default function LeaderboardPage() {
         }
     }
 
-    const getPositionEmoji = (idx: number) => {
-        if (idx === 0) return '🥇';
-        if (idx === 1) return '🥈';
-        if (idx === 2) return '🥉';
-        return `${idx + 1}.`;
+    const myEntry = useMemo(() => {
+        if (!myUserId) return null;
+        return entries.find(e => e.user_id === myUserId) || null;
+    }, [entries, myUserId]);
+
+    const myPosition = useMemo(() => {
+        if (!myEntry) return null;
+        return entries.findIndex(e => e.user_id === myEntry.user_id) + 1;
+    }, [entries, myEntry]);
+
+    const formatDate = (dateStr: string | null) => {
+        if (!dateStr) return null;
+        return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
     return (
-        <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-4 sm:p-6 max-w-4xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] bg-clip-text text-transparent">
-                    Leaderboard
-                </h1>
-                <Link
-                    href="/"
-                    className="text-sm text-[#AAB1C2] hover:text-[#E9ECF1] transition"
-                >
-                    ← Back
-                </Link>
-            </div>
+        <MiniAppPage>
+            <div className="space-y-6">
+                {/* Header Card */}
+                <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#1C0F3A] via-[#2E1065] to-[#3E1075] p-6 shadow-[0_30px_80px_rgba(10,4,24,0.7)]">
+                    <h1 className="text-3xl font-semibold text-white mb-2">Leaderboard</h1>
+                    <p className="text-sm text-white/70">
+                        Ranked by best streak. All time leaders in habit consistency! 🔥
+                    </p>
+                </section>
 
-            <div className="bg-[#121420] border border-[#2A2B3E] rounded-lg p-4 mb-6">
-                <p className="text-sm text-[#AAB1C2]">
-                    Ranked by best streak. All time leaders in habit consistency! 🔥
-                </p>
-            </div>
-
-            {loading ? (
-                <div className="space-y-3">
-                    {[1, 2, 3, 4, 5].map(i => (
-                        <div key={i} className="bg-[#121420] border border-[#2A2B3E] rounded-lg p-4 animate-pulse">
-                            <div className="h-6 bg-[#2A2B3E] rounded w-3/4"></div>
-                            <div className="h-4 bg-[#2A2B3E] rounded w-1/2 mt-2"></div>
-                        </div>
-                    ))}
-                </div>
-            ) : entries.length === 0 ? (
-                <div className="text-center py-12 text-[#AAB1C2]">
-                    <div className="text-lg mb-2">No leaderboard data yet</div>
-                    <div className="text-sm">Complete some habits to appear on the leaderboard!</div>
-                </div>
-            ) : (
-                <div className="space-y-3">
-                    {entries.map((entry, idx) => {
-                        const name = entry.neynar_profile?.display_name
-                            ?? entry.neynar_profile?.username
-                            ?? (entry.fid ? `FID ${entry.fid}` : 'Anonymous');
-                        const handle = entry.neynar_profile?.username ? `@${entry.neynar_profile.username}` : null;
-                        const avatar = entry.neynar_profile?.pfp_url ?? null;
-                        const updatedAt = entry.neynar_profile?.updated_at
-                            ? new Date(entry.neynar_profile.updated_at).toLocaleDateString()
-                            : null;
-
-                        return (
-                            <div
-                                key={entry.user_id}
-                                className={`border rounded-lg p-4 transition ${entry.user_id === myUserId
-                                    ? 'bg-[#1A1B2E] border-[#8B5CF6] shadow-lg'
-                                    : 'bg-[#121420] border-[#2A2B3E]'
-                                    }`}
-                            >
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="flex items-start gap-3">
-                                        <span className="text-2xl mt-1">{getPositionEmoji(idx)}</span>
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-12 h-12 rounded-full bg-[#2A2B3E] flex items-center justify-center overflow-hidden text-lg relative">
-                                                {avatar ? (
-                                                    <Image
-                                                        src={avatar}
-                                                        alt={name}
-                                                        className="object-cover"
-                                                        fill
-                                                        sizes="48px"
-                                                        unoptimized
-                                                    />
-                                                ) : (
-                                                    name.slice(0, 2).toUpperCase()
-                                                )}
-                                            </div>
-                                            <div>
-                                                <div className="font-semibold text-[#E9ECF1]">
-                                                    {entry.user_id === myUserId ? '⭐ You' : name}
-                                                </div>
-                                                {handle && entry.user_id !== myUserId && (
-                                                    <div className="text-xs text-[#AAB1C2]">{handle}</div>
-                                                )}
-                                                {entry.fid && (
-                                                    <div className="text-xs text-[#AAB1C2] mt-1">FID {entry.fid}</div>
-                                                )}
-                                                {updatedAt && (
-                                                    <div className="text-[10px] text-[#5B6785] mt-1">Profile updated {updatedAt}</div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-lg font-bold text-[#2BD4A4]">{entry.best_streak}</div>
-                                        <div className="text-xs text-[#AAB1C2]">best streak</div>
-                                    </div>
+                {/* User Card */}
+                {myEntry && myPosition && (
+                    <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                        <div className="flex items-start gap-4">
+                            {/* Medal */}
+                            <div className="relative flex-shrink-0">
+                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg">
+                                    <span className="text-2xl font-bold text-[#1a1a1a]">{myPosition}</span>
                                 </div>
-                                <div className="flex gap-4 mt-3 text-sm text-[#AAB1C2]">
-                                    <div>
-                                        <span className="text-[#8B5CF6]">{entry.current_streak}</span> current
-                                    </div>
-                                    <div>
-                                        <span className="text-[#2BD4A4]">{entry.total_logs}</span> total logs
-                                    </div>
-                                </div>
-                                {entry.user_id === myUserId && (
-                                    <div className="text-xs text-[#8B5CF6] mt-3">Your position</div>
-                                )}
                             </div>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
+
+                            {/* Profile Info */}
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-3 mb-2">
+                                    {/* Avatar */}
+                                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                        {myEntry.neynar_profile?.pfp_url ? (
+                                            <Image
+                                                src={myEntry.neynar_profile.pfp_url}
+                                                alt="Profile"
+                                                width={48}
+                                                height={48}
+                                                className="object-cover w-full h-full"
+                                                unoptimized
+                                            />
+                                        ) : (
+                                            <span className="text-lg">👤</span>
+                                        )}
+                                    </div>
+                                    
+                                    {/* Name and FID */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-yellow-400">⭐</span>
+                                            <span className="text-base font-semibold text-white">You</span>
+                                        </div>
+                                        {myEntry.fid && (
+                                            <div className="text-xs text-white/60 mt-0.5">FID {myEntry.fid}</div>
+                                        )}
+                                        {myEntry.neynar_profile?.updated_at && (
+                                            <div className="text-xs text-white/60 mt-0.5">
+                                                Profile updated {formatDate(myEntry.neynar_profile.updated_at)}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Best Streak */}
+                                    <div className="text-right flex-shrink-0">
+                                        <div className="text-2xl font-bold text-[#2BD4A4]">{myEntry.best_streak}</div>
+                                        <div className="text-xs text-white/70">best streak</div>
+                                    </div>
+                                </div>
+
+                                {/* Stats */}
+                                <div className="flex gap-4 mt-3 text-sm">
+                                    <div className="text-white">
+                                        <span className="text-white">{myEntry.current_streak}</span> current
+                                    </div>
+                                    <div className="text-white">
+                                        <span className="text-[#2BD4A4]">{myEntry.total_logs}</span> total logs
+                                    </div>
+                                </div>
+
+                                {/* Your position link */}
+                                <div className="text-xs text-[#8B5CF6] mt-3">Your position</div>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* Loading State */}
+                {loading ? (
+                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 animate-pulse">
+                        <div className="h-6 bg-white/10 rounded w-3/4 mb-4"></div>
+                        <div className="h-4 bg-white/10 rounded w-1/2"></div>
+                    </div>
+                ) : entries.length === 0 ? (
+                    <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-white/60">
+                        <div className="text-lg mb-2">No leaderboard data yet</div>
+                        <div className="text-sm">Complete some habits to appear on the leaderboard!</div>
+                    </div>
+                ) : null}
+            </div>
+        </MiniAppPage>
     );
 }
 

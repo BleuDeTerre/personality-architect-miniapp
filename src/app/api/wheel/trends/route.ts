@@ -69,15 +69,49 @@ export async function GET(req: NextRequest) {
         const scores = points.map((p) => p.score);
         const last = scores[scores.length - 1];
 
+        // Calculate averages for last 4 and 12 weeks
         const last4 = scores.slice(-4);
-        const prev4 = scores.slice(-8, -4);
         const last12 = scores.slice(-12);
-        const prev12 = scores.slice(-24, -12);
 
-        const avg4 = Number(avg(last4).toFixed(2));
-        const avg12 = Number(avg(last12).toFixed(2));
-        const delta4 = Number((avg(last4) - avg(prev4)).toFixed(2) || '0');
-        const delta12 = Number((avg(last12) - avg(prev12)).toFixed(2) || '0');
+        const avg4 = last4.length > 0 ? Number(avg(last4).toFixed(1)) : Number(last.toFixed(1));
+        const avg12 = last12.length > 0 ? Number(avg(last12).toFixed(1)) : Number(last.toFixed(1));
+
+        // Calculate deltas: change vs previous window
+        // Δ 4w = avg(last 4 weeks) - avg(previous 4 weeks)
+        let delta4 = 0;
+        if (scores.length >= 8) {
+            const prev4 = scores.slice(-8, -4);
+            delta4 = Number((avg(last4) - avg(prev4)).toFixed(1));
+        } else if (scores.length >= 4) {
+            // If less than 8 weeks, compare with first available period
+            const prev4 = scores.slice(0, Math.min(4, scores.length - 4));
+            if (prev4.length > 0) {
+                delta4 = Number((avg(last4) - avg(prev4)).toFixed(1));
+            } else {
+                delta4 = Number(avg4.toFixed(1));
+            }
+        } else {
+            // If less than 4 weeks, show last value
+            delta4 = Number(last.toFixed(1));
+        }
+
+        // Δ 12w = avg(last 12 weeks) - avg(previous 12 weeks)
+        let delta12 = 0;
+        if (scores.length >= 24) {
+            const prev12 = scores.slice(-24, -12);
+            delta12 = Number((avg(last12) - avg(prev12)).toFixed(1));
+        } else if (scores.length >= 12) {
+            // If less than 24 weeks, compare with first available period
+            const prev12 = scores.slice(0, Math.min(12, scores.length - 12));
+            if (prev12.length > 0) {
+                delta12 = Number((avg(last12) - avg(prev12)).toFixed(1));
+            } else {
+                delta12 = Number(avg12.toFixed(1));
+            }
+        } else {
+            // If less than 12 weeks, show average value
+            delta12 = Number(avg12.toFixed(1));
+        }
 
         out.push({ area, last, avg4, avg12, delta4, delta12, points });
     }

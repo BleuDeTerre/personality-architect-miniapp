@@ -1,13 +1,20 @@
-// src/app/wheel/page.tsx
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import { sdk } from '@farcaster/miniapp-sdk';
 import {
-    Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer
+    Radar,
+    RadarChart,
+    PolarGrid,
+    PolarAngleAxis,
+    PolarRadiusAxis,
+    ResponsiveContainer,
 } from 'recharts';
-import CoachBlock from '@/components/CoachBlock'; // RU: коуч на основе трендов/роллапов
+import CoachBlock from '@/components/CoachBlock';
+import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
+import MiniAppPage from '@/components/MiniAppPage';
 
-// -------------------- Типы --------------------
 type Item = { area: string; score: number };
 
 type TrendPoint = { week: string; score: number };
@@ -21,22 +28,32 @@ type TrendArea = {
     points: TrendPoint[];
 };
 
-// -------------------- Константы --------------------
-// Wheel areas shown by default
 const AREAS = [
-    { name: 'Spirituality', icon: '🧘‍♂️' },
-    { name: 'Career', icon: '💼' },
-    { name: 'Relationships', icon: '❤️' },
-    { name: 'Health', icon: '🧍‍♂️' },
-    { name: 'Personal Growth', icon: '🚀' },
-    { name: 'Joy & Leisure', icon: '🎉' },
-    { name: 'Social', icon: '👥' },
-    { name: 'Finances', icon: '💰' },
-    { name: 'Environment', icon: '🏠' },
-    { name: 'Inner State', icon: '🕊️' },
+    { name: 'Inner State', icon: '🕊️', color: '#7DD3FC' }, // light blue (top-center-left)
+    { name: 'Spirituality', icon: '🧘‍♂️', color: '#A78BFA' }, // purple (top-center-right)
+    { name: 'Career', icon: '💼', color: '#3B82F6' }, // blue (top-right)
+    { name: 'Relationships', icon: '❤️', color: '#EF4444' }, // red (upper-right)
+    { name: 'Health', icon: '💊', color: '#10B981' }, // green (mid-right) - pill capsule
+    { name: 'Personal Growth', icon: '🚀', color: '#F97316' }, // orange (bottom-right)
+    { name: 'Joy & Leisure', icon: '🎉', color: '#EC4899' }, // pink/magenta (bottom-left)
+    { name: 'Social', icon: '👥', color: '#A78BFA' }, // purple (lower-left)
+    { name: 'Finances', icon: '💰', color: '#60A5FA' }, // light blue (mid-left)
+    { name: 'Environment', icon: '🏠', color: '#10B981' }, // green (top-left)
 ];
 
-// ISO week like 2025-W37 (UTC)
+const AREA_COLORS: Record<string, string> = {
+    'Inner State': '#7DD3FC',
+    'Spirituality': '#A78BFA',
+    'Career': '#3B82F6',
+    'Relationships': '#EF4444',
+    'Health': '#10B981',
+    'Personal Growth': '#F97316',
+    'Joy & Leisure': '#EC4899',
+    'Social': '#A78BFA',
+    'Finances': '#60A5FA',
+    'Environment': '#10B981',
+};
+
 function isoWeek(now = new Date()) {
     const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
     const day = d.getUTCDay() || 7;
@@ -46,37 +63,73 @@ function isoWeek(now = new Date()) {
     return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
-// Clamp to integer 0..10
 function clamp010(n: number) {
     const x = Number.isFinite(n) ? Math.trunc(n) : 0;
     return Math.max(0, Math.min(10, x));
 }
 
-// -------------------- Страница --------------------
+const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 export default function WheelPage() {
     const [week, setWeek] = useState<string>(() => isoWeek());
-    const [items, setItems] = useState<Item[]>(
-        AREAS.map(a => ({ area: a.name, score: 5 }))
-    );
-    const [loading, setLoading] = useState(false);
-
-    // RU: тренды для коучинга и дэшборда
+    const [items, setItems] = useState<Item[]>(AREAS.map(a => ({ area: a.name, score: 5 })));
+    const [weekLoading, setWeekLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [trends, setTrends] = useState<TrendArea[]>([]);
     const [trendsLoading, setTrendsLoading] = useState(false);
 
+    const authHeaders = useCallback(async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        return {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token ?? ''}`,
+        };
+    }, []);
+
     const avg = useMemo(
-        () => (items.length ? items.reduce((s, x) => s + x.score, 0) / items.length : 0),
+        () => (items.length ? items.reduce((sum, item) => sum + item.score, 0) / items.length : 0),
         [items]
     );
+    const sortedAreas = useMemo(() => [...items].sort((a, b) => b.score - a.score), [items]);
+    const topArea = sortedAreas[0];
+    const weakArea = sortedAreas[sortedAreas.length - 1];
 
-    useEffect(() => { loadWeek(week); }, [week]);
-    useEffect(() => { loadTrends(); }, []); // RU: загружаем один раз; по желанию — кнопку Refresh
+    // Top 4 areas for badges (Social, Finances, Environment, Inner State)
+    const topBadges = useMemo(() => {
+        const badgeAreas = ['Social', 'Finances', 'Environment', 'Inner State'];
+        return badgeAreas.map(name => {
+            const item = items.find(i => i.area === name);
+            const areaInfo = AREAS.find(a => a.name === name);
+            return item && areaInfo ? { ...item, icon: areaInfo.icon, color: areaInfo.color } : null;
+        }).filter(Boolean) as Array<Item & { icon: string; color: string }>;
+    }, [items]);
 
-    // Load scores for a given ISO week
+    // Interactive category buttons (6 buttons: Spirituality, Career, Relationships, Health, Personal Growth, Joy & Leisure)
+    const interactiveCategories = useMemo(() => {
+        const categoryNames = ['Spirituality', 'Career', 'Relationships', 'Health', 'Personal Growth', 'Joy & Leisure'];
+        return categoryNames.map(name => {
+            const item = items.find(i => i.area === name);
+            const areaInfo = AREAS.find(a => a.name === name);
+            return item && areaInfo ? { ...item, icon: areaInfo.icon, color: areaInfo.color } : null;
+        }).filter(Boolean) as Array<Item & { icon: string; color: string }>;
+    }, [items]);
+
+    useEffect(() => {
+        loadWeek(week);
+    }, [week]);
+
+    useEffect(() => {
+        loadTrends();
+    }, []);
+
     async function loadWeek(w: string) {
-        setLoading(true);
+        setWeekLoading(true);
         try {
-            const res = await fetch(`/api/wheel?week=${w}`);
+            const headers = await authHeaders();
+            const res = await fetch(`/api/wheel?week=${w}`, { headers, cache: 'no-store' });
             const js = await res.json();
             if (Array.isArray(js.items) && js.items.length) {
                 const map = new Map<string, number>(js.items.map((x: any) => [x.area, x.score]));
@@ -91,173 +144,339 @@ export default function WheelPage() {
                 setItems(AREAS.map(a => ({ area: a.name, score: 5 })));
             }
         } finally {
-            setLoading(false);
+            setWeekLoading(false);
         }
-    }
+        }
 
-    // Save all scores for current week
     async function saveWeek() {
-        setLoading(true);
+        setSaving(true);
         try {
+            const headers = await authHeaders();
             await Promise.all(
                 items.map(it =>
                     fetch('/api/wheel', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                method: 'POST',
+                        headers,
                         body: JSON.stringify({ week, area: it.area, score: clamp010(it.score) }),
                     })
                 )
             );
             await loadWeek(week);
-            // RU: после сохранения можно обновить тренды
             await loadTrends();
-        } catch {
-            alert('Save error');
+        } catch (error) {
+            console.error('Failed to save wheel', error);
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
     }
 
-    function setScore(idx: number, v: number) {
-        setItems(prev => prev.map((it, i) => (i === idx ? { ...it, score: clamp010(v) } : it)));
+    function setScore(idx: number, score: number) {
+        setItems(prev => prev.map((it, i) => (i === idx ? { ...it, score: clamp010(score) } : it)));
     }
 
-    // RU: тренды по последним неделям (бэкенд: /api/wheel/trends)
     async function loadTrends() {
         setTrendsLoading(true);
         try {
-            const r = await fetch('/api/wheel/trends', { cache: 'no-store' });
-            const j = await r.json();
-            setTrends(Array.isArray(j?.areas) ? j.areas : []);
+            const headers = await authHeaders();
+            const res = await fetch('/api/wheel/trends', { headers, cache: 'no-store' });
+            const js = await res.json();
+            setTrends(Array.isArray(js?.areas) ? js.areas : []);
         } finally {
             setTrendsLoading(false);
         }
     }
 
+    const shareTemplates = useMemo<CastTemplate[]>(() => {
+        if (!items.length) return [];
+        const baseSegments = items
+            .slice(0, 8)
+            .map(it => `${encodeURIComponent(it.area)}:${it.score}:`)
+            .join('|');
+        const templates: CastTemplate[] = [
+            {
+                key: 'wheel-snapshot',
+                label: `Snapshot (${avg.toFixed(1)}/10)`,
+                title: 'Wheel of Life Snapshot',
+                kind: 'wheel',
+                text: `🧭 Weekly balance ${avg.toFixed(1)}/10. ${topArea?.area ?? 'Top area'} feels strongest, ${weakArea?.area ?? 'Focus area'} needs attention.`,
+                previewParams: {
+                    preset: 'wheel:snapshot',
+                    avg: avg.toFixed(1),
+                    top: topArea?.area ?? 'Top area',
+                    low: weakArea?.area ?? 'Focus area',
+                    ws: baseSegments,
+                },
+                targetPath: '/wheel',
+            },
+        ];
+        if (weakArea && weakArea.score < 8) {
+            templates.push({
+                key: `focus-${weakArea.area}`,
+                label: `Focus: ${weakArea.area}`,
+                title: 'Focus Area',
+                kind: 'wheel',
+                text: `🎯 Doubling down on ${weakArea.area} (${weakArea.score}/10) this week.`,
+                previewParams: {
+                    preset: 'wheel:focus',
+                    a: weakArea.area,
+                    score: String(weakArea.score),
+                    ws: baseSegments,
+                },
+                targetPath: '/wheel',
+            });
+        }
+        return templates;
+    }, [avg, items, topArea, weakArea]);
+
     return (
-        <div className="min-h-screen bg-[#0D0F1A] text-[#E9ECF1] p-6 max-w-4xl mx-auto space-y-6">
-            <div className="flex items-center justify-between gap-3">
-                <h1 className="text-2xl font-bold text-[#E9ECF1]">Wheel of Life — {week} · avg {avg.toFixed(1)}</h1>
-                <button
-                    onClick={loadTrends}
-                    className="text-sm px-3 py-2 border border-[#2A2B3E] bg-[#121420] text-[#E9ECF1] rounded hover:bg-[#1A1B2E] transition"
-                    disabled={trendsLoading}
-                >
-                    {trendsLoading ? 'Refreshing…' : 'Refresh trends'}
-                </button>
-            </div>
-
-            <div className="space-y-4">
-                <div>
-                    <label className="block mb-1 font-medium text-[#E9ECF1]">Week</label>
-                    <input
-                        type="week"
-                        value={week}
-                        onChange={(e) => setWeek(e.target.value)}
-                        className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-full rounded"
-                    />
-                </div>
-
-                {loading ? (
-                    <div className="space-y-3">
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
-                            <div key={i} className="flex items-center justify-between animate-pulse">
-                                <div className="h-6 bg-[#2A2B3E] rounded w-1/2"></div>
-                                <div className="h-10 bg-[#2A2B3E] rounded w-20"></div>
-                            </div>
-                        ))}
+        <MiniAppPage>
+            <div className="space-y-6">
+                <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#120e2b] via-[#1f0f3b] to-[#2f1450] p-6 shadow-[0_30px_80px_rgba(7,3,19,0.7)]">
+                    <div className="flex flex-col gap-3">
+                        <p className="text-xs uppercase tracking-[0.4em] text-white/60">Wheel of Life</p>
+                        <h1 className="text-3xl font-semibold leading-snug">Balance every area weekly and keep your momentum.</h1>
+                        <p className="text-white/70 text-sm">Track the 10 life arenas, highlight strengths, and spotlight areas that need attention.</p>
                     </div>
-                ) : (
-                    items.map((it, i) => (
-                        <div key={`${it.area}-${i}`} className="flex items-center justify-between">
-                            <label className="w-1/2 text-[#E9ECF1]">
-                                {AREAS[i]?.icon ?? '•'} {it.area}
-                            </label>
-                            <input
-                                type="number"
-                                min={0}
-                                max={10}
-                                value={it.score}
-                                onChange={(e) => setScore(i, Number(e.target.value))}
-                                className="bg-[#121420] border border-[#2A2B3E] text-[#E9ECF1] p-2 w-20 rounded"
-                                required
-                            />
+                    <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <p className="text-xs uppercase tracking-wide text-white/60">Average</p>
+                            <p className="text-3xl font-semibold text-white">{avg.toFixed(1)}/10</p>
                         </div>
-                    ))
-                )}
-
-                <button
-                    onClick={saveWeek}
-                    disabled={loading}
-                    className="bg-[#8B5CF6] hover:bg-[#6D28D9] text-white px-4 py-2 rounded transition"
-                >
-                    {loading ? 'Saving…' : 'Save week'}
-                </button>
-            </div>
-
-            <div className="h-96">
-                {loading ? (
-                    <div className="w-full h-full bg-[#121420] border border-[#2A2B3E] rounded-lg animate-pulse flex items-center justify-center">
-                        <div className="text-[#AAB1C2]">Loading chart...</div>
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <p className="text-xs uppercase tracking-wide text-white/60">Strongest</p>
+                            <p className="text-lg font-semibold text-white">{topArea?.area ?? '—'}</p>
+                            <p className="text-sm text-white/60">{topArea ? `${topArea.score}/10` : 'Not set'}</p>
+                </div>
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <p className="text-xs uppercase tracking-wide text-white/60">Needs love</p>
+                            <p className="text-lg font-semibold text-white">{weakArea?.area ?? '—'}</p>
+                            <p className="text-sm text-white/60">{weakArea ? `${weakArea.score}/10` : 'Not set'}</p>
+                            </div>
                     </div>
-                ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                        <RadarChart data={items}>
-                            <PolarGrid />
-                            <PolarAngleAxis dataKey="area" />
-                            <PolarRadiusAxis domain={[0, 10]} />
-                            <Radar name="Score" dataKey="score" stroke="#7C5CFC" fill="#9F7CFF" fillOpacity={0.6} />
-                        </RadarChart>
-                    </ResponsiveContainer>
-                )}
-            </div>
+                    {/* Top 4 badges */}
+                    {topBadges.length > 0 && (
+                        <div className="mt-6 flex flex-wrap gap-3">
+                            {topBadges.map((badge) => (
+                                <div
+                                    key={badge.area}
+                                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 flex items-center gap-3"
+                                >
+                                    <span className="text-2xl">{badge.icon}</span>
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-semibold text-white truncate max-w-[120px]">{badge.area}</span>
+                                        <span
+                                            className="text-xs font-medium rounded-full px-2 py-0.5 inline-block w-fit"
+                                            style={{ backgroundColor: `${badge.color}20`, color: badge.color }}
+                                        >
+                                            {badge.score}/10
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </section>
 
-            {/* RU: коуч-блок на основе трендов/роллапов */}
-            <div className="space-y-2">
-                <h2 className="text-lg font-semibold text-[#E9ECF1]">Coach</h2>
+                {shareTemplates.length > 0 && (
+                    <ShareCastComposer
+                        templates={shareTemplates}
+                        sectionTitle="Share your wheel"
+                        prepareHeaders={authHeaders}
+                    />
+                )}
+
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <p className="text-xs uppercase tracking-wide text-white/60">Weekly tracking</p>
+                                <h2 className="text-2xl font-semibold text-white">Update the wheel</h2>
+                        </div>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2">
+                                    <label className="text-xs uppercase tracking-wide text-white/60">Week</label>
+                                <input
+                                    type="week"
+                                    value={week}
+                                    onChange={(e) => setWeek(e.target.value)}
+                                        className="mt-1 bg-transparent text-white focus:outline-none"
+                                    />
+                                </div>
+                                <button
+                                    onClick={loadTrends}
+                                    className="rounded-2xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10"
+                                    disabled={trendsLoading}
+                                >
+                                    {trendsLoading ? 'Updating…' : 'Refresh trends'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {weekLoading ? (
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                {AREAS.map(area => (
+                                    <div key={area.name} className="h-32 rounded-2xl border border-white/10 bg-white/5 animate-pulse" />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                {items.map((it, idx) => {
+                                    const areaInfo = AREAS.find(a => a.name === it.area);
+                                    const areaColor = areaInfo?.color ?? '#8B5CF6';
+                                return (
+                                        <div key={it.area} className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="text-sm uppercase tracking-wide text-white/60">
+                                                    {areaInfo?.icon ?? '•'} {it.area}
+                                                </div>
+                                                <span className="text-lg font-semibold text-white">{it.score}/10</span>
+                                            </div>
+                                            <input
+                                                type="range"
+                                                min={0}
+                                                max={10}
+                                                value={it.score}
+                                                onChange={(e) => setScore(idx, Number(e.target.value))}
+                                                data-area={it.area}
+                                                className="w-full"
+                                                style={{ accentColor: areaColor }}
+                                            />
+                                            <div className="flex items-center justify-between text-xs text-white/50">
+                                                <span>0</span>
+                                                <span>10</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                            <button
+                                onClick={saveWeek}
+                                disabled={weekLoading || saving}
+                                className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-center text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+                            >
+                                {saving ? 'Saving…' : 'Save week'}
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                    <h2 className="text-xl font-semibold text-white mb-4">Balance radar</h2>
+                    <div className="h-96">
+                        {weekLoading ? (
+                            <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/60">
+                                Loading chart…
+                            </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RadarChart data={items}>
+                                    <PolarGrid stroke="#ffffff1a" />
+                                    <PolarAngleAxis dataKey="area" tick={{ fill: '#ffffffa3', fontSize: 12 }} />
+                                    <PolarRadiusAxis domain={[0, 10]} tickCount={6} tick={{ fill: '#ffffff80', fontSize: 10 }} />
+                                    <Radar name="Score" dataKey="score" stroke="#c084fc" fill="#8B5CF6" fillOpacity={0.5} />
+                                </RadarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </div>
+                    {/* Interactive category buttons */}
+                    {interactiveCategories.length > 0 && (
+                        <div className="mt-6 grid grid-cols-2 gap-3">
+                            {interactiveCategories.map((category) => {
+                                const itemIdx = items.findIndex(i => i.area === category.area);
+                                return (
+                                    <button
+                                        key={category.area}
+                                        onClick={() => {
+                                            if (itemIdx >= 0) {
+                                                const slider = document.querySelector(`input[type="range"][data-area="${category.area}"]`) as HTMLInputElement;
+                                                if (slider) slider.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                            }
+                                        }}
+                                        className="rounded-2xl border border-white/10 bg-white/5 p-4 flex items-center justify-between hover:bg-white/10 transition"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-2xl">{category.icon}</span>
+                                            <span className="text-sm font-semibold text-white truncate">{category.area}</span>
+                                    </div>
+                                        <span
+                                            className="text-xs font-medium rounded-full px-3 py-1"
+                                            style={{ backgroundColor: `${category.color}20`, color: category.color }}
+                                        >
+                                            {category.score}/10
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </section>
+
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 space-y-4">
+                    <div className="flex flex-col gap-1">
+                        <p className="text-xs uppercase tracking-wide text-white/60">Coach</p>
+                        <h2 className="text-2xl font-semibold text-white">Weekly prompts</h2>
+                    </div>
+                    <div className="flex flex-col gap-3">
+                    <button
+                        onClick={loadTrends}
+                            className="rounded-2xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 w-fit"
+                        disabled={trendsLoading}
+                    >
+                            {trendsLoading ? 'Updating…' : 'REFRESH TRENDS'}
+                    </button>
                 <CoachBlock />
             </div>
+                </section>
 
-            {/* RU: табличка трендов по областям (avg4/avg12 и дельты) */}
-            <div className="space-y-2">
-                <h2 className="text-lg font-semibold text-[#E9ECF1]">Trends</h2>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full border border-[#2A2B3E] rounded">
-                        <thead className="bg-[#121420] text-sm text-[#E9ECF1]">
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 space-y-4">
+                    <div className="flex flex-col gap-1">
+                        <p className="text-xs uppercase tracking-wide text-white/60">Trends</p>
+                        <h2 className="text-2xl font-semibold text-white">Long-term movement</h2>
+                    </div>
+                    <div className="overflow-x-auto rounded-2xl border border-white/10">
+                        <table className="min-w-full border-collapse text-sm text-white/80">
+                            <thead className="bg-white/10 text-white/70">
                             <tr>
-                                <th className="text-left p-2 border border-[#2A2B3E]">Area</th>
-                                <th className="text-right p-2 border border-[#2A2B3E]">Last</th>
-                                <th className="text-right p-2 border border-[#2A2B3E]">Avg 4w</th>
-                                <th className="text-right p-2 border border-[#2A2B3E]">Avg 12w</th>
-                                <th className="text-right p-2 border border-[#2A2B3E]">Δ 4w</th>
-                                <th className="text-right p-2 border border-[#2A2B3E]">Δ 12w</th>
+                                    <th className="p-3 text-left">Area</th>
+                                <th className="p-3 text-right">Last</th>
+                                <th className="p-3 text-right">Avg 4w</th>
+                                <th className="p-3 text-right">Avg 12w</th>
+                                <th className="p-3 text-right">Δ 4w</th>
+                                <th className="p-3 text-right">Δ 12w</th>
                             </tr>
                         </thead>
-                        <tbody className="text-sm text-[#E9ECF1] bg-[#121420]">
-                            {trends.map((t) => (
-                                <tr key={t.area}>
-                                    <td className="p-2 border border-[#2A2B3E]">{t.area}</td>
-                                    <td className="p-2 border border-[#2A2B3E] text-right">{t.last?.toFixed?.(1) ?? t.last}</td>
-                                    <td className="p-2 border border-[#2A2B3E] text-right">{t.avg4?.toFixed?.(1) ?? t.avg4}</td>
-                                    <td className="p-2 border border-[#2A2B3E] text-right">{t.avg12?.toFixed?.(1) ?? t.avg12}</td>
-                                    <td className={`p-2 border border-[#2A2B3E] text-right ${t.delta4 < 0 ? 'text-red-400' : t.delta4 > 0 ? 'text-green-400' : ''}`}>
-                                        {t.delta4?.toFixed?.(1) ?? t.delta4}
+                            <tbody>
+                                {trends.map((area) => (
+                                    <tr key={area.area} className="border-t border-white/5">
+                                        <td className="p-3">{area.area}</td>
+                                        <td className="p-3 text-right">{area.last?.toFixed?.(1) ?? area.last}</td>
+                                        <td className="p-3 text-right">{area.avg4?.toFixed?.(1) ?? area.avg4}</td>
+                                        <td className="p-3 text-right">{area.avg12?.toFixed?.(1) ?? area.avg12}</td>
+                                        <td className={`p-3 text-right ${area.delta4 < 0 ? 'text-red-400' : area.delta4 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
+                                            {area.delta4?.toFixed?.(1) ?? area.delta4}
                                     </td>
-                                    <td className={`p-2 border border-[#2A2B3E] text-right ${t.delta12 < 0 ? 'text-red-400' : t.delta12 > 0 ? 'text-green-400' : ''}`}>
-                                        {t.delta12?.toFixed?.(1) ?? t.delta12}
+                                        <td className={`p-3 text-right ${area.delta12 < 0 ? 'text-red-400' : area.delta12 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
+                                            {area.delta12?.toFixed?.(1) ?? area.delta12}
                                     </td>
                                 </tr>
                             ))}
                             {!trends.length && (
-                                <tr><td colSpan={6} className="p-3 text-center text-[#AAB1C2]">No trend data yet</td></tr>
+                                <tr>
+                                        <td colSpan={6} className="p-4 text-center text-white/50">
+                                            No trend data yet.
+                                    </td>
+                                </tr>
                             )}
                         </tbody>
                     </table>
                 </div>
-                <p className="text-xs text-[#AAB1C2]">
-                    Δ — change vs previous window. Positive is improvement, negative is decline.
-                </p>
+                    <p className="text-xs text-white/50">Δ — change vs previous window (positive = improvement).</p>
+                </section>
             </div>
-        </div>
+        </MiniAppPage>
     );
 }
+

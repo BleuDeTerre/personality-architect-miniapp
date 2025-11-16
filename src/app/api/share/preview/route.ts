@@ -1,5 +1,6 @@
 // src/app/api/share/preview/route.ts
 import { NextRequest } from 'next/server';
+import { SHARE_PREVIEW_VERSION } from '@/lib/sharePreviewVersion';
 
 export const runtime = 'nodejs';
 
@@ -15,12 +16,22 @@ function getOrigin(req: NextRequest) {
     return `${url.protocol}//${url.host}`;
 }
 
-const DEFAULT_IMAGES: Record<string, string> = {
-    monthly: '/share/images/monthly.png',
-    weekly: '/share/images/weekly.png',
-    habit: '/share/images/habit.png',
-    streaks: '/share/images/streaks.png',
-};
+function toAbsolute(origin: string, value: string) {
+    if (!value) return origin;
+    if (/^https?:\/\//i.test(value)) return value;
+    if (value.startsWith('/')) return `${origin}${value}`;
+    return `${origin}/${value}`;
+}
+
+function buildOgImageUrl(origin: string, params: URLSearchParams) {
+    const og = new URL(`${origin}/api/share/og`);
+    ['kind', 'title', 'description', 'statLabel', 'statValue', 'tag', 'chips', 'variant'].forEach(key => {
+        const val = params.get(key);
+        if (val) og.searchParams.set(key, val);
+    });
+    og.searchParams.set('rev', params.get('rev') ?? SHARE_PREVIEW_VERSION);
+    return og.toString();
+}
 
 export async function GET(req: NextRequest) {
     const url = new URL(req.url);
@@ -34,9 +45,6 @@ export async function GET(req: NextRequest) {
     const remaining = url.searchParams.get('remaining');
     const descriptionParam = url.searchParams.get('description');
     const imageOverride = url.searchParams.get('image');
-
-    const defaultImage = DEFAULT_IMAGES[kind] ?? DEFAULT_IMAGES.streaks;
-    const image = imageOverride ? imageOverride : `${origin}${defaultImage}`;
 
     const description = (() => {
         if (descriptionParam) return descriptionParam;
@@ -66,6 +74,10 @@ export async function GET(req: NextRequest) {
         if (kind === 'streaks' && highlight === 'goal') return `${origin}/streaks`;
         return origin;
     })();
+
+    const image = imageOverride
+        ? toAbsolute(origin, imageOverride)
+        : buildOgImageUrl(origin, url.searchParams);
 
     const miniapp = {
         version: '1',

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { calculateQuestProgress, type DailyQuest } from '@/lib/daily-quests';
+import { calculateQuestProgress, type Quest } from '@/lib/daily-quests';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,7 +9,7 @@ const supabase = createClient(
 );
 
 export default function DailyQuests() {
-    const [quests, setQuests] = useState<DailyQuest[]>([]);
+    const [quests, setQuests] = useState<Quest[]>([]);
     const [loading, setLoading] = useState(true);
 
     const authHeaders = useCallback(async () => {
@@ -23,28 +23,40 @@ export default function DailyQuests() {
     useEffect(() => {
         async function loadQuests() {
             try {
+                setLoading(true);
                 const headers = await authHeaders();
-                const res = await fetch('/api/gamification/daily-quests', { headers });
+                const res = await fetch('/api/gamification/daily-quests', { headers, cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
-                    setQuests(data.quests || []);
+                    setQuests(data.daily || []);
                 }
             } catch (e) {
-                console.error('Failed to load daily quests:', e);
+                console.error('[DailyQuests] Failed to load daily quests:', e);
             } finally {
                 setLoading(false);
             }
         }
         loadQuests();
+
+        // Reload quests every minute to check if date changed
+        const interval = setInterval(loadQuests, 60000);
+        return () => clearInterval(interval);
     }, [authHeaders]);
 
     if (loading) {
         return (
-            <div className="p-4 bg-[#1A1B2E] border border-[#2A2B3E] rounded-lg">
-                <h3 className="text-lg font-semibold mb-3 text-[#E9ECF1]">Ежедневные задания</h3>
-                <div className="space-y-2">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold text-white">Daily Quests</h3>
+                    <span className="text-sm text-white/60">—/3</span>
+                </div>
+                <div className="space-y-3">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className="h-16 bg-[#2A2B3E] rounded animate-pulse"></div>
+                        <div key={i} className="rounded-2xl border border-white/10 bg-white/5 p-4 animate-pulse">
+                            <div className="h-5 w-1/3 rounded bg-white/10" />
+                            <div className="mt-2 h-3 w-full rounded bg-white/10" />
+                            <div className="mt-2 h-2 w-full rounded bg-white/10" />
+                        </div>
                     ))}
                 </div>
             </div>
@@ -52,62 +64,61 @@ export default function DailyQuests() {
     }
 
     if (quests.length === 0) {
-        return null;
+        return (
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold text-white">Daily Quests</h3>
+                    <span className="text-sm text-white/60">0/3</span>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-white/70">
+                    No daily quests available. Create some habits to get started!
+                </div>
+            </div>
+        );
     }
 
     const completedCount = quests.filter(q => q.completed).length;
+    const displayQuests = quests.slice(0, 3); // Show only first 3 quests
 
     return (
-        <div className="p-4 bg-[#1A1B2E] border border-[#2A2B3E] rounded-lg">
-            <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold text-[#E9ECF1]">Ежедневные задания</h3>
-                <span className="text-sm text-[#AAB1C2]">
-                    {completedCount}/{quests.length}
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-white">Daily Quests</h3>
+                <span className="text-sm text-white/60">
+                    {completedCount}/{displayQuests.length}
                 </span>
             </div>
             <div className="space-y-3">
-                {quests.map(quest => {
+                {displayQuests.map(quest => {
                     const progress = calculateQuestProgress(quest);
                     return (
                         <div
                             key={quest.id}
-                            className={`p-3 rounded-lg border ${quest.completed
-                                    ? 'bg-green-900/20 border-green-500/50'
-                                    : 'bg-[#121420] border-[#2A2B3E]'
+                            className={`rounded-2xl border p-4 transition ${quest.completed
+                                ? 'border-[#2BD4A4]/50 bg-[#2BD4A4]/5'
+                                : 'border-white/10 bg-white/5'
                                 }`}
                         >
                             <div className="flex items-start gap-3">
-                                <span className="text-2xl">{quest.icon}</span>
-                                <div className="flex-1">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <h4 className="font-medium text-[#E9ECF1]">{quest.title}</h4>
-                                        {quest.completed && (
-                                            <span className="text-xs text-green-400">✓</span>
-                                        )}
+                                <div className="text-2xl flex-shrink-0">{quest.icon}</div>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="text-base font-semibold text-white mb-1">{quest.title}</h4>
+                                    <p className="text-sm text-white/70 mb-3">{quest.description}</p>
+                                    <div className="flex items-center justify-between text-xs text-white/60 mb-2">
+                                        <span>
+                                            {quest.current}/{quest.target}
+                                        </span>
+                                        <span>{Math.round(progress)}%</span>
                                     </div>
-                                    <p className="text-sm text-[#AAB1C2] mb-2">{quest.description}</p>
-                                    <div className="space-y-1">
-                                        <div className="flex justify-between text-xs text-[#AAB1C2]">
-                                            <span>
-                                                {quest.current}/{quest.target}
-                                            </span>
-                                            <span>{progress.toFixed(0)}%</span>
-                                        </div>
-                                        <div className="h-2 bg-[#2A2B3E] rounded-full overflow-hidden">
-                                            <div
-                                                className={`h-full transition-all ${quest.completed
-                                                        ? 'bg-green-500'
-                                                        : 'bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA]'
-                                                    }`}
-                                                style={{ width: `${progress}%` }}
-                                            ></div>
-                                        </div>
+                                    <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                                        <div
+                                            className={`h-full transition-all ${quest.completed
+                                                ? 'bg-gradient-to-r from-[#2BD4A4] to-[#14b8a6]'
+                                                : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9]'
+                                                }`}
+                                            style={{ width: `${Math.min(100, progress)}%` }}
+                                        />
                                     </div>
-                                    {quest.completed && (
-                                        <div className="mt-2 text-xs text-green-400">
-                                            +{quest.xpReward} XP
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         </div>
