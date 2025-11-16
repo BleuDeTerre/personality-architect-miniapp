@@ -65,9 +65,22 @@ export async function GET(req: NextRequest) {
             }))
             .sort((a, b) => b.count - a.count);
 
+        // Проверяем, есть ли достаточно данных для генерации фактов
+        if (topHabits.length === 0 && daysStats.length === 0) {
+            return NextResponse.json({
+                facts: [],
+                top_habits: [],
+                day_stats: [],
+                message: 'Not enough data to generate insights. Track habits for at least a few days.'
+            });
+        }
+
         // Генерируем факты через AI
         const openai = openaiClient();
         const model = pickModel({ deep: false });
+
+        console.log('[Analytics Facts] Generating facts with model:', model);
+        console.log('[Analytics Facts] Data:', { topHabits, daysStats });
 
         const chat = await openai.chat.completions.create({
             model,
@@ -80,11 +93,22 @@ export async function GET(req: NextRequest) {
                 {
                     role: 'user',
                     content: [
+                        `Analyze the following habit data and generate 3-5 specific, factual insights:`,
+                        ``,
                         `Habit frequency (last 90 days):`,
-                        JSON.stringify(topHabits),
+                        JSON.stringify(topHabits, null, 2),
+                        ``,
                         `Activity by day of week:`,
-                        JSON.stringify(daysStats),
-                        `Return a JSON object with "facts" array containing 3-5 insights. Example: {"facts": ["You exercise most on Mondays", "Meditation correlates with sleep quality"]}`,
+                        JSON.stringify(daysStats, null, 2),
+                        ``,
+                        `Generate insights like:`,
+                        `- Compare habits that were practiced equally`,
+                        `- Identify peak activity days`,
+                        `- Highlight least active days`,
+                        `- Note health commitment patterns`,
+                        ``,
+                        `Return a JSON object with "facts" array containing 3-5 concise, factual insights in English.`,
+                        `Example format: {"facts": ["Hydration and meditation were practiced equally, each with a frequency of 7 times in the last 90 days.", "Activity levels peaked on Saturdays with a total of 14 counts, suggesting weekends are the most active days."]}`,
                     ].join('\n'),
                 },
             ],
@@ -94,9 +118,18 @@ export async function GET(req: NextRequest) {
         const result = JSON.parse(chat.choices[0]?.message?.content || '{}');
         const facts = Array.isArray(result.facts) ? result.facts : [];
 
+        console.log('[Analytics Facts] Generated facts:', facts.length);
+
         return NextResponse.json({ facts, top_habits: topHabits, day_stats: daysStats });
-    } catch {
-        return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    } catch (error: any) {
+        console.error('[Analytics Facts] Error:', error);
+        // Return empty facts instead of error to prevent UI breakage
+        return NextResponse.json({
+            facts: [],
+            top_habits: [],
+            day_stats: [],
+            error: error?.message || 'Failed to generate facts'
+        }, { status: 200 });
     }
 }
 

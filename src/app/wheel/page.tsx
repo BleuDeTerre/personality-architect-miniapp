@@ -11,6 +11,7 @@ import {
     ResponsiveContainer,
 } from 'recharts';
 import CoachBlock from '@/components/CoachBlock';
+import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 
 type Item = { area: string; score: number };
@@ -177,7 +178,7 @@ export default function WheelPage() {
         }
     }
 
-    const _shareTemplates = useMemo(() => {
+    const shareTemplates = useMemo<CastTemplate[]>(() => {
         if (!items.length) return [];
         const baseSegments = items
             .slice(0, 8)
@@ -191,7 +192,7 @@ export default function WheelPage() {
                 kind: 'wheel',
                 text: `🧭 Weekly balance ${avg.toFixed(1)}/10. ${topArea?.area ?? 'Top area'} feels strongest, ${weakArea?.area ?? 'Focus area'} needs attention.`,
                 previewParams: {
-                    preset: 'wheel:snapshot',
+                    variant: 'wheel:snapshot',
                     avg: avg.toFixed(1),
                     top: topArea?.area ?? 'Top area',
                     low: weakArea?.area ?? 'Focus area',
@@ -208,7 +209,7 @@ export default function WheelPage() {
                 kind: 'wheel',
                 text: `🎯 Doubling down on ${weakArea.area} (${weakArea.score}/10) this week.`,
                 previewParams: {
-                    preset: 'wheel:focus',
+                    variant: 'wheel:focus',
                     a: weakArea.area,
                     score: String(weakArea.score),
                     ws: baseSegments,
@@ -440,6 +441,17 @@ export default function WheelPage() {
                         }, [editingValues, editItems, items])}
                     </div>
                 </section>
+
+                {/* Share Section */}
+                {shareTemplates.length > 0 && (
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                        <ShareCastComposer
+                            templates={shareTemplates}
+                            sectionTitle="Share your wheel"
+                            prepareHeaders={authHeaders}
+                        />
+                    </section>
+                )}
 
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-5 space-y-4">
                     <h2 className="text-xl font-semibold text-white">Coach</h2>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { sdk } from '@farcaster/miniapp-sdk';
-import { type CastTemplate } from '@/components/share/ShareCastComposer';
+import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 
 const supabase = createClient(
@@ -31,8 +31,8 @@ export default function GoalsPage() {
     const [dueDate, setDueDate] = useState('');
     const [loading, setLoading] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [searchQuery] = useState('');
-    const [filterStatus] = useState<'active' | 'completed'>('active');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterStatus, setFilterStatus] = useState<'active' | 'completed'>('active');
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -166,7 +166,7 @@ export default function GoalsPage() {
         });
     }, [goals, searchQuery, filterStatus]);
 
-    const _goalShareTemplates = useMemo<CastTemplate[]>(() => {
+    const goalShareTemplates = useMemo<CastTemplate[]>(() => {
         if (!goals.length) return [];
         const templates: CastTemplate[] = [];
 
@@ -317,6 +317,66 @@ export default function GoalsPage() {
                     </form>
                 </section>
 
+                {/* Search and Filter */}
+                <section className="space-y-4">
+                    {/* Search Bar */}
+                    <div className="relative">
+                        <svg
+                            className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/50"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                            />
+                        </svg>
+                        <input
+                            type="text"
+                            placeholder="Search goals..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full rounded-2xl border border-white/10 bg-white/[0.03] pl-12 pr-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
+                        />
+                    </div>
+
+                    {/* Segmented Control */}
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setFilterStatus('active')}
+                            className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition ${filterStatus === 'active'
+                                ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white shadow-lg shadow-[#8B5CF6]/40'
+                                : 'border border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/5'
+                                }`}
+                        >
+                            Active goals
+                        </button>
+                        <button
+                            onClick={() => setFilterStatus('completed')}
+                            className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition ${filterStatus === 'completed'
+                                ? 'bg-gradient-to-r from-[#2BD4A4] to-[#14b8a6] text-[#041812] shadow-lg shadow-[#2BD4A4]/40'
+                                : 'border border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/5'
+                                }`}
+                        >
+                            Completed goals
+                        </button>
+                    </div>
+                </section>
+
+                {/* Share Section */}
+                {goalShareTemplates.length > 0 && (
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                        <ShareCastComposer
+                            templates={goalShareTemplates}
+                            sectionTitle="Share your goals"
+                            prepareHeaders={authHeaders}
+                        />
+                    </section>
+                )}
+
                 {loading && goals.length === 0 ? (
                     <div className="space-y-3">
                         {[1, 2, 3].map(i => (
@@ -375,6 +435,11 @@ export default function GoalsPage() {
                                                         {goal.target || ''} {goal.unit || ''}
                                                     </div>
                                                 )}
+                                                {goal.due_date && (
+                                                    <div className="mt-1 text-sm text-white/60">
+                                                        {new Date(goal.due_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                                                    </div>
+                                                )}
                                                 {goal.status && (
                                                     <div className="mt-1 text-sm text-white/60">{goal.status}</div>
                                                 )}
@@ -412,7 +477,7 @@ export default function GoalsPage() {
                                                 </button>
                                                 <button
                                                     onClick={() => deleteGoal(goal.id)}
-                                                    className="rounded-2xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-white/10 disabled:opacity-60"
+                                                    className="rounded-2xl border border-red-400/30 bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/30 disabled:opacity-60"
                                                     disabled={loading}
                                                 >
                                                     Delete

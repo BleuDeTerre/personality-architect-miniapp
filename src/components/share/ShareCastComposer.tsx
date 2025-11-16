@@ -56,13 +56,15 @@ export default function ShareCastComposer({
         if (!origin || !selected) return null;
         const url = new URL(`${origin}/api/share/og`);
         url.searchParams.set("rev", SHARE_PREVIEW_VERSION);
-        if (selected.previewParams?.preset) {
-            url.searchParams.set("preset", String(selected.previewParams.preset));
-        }
         if (selected.previewParams) {
             Object.entries(selected.previewParams).forEach(([key, value]) => {
-                if (value === undefined || value === null || key === 'preset') return;
-                url.searchParams.set(key, String(value));
+                if (value === undefined || value === null) return;
+                // Support both 'preset' and 'variant' for backward compatibility
+                if (key === 'preset') {
+                    url.searchParams.set("variant", String(value));
+                } else {
+                    url.searchParams.set(key, String(value));
+                }
             });
         }
         return url.toString();

@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { X, Loader2 } from 'lucide-react';
 import LevelUpAnimation from '@/components/LevelUpAnimation';
 import AchievementAnimation from '@/components/AchievementAnimation';
+import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 
 const supabase = createClient(
@@ -32,7 +33,7 @@ const HABIT_TEMPLATES = [
     { title: 'Exercise', icon: '💪', targetDays: 7, category: 'Fitness' },
     { title: 'Strength Training', icon: '🏋️', targetDays: 7, category: 'Fitness' },
     { title: 'Walks', icon: '🚶', targetDays: 7, category: 'Fitness' },
-    { title: 'Yoga Flow', icon: '🧘‍♀️', targetDays: 7, category: 'Fitness' },
+    { title: 'Yoga Flow', icon: '🧘', targetDays: 7, category: 'Fitness' },
     // Mindset
     { title: 'Reading', icon: '📚', targetDays: 7, category: 'Mindset' },
     { title: 'Journaling', icon: '📝', targetDays: 7, category: 'Mindset' },
@@ -50,9 +51,9 @@ const HABIT_TEMPLATES = [
     { title: 'Outdoor Time', icon: '🌳', targetDays: 7, category: 'Lifestyle' },
     // Anti-harm
     { title: 'No Smoking', icon: '🚭', targetDays: 7, category: 'Anti-harm' },
+    { title: 'No Sugary Drinks', icon: '🥤', targetDays: 7, category: 'Anti-harm' },
     { title: 'No Alcohol', icon: '🍷', targetDays: 7, category: 'Anti-harm' },
     { title: 'Limit Junk Food', icon: '🍔', targetDays: 7, category: 'Anti-harm' },
-    { title: 'No Sugary Drinks', icon: '🥤', targetDays: 7, category: 'Anti-harm' },
     { title: 'No Drugs', icon: '🚫', targetDays: 7, category: 'Anti-harm' },
     // Finance
     { title: 'Budget Review', icon: '💸', targetDays: 7, category: 'Finance' },
@@ -60,10 +61,10 @@ const HABIT_TEMPLATES = [
     { title: 'Investing Check', icon: '📈', targetDays: 7, category: 'Finance' },
     { title: 'Savings Transfer', icon: '🏦', targetDays: 7, category: 'Finance' },
     // Social
-    { title: 'Meet a Friend', icon: '🤝', targetDays: 7, category: 'Social' },
-    { title: 'Community Post', icon: '🗣️', targetDays: 7, category: 'Social' },
     { title: 'Gratitude Text', icon: '💬', targetDays: 7, category: 'Social' },
     { title: 'Call Family', icon: '📞', targetDays: 7, category: 'Social' },
+    { title: 'Meet a Friend', icon: '🤝', targetDays: 7, category: 'Social' },
+    { title: 'Community Post', icon: '🗣️', targetDays: 7, category: 'Social' },
     // Digital
     { title: 'Content Detox', icon: '📱', targetDays: 7, category: 'Digital' },
     { title: 'Creator Session', icon: '🎥', targetDays: 7, category: 'Digital' },
@@ -98,6 +99,30 @@ const _EMOJIS = [
 
 const MAX_FREE_HABITS = 5;
 
+// Popular habit emojis - 100 emojis in 20 rows of 5 columns (4 pages shown, 20 per page)
+const POPULAR_EMOJIS = [
+    // Page 1 - Wellness & Fitness
+    '🧘', '🌬️', '💧', '🛏️', '🤸',
+    '💪', '🏋️', '🚶', '🧘‍♀️', '📚',
+    '📝', '🙏', '🧠', '💻', '📦',
+    '📫', '⏱️', '📵', '🍱', '🧹',
+    // Page 2 - Food & Health
+    '🥦', '🚭', '🥤', '🍷', '🍔',
+    '🚫', '💸', '🧾', '📈', '🏦',
+    '💬', '📞', '🤝', '🗣️', '📱',
+    '🎬', '🎪', '✉️', '🔥', '🎯',
+    // Page 3 - Daily Activities
+    '✅', '🌙', '☀️', '💡', '🏃',
+    '🏊', '🚴', '🏋️', '🤾', '👊',
+    '🎵', '🧘', '🕉️', '🧴', '🧼',
+    '🪒', '🧽', '🛁', '🛁', '🪥',
+    // Page 4 - Nature & Food
+    '🫧', '🌿', '🥗', '🥦', '🍋',
+    '🥛', '☕', '🍵', '💊', '🚰',
+    '🚿', '📿', '📖', '✒️', '📅',
+    '🕐', '💰', '💳', '🪙', '🎉',
+];
+
 export default function HabitsPage() {
     const [habits, setHabits] = useState<Habit[]>([]);
     const [title, setTitle] = useState('');
@@ -109,6 +134,9 @@ export default function HabitsPage() {
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
     const [searchQuery, setSearchQuery] = useState('');
     const [filterCompleted, setFilterCompleted] = useState<'all' | 'completed' | 'active'>('all');
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [emojiPage, setEmojiPage] = useState(0);
+    const emojiPickerRef = useRef<HTMLDivElement>(null);
     const [removingHabitId, setRemovingHabitId] = useState<string | null>(null);
     const [levelUpState, setLevelUpState] = useState<{ level: number } | null>(null);
     const [achievementState, setAchievementState] = useState<{
@@ -188,9 +216,24 @@ export default function HabitsPage() {
                 }
             }
             await loadPlan();
-                fetchHabits();
+            fetchHabits();
         })();
     }, [fetchHabits, loadPlan]);
+
+    // Close emoji picker when clicking outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+                setShowEmojiPicker(false);
+            }
+        }
+        if (showEmojiPicker) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showEmojiPicker]);
 
     async function addHabit(e: React.FormEvent) {
         e.preventDefault();
@@ -294,12 +337,12 @@ export default function HabitsPage() {
                 if (xpGained.length > 0) {
                     setTimeout(() => {
                         const descriptions = xpGained.map((e: any) => e.description).join(', ');
-                    toast.success(`+${data.xp_earned} XP`, {
+                        toast.success(`+${data.xp_earned} XP`, {
                             description: descriptions,
-                        duration: 3000,
-                    });
+                            duration: 3000,
+                        });
                     }, 500);
-            }
+                }
             }
         }
     }
@@ -322,7 +365,7 @@ export default function HabitsPage() {
             const habit = habits.find(h => h.title === fullTitle);
             if (habit) {
                 await removeHabit(habit.id);
-        }
+            }
         } else {
             // Check habit limit for free plan
             if (plan === 'free' && habits.length >= MAX_FREE_HABITS) {
@@ -363,95 +406,191 @@ export default function HabitsPage() {
         });
     }, [habits, searchQuery, filterCompleted]);
 
+    const habitShareTemplates = useMemo<CastTemplate[]>(() => {
+        const templates: CastTemplate[] = [];
+
+        // Top habit by streak
+        const topHabit = [...habits]
+            .filter(h => h.streak && h.streak > 0)
+            .sort((a, b) => (b.streak || 0) - (a.streak || 0))[0];
+
+        if (topHabit && topHabit.streak && topHabit.streak > 0) {
+            const habitTitle = topHabit.title.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim();
+            templates.push({
+                key: `top-streak-${topHabit.id}`,
+                label: `Top streak: ${habitTitle} (${topHabit.streak}d)`,
+                title: 'Habit Streak Highlight',
+                kind: 'habits',
+                text: `🔥 ${topHabit.title} streak: ${topHabit.streak} days in a row! Building consistency with Personality Architect.`,
+                previewParams: {
+                    variant: 'streaks:current',
+                    description: `${habitTitle} streak`,
+                    statLabel: 'Current streak',
+                    statValue: `${topHabit.streak} days`,
+                    tag: 'HABIT STREAK',
+                },
+                targetPath: '/habits',
+            });
+        }
+
+        // Total habits count
+        if (habits.length > 0) {
+            const completedCount = habits.filter(h => h.is_completed).length;
+            templates.push({
+                key: 'habits-summary',
+                label: `Summary (${habits.length} habits)`,
+                title: 'Habits Summary',
+                kind: 'habits',
+                text: `✅ Tracking ${habits.length} habit${habits.length === 1 ? '' : 's'} in Personality Architect. ${completedCount > 0 ? `${completedCount} completed today!` : 'Building consistency day by day.'}`,
+                previewParams: {
+                    variant: 'goals:summary',
+                    description: `${habits.length} habits tracked`,
+                    statLabel: 'Total habits',
+                    statValue: `${habits.length}`,
+                    tag: 'HABIT TRACKER',
+                },
+                targetPath: '/habits',
+            });
+        }
+
+        return templates;
+    }, [habits]);
+
     return (
         <>
-                {achievementState && (
-                    <AchievementAnimation
-                        achievement={{
-                            id: achievementState.id,
-                            title: achievementState.title,
-                            icon: achievementState.icon,
-                            xpReward: achievementState.xpReward,
-                            description: achievementState.description,
-                            category: achievementState.category as any,
-                            rarity: achievementState.rarity as any,
-                        }}
-                        onComplete={() => setAchievementState(null)}
-                    />
-                )}
-                {levelUpState && (
-                    <LevelUpAnimation
-                        level={levelUpState.level}
-                        onComplete={() => setLevelUpState(null)}
-                    />
-                )}
+            {achievementState && (
+                <AchievementAnimation
+                    achievement={{
+                        id: achievementState.id,
+                        title: achievementState.title,
+                        icon: achievementState.icon,
+                        xpReward: achievementState.xpReward,
+                        description: achievementState.description,
+                        category: achievementState.category as any,
+                        rarity: achievementState.rarity as any,
+                    }}
+                    onComplete={() => setAchievementState(null)}
+                />
+            )}
+            {levelUpState && (
+                <LevelUpAnimation
+                    level={levelUpState.level}
+                    onComplete={() => setLevelUpState(null)}
+                />
+            )}
 
             <MiniAppPage>
                 <div className="space-y-6">
                     {/* Header Card */}
-                    <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
                         <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">My Habits</h1>
                         <p className="text-sm text-white/80">
-                        Build routines faster, track completions, and unlock streak rewards.
-                    </p>
+                            Build routines faster, track completions, and unlock streak rewards.
+                        </p>
                     </section>
 
                     {/* Add Habit Form */}
-                    <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
                         <form onSubmit={addHabit} className="flex flex-col gap-4">
-                            <div>
+                            <div className="relative">
                                 <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">EMOJI</label>
                                 <input
                                     type="text"
                                     placeholder="Pick emoji"
                                     value={emoji}
                                     onChange={(e) => setEmoji(e.target.value)}
-                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                    onClick={() => setShowEmojiPicker(true)}
+                                    readOnly
+                                    className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                                 />
+                                {showEmojiPicker && (
+                                    <div ref={emojiPickerRef} className="absolute z-10 mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur">
+                                        <div className="grid grid-cols-5 gap-2">
+                                            {POPULAR_EMOJIS.slice(emojiPage * 20, (emojiPage + 1) * 20).map((emojiOption, idx) => (
+                                                <button
+                                                    key={`${emojiOption}-${idx}`}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setEmoji(emojiOption);
+                                                        setShowEmojiPicker(false);
+                                                    }}
+                                                    className="rounded-xl p-3 text-2xl hover:bg-white/10 transition bg-white/[0.03] aspect-square flex items-center justify-center"
+                                                >
+                                                    {emojiOption}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="mt-3 flex gap-2">
+                                            {[0, 1, 2, 3].map((page) => (
+                                                <button
+                                                    key={page}
+                                                    type="button"
+                                                    onClick={() => setEmojiPage(page)}
+                                                    className={`flex-1 rounded-xl px-3 py-2 text-xs font-medium transition ${emojiPage === page
+                                                        ? 'bg-white/10 text-white'
+                                                        : 'bg-white/[0.03] text-white/70 hover:bg-white/10'
+                                                        }`}
+                                                >
+                                                    {page + 1}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setEmoji('');
+                                                setShowEmojiPicker(false);
+                                            }}
+                                            className="mt-3 w-full rounded-xl border border-dashed border-white/20 bg-white/[0.03] px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition"
+                                        >
+                                            Clear emoji
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">HABIT TITLE</label>
-                        <input
-                            type="text"
-                            placeholder="Habit title"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
-                            required
-                        />
+                                <input
+                                    type="text"
+                                    placeholder="Habit title"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                    required
+                                />
                             </div>
                             <div>
                                 <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">TARGET DAYS PER WEEK</label>
-                        <input
-                            type="number"
-                            min={1}
-                            max={7}
-                            value={targetDays}
-                            onChange={(e) => setTargetDays(Number(e.target.value))}
-                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
-                        />
-                    </div>
-                    <button
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={7}
+                                    value={targetDays}
+                                    onChange={(e) => setTargetDays(Number(e.target.value))}
+                                    className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                />
+                            </div>
+                            <button
                                 type="button"
                                 onClick={() => setShowTemplates(!showTemplates)}
-                                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition hover:bg-white/10 flex items-center gap-2 justify-center"
-                    >
+                                className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white font-semibold transition hover:bg-white/10 flex items-center gap-2 justify-center"
+                            >
                                 <span>📚</span>
                                 <span>Browse Habit Library</span>
-                    </button>
-                    <button
+                            </button>
+                            <button
                                 type="submit"
                                 disabled={loading}
                                 className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-center font-semibold text-white transition hover:opacity-90 disabled:opacity-60 shadow-lg shadow-[#8B5CF6]/40"
                             >
                                 {loading ? 'Adding…' : 'Add Habit'}
-                    </button>
-                </form>
+                            </button>
+                        </form>
                     </section>
 
                     {/* Search and Filter */}
                     {habits.length > 0 && (
-                        <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                        <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
                             <div className="flex flex-col gap-3">
                                 <div className="relative">
                                     <svg
@@ -472,13 +611,13 @@ export default function HabitsPage() {
                                         placeholder="Search habits..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full rounded-2xl border border-white/10 bg-white/5 pl-10 pr-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                        className="w-full rounded-2xl border border-white/10 bg-white/[0.03] pl-10 pr-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                                     />
                                 </div>
                                 <select
                                     value={filterCompleted}
                                     onChange={(e) => setFilterCompleted(e.target.value as 'all' | 'completed' | 'active')}
-                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white focus:border-white/40 focus:outline-none appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat pr-10"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white focus:border-white/40 focus:outline-none appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat pr-10"
                                 >
                                     <option value="all" className="bg-[#1a1a1a] text-white">All</option>
                                     <option value="active" className="bg-[#1a1a1a] text-white">Active</option>
@@ -488,20 +627,31 @@ export default function HabitsPage() {
                         </section>
                     )}
 
+                    {/* Share Section */}
+                    {habitShareTemplates.length > 0 && (
+                        <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                            <ShareCastComposer
+                                templates={habitShareTemplates}
+                                sectionTitle="Share your habits"
+                                prepareHeaders={authHeaders}
+                            />
+                        </section>
+                    )}
+
                     {/* Habits Grid */}
                     {loading ? (
-                        <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                        <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
                             <div className="grid grid-cols-2 gap-3">
                                 {[1, 2, 3, 4, 5, 6].map(i => (
-                                    <div key={i} className="rounded-2xl border border-white/10 bg-white/5 p-4 animate-pulse">
+                                    <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 animate-pulse">
                                         <div className="h-6 w-1/2 rounded bg-white/10" />
                                         <div className="mt-2 h-4 w-1/3 rounded bg-white/10" />
                                     </div>
-                                    ))}
-                                </div>
+                                ))}
+                            </div>
                         </section>
                     ) : filteredHabits.length === 0 ? (
-                        <section className="rounded-3xl border border-white/10 bg-white/5 p-6 text-center text-white/70">
+                        <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center text-white/70">
                             No habits match your filters.
                         </section>
                     ) : (
@@ -512,8 +662,8 @@ export default function HabitsPage() {
                                 const emoji = emojiMatch ? emojiMatch[0] : '✅';
                                 const titleText = h.title.replace(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)\s*/u, '').trim();
 
-                                        return (
-                                    <div key={h.id} className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3">
+                                return (
+                                    <div key={h.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-3">
                                         <div className="text-2xl">{emoji}</div>
                                         <div className="text-base font-semibold text-white">{titleText}</div>
                                         <div className="text-sm text-white/70">{h.target_days_per_week} days/week</div>
@@ -544,74 +694,68 @@ export default function HabitsPage() {
                                             </button>
                                         </div>
                                     </div>
-                                        );
-                                    })}
+                                );
+                            })}
                         </section>
                     )}
-                                </div>
+                </div>
             </MiniAppPage>
 
             {showTemplates && (
-                <div className="fixed inset-0 z-50 flex flex-col bg-[#05060d] overflow-hidden">
+                <div className="fixed inset-0 z-50 flex flex-col bg-[#0c0f1a] overflow-hidden">
                     {/* Header */}
                     <div className="flex flex-col gap-4 p-6 border-b border-white/10">
-                        <div className="flex items-center justify-between">
-                            <div className="flex flex-col gap-2">
-                                <h2 className="text-xl font-semibold text-white">Choose the habits you want to track.</h2>
-                                <p className="text-sm text-white/70">Tap a card to add or remove it instantly.</p>
+                        <div className="flex flex-col gap-2">
+                            <p className="text-sm text-white/70 text-center">Choose the habits you want to track. Tap a card to add or remove it instantly.</p>
+                            <div className="flex justify-center">
+                                <button
+                                    onClick={() => setShowTemplates(false)}
+                                    className="flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.03] px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 transition"
+                                >
+                                    <X className="h-4 w-4" />
+                                    CLOSE
+                                </button>
                             </div>
-                            <button
-                                onClick={() => setShowTemplates(false)}
-                                className="flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 transition"
-                            >
-                                <X className="h-4 w-4" />
-                                CLOSE
-                            </button>
                         </div>
-                        {plan === 'free' && (
-                            <p className="text-xs text-white/60">
-                                {habits.length}/{MAX_FREE_HABITS} habits used. Upgrade to Pro for unlimited habits.
-                            </p>
-                        )}
 
                         {/* Category Filters */}
-                        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                        <div className="flex gap-2 overflow-x-auto pb-2">
                             {CATEGORIES.map((cat) => (
                                 <button
                                     key={cat}
                                     onClick={() => setSelectedCategory(cat)}
                                     className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition whitespace-nowrap ${selectedCategory === cat
-                                        ? 'bg-[#8B5CF6] text-white'
-                                        : 'border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/10'
+                                        ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white'
+                                        : 'border border-white/10 bg-white/[0.03] text-white/70 hover:text-white hover:bg-white/10'
                                         }`}
                                 >
                                     {cat}
                                 </button>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Templates Grid */}
                     <div className="flex-1 overflow-y-auto p-6">
-                        <div className="grid grid-cols-2 gap-4 max-w-4xl mx-auto">
+                        <div className="grid grid-cols-2 gap-3 max-w-4xl mx-auto">
                             {filteredTemplates.map((template) => {
                                 const isInList = isTemplateInList(template);
                                 return (
                                     <button
                                         key={`${template.category}-${template.title}`}
                                         onClick={() => toggleTemplate(template)}
-                                        className={`rounded-3xl border p-4 text-left transition ${isInList
-                                            ? 'border-[#2BD4A4] bg-white/5'
-                                            : 'border-white/10 bg-white/5 hover:bg-white/10'
+                                        className={`rounded-2xl border-2 p-4 text-left transition ${isInList
+                                            ? 'border-[#2BD4A4] bg-white/[0.03]'
+                                            : 'border-white/10 bg-white/[0.03] hover:border-white/20'
                                             }`}
-                                >
-                                        <div className="text-3xl mb-3">{template.icon}</div>
-                                        <div className="text-lg font-semibold text-white mb-1">{template.title}</div>
-                                        <div className="text-sm text-white/70 mb-3">
+                                    >
+                                        <div className="text-3xl mb-2">{template.icon}</div>
+                                        <div className="text-base font-semibold text-white mb-1">{template.title}</div>
+                                        <div className="text-xs text-white/70 mb-2">
                                             {template.targetDays}/week · {template.category}
                                         </div>
                                         <div
-                                            className={`text-sm font-medium ${isInList ? 'text-[#2BD4A4]' : 'text-white/70'
+                                            className={`text-xs font-medium ${isInList ? 'text-[#2BD4A4]' : 'text-white'
                                                 }`}
                                         >
                                             {isInList ? 'In your list — click to remove' : 'Click to add'}
@@ -619,7 +763,7 @@ export default function HabitsPage() {
                                     </button>
                                 );
                             })}
-            </div>
+                        </div>
                     </div>
                 </div>
             )}

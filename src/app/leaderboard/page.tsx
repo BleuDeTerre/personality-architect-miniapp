@@ -120,8 +120,10 @@ export default function LeaderboardPage() {
                         <div className="flex items-start gap-4">
                             {/* Medal */}
                             <div className="relative flex-shrink-0">
-                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 flex items-center justify-center shadow-lg">
+                                <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 flex items-center justify-center shadow-lg">
                                     <span className="text-2xl font-bold text-yellow-900">{myPosition}</span>
+                                    {/* Red ribbon on medal */}
+                                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-8 h-2 bg-red-500 rounded-full"></div>
                                 </div>
                             </div>
 
@@ -129,7 +131,7 @@ export default function LeaderboardPage() {
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-3 mb-2">
                                     {/* Avatar */}
-                                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center overflow-hidden flex-shrink-0">
                                         {myEntry.neynar_profile?.pfp_url ? (
                                             <Image
                                                 src={myEntry.neynar_profile.pfp_url}
@@ -140,16 +142,27 @@ export default function LeaderboardPage() {
                                                 unoptimized
                                             />
                                         ) : (
-                                            <span className="text-lg">👤</span>
+                                            <span className="text-sm font-semibold text-white">
+                                                {myEntry.neynar_profile?.display_name
+                                                    ? myEntry.neynar_profile.display_name.slice(0, 2).toUpperCase()
+                                                    : myEntry.neynar_profile?.username
+                                                        ? myEntry.neynar_profile.username.slice(0, 2).toUpperCase()
+                                                        : 'FC'}
+                                            </span>
                                         )}
                                     </div>
 
                                     {/* Name and FID */}
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 mb-1">
                                             <span className="text-yellow-400">⭐</span>
                                             <span className="text-base font-semibold text-white">You</span>
                                         </div>
+                                        {myEntry.neynar_profile?.display_name && (
+                                            <div className="text-sm text-white/90 mb-0.5">
+                                                {myEntry.neynar_profile.display_name}
+                                            </div>
+                                        )}
                                         {myEntry.fid && (
                                             <div className="text-xs text-white/60 mt-0.5">FID {myEntry.fid}</div>
                                         )}
@@ -162,18 +175,18 @@ export default function LeaderboardPage() {
 
                                     {/* Best Streak */}
                                     <div className="text-right flex-shrink-0">
-                                        <div className="text-3xl font-bold text-[#2BD4A4]">{myEntry.best_streak}</div>
+                                        <div className="text-3xl font-bold text-[#A78BFA]">{myEntry.best_streak}</div>
                                         <div className="text-xs text-white/80">best streak</div>
                                     </div>
                                 </div>
 
                                 {/* Stats */}
                                 <div className="flex gap-4 mt-3 text-sm">
-                                    <div className="text-white">
-                                        <span className="text-white font-semibold">{myEntry.current_streak}</span> current
+                                    <div className="text-[#A78BFA]">
+                                        <span className="text-[#A78BFA] font-semibold">{myEntry.current_streak}</span> current
                                     </div>
-                                    <div className="text-white">
-                                        <span className="text-[#2BD4A4] font-semibold">{myEntry.total_logs}</span> total logs
+                                    <div className="text-[#A78BFA]">
+                                        <span className="text-[#A78BFA] font-semibold">{myEntry.total_logs}</span> total logs
                                     </div>
                                 </div>
 

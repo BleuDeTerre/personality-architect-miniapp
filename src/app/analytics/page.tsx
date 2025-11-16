@@ -20,7 +20,7 @@ type Comparative = {
 };
 type Facts = { facts: string[]; top_habits: Array<{ habit: string; count: number }>; day_stats: Array<{ day: string; count: number }> };
 
-type Goal = { id: string; title: string; metric?: string; target?: number; unit?: string; due_date?: string; status: string };
+type Goal = { id: string; title: string; metric?: string; target?: number; unit?: string; due_date?: string; status: string; created_at?: string };
 type WheelTrend = { area: string; last: number; avg4: number; avg12: number; delta4: number; delta12: number };
 type Stats = { current_streak: number; best_streak: number; last_completed: string | null };
 type Habit = { id: string; title: string; is_active?: boolean };
@@ -46,7 +46,7 @@ function SparklineChart({ data, maxStreak }: { data: TrendPoint[]; maxStreak: nu
     // Calculate points for the line
     const maxValue = Math.max(maxStreak, 1);
     const points = data.map((point, idx) => {
-        const x = padding + (idx / (data.length - 1)) * chartWidth;
+        const x = padding + (data.length > 1 ? (idx / (data.length - 1)) * chartWidth : chartWidth / 2);
         const y = padding + chartHeight - (point.streak / maxValue) * chartHeight;
         return `${x},${y}`;
     }).join(' ');
@@ -112,7 +112,7 @@ export default function AnalyticsPage() {
         completedDays: number;
         totalDays: number;
         longestRun: number;
-        color: 'green' | 'yellow' | 'red';
+        color: 'green' | 'yellow' | 'orange' | 'red';
     }>>([]);
     const [loadingTrend, setLoadingTrend] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -189,15 +189,17 @@ export default function AnalyticsPage() {
             }
 
             // Calculate current streak at each point in time
+            // Streak must be consecutive days (no gaps)
             for (let i = 0; i < dates.length; i++) {
                 const date = dates[i];
                 let currentStreak = 0;
 
-                // Count backwards from this date to find the current streak
+                // Count backwards from this date to find consecutive completed days
                 for (let j = i; j >= 0; j--) {
                     if (completedDates.has(dates[j])) {
                         currentStreak++;
                     } else {
+                        // If we hit a gap, streak is broken
                         break;
                     }
                 }
@@ -259,11 +261,13 @@ export default function AnalyticsPage() {
                 }
 
                 // Determine color based on completion rate
-                let color: 'green' | 'yellow' | 'red' = 'red';
+                let color: 'green' | 'yellow' | 'orange' | 'red' = 'red';
                 if (completedDays === 7) {
                     color = 'green';
-                } else if (completedDays > 0) {
+                } else if (completedDays >= 4) {
                     color = 'yellow';
+                } else if (completedDays > 0) {
+                    color = 'orange';
                 }
 
                 capsules.push({
@@ -337,13 +341,38 @@ export default function AnalyticsPage() {
     const goalProgress = useMemo(() => {
         if (activeGoals.length === 0) return null;
         const completedCount = goals.filter(g => g.status === 'completed').length;
-        const avgProgress = activeGoals.reduce((sum, _goal) => {
-            // Simplified progress calculation - assume 50% average for active goals
-            return sum + 50;
-        }, 0) / activeGoals.length;
+
+        // Calculate average progress based on due dates and time elapsed
+        const now = new Date();
+        const progressValues = activeGoals.map(goal => {
+            if (!goal.due_date) {
+                // If no due date, assume 0% progress (just started)
+                return 0;
+            }
+
+            const dueDate = new Date(goal.due_date);
+            const createdDate = goal.created_at ? new Date(goal.created_at) : now;
+            const totalTime = dueDate.getTime() - createdDate.getTime();
+            const elapsedTime = now.getTime() - createdDate.getTime();
+
+            if (totalTime <= 0) {
+                // Due date has passed or is invalid
+                return 100;
+            }
+
+            // Calculate progress as percentage of time elapsed
+            const progress = Math.min(100, Math.max(0, (elapsedTime / totalTime) * 100));
+            return progress;
+        });
+
+        const avgProgress = progressValues.length > 0
+            ? progressValues.reduce((sum, p) => sum + p, 0) / progressValues.length
+            : 0;
+
         return {
             completed: completedCount,
-            total: activeGoals.length,
+            total: goals.length,
+            active: activeGoals.length,
             avg: Math.round(avgProgress),
         };
     }, [goals, activeGoals]);
@@ -390,7 +419,10 @@ export default function AnalyticsPage() {
         if (!topWheelDeltas || topWheelDeltas.length === 0) return null;
         const top = topWheelDeltas[0];
         const bottom = wheelTrends.filter(t => t.delta4 < 0).sort((a, b) => a.delta4 - b.delta4)[0];
-        return { top: top ? { area: top.area, delta: top.delta } : null, bottom: bottom ? { area: bottom.area, delta: bottom.delta4 } : null };
+        return {
+            top: top ? { area: top.area, delta: top.delta } : null,
+            bottom: bottom ? { area: bottom.area, delta: bottom.delta4 } : null
+        };
     }, [topWheelDeltas, wheelTrends]);
 
     const habitRecommendations = useMemo(() => {
@@ -431,7 +463,7 @@ export default function AnalyticsPage() {
                 kind: 'analytics',
                 text: `${comparative.comparison.trend === 'up' ? '📈' : '📊'} Weekly habit summary: ${comparative.comparison.message}. Logged ${comparative.this_week.completed_total} habits.`,
                 previewParams: {
-                    preset: 'analytics:weekly',
+                    variant: 'analytics:weekly',
                     tw: String(comparative.this_week.completed_total),
                     lw: String(comparative.last_week.completed_total),
                 },
@@ -447,7 +479,7 @@ export default function AnalyticsPage() {
                 kind: 'analytics',
                 text: `🔥 ${top.habit} was my most logged habit (${top.count} times).`,
                 previewParams: {
-                    preset: 'analytics:top',
+                    variant: 'analytics:top',
                     n: top.habit,
                     c: String(top.count),
                 },
@@ -570,7 +602,7 @@ export default function AnalyticsPage() {
                                     {goalProgress && (
                                         <div className="text-right">
                                             <p className="text-sm font-semibold text-[#8B5CF6] inline-flex items-center gap-1">
-                                                {activeGoals.length}/{goals.length} goals
+                                                {goalProgress.active}/{goalProgress.total} goals
                                                 <span className="h-1.5 w-1.5 rounded-full bg-[#8B5CF6]"></span>
                                             </p>
                                             <p className="text-sm text-[#8B5CF6]">{goalProgress.avg}% avg</p>
@@ -716,7 +748,7 @@ export default function AnalyticsPage() {
                                                             {capsule.completedDays}/{capsule.totalDays}
                                                         </div>
                                                         <div className={`text-sm ${textColor} text-center`}>
-                                                            {capsule.longestRun === 0 ? 'Longes Break' : `Longest ${capsule.longestRun}d`}
+                                                            {capsule.longestRun === 0 ? 'Longest Break' : `Longest ${capsule.longestRun}d`}
                                                         </div>
                                                         {/* Progress bar */}
                                                         <div className="relative w-full h-2 bg-white/10 rounded-full overflow-hidden">

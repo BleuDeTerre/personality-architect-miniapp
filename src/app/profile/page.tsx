@@ -559,7 +559,7 @@ export default function ProfilePage() {
                 {/* Achievements Section */}
                 <section className="mb-6">
                     <Achievements />
-                </section>
+            </section>
 
             {/* Export Data */}
                 <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
@@ -574,26 +574,26 @@ export default function ProfilePage() {
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <button
+                    <button
                             disabled
                             className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
-                        >
+                    >
                             Export CSV
-                        </button>
-                        <button
+                    </button>
+                    <button
                             disabled
                             className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
-                        >
+                    >
                             Export Notion
-                        </button>
-                        <button
+                    </button>
+                    <button
                             disabled
                             className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
-                        >
+                    >
                             Export Obsidian
-                        </button>
-                    </div>
-                </section>
+                    </button>
+                </div>
+            </section>
             </div>
         </MiniAppPage>
     );

@@ -85,9 +85,14 @@ export default function DashboardPage() {
   return (
     <MiniAppPage>
       <section className="space-y-6">
-        <div className="bg-gradient-to-br from-[#120E2B] via-[#1c0f34] to-[#28124e] p-6 text-white">
+        <div className="bg-gradient-to-br from-[#120E2B] via-[#1c0f34] to-[#28124e] p-6">
           <h1 className="text-4xl font-bold text-[#8B5CF6] mb-3">Personality Architect</h1>
-          <p className="text-white italic text-lg leading-relaxed">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot; — Aristotle</p>
+          <div className="flex items-start justify-end gap-4">
+            <p className="text-white/90 italic text-lg leading-relaxed">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
+          </div>
+          <div className="flex justify-end mt-2">
+            <p className="text-white/70 text-sm">— Aristotle</p>
+          </div>
           {gamificationStats && (
             <div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur">
               <div className="flex items-center justify-between text-sm text-white/70">
@@ -102,7 +107,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {NAVIGATION.map(item => (
             <Link
               key={item.href}

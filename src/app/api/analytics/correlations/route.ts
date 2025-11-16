@@ -65,9 +65,12 @@ export async function GET(req: NextRequest) {
                     if (hasA && hasB) daysBoth++;
                 });
 
-                // Корреляция = daysBoth / sqrt(daysA * daysB)
-                const correlation = daysA > 0 && daysB > 0
-                    ? Number((daysBoth / Math.sqrt(daysA * daysB)).toFixed(3))
+                // Используем коэффициент Жаккара для корреляции
+                // J(A, B) = |A ∩ B| / |A ∪ B| = daysBoth / (daysA + daysB - daysBoth)
+                // Это дает значение от 0 до 1, где 1 = полная корреляция
+                const daysUnion = daysA + daysB - daysBoth;
+                const correlation = daysUnion > 0
+                    ? Number((daysBoth / daysUnion).toFixed(3))
                     : 0;
 
                 if (correlation > 0) {
@@ -91,8 +94,9 @@ export async function GET(req: NextRequest) {
         }));
 
         return NextResponse.json({ correlations: result });
-    } catch {
-        return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    } catch (error: any) {
+        console.error('[Analytics Correlations] Error:', error);
+        return NextResponse.json({ error: error?.message || 'Failed to calculate correlations' }, { status: 500 });
     }
 }
 
