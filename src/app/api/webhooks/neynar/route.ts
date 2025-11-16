@@ -68,14 +68,17 @@ async function handleCastEvent(userId: string, type: string, payload: any) {
     const castUrl = castHash ? `https://warpcast.com/~/casts/${castHash}` : null;
 
     // Логируем событие
-    await supabaseAdmin
-        .from('events_log')
-        .insert({
-            user_id: userId,
-            name: `neynar_cast:${type}`,
-            props: { type, castHash, castUrl, payload },
-        })
-        .catch(err => console.error('[Neynar webhook] Failed to log cast event:', err));
+    try {
+        await supabaseAdmin
+            .from('events_log')
+            .insert({
+                user_id: userId,
+                name: `neynar_cast:${type}`,
+                props: { type, castHash, castUrl, payload },
+            });
+    } catch (err: any) {
+        console.error('[Neynar webhook] Failed to log cast event:', err);
+    }
 }
 
 export async function POST(req: NextRequest) {
@@ -108,14 +111,17 @@ export async function POST(req: NextRequest) {
                 }
 
                 // Логируем все события
-                await supabaseAdmin
-                    .from('events_log')
-                    .insert({
-                        user_id: userId,
-                        name: `neynar_webhook:${type}`,
-                        props: { fid, type, payload },
-                    })
-                    .catch(err => console.error('[Neynar webhook] Failed to log event:', err));
+                try {
+                    await supabaseAdmin
+                        .from('events_log')
+                        .insert({
+                            user_id: userId,
+                            name: `neynar_webhook:${type}`,
+                            props: { fid, type, payload },
+                        });
+                } catch (err: any) {
+                    console.error('[Neynar webhook] Failed to log event:', err);
+                }
             }
         } catch (err) {
             console.error('[Neynar webhook] Failed to persist event:', err);
