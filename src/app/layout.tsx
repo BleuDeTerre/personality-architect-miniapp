@@ -16,13 +16,33 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Personality Architect",
-  description: "Build better habits, track your progress, achieve your goals",
+  description: "Track habits, streaks, goals and AI insights in one place. Share progress to Farcaster, receive personalized nudges, and stay consistent with gamified analytics.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Personality Architect",
   },
+  openGraph: {
+    title: "Personality Architect",
+    description: "Build better habits every day. Track habits, streaks, goals and AI insights in one place.",
+    images: [
+      {
+        url: "/share/image/miniapp-og.png",
+        width: 1200,
+        height: 630,
+        alt: "Personality Architect - Personalized habit analytics",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Personality Architect",
+    description: "Build better habits every day. Track habits, streaks, goals and AI insights in one place.",
+    images: ["/share/image/miniapp-og.png"],
+  },
+  keywords: ["habits", "productivity", "personal development", "habit tracker", "streaks", "goals", "farcaster"],
 };
 
 export const viewport: Viewport = {

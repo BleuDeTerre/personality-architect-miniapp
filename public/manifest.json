@@ -1,7 +1,7 @@
 {
     "name": "Personality Architect",
     "short_name": "PA",
-    "description": "Build better habits, track your progress, achieve your goals",
+    "description": "Track habits, streaks, goals and AI insights in one place. Share progress to Farcaster, receive personalized nudges, and stay consistent with gamified analytics.",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#0D0F1A",
