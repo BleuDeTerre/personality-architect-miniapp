@@ -115,7 +115,7 @@ export default function ChatPage() {
             <div className="flex flex-col h-full space-y-6">
                 {/* Header Card */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
-                    <h1 className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">AI Coach Chat</h1>
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">AI Coach Chat</h1>
                     <p className="text-sm text-white/80">Ask about your habits, goals, or progress. Your coach is here 24/7.</p>
                 </section>
 

@@ -72,14 +72,14 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
         <div
             ref={scrollContainerRef}
             className={[
-                "w-full max-w-sm mx-auto rounded-t-3xl bg-[#0c0f1a]/80 border-t border-x border-white/10 shadow-2xl shadow-black/50 backdrop-blur",
+                "w-full max-w-md mx-auto rounded-3xl bg-[#0c0f1a]/80 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur",
                 "overflow-x-auto no-scrollbar",
                 className ?? "",
             ]
                 .join(" ")
                 .trim()}
         >
-            <nav className="flex items-center gap-1.5 px-2 py-2.5 min-w-max">
+            <nav className="flex items-center gap-2 px-5 py-4 min-w-max">
                 {NAV_ITEMS.map((item, index) => {
                     const isActive = index === activeIndex;
                     return (
@@ -89,14 +89,14 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
                             ref={isActive ? activeLinkRef : null}
                             onClick={handleLinkClick}
                             className={[
-                                "flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs transition-all whitespace-nowrap",
-                                "flex-shrink-0",
+                                "flex flex-col items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm transition-all whitespace-nowrap",
+                                "flex-shrink-0 w-24",
                                 isActive
                                     ? "bg-white/10 text-white"
                                     : "text-white/70 hover:text-white hover:bg-white/5",
                             ].join(" ")}
                         >
-                            <span className="text-sm leading-none">{item.icon}</span>
+                            <span className="text-xl leading-none">{item.icon}</span>
                             <span className="font-medium">{item.label}</span>
                         </Link>
                     );

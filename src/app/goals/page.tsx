@@ -277,7 +277,7 @@ export default function GoalsPage() {
             <div className="space-y-6">
                 {/* Header Card */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
-                    <h1 className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">My Goals</h1>
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">My Goals</h1>
                     <p className="text-sm text-white/70">
                         Capture targets, track completions, and celebrate the finish line.
                     </p>

@@ -54,21 +54,21 @@ export default function DashboardPage() {
         // Получаем выбранный кошелек из localStorage (если был выбран)
         const selectedWallet = localStorage.getItem('selected_wallet');
         const walletType = localStorage.getItem('wallet_type') || 'farcaster';
-        
+
         // Получаем Farcaster wallet из контекста
         const { getFrameContext } = await import('@/lib/farcaster-sdk');
         const context = await getFrameContext();
         const farcasterWallet = context?.user?.custodyAddress || context?.user?.walletAddress || null;
-        
+
         // Определяем финальный кошелек
-        const wallet = walletType === 'external' && selectedWallet 
-          ? selectedWallet 
+        const wallet = walletType === 'external' && selectedWallet
+          ? selectedWallet
           : farcasterWallet;
 
         const res = await fetch('/api/auth/farcaster-login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             fid,
             wallet: wallet,
             walletType: walletType,
@@ -108,12 +108,12 @@ export default function DashboardPage() {
     <MiniAppPage>
       <section className="space-y-6">
         <div className="p-6">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-3">Personality Architect</h1>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-3">Personality Architect</h1>
           <div className="flex items-start justify-end gap-4">
-            <p className="text-[#c3c8d4] italic text-sm leading-relaxed">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
+            <p className="text-[#c3c8d4] italic text-sm leading-relaxed max-w-2xl">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
           </div>
           <div className="flex justify-end mt-2">
-            <p className="text-[#8d92a3] text-xs italic">— Aristotle</p>
+            <p className="text-[#8d92a3] text-xs italic max-w-2xl text-right">— Aristotle</p>
           </div>
           {gamificationStats && (
             <div className="mt-6 rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 backdrop-blur">

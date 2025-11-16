@@ -323,7 +323,7 @@ export default function ProfilePage() {
             <div className="space-y-6">
                 {/* Profile Section */}
                 <section className="space-y-4">
-                    <h1 className="text-3xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-4">Profile</h1>
+                    <h1 className="text-2xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-4">Profile</h1>
 
                     {neynarLoading ? (
                         <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 animate-pulse">
@@ -576,6 +576,45 @@ export default function ProfilePage() {
                 {/* Achievements Section */}
                 <section className="mb-6">
                     <Achievements />
+                </section>
+
+                {/* Clear Data Section */}
+                <section className="rounded-3xl border border-red-500/30 bg-red-500/10 p-5 sm:p-6">
+                    <div className="flex items-start justify-between mb-4">
+                        <div>
+                            <p className="text-xs uppercase tracking-wide text-red-400 mb-1">DANGER ZONE</p>
+                            <p className="text-xl font-bold text-white mb-2">Clear All Data</p>
+                            <p className="text-sm text-white/70">
+                                This will permanently delete all your habits, goals, and logs. This action cannot be undone.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={async () => {
+                            if (!confirm('Are you sure you want to delete ALL your habits, goals, and logs? This action cannot be undone.')) {
+                                return;
+                            }
+                            try {
+                                const headers = await authHeaders();
+                                const res = await fetch('/api/profile/clear-data', {
+                                    method: 'POST',
+                                    headers,
+                                });
+                                if (res.ok) {
+                                    alert('All data cleared successfully! Please refresh the page.');
+                                    window.location.reload();
+                                } else {
+                                    alert('Failed to clear data. Please try again.');
+                                }
+                            } catch (error) {
+                                console.error('[Profile] Failed to clear data:', error);
+                                alert('Failed to clear data. Please try again.');
+                            }
+                        }}
+                        className="w-full rounded-2xl border border-red-500/50 bg-red-500/20 px-4 py-3 text-sm text-red-300 font-medium transition hover:bg-red-500/30"
+                    >
+                        Clear All Data
+                    </button>
                 </section>
 
                 {/* Export Data */}

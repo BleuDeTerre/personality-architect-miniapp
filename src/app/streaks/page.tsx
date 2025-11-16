@@ -344,7 +344,7 @@ export default function StreaksPage() {
             <div className="space-y-6">
                 {/* Header Card */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
-                    <h1 className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Streaks Analytics</h1>
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Streaks Analytics</h1>
                     <p className="text-sm text-white/70">
                         Track consecutive wins, discover weak spots, and plan the next badge.
                     </p>
@@ -386,7 +386,7 @@ export default function StreaksPage() {
                         {/* Best Streak */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                             <div className="text-sm font-semibold text-white mb-2">Best Streak</div>
-                            <div className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{stats.best_streak || 0}</div>
+                            <div className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{stats.best_streak || 0}</div>
                             <div className="text-sm text-white/70">days</div>
                         </div>
 
@@ -404,7 +404,7 @@ export default function StreaksPage() {
                         {/* Next Badge */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                             <div className="text-sm font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Next Badge</div>
-                            <div className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{nextBadgeDays || 0}</div>
+                            <div className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{nextBadgeDays || 0}</div>
                             <div className="text-sm text-white/70">days remaining</div>
                         </div>
                     </div>
@@ -499,7 +499,7 @@ export default function StreaksPage() {
                         {/* BEST STREAK */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                             <div className="text-xs uppercase tracking-wide text-white/60 mb-2">BEST STREAK</div>
-                            <div className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{stats.best_streak || 0}</div>
+                            <div className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{stats.best_streak || 0}</div>
                             <div className="text-xs text-white/60">personal record</div>
                         </div>
 

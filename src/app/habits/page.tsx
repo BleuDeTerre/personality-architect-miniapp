@@ -237,22 +237,39 @@ export default function HabitsPage() {
     useEffect(() => {
         (async () => {
             const fid = await getUserFid();
-            if (!fid) return;
+            if (!fid) {
+                console.log('[HabitsPage] No FID, skipping fetch');
+                return;
+            }
 
             const { data } = await supabase.auth.getUser();
             if (!data.user) {
+                console.log('[HabitsPage] No user, attempting login...');
                 const res = await fetch('/api/auth/farcaster-login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ fid }),
                 });
-                const { access_token } = await res.json();
-                if (access_token) {
-                    await supabase.auth.setSession({ access_token, refresh_token: '' });
+                const loginData = await res.json();
+                if (loginData.access_token) {
+                    await supabase.auth.setSession({ access_token: loginData.access_token, refresh_token: '' });
+                    console.log('[HabitsPage] Login successful');
+                } else {
+                    console.error('[HabitsPage] Login failed:', loginData);
+                    return;
                 }
             }
+
+            // Проверяем сессию еще раз после логина
+            const { data: userData } = await supabase.auth.getUser();
+            if (!userData.user) {
+                console.error('[HabitsPage] Still no user after login attempt');
+                return;
+            }
+
             await loadPlan();
-            fetchHabits();
+            console.log('[HabitsPage] Fetching habits...');
+            await fetchHabits();
         })();
     }, [fetchHabits, loadPlan]);
 
@@ -532,7 +549,7 @@ export default function HabitsPage() {
                 <div className="space-y-6">
                     {/* Header Card */}
                     <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
-                        <h1 className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">My Habits</h1>
+                        <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">My Habits</h1>
                         <p className="text-sm text-white/80">
                             Build routines faster, track completions, and unlock streak rewards.
                         </p>
@@ -815,4 +832,5 @@ export default function HabitsPage() {
         </>
     );
 }
+
 

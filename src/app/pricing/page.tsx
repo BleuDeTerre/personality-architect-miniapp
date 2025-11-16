@@ -288,7 +288,7 @@ export default function PricingPage() {
             <div className="space-y-6">
                 {/* Header */}
                 <section className="space-y-2">
-                    <h1 className="text-3xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Choose Your Plan</h1>
+                    <h1 className="text-2xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Choose Your Plan</h1>
                     <p className="text-sm text-white/70">
                         Upgrade to unlock powerful insights and analytics
                     </p>

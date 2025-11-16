@@ -602,7 +602,7 @@ export default function AnalyticsPage() {
             <div className="space-y-6">
                 {/* Advanced Analytics Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
-                    <h1 className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Advanced Analytics</h1>
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Advanced Analytics</h1>
                     <p className="text-sm text-white/70">
                         First wave of dashboards arrives here. Core metrics show up as soon as we collect enough data. Below that — the roadmap of smarter insights we&apos;re building next.
                     </p>
@@ -768,7 +768,7 @@ export default function AnalyticsPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <p className="text-sm font-medium text-white">Last week</p>
-                                    <p className="text-3xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">{comparative.last_week.completed_total}</p>
+                                    <p className="text-2xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">{comparative.last_week.completed_total}</p>
                                     <p className="text-sm text-white/70">completed logs</p>
                                 </div>
                             </div>

@@ -227,7 +227,7 @@ export default function WheelPage() {
                 {/* Header Card */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
                     <p className="text-xs uppercase tracking-wide text-white/60 mb-2">WHEEL OF LIFE — WEEK {week}</p>
-                    <h1 className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Life Balance Overview</h1>
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Life Balance Overview</h1>
                     <p className="text-sm text-white/80 mb-4">
                         Rate each area of your life from 1-10 to visualize your overall balance.
                     </p>
