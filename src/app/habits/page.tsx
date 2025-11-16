@@ -191,7 +191,12 @@ export default function HabitsPage() {
                 return;
             }
 
-            const ids = base.map((h: any) => h.id);
+            // Убираем дубликаты по id
+            const uniqueHabits = base.filter((h: any, index: number, self: any[]) => 
+                index === self.findIndex((t: any) => t.id === h.id)
+            );
+
+            const ids = uniqueHabits.map((h: any) => h.id);
             const rs = await fetch('/api/habits/streaks', {
                 method: 'POST',
                 headers: hdrs,
@@ -201,14 +206,14 @@ export default function HabitsPage() {
             if (!rs.ok) {
                 console.error('[HabitsPage] Failed to fetch streaks:', rs.status);
                 // Устанавливаем привычки без streak, если не удалось загрузить streaks
-                setHabits(base.map((h: any) => ({ ...h, streak: 0 })));
+                setHabits(uniqueHabits.map((h: any) => ({ ...h, streak: 0 })));
                 return;
             }
 
             const sts: Array<{ habit_id: string; streak: number }> = await rs.json();
             const map = new Map(sts.map(x => [x.habit_id, x.streak]));
 
-            setHabits(base.map((h: any) => ({ ...h, streak: map.get(h.id) ?? 0 })));
+            setHabits(uniqueHabits.map((h: any) => ({ ...h, streak: map.get(h.id) ?? 0 })));
         } catch (error) {
             console.error('[HabitsPage] Error fetching habits:', error);
             setHabits([]);
@@ -235,6 +240,8 @@ export default function HabitsPage() {
     }, []);
 
     useEffect(() => {
+        let mounted = true;
+        
         (async () => {
             const fid = await getUserFid();
             if (!fid) {
@@ -267,10 +274,16 @@ export default function HabitsPage() {
                 return;
             }
 
+            if (!mounted) return;
+
             await loadPlan();
             console.log('[HabitsPage] Fetching habits...');
             await fetchHabits();
         })();
+
+        return () => {
+            mounted = false;
+        };
     }, [fetchHabits, loadPlan]);
 
     // Save filter state to localStorage
@@ -722,34 +735,34 @@ export default function HabitsPage() {
                                         <div className="flex items-center gap-2 mt-auto">
                                             <button
                                                 type="button"
-                                                onClick={(e) => {
+                                                onClick={async (e) => {
                                                     e.preventDefault();
                                                     e.stopPropagation();
-                                                    markComplete(h.id, h.is_completed);
+                                                    await markComplete(h.id, h.is_completed);
                                                 }}
                                                 disabled={h.is_completed}
-                                                className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition ${h.is_completed
-                                                    ? 'bg-[#22C55E] text-white'
-                                                    : 'bg-[#1a1b2e] text-white hover:bg-[#252640]'
-                                                    }`}
+                                                className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition border ${h.is_completed
+                                                    ? 'bg-[#22C55E] text-white border-[#22C55E]'
+                                                    : 'bg-[#252640] text-white border-white/20 hover:bg-[#2a2d50] hover:border-white/30'
+                                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
                                             >
                                                 {h.is_completed ? 'Completed' : 'Mark done'}
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={(e) => {
+                                                onClick={async (e) => {
                                                     e.preventDefault();
                                                     e.stopPropagation();
-                                                    removeHabit(h.id);
+                                                    await removeHabit(h.id);
                                                 }}
                                                 disabled={removingHabitId === h.id}
-                                                className="flex h-7 w-7 items-center justify-center rounded-full text-white/70 transition hover:bg-white/10 hover:text-red-400 disabled:opacity-50"
+                                                className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 transition hover:bg-red-500/30 hover:border-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 aria-label="Remove habit"
                                             >
                                                 {removingHabitId === h.id ? (
-                                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
                                                 ) : (
-                                                    <X className="h-3 w-3" />
+                                                    <X className="h-4 w-4" />
                                                 )}
                                             </button>
                                         </div>

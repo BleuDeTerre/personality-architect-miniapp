@@ -374,8 +374,8 @@ export default function WheelPage() {
                                     <RadarChart
                                         data={(() => {
                                             const currentItems = editingValues ? editItems : items;
-                                            // Create one data point per area with all area scores
-                                            return AREAS.map(areaInfo => {
+                                            // Create array with one data point per area for PolarAngleAxis
+                                            const dataArray = AREAS.map(areaInfo => {
                                                 const dataPoint: Record<string, string | number> = { area: areaInfo.name };
                                                 AREAS.forEach(a => {
                                                     const aItem = currentItems.find(i => i.area === a.name);
@@ -383,63 +383,71 @@ export default function WheelPage() {
                                                 });
                                                 return dataPoint;
                                             });
+                                            return dataArray;
                                         })()}
                                     >
                                         <PolarGrid stroke="#ffffff1a" />
                                         <PolarAngleAxis
                                             dataKey="area"
-                                            tick={false}
+                                            tick={{ fill: '#ffffff', fontSize: 11 }}
                                         />
                                         <PolarRadiusAxis
                                             domain={[0, 10]}
                                             tickCount={6}
                                             tick={false}
                                         />
-                                        {AREAS.map((areaInfo) => (
-                                            <Radar
-                                                key={areaInfo.name}
-                                                name={areaInfo.name}
-                                                dataKey={areaInfo.name}
-                                                stroke={areaInfo.color}
-                                                strokeWidth={2}
-                                                fill={areaInfo.color}
-                                                fillOpacity={0.6}
-                                                dot={false}
-                                            />
-                                        ))}
+                                        {AREAS.map((areaInfo) => {
+                                            const currentItems = editingValues ? editItems : items;
+                                            const item = currentItems.find(i => i.area === areaInfo.name);
+                                            if (!item) return null;
+                                            return (
+                                                <Radar
+                                                    key={areaInfo.name}
+                                                    name={areaInfo.name}
+                                                    dataKey={areaInfo.name}
+                                                    stroke={areaInfo.color}
+                                                    strokeWidth={2}
+                                                    fill={areaInfo.color}
+                                                    fillOpacity={0.3}
+                                                    dot={false}
+                                                />
+                                            );
+                                        })}
                                     </RadarChart>
                                 </ResponsiveContainer>
                             )}
                         </div>
 
-                        {/* Category Grid Below Chart */}
-                        <div className="grid grid-cols-2 gap-3">
-                            {useMemo(() => {
-                                const currentItems = editingValues ? editItems : items;
-                                // Order: Spirituality, Career, Relationships, Health, Personal Growth, Joy & Leisure, Social, Finances, Environment, Inner State
-                                const displayOrder = ['Spirituality', 'Career', 'Relationships', 'Health', 'Personal Growth', 'Joy & Leisure', 'Social', 'Finances', 'Environment', 'Inner State'];
-                                return displayOrder.map(areaName => {
-                                    const item = currentItems.find(i => i.area === areaName);
-                                    if (!item) return null;
-                                    const areaInfo = AREAS.find(a => a.name === areaName);
-                                    const areaColor = areaInfo?.color ?? '#8B5CF6';
-                                    return (
-                                        <div
-                                            key={item.area}
-                                            className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col items-center gap-2"
-                                        >
-                                            <span className="text-2xl">{areaInfo?.icon ?? '•'}</span>
-                                            <span className="text-xs font-semibold text-white text-center leading-tight">{item.area}</span>
-                                            <span
-                                                className="text-xs font-medium rounded-full px-3 py-1"
-                                                style={{ backgroundColor: `${areaColor}20`, color: areaColor, border: `1px solid ${areaColor}` }}
+                        {/* Category Grid Below Chart - Horizontal Scroll */}
+                        <div className="overflow-x-auto no-scrollbar">
+                            <div className="flex gap-2 min-w-max">
+                                {useMemo(() => {
+                                    const currentItems = editingValues ? editItems : items;
+                                    // Order: Spirituality, Career, Relationships, Health, Personal Growth, Joy & Leisure, Social, Finances, Environment, Inner State
+                                    const displayOrder = ['Spirituality', 'Career', 'Relationships', 'Health', 'Personal Growth', 'Joy & Leisure', 'Social', 'Finances', 'Environment', 'Inner State'];
+                                    return displayOrder.map(areaName => {
+                                        const item = currentItems.find(i => i.area === areaName);
+                                        if (!item) return null;
+                                        const areaInfo = AREAS.find(a => a.name === areaName);
+                                        const areaColor = areaInfo?.color ?? '#8B5CF6';
+                                        return (
+                                            <div
+                                                key={item.area}
+                                                className="rounded-xl border border-white/10 bg-[#1a1b2e] p-2.5 flex flex-col items-center gap-1.5 min-w-[80px] flex-shrink-0"
                                             >
-                                                {item.score}/10
-                                            </span>
-                                        </div>
-                                    );
-                                }).filter(Boolean);
-                            }, [editingValues, editItems, items])}
+                                                <span className="text-lg">{areaInfo?.icon ?? '•'}</span>
+                                                <span className="text-[10px] font-semibold text-white text-center leading-tight truncate w-full">{item.area}</span>
+                                                <span
+                                                    className="text-[10px] font-medium rounded-full px-2 py-0.5 whitespace-nowrap"
+                                                    style={{ backgroundColor: `${areaColor}20`, color: areaColor, border: `1px solid ${areaColor}` }}
+                                                >
+                                                    {item.score}/10
+                                                </span>
+                                            </div>
+                                        );
+                                    }).filter(Boolean);
+                                }, [editingValues, editItems, items])}
+                            </div>
                         </div>
                     </div>
                 </section>

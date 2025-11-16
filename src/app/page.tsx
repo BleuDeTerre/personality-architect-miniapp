@@ -46,6 +46,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     (async () => {
+      // Задержка перед автоматическим логином, чтобы модальные окна успели показаться
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       const fid = await getUserFid();
       if (!fid) return;
 
@@ -109,11 +112,13 @@ export default function DashboardPage() {
       <section className="space-y-6">
         <div className="p-6">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-3">Personality Architect</h1>
-          <div className="flex items-start justify-end gap-4">
-            <p className="text-[#c3c8d4] italic text-sm leading-relaxed max-w-2xl">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
-          </div>
-          <div className="flex justify-end mt-2">
-            <p className="text-[#8d92a3] text-xs italic max-w-2xl text-right">— Aristotle</p>
+          <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6 mt-4">
+            <div className="flex items-start justify-end gap-4">
+              <p className="text-[#c3c8d4] italic text-sm leading-relaxed max-w-4xl">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
+            </div>
+            <div className="flex justify-end mt-2">
+              <p className="text-[#8d92a3] text-xs italic max-w-4xl text-right">— Aristotle</p>
+            </div>
           </div>
           {gamificationStats && (
             <div className="mt-6 rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 backdrop-blur">

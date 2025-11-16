@@ -21,6 +21,26 @@ export default function WalletSelectionModal() {
     const [checking, setChecking] = useState(true);
 
     useEffect(() => {
+        // Сначала подписываемся на изменения сессии, чтобы отслеживать логин в реальном времени
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (session?.user) {
+                setShow(false);
+            } else {
+                // Пользователь разлогинился - показываем окно
+                // Получаем Farcaster wallet из контекста (только если в Mini App)
+                if (isRunningInMiniApp()) {
+                    const context = await getFrameContext();
+                    const wallet = context?.user?.custodyAddress || context?.user?.walletAddress || null;
+                    setFarcasterWallet(wallet);
+                }
+                // Показываем после AddMiniAppModal (через 1 секунду после него)
+                setTimeout(() => {
+                    setShow(true);
+                }, 1000);
+            }
+        });
+
+        // Затем проверяем текущее состояние
         const checkUser = async () => {
             try {
                 const { data } = await supabase.auth.getUser();
@@ -34,10 +54,21 @@ export default function WalletSelectionModal() {
                         setFarcasterWallet(wallet);
                     }
                     
-                    // Небольшая задержка для плавного появления
+                    // Проверяем, закрыто ли AddMiniAppModal (через проверку интервала)
+                    const checkAddModalClosed = setInterval(() => {
+                        // Проверяем, есть ли активное модальное окно AddMiniAppModal
+                        const addModalElement = document.querySelector('[data-modal="add-miniapp"]');
+                        if (!addModalElement || addModalElement.getAttribute('data-show') === 'false') {
+                            clearInterval(checkAddModalClosed);
+                            setShow(true);
+                        }
+                    }, 200);
+                    
+                    // Показываем через 1.5 секунды в любом случае (fallback)
                     setTimeout(() => {
+                        clearInterval(checkAddModalClosed);
                         setShow(true);
-                    }, 2000); // Показываем после AddMiniAppModal
+                    }, 1500);
                 } else {
                     setShow(false);
                 }
@@ -49,29 +80,6 @@ export default function WalletSelectionModal() {
         };
 
         checkUser();
-
-        // Подписываемся на изменения сессии
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (session?.user) {
-                setShow(false);
-            } else {
-                // Обновляем Farcaster wallet при разлогине (только если в Mini App)
-                if (isRunningInMiniApp()) {
-                    getFrameContext().then(context => {
-                        const wallet = context?.user?.custodyAddress || context?.user?.walletAddress || null;
-                        setFarcasterWallet(wallet);
-                        setTimeout(() => {
-                            setShow(true);
-                        }, 500);
-                    });
-                } else {
-                    // В браузере просто показываем модальное окно
-                    setTimeout(() => {
-                        setShow(true);
-                    }, 500);
-                }
-            }
-        });
 
         return () => {
             subscription.unsubscribe();
@@ -117,6 +125,8 @@ export default function WalletSelectionModal() {
 
     const handleCancel = () => {
         setShow(false);
+        // Сохраняем в localStorage, что пользователь видел это окно
+        localStorage.setItem('wallet_selection_seen', 'true');
     };
 
     if (!show) return null;

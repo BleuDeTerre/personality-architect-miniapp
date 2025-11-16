@@ -17,16 +17,28 @@ export default function AddMiniAppModal() {
     const [checking, setChecking] = useState(true);
 
     useEffect(() => {
+        // Сначала подписываемся на изменения сессии, чтобы отслеживать логин в реальном времени
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (session?.user) {
+                // Пользователь залогинился - скрываем окно
+                setShow(false);
+            } else {
+                // Пользователь разлогинился - показываем окно сразу
+                setShow(true);
+            }
+        });
+
+        // Затем проверяем текущее состояние
         const checkUser = async () => {
             try {
                 const { data } = await supabase.auth.getUser();
                 
                 // Показываем для всех незалогиненных пользователей
                 if (!data.user) {
-                    // Небольшая задержка для плавного появления
+                    // Минимальная задержка для плавного появления
                     setTimeout(() => {
                         setShow(true);
-                    }, 1500);
+                    }, 500);
                 } else {
                     // Если пользователь залогинен - скрываем окно
                     setShow(false);
@@ -39,19 +51,6 @@ export default function AddMiniAppModal() {
         };
 
         checkUser();
-
-        // Подписываемся на изменения сессии
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (session?.user) {
-                // Пользователь залогинился - скрываем окно
-                setShow(false);
-            } else {
-                // Пользователь разлогинился - показываем окно
-                setTimeout(() => {
-                    setShow(true);
-                }, 500);
-            }
-        });
 
         return () => {
             subscription.unsubscribe();
@@ -81,6 +80,8 @@ export default function AddMiniAppModal() {
 
     const handleCancel = () => {
         setShow(false);
+        // Сохраняем в localStorage, что пользователь видел это окно
+        localStorage.setItem('add_miniapp_seen', 'true');
     };
 
     const handleConfirm = async () => {
@@ -88,12 +89,18 @@ export default function AddMiniAppModal() {
             handleEnableNotifications();
         }
         await handleAddToFarcaster();
+        // Сохраняем в localStorage, что пользователь видел это окно
+        localStorage.setItem('add_miniapp_seen', 'true');
     };
 
     if (!show) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div 
+            data-modal="add-miniapp" 
+            data-show={show.toString()}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        >
             <div className="relative w-full max-w-md rounded-3xl border border-white/10 bg-[#1a1b2e] p-6 shadow-2xl">
                 {/* Close button */}
                 <button
