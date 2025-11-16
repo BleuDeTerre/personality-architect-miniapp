@@ -356,37 +356,37 @@ export default function ProfilePage() {
                                     <div className="h-4 bg-white/10 rounded w-24"></div>
                                 </div>
                             </div>
-                        </div>
-                    ) : neynarProfile ? (
+                </div>
+                ) : neynarProfile ? (
                         <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
                             <div className="flex items-start gap-4">
                                 {/* Profile Picture */}
                                 <div className="w-16 h-16 rounded-full overflow-hidden bg-white/10 flex items-center justify-center text-2xl font-semibold text-white/80 relative flex-shrink-0">
-                                    {neynarProfile.pfpUrl ? (
-                                        <Image
-                                            src={neynarProfile.pfpUrl}
-                                            alt={neynarDisplayName ?? 'Farcaster user'}
-                                            className="object-cover"
-                                            fill
-                                            sizes="64px"
-                                            unoptimized
-                                        />
-                                    ) : (
-                                        neynarInitials
-                                    )}
-                                </div>
+                                {neynarProfile.pfpUrl ? (
+                                    <Image
+                                        src={neynarProfile.pfpUrl}
+                                        alt={neynarDisplayName ?? 'Farcaster user'}
+                                        className="object-cover"
+                                        fill
+                                        sizes="64px"
+                                        unoptimized
+                                    />
+                                ) : (
+                                    neynarInitials
+                                )}
+                            </div>
 
                                 {/* User Info */}
                                 <div className="flex-1 min-w-0">
                                     <div className="text-xl font-bold text-white mb-1">
                                         {neynarProfile.displayName ?? neynarProfile.username ?? 'Farcaster User'}
                                     </div>
-                                    {neynarProfile.username && (
+                                {neynarProfile.username && (
                                         <div className="text-sm text-white/60 mb-1">@{neynarProfile.username}</div>
-                                    )}
-                                    {neynarProfile.fid && (
+                                )}
+                                {neynarProfile.fid && (
                                         <div className="text-sm text-white/60 mb-3">FID {neynarProfile.fid}</div>
-                                    )}
+                                )}
 
                                     {/* Bio Attributes */}
                                     {bioAttributes.length > 0 && (
@@ -444,234 +444,234 @@ export default function ProfilePage() {
                 )}
 
 
-                {/* Level & XP Card */}
-                {gamificationStats && (
+            {/* Level & XP Card */}
+            {gamificationStats && (
                     <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <div>
-                                <div className={`text-2xl font-bold ${levelColor}`}>{levelName}</div>
-                                <div className="text-sm text-white/70">Level {level}</div>
-                            </div>
-                            <div className="text-right">
-                                <div className="text-2xl font-bold text-white">{xp.toLocaleString()}</div>
-                                <div className="text-sm text-white/70">Total XP</div>
-                            </div>
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <div className={`text-2xl font-bold ${levelColor}`}>{levelName}</div>
+                            <div className="text-sm text-white/70">Level {level}</div>
                         </div>
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-xs text-white/80">
-                                <span>Progress to Level {level + 1}</span>
-                                <span>{progress.toFixed(0)}%</span>
-                            </div>
-                            <div className="h-3 bg-white/20 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] transition-all duration-300"
-                                    style={{ width: `${progress}%` }}
-                                ></div>
-                            </div>
-                            <div className="flex justify-between text-xs text-white/70">
-                                <span>
-                                    {xpRemaining > 0
+                        <div className="text-right">
+                            <div className="text-2xl font-bold text-white">{xp.toLocaleString()}</div>
+                            <div className="text-sm text-white/70">Total XP</div>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-xs text-white/80">
+                            <span>Progress to Level {level + 1}</span>
+                            <span>{progress.toFixed(0)}%</span>
+                        </div>
+                        <div className="h-3 bg-white/20 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] transition-all duration-300"
+                                style={{ width: `${progress}%` }}
+                            ></div>
+                        </div>
+                        <div className="flex justify-between text-xs text-white/70">
+                            <span>
+                                {xpRemaining > 0
                                         ? `Осталось ${xpRemaining.toLocaleString()} XP`
                                         : `Готов к уровню ${level + 1}!`}
-                                </span>
+                            </span>
                                 <span>{((level + 1) ** 2 * 100).toLocaleString()} XP всего</span>
-                            </div>
                         </div>
                     </div>
-                )}
-
-                {/* Profile cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                    <Info label="FID" value={p.fid ?? '—'} />
-                    <Info label="Supabase User" value={p.supaUserId ?? '—'} />
-                    <Info label="Wallet" value={p.wallet ?? '—'} mono />
-                    <Info label="Plan" value={(p.plan ?? 'free').toUpperCase()} />
                 </div>
+            )}
 
-                {/* Badges with Mint buttons */}
-                <section className="mb-6">
-                    <h2 className="text-xl font-semibold mb-3">Badges Gallery</h2>
-                    {loading ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {[1, 2, 3, 4, 5, 6].map(i => (
+            {/* Profile cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <Info label="FID" value={p.fid ?? '—'} />
+                <Info label="Supabase User" value={p.supaUserId ?? '—'} />
+                <Info label="Wallet" value={p.wallet ?? '—'} mono />
+                <Info label="Plan" value={(p.plan ?? 'free').toUpperCase()} />
+            </div>
+
+            {/* Badges with Mint buttons */}
+            <section className="mb-6">
+                <h2 className="text-xl font-semibold mb-3">Badges Gallery</h2>
+                {loading ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {[1, 2, 3, 4, 5, 6].map(i => (
                                 <div key={i} className="rounded-3xl border border-white/10 bg-white/5 p-4 animate-pulse">
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
-                                        <div className="flex-1 space-y-2">
-                                            <div className="h-4 bg-white/20 rounded w-3/4"></div>
-                                            <div className="h-3 bg-white/20 rounded w-full"></div>
-                                        </div>
+                                <div className="flex items-start gap-3">
+                                    <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
+                                    <div className="flex-1 space-y-2">
+                                        <div className="h-4 bg-white/20 rounded w-3/4"></div>
+                                        <div className="h-3 bg-white/20 rounded w-full"></div>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {BADGES.map(b => {
-                                const st = statusMap[b.slug] ?? 'none';
-                                const el = eligMap[b.slug]?.eligible ?? false;
-                                const reason = eligMap[b.slug]?.reason ?? '';
-                                const canMint = el && st === 'none';
-                                return (
-                                    <div
-                                        key={b.slug}
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {BADGES.map(b => {
+                            const st = statusMap[b.slug] ?? 'none';
+                            const el = eligMap[b.slug]?.eligible ?? false;
+                            const reason = eligMap[b.slug]?.reason ?? '';
+                            const canMint = el && st === 'none';
+                            return (
+                                <div
+                                    key={b.slug}
                                         className="rounded-3xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2 transition hover:bg-white/10"
-                                        title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
-                                    >
-                                        <div className="flex items-start gap-3">
-                                            <BadgeImage src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
-                                            <div className="flex-1">
-                                                <div className="font-medium">{b.title}</div>
-                                                <div className="text-xs text-white/70">{b.description}</div>
-                                                <div className="text-xs mt-1">
-                                                    Status: <span className="font-mono">{st}</span>
-                                                    {!el && <span className="ml-2 opacity-80">({reason})</span>}
-                                                </div>
+                                    title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <BadgeImage src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                                        <div className="flex-1">
+                                            <div className="font-medium">{b.title}</div>
+                                            <div className="text-xs text-white/70">{b.description}</div>
+                                            <div className="text-xs mt-1">
+                                                Status: <span className="font-mono">{st}</span>
+                                                {!el && <span className="ml-2 opacity-80">({reason})</span>}
                                             </div>
                                         </div>
-                                        <button
-                                            onClick={() => mint(b.slug)}
-                                            disabled={loading || busyCode === b.slug || !canMint || !p.wallet}
-                                            className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
-                                            title={!p.wallet ? 'Add wallet address first' : (!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT')}
-                                        >
-                                            {busyCode === b.slug ? 'Minting…' : !p.wallet ? 'Add wallet' : (st === 'success' ? '✅ Minted' : 'Mint')}
-                                        </button>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </section>
-
-                {/* Wallet setup */}
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                    <h2 className="text-xl font-semibold mb-3">Wallet</h2>
-                    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
-                        <div className="flex-1 w-full">
-                            <label className="text-xs opacity-70">EVM Address</label>
-                            <input
-                                value={walletInput}
-                                onChange={e => setWalletInput(e.target.value)}
-                                placeholder="0x..."
-                                className="mt-1 w-full px-3 py-2 rounded bg-white/5 border border-white/20"
-                            />
-                            {walletError && <div className="text-xs text-red-400 mt-1">{walletError}</div>}
-                        </div>
-                        <button
-                            onClick={async () => {
-                                setWalletError(null);
-                                if (!/^0x[0-9a-fA-F]{40}$/.test(walletInput)) {
-                                    setWalletError('Неверный адрес кошелька');
-                                    return;
-                                }
-                                setWalletSaving(true);
-                                try {
-                                    const r = await fetch('/api/profile/wallet', {
-                                        method: 'POST',
-                                        headers: await authHeaders(),
-                                        body: JSON.stringify({ wallet: walletInput }),
-                                    });
-                                    const j = await r.json();
-                                    if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-                                    setP(prev => ({ ...prev, wallet: walletInput }));
-                                } catch (error) {
-                                    const message = error instanceof Error ? error.message : 'Ошибка сохранения';
-                                    setWalletError(message);
-                                } finally {
-                                    setWalletSaving(false);
-                                }
-                            }}
-                            disabled={walletSaving}
-                            className="px-4 py-2 rounded bg-white/20 hover:bg-white/30 transition disabled:opacity-50"
-                        >
-                            {walletSaving ? 'Сохранение...' : 'Сохранить'}
-                        </button>
-                    </div>
-                </section>
-
-                {/* Push Notifications Settings */}
-                <section className="mb-6">
-                    <PushNotificationSettings />
-                </section>
-
-                {/* Export Data */}
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                    <h2 className="text-xl font-semibold mb-3">Export Data</h2>
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                            onClick={async () => {
-                                const hdrs = await authHeaders();
-                                const res = await fetch('/api/export/data?format=json', { headers: hdrs });
-                                if (res.ok) {
-                                    const blob = await res.blob();
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.json`;
-                                    a.click();
-                                }
-                            }}
-                            className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
-                        >
-                            📥 Download JSON
-                        </button>
-                        <button
-                            onClick={async () => {
-                                const hdrs = await authHeaders();
-                                const res = await fetch('/api/export/data?format=csv', { headers: hdrs });
-                                if (res.ok) {
-                                    const blob = await res.blob();
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.csv`;
-                                    a.click();
-                                }
-                            }}
-                            className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
-                        >
-                            📊 Download CSV
-                        </button>
-                        <button
-                            onClick={async () => {
-                                const hdrs = await authHeaders();
-                                const res = await fetch('/api/export/ical', { headers: hdrs });
-                                if (res.ok) {
-                                    const blob = await res.blob();
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `habits.ics`;
-                                    a.click();
-                                }
-                            }}
-                            className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
-                        >
-                            📅 Download iCal
-                        </button>
-                    </div>
-                </section>
-
-                {/* SDK Sign In and context debug */}
-                <button
-                    onClick={signin}
-                    className="w-full sm:w-auto px-6 py-3 rounded-xl font-medium text-lg transition-transform transform hover:scale-105 border-2 border-white/30 bg-white/10"
-                >
-                    Sign in with Farcaster
-                </button>
-
-                <div className="bg-white/10 p-4 rounded-lg mt-4">
-                    <h2 className="text-xl font-semibold mb-2">Context</h2>
-                    <pre className="text-sm whitespace-pre-wrap break-words">{JSON.stringify(ctx, null, 2)}</pre>
-                </div>
-
-                {authView && (
-                    <div className="bg-white/10 p-4 rounded-lg mt-4">
-                        <h2 className="text-xl font-semibold mb-2">Authorization (SDK)</h2>
-                        <pre className="text-sm whitespace-pre-wrap break-words">{JSON.stringify(authView, null, 2)}</pre>
+                                    <button
+                                        onClick={() => mint(b.slug)}
+                                        disabled={loading || busyCode === b.slug || !canMint || !p.wallet}
+                                        className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
+                                        title={!p.wallet ? 'Add wallet address first' : (!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT')}
+                                    >
+                                        {busyCode === b.slug ? 'Minting…' : !p.wallet ? 'Add wallet' : (st === 'success' ? '✅ Minted' : 'Mint')}
+                                    </button>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
+            </section>
+
+            {/* Wallet setup */}
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                <h2 className="text-xl font-semibold mb-3">Wallet</h2>
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+                    <div className="flex-1 w-full">
+                        <label className="text-xs opacity-70">EVM Address</label>
+                        <input
+                            value={walletInput}
+                            onChange={e => setWalletInput(e.target.value)}
+                            placeholder="0x..."
+                            className="mt-1 w-full px-3 py-2 rounded bg-white/5 border border-white/20"
+                        />
+                        {walletError && <div className="text-xs text-red-400 mt-1">{walletError}</div>}
+                    </div>
+                    <button
+                        onClick={async () => {
+                            setWalletError(null);
+                            if (!/^0x[0-9a-fA-F]{40}$/.test(walletInput)) {
+                                    setWalletError('Неверный адрес кошелька');
+                                return;
+                            }
+                            setWalletSaving(true);
+                            try {
+                                const r = await fetch('/api/profile/wallet', {
+                                    method: 'POST',
+                                    headers: await authHeaders(),
+                                    body: JSON.stringify({ wallet: walletInput }),
+                                });
+                                const j = await r.json();
+                                if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+                                setP(prev => ({ ...prev, wallet: walletInput }));
+                            } catch (error) {
+                                    const message = error instanceof Error ? error.message : 'Ошибка сохранения';
+                                setWalletError(message);
+                            } finally {
+                                setWalletSaving(false);
+                            }
+                        }}
+                        disabled={walletSaving}
+                        className="px-4 py-2 rounded bg-white/20 hover:bg-white/30 transition disabled:opacity-50"
+                    >
+                            {walletSaving ? 'Сохранение...' : 'Сохранить'}
+                    </button>
+                </div>
+            </section>
+
+            {/* Push Notifications Settings */}
+            <section className="mb-6">
+                <PushNotificationSettings />
+            </section>
+
+            {/* Export Data */}
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                <h2 className="text-xl font-semibold mb-3">Export Data</h2>
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={async () => {
+                            const hdrs = await authHeaders();
+                            const res = await fetch('/api/export/data?format=json', { headers: hdrs });
+                            if (res.ok) {
+                                const blob = await res.blob();
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.json`;
+                                a.click();
+                            }
+                        }}
+                        className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
+                    >
+                        📥 Download JSON
+                    </button>
+                    <button
+                        onClick={async () => {
+                            const hdrs = await authHeaders();
+                            const res = await fetch('/api/export/data?format=csv', { headers: hdrs });
+                            if (res.ok) {
+                                const blob = await res.blob();
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.csv`;
+                                a.click();
+                            }
+                        }}
+                        className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
+                    >
+                        📊 Download CSV
+                    </button>
+                    <button
+                        onClick={async () => {
+                            const hdrs = await authHeaders();
+                            const res = await fetch('/api/export/ical', { headers: hdrs });
+                            if (res.ok) {
+                                const blob = await res.blob();
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `habits.ics`;
+                                a.click();
+                            }
+                        }}
+                        className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
+                    >
+                        📅 Download iCal
+                    </button>
+                </div>
+            </section>
+
+            {/* SDK Sign In and context debug */}
+            <button
+                onClick={signin}
+                className="w-full sm:w-auto px-6 py-3 rounded-xl font-medium text-lg transition-transform transform hover:scale-105 border-2 border-white/30 bg-white/10"
+            >
+                Sign in with Farcaster
+            </button>
+
+            <div className="bg-white/10 p-4 rounded-lg mt-4">
+                <h2 className="text-xl font-semibold mb-2">Context</h2>
+                <pre className="text-sm whitespace-pre-wrap break-words">{JSON.stringify(ctx, null, 2)}</pre>
+            </div>
+
+            {authView && (
+                <div className="bg-white/10 p-4 rounded-lg mt-4">
+                    <h2 className="text-xl font-semibold mb-2">Authorization (SDK)</h2>
+                    <pre className="text-sm whitespace-pre-wrap break-words">{JSON.stringify(authView, null, 2)}</pre>
+                </div>
+            )}
             </div>
         </MiniAppPage>
     );

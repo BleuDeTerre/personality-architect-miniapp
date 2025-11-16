@@ -27,7 +27,7 @@ interface MiniAppTabBarProps {
 }
 
 const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarProps) {
-    const pathname = usePathname();
+  const pathname = usePathname();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const activeLinkRef = useRef<HTMLAnchorElement>(null);
 
@@ -68,7 +68,7 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
         }
     };
 
-    return (
+  return (
         <div
             ref={scrollContainerRef}
             className={[
@@ -78,32 +78,32 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
             ]
                 .join(" ")
                 .trim()}
-        >
+      >
             <nav className="flex items-center gap-2 px-3 py-2 min-w-max">
                 {NAV_ITEMS.map((item, index) => {
                     const isActive = index === activeIndex;
-                    return (
-                        <Link
+            return (
+              <Link
                             key={item.href}
                             href={item.href}
                             ref={isActive ? activeLinkRef : null}
                             onClick={handleLinkClick}
-                            className={[
+                className={[
                                 "flex items-center gap-1 rounded-2xl px-4 py-2 text-sm transition-all whitespace-nowrap",
                                 "flex-shrink-0",
                                 isActive
                                     ? "bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white shadow-lg shadow-[#8B5CF6]/40"
                                     : "text-white/70 hover:text-white hover:bg-white/5",
                             ].join(" ")}
-                        >
+              >
                             <span className="text-lg leading-none">{item.icon}</span>
                             <span className="font-semibold">{item.label}</span>
-                        </Link>
-                    );
-                })}
+              </Link>
+            );
+          })}
             </nav>
         </div>
-    );
+  );
 });
 
 export default MiniAppTabBar;

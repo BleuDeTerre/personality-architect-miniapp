@@ -110,8 +110,8 @@ export default function LeaderboardPage() {
                 <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#1C0F3A] via-[#2E1065] to-[#3E1075] p-6 shadow-[0_30px_80px_rgba(10,4,24,0.7)]">
                     <h1 className="text-3xl font-semibold text-white mb-2">Leaderboard</h1>
                     <p className="text-sm text-white/70">
-                        Ranked by best streak. All time leaders in habit consistency! 🔥
-                    </p>
+                    Ranked by best streak. All time leaders in habit consistency! 🔥
+                </p>
                 </section>
 
                 {/* User Card */}
@@ -122,8 +122,8 @@ export default function LeaderboardPage() {
                             <div className="relative flex-shrink-0">
                                 <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg">
                                     <span className="text-2xl font-bold text-[#1a1a1a]">{myPosition}</span>
-                                </div>
-                            </div>
+                </div>
+                </div>
 
                             {/* Profile Info */}
                             <div className="flex-1 min-w-0">
@@ -131,28 +131,28 @@ export default function LeaderboardPage() {
                                     {/* Avatar */}
                                     <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
                                         {myEntry.neynar_profile?.pfp_url ? (
-                                            <Image
+                                                    <Image
                                                 src={myEntry.neynar_profile.pfp_url}
                                                 alt="Profile"
                                                 width={48}
                                                 height={48}
                                                 className="object-cover w-full h-full"
-                                                unoptimized
-                                            />
-                                        ) : (
+                                                        unoptimized
+                                                    />
+                                                ) : (
                                             <span className="text-lg">👤</span>
-                                        )}
-                                    </div>
+                                                )}
+                                            </div>
                                     
                                     {/* Name and FID */}
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
                                             <span className="text-yellow-400">⭐</span>
                                             <span className="text-base font-semibold text-white">You</span>
-                                        </div>
+                                                </div>
                                         {myEntry.fid && (
                                             <div className="text-xs text-white/60 mt-0.5">FID {myEntry.fid}</div>
-                                        )}
+                                                )}
                                         {myEntry.neynar_profile?.updated_at && (
                                             <div className="text-xs text-white/60 mt-0.5">
                                                 Profile updated {formatDate(myEntry.neynar_profile.updated_at)}
@@ -178,11 +178,11 @@ export default function LeaderboardPage() {
                                 </div>
 
                                 {/* Your position link */}
-                                <div className="text-xs text-[#8B5CF6] mt-3">Your position</div>
+                                    <div className="text-xs text-[#8B5CF6] mt-3">Your position</div>
                             </div>
-                        </div>
+                </div>
                     </section>
-                )}
+            )}
 
                 {/* Loading State */}
                 {loading ? (
