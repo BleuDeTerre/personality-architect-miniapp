@@ -77,7 +77,7 @@ export default function DailyQuests() {
         );
     }
 
-    const completedCount = quests.filter(q => q.completed).length;
+    const _completedCount = quests.filter(q => q.completed).length;
     const displayQuests = quests.slice(0, 3); // Show only first 3 quests
     const currentPage = 1; // For now, always show page 1/3
 

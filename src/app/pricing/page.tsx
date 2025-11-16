@@ -5,9 +5,9 @@ import { createClient } from '@supabase/supabase-js';
 import { sdk } from '@farcaster/miniapp-sdk';
 import MiniAppPage from '@/components/MiniAppPage';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
-import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import { BADGES } from '@/lib/badges';
 import BadgeImage from '@/components/BadgeImage';
+import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 
 type MintStatus = 'none' | 'pending' | 'success' | 'failed';
 

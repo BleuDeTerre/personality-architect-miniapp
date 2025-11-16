@@ -86,7 +86,7 @@ export default function WheelPage() {
     const weakArea = sortedAreas[sortedAreas.length - 1];
 
     // Top 4 areas for badges (Social, Finances, Environment, Inner State)
-    const topBadges = useMemo(() => {
+    const _topBadges = useMemo(() => {
         const badgeAreas = ['Social', 'Finances', 'Environment', 'Inner State'];
         return badgeAreas.map(name => {
             const item = items.find(i => i.area === name);
@@ -96,7 +96,7 @@ export default function WheelPage() {
     }, [items]);
 
     // Interactive category buttons (6 buttons: Spirituality, Career, Relationships, Health, Personal Growth, Joy & Leisure)
-    const interactiveCategories = useMemo(() => {
+    const _interactiveCategories = useMemo(() => {
         const categoryNames = ['Spirituality', 'Career', 'Relationships', 'Health', 'Personal Growth', 'Joy & Leisure'];
         return categoryNames.map(name => {
             const item = items.find(i => i.area === name);
@@ -178,17 +178,13 @@ export default function WheelPage() {
         }
     }
 
-    function setScore(idx: number, score: number) {
-        setItems(prev => prev.map((it, i) => (i === idx ? { ...it, score: clamp010(score) } : it)));
-    }
-
-    const shareTemplates = useMemo<CastTemplate[]>(() => {
+    const _shareTemplates = useMemo(() => {
         if (!items.length) return [];
         const baseSegments = items
             .slice(0, 8)
             .map(it => `${encodeURIComponent(it.area)}:${it.score}:`)
             .join('|');
-        const templates: CastTemplate[] = [
+        const templates: Array<{ key: string; label: string; title: string; kind: string; text: string; previewParams: Record<string, string>; targetPath: string }> = [
             {
                 key: 'wheel-snapshot',
                 label: `Snapshot (${avg.toFixed(1)}/10)`,
