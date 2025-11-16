@@ -79,46 +79,72 @@ export default function DailyQuests() {
 
     const completedCount = quests.filter(q => q.completed).length;
     const displayQuests = quests.slice(0, 3); // Show only first 3 quests
+    const currentPage = 1; // For now, always show page 1/3
 
     return (
         <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-semibold text-white">Daily Quests</h3>
                 <span className="text-sm text-white/60">
-                    {completedCount}/{displayQuests.length}
+                    {currentPage}/3
                 </span>
             </div>
             <div className="space-y-3">
                 {displayQuests.map(quest => {
                     const progress = calculateQuestProgress(quest);
+                    const progressPercent = Math.round(progress);
+                    
+                    // Determine icon background based on quest type
+                    const getIconBackground = () => {
+                        if (quest.completed) return 'bg-[#2BD4A4]';
+                        if (quest.icon === '✅' || quest.icon.includes('✅')) return 'bg-[#2BD4A4]';
+                        if (quest.icon === '⚡' || quest.icon === '⚡️' || quest.icon.includes('⚡')) return 'bg-yellow-500';
+                        if (quest.icon === '🏆' || quest.icon.includes('🏆')) return 'bg-yellow-500';
+                        return 'bg-white/10';
+                    };
+
                     return (
                         <div
                             key={quest.id}
-                            className={`rounded-2xl border p-4 transition ${quest.completed
-                                ? 'border-[#2BD4A4]/50 bg-[#2BD4A4]/5'
+                            className={`rounded-2xl border p-4 transition relative ${quest.completed
+                                ? 'border-[#2BD4A4]/50 bg-[#2BD4A4]/10'
                                 : 'border-white/10 bg-white/5'
                                 }`}
                         >
+                            {quest.completed && (
+                                <div className="absolute top-3 right-3">
+                                    <div className="w-5 h-5 rounded-full bg-[#2BD4A4] flex items-center justify-center">
+                                        <span className="text-white text-xs">✓</span>
+                                    </div>
+                                </div>
+                            )}
                             <div className="flex items-start gap-3">
-                                <div className="text-2xl flex-shrink-0">{quest.icon}</div>
+                                <div className={`w-10 h-10 rounded-lg ${getIconBackground()} flex items-center justify-center flex-shrink-0`}>
+                                    <span className="text-xl">{quest.icon}</span>
+                                </div>
                                 <div className="flex-1 min-w-0">
                                     <h4 className="text-base font-semibold text-white mb-1">{quest.title}</h4>
                                     <p className="text-sm text-white/70 mb-3">{quest.description}</p>
-                                    <div className="flex items-center justify-between text-xs text-white/60 mb-2">
-                                        <span>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm text-white">
                                             {quest.current}/{quest.target}
                                         </span>
-                                        <span>{Math.round(progress)}%</span>
+                                        <span className="text-sm text-white">{progressPercent}%</span>
                                     </div>
-                                    <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                                    <div className="h-2 rounded-full bg-white/10 overflow-hidden mb-2">
                                         <div
                                             className={`h-full transition-all ${quest.completed
-                                                ? 'bg-gradient-to-r from-[#2BD4A4] to-[#14b8a6]'
+                                                ? 'bg-[#2BD4A4]'
                                                 : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9]'
                                                 }`}
                                             style={{ width: `${Math.min(100, progress)}%` }}
                                         />
                                     </div>
+                                    {quest.completed && quest.xpReward > 0 && (
+                                        <div className="text-sm text-[#2BD4A4] font-medium">
+                                            +{quest.xpReward} XP
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

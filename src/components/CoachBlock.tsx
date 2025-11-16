@@ -33,10 +33,11 @@ export default function CoachBlock() {
         <div className="space-y-3">
             <button
                 onClick={run}
-                className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-white font-semibold transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40"
+                className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-white font-semibold transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40 flex items-center gap-2 justify-center"
                 disabled={loading}
             >
-                {loading ? 'Analyzing…' : '🤖 Get Coach Advice'}
+                <span>🤖</span>
+                <span>{loading ? 'Analyzing…' : 'Get Coach Advice'}</span>
             </button>
             {advice && <div className="rounded-2xl border border-white/10 bg-white/5 p-4 whitespace-pre-wrap text-white">{advice}</div>}
         </div>

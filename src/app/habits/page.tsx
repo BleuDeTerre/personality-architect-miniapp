@@ -388,169 +388,166 @@ export default function HabitsPage() {
 
             <MiniAppPage>
                 <div className="space-y-6">
-                    <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#120E2B] via-[#1c0f34] to-[#28124e] p-6 shadow-[0_30px_80px_rgba(10,4,24,0.7)]">
-                        <div className="flex flex-col gap-3">
-                            <p className="text-xs uppercase tracking-[0.4em] text-white/50">My Habits</p>
-                            <h1 className="text-3xl font-semibold leading-snug text-[#8B5CF6]">Build routines faster, track completions, and unlock streak rewards.</h1>
-                            <p className="text-white/70 text-sm">Stay consistent across health, focus, learning, and lifestyle.</p>
-                        </div>
+                    {/* Header Card */}
+                    <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                        <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">My Habits</h1>
+                        <p className="text-sm text-white/80">
+                            Build routines faster, track completions, and unlock streak rewards.
+                        </p>
                     </section>
 
+                    {/* Add Habit Form */}
                     <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                        <div className="flex flex-col gap-4">
+                        <form onSubmit={addHabit} className="flex flex-col gap-4">
                             <div>
-                                <p className="text-xs uppercase tracking-wide text-white/60">Create habit</p>
-                                <h2 className="text-2xl font-semibold text-white">Design a behavior you’ll repeat daily</h2>
+                                <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">EMOJI</label>
+                                <input
+                                    type="text"
+                                    placeholder="Pick emoji"
+                                    value={emoji}
+                                    onChange={(e) => setEmoji(e.target.value)}
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                />
                             </div>
-                            <form onSubmit={addHabit} className="grid gap-4">
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    <div>
-                                        <label className="text-xs uppercase tracking-wide text-white/50">Emoji</label>
-                                        <div className="mt-2 grid grid-cols-5 gap-2 rounded-2xl border border-white/10 bg-white/5 p-3 max-h-[400px] overflow-y-auto">
-                                            {EMOJIS.map(symbol => (
-                                                <button
-                                                    key={symbol}
-                                                    type="button"
-                                                    onClick={() => setEmoji(symbol)}
-                                                    className={`rounded-2xl border px-2 py-1 text-lg transition ${emoji === symbol ? 'border-white bg-white text-[#0D0F1A]' : 'border-transparent text-white/70 hover:text-white'}`}
-                                                >
-                                                    {symbol}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div className="space-y-3">
-                                        <div>
-                                            <label className="text-xs uppercase tracking-wide text-white/50">Habit title</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Morning walk"
-                                                value={title}
-                                                onChange={(e) => setTitle(e.target.value)}
-                                                className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
-                                                required
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs uppercase tracking-wide text-white/50">Target days per week</label>
-                                            <input
-                                                type="number"
-                                                min={1}
-                                                max={7}
-                                                value={targetDays}
-                                                onChange={(e) => setTargetDays(Number(e.target.value))}
-                                                className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col gap-3 sm:flex-row">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowTemplates(!showTemplates)}
-                                        className="flex-1 rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-center font-semibold text-white/80 transition hover:bg-white/10"
-                                    >
-                                        📚 Browse habit library
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="flex-1 rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-center font-semibold text-white transition hover:opacity-90"
-                                    >
-                                        Add habit
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+                            <div>
+                                <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">HABIT TITLE</label>
+                                <input
+                                    type="text"
+                                    placeholder="Habit title"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">TARGET DAYS PER WEEK</label>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={7}
+                                    value={targetDays}
+                                    onChange={(e) => setTargetDays(Number(e.target.value))}
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                />
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowTemplates(!showTemplates)}
+                                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition hover:bg-white/10 flex items-center gap-2 justify-center"
+                            >
+                                <span>📚</span>
+                                <span>Browse Habit Library</span>
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-center font-semibold text-white transition hover:opacity-90 disabled:opacity-60 shadow-lg shadow-[#8B5CF6]/40"
+                            >
+                                {loading ? 'Adding…' : 'Add Habit'}
+                            </button>
+                        </form>
                     </section>
 
-                    <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                        <div className="flex flex-col gap-4">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                <div>
-                                    <p className="text-xs uppercase tracking-wide text-white/60">Your routines</p>
-                                    <h2 className="text-2xl font-semibold text-white">Stay accountable every day</h2>
-                                </div>
-                                {habits.length > 0 && (
-                                    <div className="flex flex-col gap-3">
-                                        <input
-                                            type="text"
-                                            placeholder="Search habits…"
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                    {/* Search and Filter */}
+                    {habits.length > 0 && (
+                        <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                            <div className="flex flex-col gap-3">
+                                <div className="relative">
+                                    <svg
+                                        className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                                         />
-                                        <div className="flex gap-2 rounded-2xl bg-white/5 p-1">
-                                            {(['all', 'active', 'completed'] as const).map((filter) => (
-                                                <button
-                                                    key={filter}
-                                                    onClick={() => setFilterCompleted(filter)}
-                                                    className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${filterCompleted === filter
-                                                        ? 'bg-white text-[#0D0F1A]'
-                                                        : 'text-white/70 hover:text-white'
-                                                        }`}
-                                                >
-                                                    {filter === 'all' ? 'All' : filter === 'active' ? 'Active' : 'Completed'}
-                                                </button>
-                                            ))}
+                                    </svg>
+                                    <input
+                                        type="text"
+                                        placeholder="Search habits..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full rounded-2xl border border-white/10 bg-white/5 pl-10 pr-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                    />
+                                </div>
+                                <select
+                                    value={filterCompleted}
+                                    onChange={(e) => setFilterCompleted(e.target.value as 'all' | 'completed' | 'active')}
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white focus:border-white/40 focus:outline-none appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat pr-10"
+                                >
+                                    <option value="all" className="bg-[#1a1a1a] text-white">All</option>
+                                    <option value="active" className="bg-[#1a1a1a] text-white">Active</option>
+                                    <option value="completed" className="bg-[#1a1a1a] text-white">Completed</option>
+                                </select>
+                            </div>
+                        </section>
+                    )}
+
+                    {/* Habits Grid */}
+                    {loading ? (
+                        <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                            <div className="grid grid-cols-2 gap-3">
+                                {[1, 2, 3, 4, 5, 6].map(i => (
+                                    <div key={i} className="rounded-2xl border border-white/10 bg-white/5 p-4 animate-pulse">
+                                        <div className="h-6 w-1/2 rounded bg-white/10" />
+                                        <div className="mt-2 h-4 w-1/3 rounded bg-white/10" />
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    ) : filteredHabits.length === 0 ? (
+                        <section className="rounded-3xl border border-white/10 bg-white/5 p-6 text-center text-white/70">
+                            No habits match your filters.
+                        </section>
+                    ) : (
+                        <section className="grid grid-cols-2 gap-3">
+                            {filteredHabits.map(h => {
+                                // Extract emoji and title from habit title
+                                const emojiMatch = h.title.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
+                                const emoji = emojiMatch ? emojiMatch[0] : '✅';
+                                const titleText = h.title.replace(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)\s*/u, '').trim();
+
+                                return (
+                                    <div key={h.id} className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3">
+                                        <div className="text-2xl">{emoji}</div>
+                                        <div className="text-base font-semibold text-white">{titleText}</div>
+                                        <div className="text-sm text-white/70">{h.target_days_per_week} days/week</div>
+                                        <div className="text-sm text-white/70">🔥 {h.streak ?? 0}d streak</div>
+                                        <div className="flex items-center gap-2 mt-auto">
+                                            <button
+                                                onClick={() => markComplete(h.id, h.is_completed)}
+                                                disabled={h.is_completed}
+                                                className={`flex-1 rounded-2xl px-3 py-2 text-sm font-semibold transition ${h.is_completed
+                                                    ? 'bg-gradient-to-r from-[#2BD4A4] to-[#14b8a6] text-white'
+                                                    : 'bg-white/10 text-white hover:bg-white/20'
+                                                    }`}
+                                            >
+                                                {h.is_completed ? 'Completed' : 'Mark done'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeHabit(h.id)}
+                                                disabled={removingHabitId === h.id}
+                                                className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 transition hover:bg-white/10 hover:text-red-400 disabled:opacity-50"
+                                                aria-label="Remove habit"
+                                            >
+                                                {removingHabitId === h.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <X className="h-4 w-4" />
+                                                )}
+                                            </button>
                                         </div>
                                     </div>
-                                )}
-                            </div>
-
-                            {loading ? (
-                                <div className="space-y-3">
-                                    {[1, 2, 3, 4].map(i => (
-                                        <div key={i} className="rounded-2xl border border-white/10 bg-white/5 p-4 animate-pulse">
-                                            <div className="h-5 w-1/3 rounded bg-white/10" />
-                                            <div className="mt-2 h-3 w-1/2 rounded bg-white/10" />
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : filteredHabits.length === 0 ? (
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-white/70">
-                                    No habits match your filters.
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {filteredHabits.map(h => (
-                                        <div key={h.id} className="rounded-3xl border border-white/10 bg-white/5 p-4 flex items-center justify-between gap-4">
-                                            <div className="flex flex-col flex-1">
-                                                <div className={`text-lg font-semibold ${h.is_completed ? 'text-white/50 line-through' : 'text-white'}`}>
-                                                    {h.title}
-                                                </div>
-                                                <div className="flex items-center gap-3 text-sm text-white/70">
-                                                    <span>{h.target_days_per_week} days/week</span>
-                                                    <span>🔥 {h.streak ?? 0}d streak</span>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => markComplete(h.id, h.is_completed)}
-                                                    disabled={h.is_completed}
-                                                    className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${h.is_completed ? 'bg-gradient-to-r from-[#2BD4A4] to-[#14b8a6] text-[#041812]' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                                                >
-                                                    {h.is_completed ? 'Completed' : 'Mark done'}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeHabit(h.id)}
-                                                    disabled={removingHabitId === h.id}
-                                                    className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 transition hover:bg-white/10 hover:text-red-400 disabled:opacity-50"
-                                                    aria-label="Remove habit"
-                                                >
-                                                    {removingHabitId === h.id ? (
-                                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                                    ) : (
-                                                        <X className="h-4 w-4" />
-                                                    )}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </section>
+                                );
+                            })}
+                        </section>
+                    )}
                 </div>
             </MiniAppPage>
 

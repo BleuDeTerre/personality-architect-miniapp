@@ -219,61 +219,27 @@ export default function WheelPage() {
     return (
         <MiniAppPage>
             <div className="space-y-6">
-                <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#120e2b] via-[#1f0f3b] to-[#2f1450] p-6 shadow-[0_30px_80px_rgba(7,3,19,0.7)]">
-                    <div className="flex flex-col gap-3">
-                        <p className="text-xs uppercase tracking-[0.4em] text-white/60">Wheel of Life</p>
-                        <h1 className="text-3xl font-semibold leading-snug text-[#8B5CF6]">Balance every area weekly and keep your momentum.</h1>
-                        <p className="text-white/70 text-sm">Track the 10 life arenas, highlight strengths, and spotlight areas that need attention.</p>
-                    </div>
-                    <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                            <p className="text-xs uppercase tracking-wide text-white/60">Average</p>
-                            <p className="text-3xl font-semibold text-white">{avg.toFixed(1)}/10</p>
-                        </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                            <p className="text-xs uppercase tracking-wide text-white/60">Strongest</p>
-                            <p className="text-lg font-semibold text-white">{topArea?.area ?? '—'}</p>
-                            <p className="text-sm text-white/60">{topArea ? `${topArea.score}/10` : 'Not set'}</p>
-                        </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                            <p className="text-xs uppercase tracking-wide text-white/60">Needs love</p>
-                            <p className="text-lg font-semibold text-white">{weakArea?.area ?? '—'}</p>
-                            <p className="text-sm text-white/60">{weakArea ? `${weakArea.score}/10` : 'Not set'}</p>
-                        </div>
-                    </div>
-                    {/* Top 4 badges */}
-                    {topBadges.length > 0 && (
-                        <div className="mt-6 flex flex-wrap gap-3">
-                            {topBadges.map((badge) => (
-                                <div
-                                    key={badge.area}
-                                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 flex items-center gap-3"
-                                >
-                                    <span className="text-2xl">{badge.icon}</span>
-                                    <div className="flex flex-col">
-                                        <span className="text-sm font-semibold text-white truncate max-w-[120px]">{badge.area}</span>
-                                        <span
-                                            className="text-xs font-medium rounded-full px-2 py-0.5 inline-block w-fit"
-                                            style={{ backgroundColor: `${badge.color}20`, color: badge.color }}
-                                        >
-                                            {badge.score}/10
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                {/* Header Card */}
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                    <p className="text-xs uppercase tracking-wide text-white/60 mb-2">WHEEL OF LIFE — WEEK {week}</p>
+                    <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">Life Balance Overview</h1>
+                    <p className="text-sm text-white/80 mb-4">
+                        Rate each area of your life from 1-10 to visualize your overall balance.
+                    </p>
+                    <button
+                        onClick={() => {
+                            const wheelSection = document.querySelector('[data-wheel-section]');
+                            if (wheelSection) {
+                                wheelSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                        }}
+                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition hover:bg-white/10"
+                    >
+                        Edit Values
+                    </button>
                 </section>
 
-                {shareTemplates.length > 0 && (
-                    <ShareCastComposer
-                        templates={shareTemplates}
-                        sectionTitle="Share your wheel"
-                        prepareHeaders={authHeaders}
-                    />
-                )}
-
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                <section data-wheel-section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
                     <div className="flex flex-col gap-4">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div>
@@ -362,55 +328,83 @@ export default function WheelPage() {
                             <ResponsiveContainer width="100%" height="100%">
                                 <RadarChart data={items}>
                                     <PolarGrid stroke="#ffffff1a" />
-                                    <PolarAngleAxis dataKey="area" tick={{ fill: '#ffffffa3', fontSize: 12 }} />
+                                    <PolarAngleAxis
+                                        dataKey="area"
+                                        tick={({ payload, x, y, textAnchor }) => {
+                                            const areaInfo = AREAS.find(a => a.name === payload.value);
+                                            const areaColor = areaInfo?.color ?? '#ffffffa3';
+                                            return (
+                                                <text
+                                                    x={x}
+                                                    y={y}
+                                                    fill={areaColor}
+                                                    fontSize={12}
+                                                    textAnchor={textAnchor || 'middle'}
+                                                >
+                                                    {payload.value}
+                                                </text>
+                                            );
+                                        }}
+                                    />
                                     <PolarRadiusAxis domain={[0, 10]} tickCount={6} tick={{ fill: '#ffffff80', fontSize: 10 }} />
-                                    <Radar name="Score" dataKey="score" stroke="#c084fc" fill="#8B5CF6" fillOpacity={0.5} />
+                                    {AREAS.map((area) => {
+                                        const item = items.find(i => i.area === area.name);
+                                        if (!item) return null;
+                                        return (
+                                            <Radar
+                                                key={area.name}
+                                                name={area.name}
+                                                dataKey={(data: Item) => data.area === area.name ? data.score : 0}
+                                                stroke={area.color}
+                                                fill={area.color}
+                                                fillOpacity={0.6}
+                                                dot={false}
+                                            />
+                                        );
+                                    })}
                                 </RadarChart>
                             </ResponsiveContainer>
                         )}
                     </div>
-                    {/* Interactive category buttons */}
-                    {interactiveCategories.length > 0 && (
-                        <div className="mt-6 grid grid-cols-2 gap-3">
-                            {interactiveCategories.map((category) => {
-                                const itemIdx = items.findIndex(i => i.area === category.area);
-                                return (
-                                    <button
-                                        key={category.area}
-                                        onClick={() => {
-                                            if (itemIdx >= 0) {
-                                                const slider = document.querySelector(`input[type="range"][data-area="${category.area}"]`) as HTMLInputElement;
-                                                if (slider) slider.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                            }
-                                        }}
-                                        className="rounded-2xl border border-white/10 bg-white/5 p-4 flex items-center justify-between hover:bg-white/10 transition"
+                    {/* All category cards in 5x2 grid */}
+                    <div className="mt-6 grid grid-cols-2 gap-3">
+                        {items.map((item) => {
+                            const areaInfo = AREAS.find(a => a.name === item.area);
+                            const areaColor = areaInfo?.color ?? '#8B5CF6';
+                            const itemIdx = items.findIndex(i => i.area === item.area);
+                            return (
+                                <button
+                                    key={item.area}
+                                    onClick={() => {
+                                        if (itemIdx >= 0) {
+                                            const slider = document.querySelector(`input[type="range"][data-area="${item.area}"]`) as HTMLInputElement;
+                                            if (slider) slider.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        }
+                                    }}
+                                    className="rounded-2xl border border-white/10 bg-white/5 p-4 flex items-center justify-between hover:bg-white/10 transition"
+                                >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <span className="text-2xl flex-shrink-0">{areaInfo?.icon ?? '•'}</span>
+                                        <span className="text-sm font-semibold text-white truncate">{item.area}</span>
+                                    </div>
+                                    <span
+                                        className="text-xs font-medium rounded-full px-3 py-1 flex-shrink-0"
+                                        style={{ backgroundColor: `${areaColor}20`, color: areaColor }}
                                     >
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-2xl">{category.icon}</span>
-                                            <span className="text-sm font-semibold text-white truncate">{category.area}</span>
-                                        </div>
-                                        <span
-                                            className="text-xs font-medium rounded-full px-3 py-1"
-                                            style={{ backgroundColor: `${category.color}20`, color: category.color }}
-                                        >
-                                            {category.score}/10
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
+                                        {item.score}/10
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
                 </section>
 
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-5 space-y-4">
-                    <div className="flex flex-col gap-1">
-                        <p className="text-xs uppercase tracking-wide text-white/60">Coach</p>
-                        <h2 className="text-2xl font-semibold text-white">Weekly prompts</h2>
-                    </div>
+                    <h2 className="text-xl font-semibold text-white">Coach</h2>
                     <div className="flex flex-col gap-3">
                         <button
                             onClick={loadTrends}
-                            className="rounded-2xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 w-fit"
+                            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 w-full"
                             disabled={trendsLoading}
                         >
                             {trendsLoading ? 'Updating…' : 'REFRESH TRENDS'}
@@ -420,10 +414,7 @@ export default function WheelPage() {
                 </section>
 
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-5 space-y-4">
-                    <div className="flex flex-col gap-1">
-                        <p className="text-xs uppercase tracking-wide text-white/60">Trends</p>
-                        <h2 className="text-2xl font-semibold text-white">Long-term movement</h2>
-                    </div>
+                    <h2 className="text-xl font-semibold text-white">Trends</h2>
                     <div className="overflow-x-auto rounded-2xl border border-white/10">
                         <table className="min-w-full border-collapse text-sm text-white/80">
                             <thead className="bg-white/10 text-white/70">
@@ -461,7 +452,7 @@ export default function WheelPage() {
                             </tbody>
                         </table>
                     </div>
-                    <p className="text-xs text-white/50">Δ — change vs previous window (positive = improvement).</p>
+                    <p className="text-xs text-white/50">Δ — change vs previous window. Positive is improvement, negative is decline.</p>
                 </section>
             </div>
         </MiniAppPage>

@@ -107,7 +107,7 @@ export default function LeaderboardPage() {
         <MiniAppPage>
             <div className="space-y-6">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#1C0F3A] via-[#2E1065] to-[#3E1075] p-6 shadow-[0_30px_80px_rgba(10,4,24,0.7)]">
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
                     <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">Leaderboard</h1>
                     <p className="text-sm text-white/80">
                         Ranked by best streak. All time leaders in habit consistency! 🔥
@@ -116,7 +116,7 @@ export default function LeaderboardPage() {
 
                 {/* User Card */}
                 {myEntry && myPosition && (
-                    <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#2A1B4A] via-[#3A2365] to-[#4A2B75] p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
                         <div className="flex items-start gap-4">
                             {/* Medal */}
                             <div className="relative flex-shrink-0">

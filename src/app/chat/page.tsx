@@ -111,19 +111,18 @@ export default function ChatPage() {
         <MiniAppPage>
             <div className="flex flex-col h-full space-y-6">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#1C0F3A] via-[#2E1065] to-[#3E1075] p-6 shadow-[0_30px_80px_rgba(10,4,24,0.7)]">
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
                     <h1 className="text-4xl font-bold text-[#A78BFA] mb-2">AI Coach Chat</h1>
-                    <p className="text-sm text-white/80 mb-1">Ask about your habits, goals, or progress.</p>
-                    <p className="text-sm text-white/80">Your coach is here 24/7.</p>
+                    <p className="text-sm text-white/80">Ask about your habits, goals, or progress. Your coach is here 24/7.</p>
                 </section>
 
                 {/* Chat Area */}
                 <div className="flex-1 min-h-[400px] overflow-y-auto rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
                 {messages.length === 0 ? (
-                        <div className="flex justify-start">
-                            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 max-w-[80%]">
-                                <div className="text-base font-semibold text-white/90 mb-1">👋 Hi! I&apos;m your AI coach</div>
-                                <div className="text-sm text-white/70">Ask me about your habits, goals, or progress</div>
+                        <div className="flex items-center justify-center h-full">
+                            <div className="text-center">
+                                <div className="text-base text-white/90 mb-1">👋 Hi! I&apos;m your AI coach</div>
+                                <div className="text-sm text-white/90">Ask me about your habits, goals, or progress</div>
                             </div>
                     </div>
                 ) : (
@@ -174,7 +173,7 @@ export default function ChatPage() {
                             sendMessage();
                         }
                     }}
-                        placeholder="Ask me anything about you"
+                        placeholder="Ask me anything about your habits..."
                         className="flex-1 rounded-2xl border border-white/10 bg-white/5 text-white px-4 py-3 placeholder:text-white/40 focus:border-white/40 focus:outline-none disabled:opacity-50"
                     disabled={loading}
                 />

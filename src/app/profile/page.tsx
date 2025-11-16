@@ -392,92 +392,50 @@ export default function ProfilePage() {
                 <QuestBoard className="mb-6" />
 
                 {/* Current Plan Section */}
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                    <div className="flex items-center justify-between">
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 mb-6">
+                    <div className="flex items-start justify-between">
                         <div>
                             <p className="text-xs uppercase tracking-wide text-white/60 mb-1">CURRENT PLAN</p>
                             <p className="text-2xl font-bold text-white">{currentPlan.toUpperCase()}</p>
                         </div>
                         <a
                             href="/pricing"
-                            className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-center text-base font-semibold text-white transition hover:opacity-90 shadow-lg shadow-[#8B5CF6]/40"
+                            className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-center text-base font-semibold text-white transition hover:opacity-90 shadow-lg shadow-[#8B5CF6]/40 whitespace-nowrap"
                         >
                             Change plan
                         </a>
                     </div>
                 </section>
 
-                {/* Export Data Section */}
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-xs uppercase tracking-wide text-white/60 mb-1">EXPORT DATA</p>
-                            <p className="text-lg font-semibold text-white">Download your data</p>
-                        </div>
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20">
-                            <span className="text-lg">⏳</span>
-                            <span className="text-sm font-medium text-white">COMING SOON</span>
-                        </div>
-                    </div>
-                </section>
-
-                {levelShareTemplates.length > 0 && (
-                    <div className="mb-6">
-                        <ShareCastComposer
-                            templates={levelShareTemplates}
-                            sectionTitle="Share your level"
-                            prepareHeaders={authHeaders}
-                        />
-                    </div>
-                )}
-
-
-                {/* Level & XP Card */}
-                {gamificationStats && (
-                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <div>
-                                <div className={`text-2xl font-bold ${levelColor}`}>{levelName}</div>
-                                <div className="text-sm text-white/70">Level {level}</div>
-                            </div>
-                            <div className="text-right">
-                                <div className="text-2xl font-bold text-white">{xp.toLocaleString()}</div>
-                                <div className="text-sm text-white/70">Total XP</div>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-xs text-white/80">
-                                <span>Progress to Level {level + 1}</span>
-                                <span>{progress.toFixed(0)}%</span>
-                            </div>
-                            <div className="h-3 bg-white/20 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] transition-all duration-300"
-                                    style={{ width: `${progress}%` }}
-                                ></div>
-                            </div>
-                            <div className="flex justify-between text-xs text-white/70">
-                                <span>
-                                    {xpRemaining > 0
-                                        ? `Осталось ${xpRemaining.toLocaleString()} XP`
-                                        : `Готов к уровню ${level + 1}!`}
-                                </span>
-                                <span>{((level + 1) ** 2 * 100).toLocaleString()} XP всего</span>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Profile cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                    <Info label="FID" value={p.fid ?? '—'} />
-                    <Info label="Supabase User" value={p.supaUserId ?? '—'} />
-                    <Info label="Plan" value={(p.plan ?? 'free').toUpperCase()} />
-                </div>
-
                 {/* Wallet Section */}
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6 mb-6">
-                    <p className="text-xs uppercase tracking-wide text-white/60 mb-1">WALLET</p>
+                    <div className="flex items-start justify-between mb-4">
+                        <div>
+                            <p className="text-xs uppercase tracking-wide text-white/60 mb-1">WALLET</p>
+                            <p className="text-2xl font-bold text-white mb-2">
+                                {walletInput !== null && walletInput !== undefined ? (
+                                    <span className="text-sm font-normal">{walletInput}</span>
+                                ) : p.wallet ? (
+                                    `${p.wallet.slice(0, 6)}...${p.wallet.slice(-4)}`
+                                ) : (
+                                    'Not connected'
+                                )}
+                            </p>
+                            {!p.wallet && walletInput === null && (
+                                <p className="text-sm text-white/70">
+                                    Personality Architect uses your Farcaster wallet (or any connected EVM address) for badge minting and onchain actions.
+                                </p>
+                            )}
+                        </div>
+                        {walletInput === null && (
+                            <button
+                                onClick={() => setWalletInput(p.wallet ?? '')}
+                                className="rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10 whitespace-nowrap"
+                            >
+                                Change wallet
+                            </button>
+                        )}
+                    </div>
                     {walletInput !== null && walletInput !== undefined ? (
                         <>
                             <div className="mb-4">
@@ -532,22 +490,7 @@ export default function ProfilePage() {
                                 </button>
                             </div>
                         </>
-                    ) : (
-                        <>
-                            <p className="text-2xl font-bold text-white mb-4">
-                                {p.wallet ? `${p.wallet.slice(0, 6)}...${p.wallet.slice(-4)}` : '—'}
-                            </p>
-                            <button
-                                onClick={() => setWalletInput(p.wallet ?? '')}
-                                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition hover:bg-white/10 mb-4"
-                            >
-                                Change wallet
-                            </button>
-                            <p className="text-sm text-white/70">
-                                Personality Architect uses your Farcaster wallet (or any connected EVM address) for badge minting and onchain actions.
-                            </p>
-                        </>
-                    )}
+                    ) : null}
                 </section>
 
                 {/* Badges with Mint buttons */}
@@ -614,58 +557,34 @@ export default function ProfilePage() {
 
                 {/* Export Data */}
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
-                    <h2 className="text-xl font-semibold mb-3">Export Data</h2>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <p className="text-xs uppercase tracking-wide text-white/60 mb-1">EXPORT DATA</p>
+                            <p className="text-lg font-semibold text-white">Download your data</p>
+                        </div>
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20">
+                            <span className="text-lg">⏳</span>
+                            <span className="text-sm font-medium text-white">COMING SOON</span>
+                        </div>
+                    </div>
+                    <div className="space-y-2 opacity-50 pointer-events-none">
                         <button
-                            onClick={async () => {
-                                const hdrs = await authHeaders();
-                                const res = await fetch('/api/export/data?format=json', { headers: hdrs });
-                                if (res.ok) {
-                                    const blob = await res.blob();
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.json`;
-                                    a.click();
-                                }
-                            }}
-                            className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
+                            disabled
+                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition"
                         >
-                            📥 Download JSON
+                            Export CSV
                         </button>
                         <button
-                            onClick={async () => {
-                                const hdrs = await authHeaders();
-                                const res = await fetch('/api/export/data?format=csv', { headers: hdrs });
-                                if (res.ok) {
-                                    const blob = await res.blob();
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `habits-export-${new Date().toISOString().slice(0, 10)}.csv`;
-                                    a.click();
-                                }
-                            }}
-                            className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
+                            disabled
+                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition"
                         >
-                            📊 Download CSV
+                            Export Notion
                         </button>
                         <button
-                            onClick={async () => {
-                                const hdrs = await authHeaders();
-                                const res = await fetch('/api/export/ical', { headers: hdrs });
-                                if (res.ok) {
-                                    const blob = await res.blob();
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `habits.ics`;
-                                    a.click();
-                                }
-                            }}
-                            className="px-4 py-2 bg-white/20 border border-white hover:bg-white/30 rounded-lg"
+                            disabled
+                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white font-semibold transition"
                         >
-                            📅 Download iCal
+                            Export Obsidian
                         </button>
                     </div>
                 </section>
