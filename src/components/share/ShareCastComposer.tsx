@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { SHARE_PREVIEW_VERSION } from "@/lib/sharePreviewVersion";
 
@@ -50,24 +51,6 @@ export default function ShareCastComposer({
     }, [templates, selectedKey]);
 
     const selected = useMemo(() => templates.find(t => t.key === selectedKey), [templates, selectedKey]);
-
-    const previewUrl = useMemo(() => {
-        if (!origin || !selected) return null;
-        const url = new URL(`${origin}/api/share/preview`);
-        url.searchParams.set("rev", SHARE_PREVIEW_VERSION);
-        url.searchParams.set("kind", selected.kind);
-        url.searchParams.set("title", selected.title);
-        if (selected.targetPath) {
-            url.searchParams.set("target", `${origin}${selected.targetPath}`);
-        }
-        if (selected.previewParams) {
-            Object.entries(selected.previewParams).forEach(([key, value]) => {
-                if (value === undefined || value === null) return;
-                url.searchParams.set(key, String(value));
-            });
-        }
-        return url.toString();
-    }, [origin, selected]);
 
     const ogImageUrl = useMemo(() => {
         if (!origin || !selected) return null;
@@ -184,10 +167,13 @@ export default function ShareCastComposer({
                 <div className="space-y-2">
                     <p className="text-sm uppercase tracking-wide text-white/60">PREVIEW</p>
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                        <img
+                        <Image
                             src={ogImageUrl}
                             alt="Cast preview"
+                            width={600}
+                            height={315}
                             className="w-full rounded-xl"
+                            unoptimized
                         />
                     </div>
                 </div>

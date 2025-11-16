@@ -464,7 +464,7 @@ export default function AnalyticsPage() {
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
                     <h1 className="text-3xl font-semibold text-[#8B5CF6] mb-4">Advanced Analytics</h1>
                     <p className="text-white/70 text-sm leading-relaxed">
-                        First wave of dashboards arrives here. Core metrics show up as soon as we collect enough data. Below that — the roadmap of smarter insights we're building next.
+                        First wave of dashboards arrives here. Core metrics show up as soon as we collect enough data. Below that — the roadmap of smarter insights we&apos;re building next.
                     </p>
                 </section>
 
@@ -847,7 +847,7 @@ export default function AnalyticsPage() {
                         <div>
                             <h2 className="text-2xl font-semibold text-white mb-2">Habit trend prototypes</h2>
                             <p className="text-sm text-white/70">
-                                Compare streak momentum for any habit. We'll use these prototypes to decide how to evolve the Streaks dashboard.
+                                Compare streak momentum for any habit. We&apos;ll use these prototypes to decide how to evolve the Streaks dashboard.
                             </p>
                         </div>
 

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { sdk } from '@farcaster/miniapp-sdk';
 import {
     Radar,
     RadarChart,
@@ -40,19 +39,6 @@ const AREAS = [
     { name: 'Finances', icon: '💰', color: '#60A5FA' }, // light blue (mid-left)
     { name: 'Environment', icon: '🏠', color: '#10B981' }, // green (top-left)
 ];
-
-const AREA_COLORS: Record<string, string> = {
-    'Inner State': '#7DD3FC',
-    'Spirituality': '#A78BFA',
-    'Career': '#3B82F6',
-    'Relationships': '#EF4444',
-    'Health': '#10B981',
-    'Personal Growth': '#F97316',
-    'Joy & Leisure': '#EC4899',
-    'Social': '#A78BFA',
-    'Finances': '#60A5FA',
-    'Environment': '#10B981',
-};
 
 function isoWeek(now = new Date()) {
     const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
@@ -117,15 +103,7 @@ export default function WheelPage() {
         }).filter(Boolean) as Array<Item & { icon: string; color: string }>;
     }, [items]);
 
-    useEffect(() => {
-        loadWeek(week);
-    }, [week]);
-
-    useEffect(() => {
-        loadTrends();
-    }, []);
-
-    async function loadWeek(w: string) {
+    const loadWeek = useCallback(async (w: string) => {
         setWeekLoading(true);
         try {
             const headers = await authHeaders();
@@ -146,7 +124,29 @@ export default function WheelPage() {
         } finally {
             setWeekLoading(false);
         }
+    }, [authHeaders]);
+
+    const loadTrends = useCallback(async () => {
+        setTrendsLoading(true);
+        try {
+            const headers = await authHeaders();
+            const res = await fetch('/api/wheel/trends', { headers, cache: 'no-store' });
+            const js = await res.json();
+            if (Array.isArray(js.areas)) {
+                setTrends(js.areas);
+            }
+        } finally {
+            setTrendsLoading(false);
         }
+    }, [authHeaders]);
+
+    useEffect(() => {
+        loadWeek(week);
+    }, [week, loadWeek]);
+
+    useEffect(() => {
+        loadTrends();
+    }, [loadTrends]);
 
     async function saveWeek() {
         setSaving(true);
@@ -155,7 +155,7 @@ export default function WheelPage() {
             await Promise.all(
                 items.map(it =>
                     fetch('/api/wheel', {
-                method: 'POST',
+                        method: 'POST',
                         headers,
                         body: JSON.stringify({ week, area: it.area, score: clamp010(it.score) }),
                     })
@@ -172,18 +172,6 @@ export default function WheelPage() {
 
     function setScore(idx: number, score: number) {
         setItems(prev => prev.map((it, i) => (i === idx ? { ...it, score: clamp010(score) } : it)));
-    }
-
-    async function loadTrends() {
-        setTrendsLoading(true);
-        try {
-            const headers = await authHeaders();
-            const res = await fetch('/api/wheel/trends', { headers, cache: 'no-store' });
-            const js = await res.json();
-            setTrends(Array.isArray(js?.areas) ? js.areas : []);
-        } finally {
-            setTrendsLoading(false);
-        }
     }
 
     const shareTemplates = useMemo<CastTemplate[]>(() => {
@@ -246,12 +234,12 @@ export default function WheelPage() {
                             <p className="text-xs uppercase tracking-wide text-white/60">Strongest</p>
                             <p className="text-lg font-semibold text-white">{topArea?.area ?? '—'}</p>
                             <p className="text-sm text-white/60">{topArea ? `${topArea.score}/10` : 'Not set'}</p>
-                </div>
+                        </div>
                         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                             <p className="text-xs uppercase tracking-wide text-white/60">Needs love</p>
                             <p className="text-lg font-semibold text-white">{weakArea?.area ?? '—'}</p>
                             <p className="text-sm text-white/60">{weakArea ? `${weakArea.score}/10` : 'Not set'}</p>
-                            </div>
+                        </div>
                     </div>
                     {/* Top 4 badges */}
                     {topBadges.length > 0 && (
@@ -291,14 +279,14 @@ export default function WheelPage() {
                             <div>
                                 <p className="text-xs uppercase tracking-wide text-white/60">Weekly tracking</p>
                                 <h2 className="text-2xl font-semibold text-white">Update the wheel</h2>
-                        </div>
+                            </div>
                             <div className="flex flex-wrap items-center gap-3">
                                 <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2">
                                     <label className="text-xs uppercase tracking-wide text-white/60">Week</label>
-                                <input
-                                    type="week"
-                                    value={week}
-                                    onChange={(e) => setWeek(e.target.value)}
+                                    <input
+                                        type="week"
+                                        value={week}
+                                        onChange={(e) => setWeek(e.target.value)}
                                         className="mt-1 bg-transparent text-white focus:outline-none"
                                     />
                                 </div>
@@ -323,7 +311,7 @@ export default function WheelPage() {
                                 {items.map((it, idx) => {
                                     const areaInfo = AREAS.find(a => a.name === it.area);
                                     const areaColor = areaInfo?.color ?? '#8B5CF6';
-                                return (
+                                    return (
                                         <div key={it.area} className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3">
                                             <div className="flex items-center justify-between">
                                                 <div className="text-sm uppercase tracking-wide text-white/60">
@@ -400,7 +388,7 @@ export default function WheelPage() {
                                         <div className="flex items-center gap-3">
                                             <span className="text-2xl">{category.icon}</span>
                                             <span className="text-sm font-semibold text-white truncate">{category.area}</span>
-                                    </div>
+                                        </div>
                                         <span
                                             className="text-xs font-medium rounded-full px-3 py-1"
                                             style={{ backgroundColor: `${category.color}20`, color: category.color }}
@@ -420,15 +408,15 @@ export default function WheelPage() {
                         <h2 className="text-2xl font-semibold text-white">Weekly prompts</h2>
                     </div>
                     <div className="flex flex-col gap-3">
-                    <button
-                        onClick={loadTrends}
+                        <button
+                            onClick={loadTrends}
                             className="rounded-2xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 w-fit"
-                        disabled={trendsLoading}
-                    >
+                            disabled={trendsLoading}
+                        >
                             {trendsLoading ? 'Updating…' : 'REFRESH TRENDS'}
-                    </button>
-                <CoachBlock />
-            </div>
+                        </button>
+                        <CoachBlock />
+                    </div>
                 </section>
 
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-5 space-y-4">
@@ -439,15 +427,15 @@ export default function WheelPage() {
                     <div className="overflow-x-auto rounded-2xl border border-white/10">
                         <table className="min-w-full border-collapse text-sm text-white/80">
                             <thead className="bg-white/10 text-white/70">
-                            <tr>
+                                <tr>
                                     <th className="p-3 text-left">Area</th>
-                                <th className="p-3 text-right">Last</th>
-                                <th className="p-3 text-right">Avg 4w</th>
-                                <th className="p-3 text-right">Avg 12w</th>
-                                <th className="p-3 text-right">Δ 4w</th>
-                                <th className="p-3 text-right">Δ 12w</th>
-                            </tr>
-                        </thead>
+                                    <th className="p-3 text-right">Last</th>
+                                    <th className="p-3 text-right">Avg 4w</th>
+                                    <th className="p-3 text-right">Avg 12w</th>
+                                    <th className="p-3 text-right">Δ 4w</th>
+                                    <th className="p-3 text-right">Δ 12w</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 {trends.map((area) => (
                                     <tr key={area.area} className="border-t border-white/5">
@@ -457,22 +445,22 @@ export default function WheelPage() {
                                         <td className="p-3 text-right">{area.avg12?.toFixed?.(1) ?? area.avg12}</td>
                                         <td className={`p-3 text-right ${area.delta4 < 0 ? 'text-red-400' : area.delta4 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
                                             {area.delta4?.toFixed?.(1) ?? area.delta4}
-                                    </td>
+                                        </td>
                                         <td className={`p-3 text-right ${area.delta12 < 0 ? 'text-red-400' : area.delta12 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
                                             {area.delta12?.toFixed?.(1) ?? area.delta12}
-                                    </td>
-                                </tr>
-                            ))}
-                            {!trends.length && (
-                                <tr>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {!trends.length && (
+                                    <tr>
                                         <td colSpan={6} className="p-4 text-center text-white/50">
                                             No trend data yet.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                     <p className="text-xs text-white/50">Δ — change vs previous window (positive = improvement).</p>
                 </section>
             </div>

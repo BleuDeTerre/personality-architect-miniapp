@@ -54,7 +54,7 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
     }, [activeIndex]);
 
     // Handle click to scroll to center
-    const handleLinkClick = (event: React.MouseEvent<HTMLAnchorElement>, index: number) => {
+    const handleLinkClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
         const link = event.currentTarget;
         const container = scrollContainerRef.current;
 
@@ -87,7 +87,7 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
                             key={item.href}
                             href={item.href}
                             ref={isActive ? activeLinkRef : null}
-                            onClick={(e) => handleLinkClick(e, index)}
+                            onClick={handleLinkClick}
                             className={[
                                 "flex items-center gap-1 rounded-2xl px-4 py-2 text-sm transition-all whitespace-nowrap",
                                 "flex-shrink-0",

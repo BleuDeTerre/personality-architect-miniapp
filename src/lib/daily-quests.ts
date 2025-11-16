@@ -64,7 +64,7 @@ const DAILY_POOL: QuestDefinition[] = [
         id: 'hit_80_percent',
         icon: '🎯',
         title: 'Hit 80% of your plan',
-        description: stats => `Complete at least 80% of your daily habits.`,
+        description: (_stats) => `Complete at least 80% of your daily habits.`,
         target: stats => Math.max(1, Math.ceil(stats.totalHabits * 0.8)),
         current: stats => stats.completedToday,
         xp: stats => Math.max(25, Math.ceil(stats.totalHabits * 0.8) * 10),
