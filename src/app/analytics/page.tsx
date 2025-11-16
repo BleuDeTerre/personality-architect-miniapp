@@ -776,7 +776,7 @@ export default function AnalyticsPage() {
                                                 // Determine colors based on completion rate (gradient from red to green)
                                                 let bgColor = 'bg-red-500/30';
                                                 let borderColor = 'border-red-500/50';
-                                                let textColor = 'text-white';
+                                                const textColor = 'text-white';
 
                                                 if (capsule.completedDays === 7) {
                                                     // Green for perfect week

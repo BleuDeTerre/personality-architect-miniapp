@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { sdk } from '@farcaster/miniapp-sdk';
-import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
+import { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 
 const supabase = createClient(
@@ -31,8 +31,8 @@ export default function GoalsPage() {
     const [dueDate, setDueDate] = useState('');
     const [loading, setLoading] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filterStatus, setFilterStatus] = useState<'active' | 'completed'>('active');
+    const [searchQuery] = useState('');
+    const [filterStatus] = useState<'active' | 'completed'>('active');
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -253,44 +253,44 @@ export default function GoalsPage() {
                         }}
                         className="flex flex-col gap-4"
                     >
-                <input
-                    type="text"
-                    placeholder="Goal title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                        <input
+                            type="text"
+                            placeholder="Goal title"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
                             className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
-                    required
-                />
+                            required
+                        />
                         <div className="grid grid-cols-2 gap-4">
-                    <input
-                        type="text"
-                        placeholder="Metric (e.g., days, reps)"
-                        value={metric}
-                        onChange={(e) => setMetric(e.target.value)}
+                            <input
+                                type="text"
+                                placeholder="Metric (e.g., days, reps)"
+                                value={metric}
+                                onChange={(e) => setMetric(e.target.value)}
                                 className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
-                    />
-                    <input
-                        type="number"
+                            />
+                            <input
+                                type="number"
                                 min={0}
-                        placeholder="Target"
-                        value={target}
-                        onChange={(e) => setTarget(e.target.value)}
+                                placeholder="Target"
+                                value={target}
+                                onChange={(e) => setTarget(e.target.value)}
                                 className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
-                    />
-                </div>
+                            />
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
-                    <input
-                        type="text"
-                        placeholder="Unit"
-                        value={unit}
-                        onChange={(e) => setUnit(e.target.value)}
+                            <input
+                                type="text"
+                                placeholder="Unit"
+                                value={unit}
+                                onChange={(e) => setUnit(e.target.value)}
                                 className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
-                    />
-                    <input
-                        type="text"
-                        placeholder="MM/DD/YYYY"
+                            />
+                            <input
+                                type="text"
+                                placeholder="MM/DD/YYYY"
                                 value={dueDate ? new Date(dueDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : ''}
-                        onChange={(e) => {
+                                onChange={(e) => {
                                     const dateStr = e.target.value;
                                     // Parse MM/DD/YYYY format
                                     const parts = dateStr.split('/');
@@ -305,11 +305,11 @@ export default function GoalsPage() {
                                     }
                                 }}
                                 className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
-                    />
-                </div>
-                <button
-                    type="submit"
-                    disabled={loading}
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={loading}
                             className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-center font-semibold text-white transition hover:opacity-90 disabled:opacity-60 shadow-lg shadow-[#8B5CF6]/40"
                         >
                             {loading ? 'Saving…' : 'Add Goal'}
@@ -317,15 +317,15 @@ export default function GoalsPage() {
                     </form>
                 </section>
 
-            {loading && goals.length === 0 ? (
-                <div className="space-y-3">
-                    {[1, 2, 3].map(i => (
+                {loading && goals.length === 0 ? (
+                    <div className="space-y-3">
+                        {[1, 2, 3].map(i => (
                             <div key={i} className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 animate-pulse">
                                 <div className="h-6 w-2/3 rounded bg-white/10" />
                                 <div className="mt-3 h-3 w-1/3 rounded bg-white/10" />
-                        </div>
-                    ))}
-                </div>
+                            </div>
+                        ))}
+                    </div>
                 ) : filteredGoals.length === 0 ? (
                     <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center text-white/60">
                         No goals yet. Add your first goal above!
@@ -342,45 +342,45 @@ export default function GoalsPage() {
                                 >
                                     {editing ? (
                                         <div className="flex-1 space-y-3">
-                                        <input
-                                            type="text"
+                                            <input
+                                                type="text"
                                                 value={goal.title}
                                                 onChange={(e) => setGoals(goals.map(g => g.id === goal.id ? { ...g, title: e.target.value } : g))}
                                                 className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-white focus:border-white/30 focus:outline-none"
                                             />
                                             <div className="flex gap-2">
-                                            <button
+                                                <button
                                                     onClick={() => updateGoal(goal)}
-                                                disabled={loading}
+                                                    disabled={loading}
                                                     className="rounded-2xl bg-gradient-to-r from-[#2BD4A4] to-[#12b886] px-4 py-2 text-sm font-semibold text-[#041812] transition disabled:opacity-60"
-                                            >
-                                                Save
-                                            </button>
-                                            <button
-                                                onClick={() => setEditingId(null)}
+                                                >
+                                                    Save
+                                                </button>
+                                                <button
+                                                    onClick={() => setEditingId(null)}
                                                     className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
-                                            >
-                                                Cancel
-                                            </button>
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                ) : (
+                                    ) : (
                                         <>
-                                    <div className="flex-1">
+                                            <div className="flex-1">
                                                 <h3 className={`text-xl font-semibold ${goal.status === 'completed' ? 'text-white/50 line-through' : 'text-white'}`}>
                                                     {goal.title}
                                                 </h3>
                                                 {(goal.target || goal.unit) && (
                                                     <div className="mt-2 text-sm text-white/70">
                                                         {goal.target || ''} {goal.unit || ''}
-                                            </div>
-                                        )}
+                                                    </div>
+                                                )}
                                                 {goal.status && (
                                                     <div className="mt-1 text-sm text-white/60">{goal.status}</div>
                                                 )}
                                             </div>
                                             <div className="flex items-center gap-2">
-                                        <button
+                                                <button
                                                     onClick={() => toggleStatus(goal)}
                                                     className={`flex h-10 w-10 items-center justify-center rounded-full transition ${goal.status === 'completed'
                                                         ? 'bg-gradient-to-r from-[#2BD4A4] to-[#14b8a6] text-[#041812]'
@@ -402,35 +402,35 @@ export default function GoalsPage() {
                                                             d="M5 13l4 4L19 7"
                                                         />
                                                     </svg>
-                                        </button>
-                                        <button
+                                                </button>
+                                                <button
                                                     onClick={() => setEditingId(goal.id)}
                                                     className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
                                                     disabled={loading}
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
                                                     onClick={() => deleteGoal(goal.id)}
                                                     className="rounded-2xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-white/10 disabled:opacity-60"
                                                     disabled={loading}
                                                 >
                                                     Delete
-                                        </button>
-                                    </div>
+                                                </button>
+                                            </div>
                                         </>
                                     )}
                                 </div>
                             );
                         })}
                     </div>
-            )}
+                )}
 
-            {goals.length === 0 && !loading && (
+                {goals.length === 0 && !loading && (
                     <div className="rounded-3xl border border-dashed border-white/20 bg-white/[0.03] p-8 text-center text-white/60">
                         No goals yet — add your first objective above.
-                </div>
-            )}
+                    </div>
+                )}
             </div>
         </MiniAppPage>
     );
