@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { getRarityColor } from '@/lib/achievements';
+import { ACHIEVEMENTS, getRarityColor } from '@/lib/achievements';
 import type { AchievementCheck } from '@/lib/achievements';
 
 const supabase = createClient(
@@ -10,7 +10,13 @@ const supabase = createClient(
 );
 
 export default function Achievements() {
-    const [achievements, setAchievements] = useState<AchievementCheck[]>([]);
+    const [achievements, setAchievements] = useState<AchievementCheck[]>(() =>
+        ACHIEVEMENTS.map(achievement => ({
+            achievement,
+            unlocked: false,
+            progress: 0,
+        }))
+    );
     const [loading, setLoading] = useState(true);
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -29,10 +35,29 @@ export default function Achievements() {
                 const res = await fetch('/api/gamification/achievements', { headers });
                 if (res.ok) {
                     const data = await res.json();
-                    setAchievements(data.achievements || []);
+                    if (Array.isArray(data.achievements) && data.achievements.length > 0) {
+                        setAchievements(data.achievements);
+                    } else {
+                        setAchievements(ACHIEVEMENTS.map(achievement => ({
+                            achievement,
+                            unlocked: false,
+                            progress: 0,
+                        })));
+                    }
+                } else {
+                    setAchievements(ACHIEVEMENTS.map(achievement => ({
+                        achievement,
+                        unlocked: false,
+                        progress: 0,
+                    })));
                 }
             } catch (e) {
                 console.error('Failed to load achievements:', e);
+                setAchievements(ACHIEVEMENTS.map(achievement => ({
+                    achievement,
+                    unlocked: false,
+                    progress: 0,
+                })));
             } finally {
                 setLoading(false);
             }
