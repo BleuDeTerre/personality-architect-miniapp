@@ -11,6 +11,10 @@ const supabase = createClient(
 );
 
 export default function AddMiniAppModal() {
+    if (typeof window !== 'undefined' && isRunningInMiniApp()) {
+        return null;
+    }
+
     const [show, setShow] = useState(false);
     const [adding, setAdding] = useState(false);
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -25,44 +29,27 @@ export default function AddMiniAppModal() {
             return;
         }
 
-        const forceShowInMiniApp = typeof window !== 'undefined' && isRunningInMiniApp();
-
-        if (forceShowInMiniApp) {
-            setShow(true);
-        } else {
-            setShow(false);
-        }
-
-        // Сначала подписываемся на изменения сессии, чтобы отслеживать логин в реальном времени
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (!forceShowInMiniApp) {
-                setShow(!session?.user);
-            }
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setShow(!session?.user);
         });
 
-        if (!forceShowInMiniApp) {
-            // Затем проверяем текущее состояние только если не форсим показ
-            const checkUser = async () => {
-                try {
-                    const { data } = await supabase.auth.getUser();
-                    
-                    // Показываем для всех незалогиненных пользователей
-                    if (!data.user) {
-                        // Минимальная задержка для плавного появления
-                        setTimeout(() => {
-                            setShow(true);
-                        }, 500);
-                    } else {
-                        // Если пользователь залогинен - скрываем окно
-                        setShow(false);
-                    }
-                } catch (error) {
-                    console.error('[AddMiniAppModal] Error checking user:', error);
-                }
-            };
+        const checkUser = async () => {
+            try {
+                const { data } = await supabase.auth.getUser();
 
-            checkUser();
-        }
+                if (!data.user) {
+                    setTimeout(() => {
+                        setShow(true);
+                    }, 500);
+                } else {
+                    setShow(false);
+                }
+            } catch (error) {
+                console.error('[AddMiniAppModal] Error checking user:', error);
+            }
+        };
+
+        checkUser();
 
         return () => {
             subscription.unsubscribe();
@@ -111,8 +98,8 @@ export default function AddMiniAppModal() {
     if (!show) return null;
 
     return (
-        <div 
-            data-modal="add-miniapp" 
+        <div
+            data-modal="add-miniapp"
             data-show={show.toString()}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
         >
@@ -130,9 +117,9 @@ export default function AddMiniAppModal() {
                 <div className="flex justify-center mb-6">
                     <div className="relative">
                         <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#8B5CF6] to-[#6D28D9] flex items-center justify-center shadow-lg overflow-hidden">
-                            <img 
-                                src="/miniapp/icon.png" 
-                                alt="Personality Architect" 
+                            <img
+                                src="/miniapp/icon.png"
+                                alt="Personality Architect"
                                 className="w-full h-full object-cover"
                             />
                         </div>
@@ -170,16 +157,14 @@ export default function AddMiniAppModal() {
                     {/* Enable notifications */}
                     <button
                         onClick={handleEnableNotifications}
-                        className={`w-full flex items-center gap-3 rounded-2xl border ${
-                            notificationsEnabled
+                        className={`w-full flex items-center gap-3 rounded-2xl border ${notificationsEnabled
                                 ? 'border-[#8B5CF6] bg-[#8B5CF6]/10'
                                 : 'border-white/10 bg-[#1a1b2e]'
-                        } p-4 text-left hover:bg-white/5 transition`}
+                            } p-4 text-left hover:bg-white/5 transition`}
                     >
                         <div
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                notificationsEnabled ? 'bg-[#8B5CF6]/20' : 'bg-white/10'
-                            }`}
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${notificationsEnabled ? 'bg-[#8B5CF6]/20' : 'bg-white/10'
+                                }`}
                         >
                             <Bell className={`h-5 w-5 ${notificationsEnabled ? 'text-[#8B5CF6]' : 'text-white'}`} />
                         </div>

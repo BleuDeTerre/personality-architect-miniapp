@@ -447,33 +447,6 @@ export default function ProfilePage() {
                 {/* Quest Board Section */}
                 <QuestBoard className="mb-6" />
 
-                {/* Save Mini App Section */}
-                {isRunningInMiniApp() && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 mb-6">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <p className="text-xs uppercase tracking-wide text-white/60 mb-1">QUICK ACCESS</p>
-                                <p className="text-lg font-semibold text-white mb-2">Save this app</p>
-                                <p className="text-sm text-white/70">
-                                    Add Personality Architect to your favorites for quick access anytime.
-                                </p>
-                            </div>
-                            <button
-                                onClick={async () => {
-                                    try {
-                                        await addMiniApp();
-                                    } catch (error) {
-                                        console.error('[Profile] Failed to add mini app:', error);
-                                    }
-                                }}
-                                className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-center text-base font-semibold text-white transition hover:opacity-90 shadow-lg shadow-[#8B5CF6]/40 whitespace-nowrap"
-                            >
-                                Save
-                            </button>
-                        </div>
-                    </section>
-                )}
-
                 {/* Current Plan Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 mb-6">
                     <div className="flex items-start justify-between">
