@@ -14,15 +14,21 @@ export default function AddMiniAppModal() {
     const [show, setShow] = useState(false);
     const [adding, setAdding] = useState(false);
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-    const [checking, setChecking] = useState(true);
+    const [hasSeen, setHasSeen] = useState(false);
 
     useEffect(() => {
-        const hasSeen = typeof window !== 'undefined' && localStorage.getItem('add_miniapp_seen') === 'true';
-        const forceShowInMiniApp = typeof window !== 'undefined' && isRunningInMiniApp() && !hasSeen;
+        const storedSeen = typeof window !== 'undefined' && localStorage.getItem('add_miniapp_seen') === 'true';
+        setHasSeen(storedSeen);
+
+        if (storedSeen) {
+            setShow(false);
+            return;
+        }
+
+        const forceShowInMiniApp = typeof window !== 'undefined' && isRunningInMiniApp();
 
         if (forceShowInMiniApp) {
             setShow(true);
-            setChecking(false);
         } else {
             setShow(false);
         }
@@ -52,8 +58,6 @@ export default function AddMiniAppModal() {
                     }
                 } catch (error) {
                     console.error('[AddMiniAppModal] Error checking user:', error);
-                } finally {
-                    setChecking(false);
                 }
             };
 
@@ -86,10 +90,14 @@ export default function AddMiniAppModal() {
         // Пока просто отмечаем как включенное
     };
 
+    const markSeen = () => {
+        localStorage.setItem('add_miniapp_seen', 'true');
+        setHasSeen(true);
+    };
+
     const handleCancel = () => {
         setShow(false);
-        // Сохраняем в localStorage, что пользователь видел это окно
-        localStorage.setItem('add_miniapp_seen', 'true');
+        markSeen();
     };
 
     const handleConfirm = async () => {
@@ -97,8 +105,7 @@ export default function AddMiniAppModal() {
             handleEnableNotifications();
         }
         await handleAddToFarcaster();
-        // Сохраняем в localStorage, что пользователь видел это окно
-        localStorage.setItem('add_miniapp_seen', 'true');
+        markSeen();
     };
 
     if (!show) return null;
