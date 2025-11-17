@@ -8,6 +8,7 @@ import LevelUpAnimation from '@/components/LevelUpAnimation';
 import AchievementAnimation from '@/components/AchievementAnimation';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
+import CollapsibleCard from '@/components/CollapsibleCard';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -254,7 +255,7 @@ export default function HabitsPage() {
     useEffect(() => {
         let mounted = true;
 
-        (async () => {
+        const ensureSessionAndLoad = async () => {
             const fid = await getUserFid();
             const { data } = await supabase.auth.getUser();
 
@@ -290,10 +291,23 @@ export default function HabitsPage() {
             await loadPlan();
             console.log('[HabitsPage] Fetching habits...');
             await fetchHabits();
-        })();
+        };
+
+        ensureSessionAndLoad();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (!mounted) return;
+            if (session?.user) {
+                await loadPlan();
+                await fetchHabits();
+            } else {
+                setHabits([]);
+            }
+        });
 
         return () => {
             mounted = false;
+            subscription.unsubscribe();
         };
     }, [fetchHabits, loadPlan]);
 
@@ -575,18 +589,18 @@ export default function HabitsPage() {
             )}
 
             <MiniAppPage>
-                <div className="space-y-4">
+                <div className="space-y-3">
                     {/* Header Card */}
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5">
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">My Habits</h1>
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">My Habits</h1>
                         <p className="text-sm text-white/80">
                             Build routines faster, track completions, and unlock streak rewards.
                         </p>
                     </section>
 
                     {/* Add Habit Form */}
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-                        <form onSubmit={addHabit} className="flex flex-col gap-4">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
+                        <form onSubmit={addHabit} className="flex flex-col gap-3">
                             <div className="relative">
                                 <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">EMOJI</label>
                                 <input
@@ -676,8 +690,8 @@ export default function HabitsPage() {
 
                     {/* Search and Filter */}
                     {habits.length > 0 && (
-                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-                            <div className="flex flex-col gap-3">
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
+                            <div className="flex flex-col gap-2.5">
                                 <div className="relative">
                                     <svg
                                         className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40"
@@ -715,18 +729,17 @@ export default function HabitsPage() {
 
                     {/* Share Section */}
                     {habitShareTemplates.length > 0 && (
-                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
+                        <CollapsibleCard title="Share your habits">
                             <ShareCastComposer
                                 templates={habitShareTemplates}
-                                sectionTitle="Share your habits"
                                 prepareHeaders={authHeaders}
                             />
-                        </section>
+                        </CollapsibleCard>
                     )}
 
                     {/* Habits Grid */}
                     {loadingHabits ? (
-                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
                             <div className="grid grid-cols-2 gap-3">
                                 {[1, 2, 3, 4, 5, 6].map(i => (
                                     <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
@@ -737,7 +750,7 @@ export default function HabitsPage() {
                             </div>
                         </section>
                     ) : filteredHabits.length === 0 ? (
-                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6 text-center text-white/70">
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 text-center text-white/70 text-sm">
                             No habits match your filters.
                         </section>
                     ) : (

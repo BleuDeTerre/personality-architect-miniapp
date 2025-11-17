@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
+import CollapsibleCard from '@/components/CollapsibleCard';
 import AIGoalBreakdown from '@/components/AIGoalBreakdown';
 import AIGoalReview from '@/components/AIGoalReview';
 import DatePicker from '@/components/DatePicker';
@@ -85,25 +86,55 @@ export default function GoalsPage() {
     }, []);
 
     useEffect(() => {
-        (async () => {
-            const fid = await getUserFid();
-            if (!fid) return;
+        let mounted = true;
 
+        const ensureSessionAndLoad = async () => {
+            const fid = await getUserFid();
             const { data } = await supabase.auth.getUser();
-            if (!data.user) {
-                const res = await fetch('/api/auth/farcaster-login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fid }),
-                });
-                if (!res.ok) {
-                    console.error('Login failed', await res.json());
-                    return;
+
+            if (!data.user && fid) {
+                try {
+                    const res = await fetch('/api/auth/farcaster-login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fid }),
+                    });
+                    if (!res.ok) {
+                        console.error('[GoalsPage] Login failed', await res.json());
+                        return;
+                    }
+                    console.log('[GoalsPage] Login successful');
+                } catch (error) {
+                    console.error('[GoalsPage] Login error', error);
                 }
             }
 
+            const { data: userData } = await supabase.auth.getUser();
+            if (!fid && !userData.user) {
+                console.warn('[GoalsPage] No FID or Supabase session, skipping fetch');
+                setLoadingGoals(false);
+                return;
+            }
+
+            if (!mounted) return;
             await fetchGoals();
-        })();
+        };
+
+        ensureSessionAndLoad();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (!mounted) return;
+            if (session?.user) {
+                await fetchGoals();
+            } else {
+                setGoals([]);
+            }
+        });
+
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
     }, [fetchGoals]);
 
     // Save filter state to localStorage
@@ -275,10 +306,10 @@ export default function GoalsPage() {
 
     return (
         <MiniAppPage>
-            <div className="space-y-4">
+            <div className="space-y-3">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">My Goals</h1>
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">My Goals</h1>
                     <p className="text-sm text-white/70">
                         Capture targets, track completions, and celebrate the finish line.
                     </p>
@@ -286,26 +317,27 @@ export default function GoalsPage() {
 
                 {/* Share Section */}
                 {goalShareTemplates.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                    <CollapsibleCard title="Share your goals">
                         <ShareCastComposer
                             templates={goalShareTemplates}
-                            sectionTitle="Share your goals"
                             prepareHeaders={authHeaders}
                         />
-                    </section>
+                    </CollapsibleCard>
                 )}
 
                 {/* AI Goal Review */}
-                <AIGoalReview />
+                <CollapsibleCard title="AI goal review" subtitle="Weekly summary" defaultOpen={false}>
+                    <AIGoalReview />
+                </CollapsibleCard>
 
                 {/* Goal Creation Form */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
                     <form
                         onSubmit={(e) => {
                             e.preventDefault();
                             addGoal();
                         }}
-                        className="flex flex-col gap-4"
+                        className="flex flex-col gap-3"
                     >
                         <div className="space-y-2">
                             <input
@@ -324,7 +356,7 @@ export default function GoalsPage() {
                                 />
                             )}
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                             <input
                                 type="text"
                                 placeholder="Metric (e.g., days, reps)"
@@ -341,7 +373,7 @@ export default function GoalsPage() {
                                 className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
                             />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                             <input
                                 type="text"
                                 placeholder="Unit"
@@ -356,18 +388,18 @@ export default function GoalsPage() {
                                 className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
                             />
                         </div>
-                            <button
-                                type="submit"
-                                disabled={mutatingGoal}
-                                className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-center font-semibold text-white transition hover:opacity-90 disabled:opacity-60 shadow-lg shadow-[#8B5CF6]/40"
-                            >
-                                {mutatingGoal ? 'Saving…' : 'Add Goal'}
-                            </button>
+                        <button
+                            type="submit"
+                            disabled={mutatingGoal}
+                            className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-2.5 text-center font-semibold text-white transition hover:opacity-90 disabled:opacity-60 shadow-lg shadow-[#8B5CF6]/40"
+                        >
+                            {mutatingGoal ? 'Saving…' : 'Add Goal'}
+                        </button>
                     </form>
                 </section>
 
                 {/* Search and Filter */}
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 space-y-4">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
                     {/* Search Bar */}
                     <div className="relative">
                         <svg
@@ -418,18 +450,18 @@ export default function GoalsPage() {
                 {loadingGoals && goals.length === 0 ? (
                     <div className="space-y-3">
                         {[1, 2, 3].map(i => (
-                            <div key={i} className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
+                            <div key={i} className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 animate-pulse">
                                 <div className="h-6 w-2/3 rounded bg-white/10" />
                                 <div className="mt-3 h-3 w-1/3 rounded bg-white/10" />
                             </div>
                         ))}
                     </div>
                 ) : filteredGoals.length === 0 ? (
-                    <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6 text-center text-white/60">
+                    <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 text-center text-white/60 text-sm">
                         No goals yet. Add your first goal above!
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                         {filteredGoals.map(goal => {
                             const editing = editingId === goal.id;
                             const _dueLabel = goal.due_date ? new Date(goal.due_date).toLocaleDateString() : 'Flexible';

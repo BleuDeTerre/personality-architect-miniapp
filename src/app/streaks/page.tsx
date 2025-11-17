@@ -6,6 +6,7 @@ import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import AIStreakRecovery from '@/components/AIStreakRecovery';
+import CollapsibleCard from '@/components/CollapsibleCard';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -341,10 +342,10 @@ export default function StreaksPage() {
 
     return (
         <MiniAppPage>
-            <div className="space-y-4">
+            <div className="space-y-3">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Streaks Analytics</h1>
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">Streaks Analytics</h1>
                     <p className="text-sm text-white/70">
                         Track consecutive wins, discover weak spots, and plan the next badge.
                     </p>
@@ -352,30 +353,22 @@ export default function StreaksPage() {
 
                 {/* Share Section */}
                 {shareTemplates.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-                        <div className="flex items-start justify-between mb-4">
-                            <div>
-                                <h2 className="text-xl font-semibold text-white mb-1">Share your streak</h2>
-                                <p className="text-sm text-white/70">Let everyone know how close you are to the next badge.</p>
-                            </div>
-                            {nextBadgeDays !== null && (
-                                <div className="rounded-full border border-[#8B5CF6] bg-[#1a1b2e] px-4 py-2 text-sm font-medium text-white">
-                                    Next badge ({nextBadgeDays} {nextBadgeDays === 1 ? 'day' : 'days'})
-                                </div>
-                            )}
-                        </div>
+                    <CollapsibleCard
+                        title="Share your streak"
+                        subtitle={nextBadgeDays !== null ? `Next badge in ${nextBadgeDays}d` : undefined}
+                    >
                         <ShareCastComposer
                             templates={shareTemplates}
                             sectionTitle={undefined}
                             prepareHeaders={authHeaders}
                         />
-                    </section>
+                    </CollapsibleCard>
                 )}
 
                 {/* Statistics Cards and Progress */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
                     {/* 2x2 Grid of Statistics Cards */}
-                    <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="grid grid-cols-2 gap-3 mb-4">
                         {/* Current Streak */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                             <div className="text-sm font-semibold text-white mb-2">Current Streak</div>

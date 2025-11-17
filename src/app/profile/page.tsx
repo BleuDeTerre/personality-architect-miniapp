@@ -218,7 +218,7 @@ export default function ProfilePage() {
             const frame = await getFrameContext();
 
 
-            const fid = frame?.user?.fid ?? null;
+            let fid = frame?.user?.fid ?? null;
             const wallet = frame?.user?.custodyAddress ?? frame?.user?.walletAddress ?? null;
 
             // Supabase session
@@ -233,6 +233,17 @@ export default function ProfilePage() {
                 if (access_token) {
                     await supabase.auth.setSession({ access_token, refresh_token: '' });
                     ({ data } = await supabase.auth.getUser());
+                }
+            }
+
+            if (!fid && data.user?.id) {
+                const { data: profileRow } = await supabase
+                    .from('users')
+                    .select('fid')
+                    .eq('id', data.user.id)
+                    .maybeSingle<{ fid: number | null }>();
+                if (profileRow?.fid) {
+                    fid = profileRow.fid;
                 }
             }
 
@@ -354,7 +365,7 @@ export default function ProfilePage() {
 
     return (
         <MiniAppPage>
-            <div className="space-y-4">
+            <div className="space-y-3">
                 {/* Profile Section */}
                 <section className="space-y-3">
                     <h1 className="text-2xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-4">Profile</h1>

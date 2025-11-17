@@ -14,6 +14,7 @@ import CoachBlock from '@/components/CoachBlock';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import AIWheelInsights from '@/components/AIWheelInsights';
+import CollapsibleCard from '@/components/CollapsibleCard';
 
 type Item = { area: string; score: number };
 
@@ -223,11 +224,11 @@ export default function WheelPage() {
 
     return (
         <MiniAppPage>
-            <div className="space-y-4">
+            <div className="space-y-3">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-                    <p className="text-xs uppercase tracking-wide text-white/60 mb-2">WHEEL OF LIFE — WEEK {week}</p>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Life Balance Overview</h1>
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
+                    <p className="text-xs uppercase tracking-wide text-white/60 mb-1.5">WHEEL OF LIFE — WEEK {week}</p>
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">Life Balance Overview</h1>
                     <p className="text-sm text-white/80 mb-4">
                         Rate each area of your life from 1-10 to visualize your overall balance.
                     </p>
@@ -361,7 +362,7 @@ export default function WheelPage() {
                 )}
 
                 {/* Radar Chart and Category Grid */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
                     <div className="flex flex-col gap-6">
                         {/* Radar Chart */}
                         <div className="flex-1 h-96">
@@ -374,16 +375,10 @@ export default function WheelPage() {
                                     <RadarChart
                                         data={(() => {
                                             const currentItems = editingValues ? editItems : items;
-                                            // Create array with one data point per area for PolarAngleAxis
-                                            const dataArray = AREAS.map(areaInfo => {
-                                                const dataPoint: Record<string, string | number> = { area: areaInfo.name };
-                                                AREAS.forEach(a => {
-                                                    const aItem = currentItems.find(i => i.area === a.name);
-                                                    dataPoint[a.name] = aItem?.score ?? 0;
-                                                });
-                                                return dataPoint;
-                                            });
-                                            return dataArray;
+                                            return AREAS.map((areaInfo) => ({
+                                                area: areaInfo.name,
+                                                score: currentItems.find((i) => i.area === areaInfo.name)?.score ?? 0,
+                                            }));
                                         })()}
                                     >
                                         <PolarGrid stroke="#ffffff1a" />
@@ -396,23 +391,15 @@ export default function WheelPage() {
                                             tickCount={6}
                                             tick={false}
                                         />
-                                        {AREAS.map((areaInfo) => {
-                                            const currentItems = editingValues ? editItems : items;
-                                            const item = currentItems.find(i => i.area === areaInfo.name);
-                                            if (!item) return null;
-                                            return (
-                                                <Radar
-                                                    key={areaInfo.name}
-                                                    name={areaInfo.name}
-                                                    dataKey={areaInfo.name}
-                                                    stroke={areaInfo.color}
-                                                    strokeWidth={2}
-                                                    fill={areaInfo.color}
-                                                    fillOpacity={0.3}
-                                                    dot={false}
-                                                />
-                                            );
-                                        })}
+                                        <Radar
+                                            name="Life Balance"
+                                            dataKey="score"
+                                            stroke="#8B5CF6"
+                                            strokeWidth={2}
+                                            fill="#8B5CF6"
+                                            fillOpacity={0.3}
+                                            dot={false}
+                                        />
                                     </RadarChart>
                                 </ResponsiveContainer>
                             )}
@@ -452,32 +439,29 @@ export default function WheelPage() {
 
                 {/* Share Section */}
                 {shareTemplates.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
+                    <CollapsibleCard title="Share your wheel">
                         <ShareCastComposer
                             templates={shareTemplates}
-                            sectionTitle="Share your wheel"
                             prepareHeaders={authHeaders}
                         />
-                    </section>
+                    </CollapsibleCard>
                 )}
 
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 space-y-4">
-                    <h2 className="text-xl font-semibold text-white mb-4">AI Insights</h2>
-                    <AIWheelInsights />
-                    <h2 className="text-xl font-semibold text-white mt-6">Coach</h2>
-                    <div className="flex flex-col gap-3">
+                <CollapsibleCard title="AI & Coach" defaultOpen={false}>
+                    <div className="space-y-3">
+                        <AIWheelInsights />
                         <button
                             onClick={loadTrends}
-                            className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 w-full"
+                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
                             disabled={trendsLoading}
                         >
-                            {trendsLoading ? 'Updating…' : 'REFRESH TRENDS'}
+                            {trendsLoading ? 'Updating…' : 'Refresh trends'}
                         </button>
                         <CoachBlock />
                     </div>
-                </section>
+                </CollapsibleCard>
 
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 space-y-4">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
                     <h2 className="text-xl font-semibold text-white">Trends</h2>
                     <div className="overflow-x-auto rounded-2xl border border-white/10">
                         <table className="min-w-full border-collapse text-sm text-white/80">

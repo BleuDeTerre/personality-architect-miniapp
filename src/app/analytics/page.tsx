@@ -6,6 +6,7 @@ import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import AICorrelationInsights from '@/components/AICorrelationInsights';
+import CollapsibleCard from '@/components/CollapsibleCard';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -599,10 +600,10 @@ export default function AnalyticsPage() {
 
     return (
         <MiniAppPage>
-            <div className="space-y-6">
+            <div className="space-y-3">
                 {/* Advanced Analytics Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Advanced Analytics</h1>
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">Advanced Analytics</h1>
                     <p className="text-sm text-white/70">
                         First wave of dashboards arrives here. Core metrics show up as soon as we collect enough data. Below that — the roadmap of smarter insights we&apos;re building next.
                     </p>
@@ -610,129 +611,128 @@ export default function AnalyticsPage() {
 
                 {/* Share Your Insights Section */}
                 {shareTemplates.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                    <CollapsibleCard title="Share your insights">
                         <ShareCastComposer
                             templates={shareTemplates}
-                            sectionTitle="Share your insights"
                             prepareHeaders={authHeaders}
                         />
-                    </section>
+                    </CollapsibleCard>
                 )}
 
                 {/* Core Metrics Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-6">
-                    <h2 className="text-2xl font-semibold text-white">Core metrics</h2>
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-4">
+                    <h2 className="text-xl font-semibold text-white">Core metrics</h2>
                     {loading ? (
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                             {[1, 2, 3, 4, 5, 6].map(i => (
-                                <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5 animate-pulse">
-                                    <div className="h-6 bg-white/10 rounded w-32 mb-3"></div>
-                                    <div className="h-8 bg-white/10 rounded w-20 mb-3"></div>
+                                <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse space-y-2">
+                                    <div className="h-6 bg-white/10 rounded w-32"></div>
+                                    <div className="h-6 bg-white/10 rounded w-20"></div>
                                     <div className="h-4 bg-white/10 rounded w-full"></div>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                             {/* Completion rate */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5">
-                                <h3 className="text-base font-semibold text-white mb-3">Completion rate</h3>
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
+                                <h3 className="text-sm font-semibold text-white">Completion rate</h3>
                                 {completionRate !== null ? (
                                     <>
-                                        <p className="text-2xl font-semibold text-[#8B5CF6] mb-3">{completionRate}%</p>
-                                        <p className="text-sm text-white/70">
+                                        <p className="text-xl font-semibold text-[#8B5CF6]">{completionRate}%</p>
+                                        <p className="text-xs text-white/70 leading-snug">
                                             Share of tracked habits you finish each day. Helps you spot consistency gains or gaps.
                                         </p>
                                     </>
                                 ) : (
-                                    <p className="text-sm text-white/60">No data yet</p>
+                                    <p className="text-xs text-white/60">No data yet</p>
                                 )}
                             </div>
 
                             {/* Streaks */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5">
-                                <div className="flex items-center justify-between mb-3">
-                                    <h3 className="text-base font-semibold text-white">Streaks</h3>
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-sm font-semibold text-white">Streaks</h3>
                                     <div className="h-px w-12 bg-[#8B5CF6]"></div>
                                 </div>
-                                <div className="space-y-2 mb-3">
-                                    <p className="text-sm text-white/70">
+                                <div className="space-y-1">
+                                    <p className="text-xs text-white/70">
                                         <span className="text-[#8B5CF6] font-semibold">Current:</span> {stats.current_streak}d
                                     </p>
-                                    <p className="text-sm text-white/70">
+                                    <p className="text-xs text-white/70">
                                         <span className="text-[#8B5CF6] font-semibold">Best:</span> {stats.best_streak}d
                                     </p>
                                 </div>
-                                <p className="text-sm text-white/70">
+                                <p className="text-xs text-white/70 leading-snug">
                                     Current and best streaks across your habits — the quickest way to see momentum.
                                 </p>
                             </div>
 
                             {/* Focus areas */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5">
-                                <h3 className="text-base font-semibold text-white mb-3">Focus areas</h3>
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
+                                <h3 className="text-sm font-semibold text-white">Focus areas</h3>
                                 {topHabit && topHabitIcon && topHabitTitle ? (
                                     <>
-                                        <div className="flex items-center gap-2 mb-3">
+                                        <div className="flex items-center gap-2">
                                             <span className="text-2xl">{topHabitIcon}</span>
-                                            <p className="text-lg font-semibold text-[#8B5CF6]">{topHabitTitle}</p>
+                                            <p className="text-base font-semibold text-[#8B5CF6]">{topHabitTitle}</p>
                                         </div>
-                                        <p className="text-sm text-white/70">
+                                        <p className="text-xs text-white/70 leading-snug">
                                             Top habit categories you invest time in. Highlights where energy is going.
                                         </p>
                                     </>
                                 ) : (
-                                    <p className="text-sm text-white/60">No data yet</p>
+                                    <p className="text-xs text-white/60">No data yet</p>
                                 )}
                             </div>
 
                             {/* Average completion time */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5">
-                                <h3 className="text-base font-semibold text-white mb-3">Average completion time</h3>
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
+                                <h3 className="text-sm font-semibold text-white">Average completion time</h3>
                                 {mostActiveDay ? (
                                     <>
-                                        <p className="text-lg font-semibold text-white mb-3">
+                                        <p className="text-base font-semibold text-white">
                                             Peak day: <span className="text-[#8B5CF6]">{mostActiveDay.day}</span>
                                         </p>
-                                        <p className="text-sm text-white/70">
+                                        <p className="text-xs text-white/70 leading-snug">
                                             Typical time of day you complete habits. Useful to schedule around natural energy peaks.
                                         </p>
                                     </>
                                 ) : (
-                                    <p className="text-sm text-white/60">No data yet</p>
+                                    <p className="text-xs text-white/60">No data yet</p>
                                 )}
                             </div>
 
                             {/* Goal progress */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5">
-                                <div className="flex items-start justify-between mb-3">
-                                    <h3 className="text-base font-semibold text-white">Goal progress</h3>
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
+                                <div className="flex items-start justify-between">
+                                    <h3 className="text-sm font-semibold text-white">Goal progress</h3>
                                     {goalProgress && (
                                         <div className="text-right">
-                                            <p className="text-sm font-semibold text-[#8B5CF6] inline-flex items-center gap-1">
+                                            <p className="text-xs font-semibold text-[#8B5CF6] inline-flex items-center gap-1">
                                                 {goalProgress.active}/{goalProgress.total} goals
                                                 <span className="h-1.5 w-1.5 rounded-full bg-[#8B5CF6]"></span>
                                             </p>
-                                            <p className="text-sm text-[#8B5CF6]">{goalProgress.avg}% avg</p>
+                                            <p className="text-xs text-[#8B5CF6]">{goalProgress.avg}% avg</p>
                                         </div>
                                     )}
                                 </div>
                                 {goalProgress ? (
-                                    <p className="text-sm text-white/70">
+                                    <p className="text-xs text-white/70 leading-snug">
                                         How close active goals are to completion. Tracks velocity toward targets.
                                     </p>
                                 ) : (
-                                    <p className="text-sm text-white/60">No goals yet</p>
+                                    <p className="text-xs text-white/60">No goals yet</p>
                                 )}
                             </div>
 
                             {/* Wheel delta */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5">
-                                <h3 className="text-base font-semibold text-white mb-3">Wheel delta</h3>
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
+                                <h3 className="text-sm font-semibold text-white">Wheel delta</h3>
                                 {topWheelDeltas.length > 0 ? (
                                     <>
-                                        <div className="space-y-1 mb-3">
-                                            <p className="text-sm text-white/70">
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-white/70 leading-snug">
                                                 {topWheelDeltas.map((item, idx) => (
                                                     <span key={idx}>
                                                         <span className="text-emerald-300">↑</span>{' '}
@@ -743,12 +743,12 @@ export default function AnalyticsPage() {
                                                 ))}
                                             </p>
                                         </div>
-                                        <p className="text-sm text-white/70">
+                                        <p className="text-xs text-white/70 leading-snug">
                                             Change in Wheel of Life areas over time. Connects behavior to perceived balance.
                                         </p>
                                     </>
                                 ) : (
-                                    <p className="text-sm text-white/60">No wheel data yet</p>
+                                    <p className="text-xs text-white/60">No wheel data yet</p>
                                 )}
                             </div>
                         </div>
@@ -756,48 +756,48 @@ export default function AnalyticsPage() {
                 </section>
 
                 {/* Week Comparison Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-4">
-                    <h2 className="text-2xl font-semibold text-white">Week comparison</h2>
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
+                    <h2 className="text-xl font-semibold text-white">Week comparison</h2>
                     {comparative ? (
                         <>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <p className="text-sm font-medium text-white">This week</p>
-                                    <p className="text-3xl font-semibold text-[#22C55E]">{comparative.this_week.completed_total}</p>
-                                    <p className="text-sm text-white/70">completed logs</p>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <p className="text-xs font-medium text-white/80">This week</p>
+                                    <p className="text-2xl font-semibold text-[#22C55E]">{comparative.this_week.completed_total}</p>
+                                    <p className="text-xs text-white/70">completed logs</p>
                                 </div>
-                                <div className="space-y-2">
-                                    <p className="text-sm font-medium text-white">Last week</p>
-                                    <p className="text-2xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">{comparative.last_week.completed_total}</p>
-                                    <p className="text-sm text-white/70">completed logs</p>
+                                <div className="space-y-1.5">
+                                    <p className="text-xs font-medium text-white/80">Last week</p>
+                                    <p className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">{comparative.last_week.completed_total}</p>
+                                    <p className="text-xs text-white/70">completed logs</p>
                                 </div>
                             </div>
                             {comparative.comparison && (
-                                <div className={`rounded-2xl px-4 py-3 ${comparative.comparison.trend === 'up'
+                                <div className={`rounded-2xl px-3 py-2 ${comparative.comparison.trend === 'up'
                                     ? 'bg-[#22C55E]/20 border border-[#22C55E]/50'
                                     : comparative.comparison.trend === 'down'
                                         ? 'bg-red-400/20 border border-red-400/50'
                                         : 'border border-white/10 bg-[#1a1b2e]'
                                     }`}>
-                                    <p className="text-base font-semibold text-white mb-1">
+                                    <p className="text-sm font-semibold text-white mb-0.5">
                                         {comparative.comparison.message} {comparative.comparison.trend === 'up' ? '🔥' : ''}
                                     </p>
-                                    <p className="text-sm text-white/70">
+                                    <p className="text-xs text-white/70">
                                         {comparative.comparison.percent_change > 0 ? '+' : ''}{comparative.comparison.percent_change}% change
                                     </p>
                                 </div>
                             )}
                         </>
                     ) : (
-                        <p className="text-sm text-white/60">No data yet</p>
+                        <p className="text-xs text-white/60">No data yet</p>
                     )}
                 </section>
 
                 {/* Habit Trend Prototypes Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-6">
-                    <div>
-                        <h2 className="text-2xl font-semibold text-white mb-2">Habit trend prototypes</h2>
-                        <p className="text-sm text-white/70">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-4">
+                    <div className="space-y-1">
+                        <h2 className="text-xl font-semibold text-white">Habit trend prototypes</h2>
+                        <p className="text-xs text-white/70">
                             Compare streak momentum for any habit. We&apos;ll use these prototypes to decide how to evolve the Streaks dashboard.
                         </p>
                     </div>
@@ -805,13 +805,13 @@ export default function AnalyticsPage() {
                     {habits.length > 0 ? (
                         <>
                             {/* Habit selector */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-white">Habit</label>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-white/80">Habit</label>
                                 <div className="relative">
                                     <select
                                         value={selectedHabitId}
                                         onChange={(e) => setSelectedHabitId(e.target.value)}
-                                        className="w-full appearance-none rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 pr-10 text-white focus:border-white/40 focus:outline-none"
+                                        className="w-full appearance-none rounded-2xl border border-white/10 bg-[#1a1b2e] px-3 py-2.5 pr-8 text-white text-sm focus:border-white/40 focus:outline-none"
                                     >
                                         {habits.map(h => {
                                             const emojiMatch = h.title?.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
@@ -824,8 +824,8 @@ export default function AnalyticsPage() {
                                             );
                                         })}
                                     </select>
-                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                                        <svg className="h-5 w-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5">
+                                        <svg className="h-4 w-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                         </svg>
                                     </div>
@@ -834,18 +834,18 @@ export default function AnalyticsPage() {
 
                             {/* Sparkline chart */}
                             {loadingTrend ? (
-                                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-6 animate-pulse space-y-4">
-                                    <div className="h-6 bg-white/10 rounded w-32 mb-4"></div>
-                                    <div className="h-32 bg-white/10 rounded"></div>
-                                    <div className="h-6 bg-white/10 rounded w-48"></div>
+                                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse space-y-3">
+                                    <div className="h-5 bg-white/10 rounded w-28"></div>
+                                    <div className="h-28 bg-white/10 rounded"></div>
+                                    <div className="h-4 bg-white/10 rounded w-40"></div>
                                 </div>
                             ) : habitTrendData.length > 0 ? (
-                                <div className="space-y-6">
+                                <div className="space-y-3">
                                     {/* Sparkline streak trend */}
-                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5 space-y-4">
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2.5">
                                         <div>
-                                            <h3 className="text-base font-semibold text-white mb-1">Sparkline streak trend (last 90 days)</h3>
-                                            <p className="text-sm text-white/70">Max streak: {maxStreak} day{maxStreak !== 1 ? 's' : ''}</p>
+                                            <h3 className="text-sm font-semibold text-white">Sparkline streak trend (last 90 days)</h3>
+                                            <p className="text-xs text-white/70">Max streak: {maxStreak} day{maxStreak !== 1 ? 's' : ''}</p>
                                         </div>
                                         <div className="relative h-32 w-full">
                                             <SparklineChart data={habitTrendData} maxStreak={maxStreak} />
@@ -853,13 +853,13 @@ export default function AnalyticsPage() {
                                     </div>
 
                                     {/* Weekly capsule timeline */}
-                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5 space-y-4">
-                                        <div>
-                                            <h3 className="text-base font-semibold text-white mb-1">Weekly capsule timeline (8 weeks)</h3>
-                                            <p className="text-sm text-white/70">Each capsule shows completion rate and longest run for the week.</p>
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2.5">
+                                        <div className="space-y-1">
+                                            <h3 className="text-sm font-semibold text-white">Weekly capsule timeline (8 weeks)</h3>
+                                            <p className="text-xs text-white/70">Each capsule shows completion rate and longest run for the week.</p>
                                         </div>
                                         {weeklyCapsules.length > 0 ? (
-                                            <div className="flex gap-3 overflow-x-auto pb-2">
+                                            <div className="flex gap-2.5 overflow-x-auto pb-1.5">
                                                 {weeklyCapsules.map((capsule, idx) => {
                                                     const startStr = capsule.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                                                     const endStr = capsule.weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -886,19 +886,19 @@ export default function AnalyticsPage() {
                                                     return (
                                                         <div
                                                             key={idx}
-                                                            className={`flex-shrink-0 rounded-2xl border ${borderColor} ${bgColor} p-4 min-w-[180px] flex flex-col gap-3`}
+                                                            className={`flex-shrink-0 rounded-2xl border ${borderColor} ${bgColor} p-3 min-w-[150px] flex flex-col gap-2`}
                                                         >
-                                                            <div className="text-xs text-white/60 text-center">
+                                                            <div className="text-[11px] text-white/60 text-center">
                                                                 {startStr} → {endStr}
                                                             </div>
-                                                            <div className={`text-lg font-semibold ${textColor} text-center`}>
+                                                            <div className={`text-base font-semibold ${textColor} text-center`}>
                                                                 {capsule.completedDays}/{capsule.totalDays}
                                                             </div>
-                                                            <div className={`text-sm ${textColor} text-center`}>
+                                                            <div className={`text-xs ${textColor} text-center`}>
                                                                 {capsule.longestRun === 0 ? 'Longest Break' : `Longest ${capsule.longestRun}d`}
                                                             </div>
                                                             {/* Progress bar */}
-                                                            <div className="relative w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                                                            <div className="relative w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                                                                 <div
                                                                     className={`h-full rounded-full ${capsule.completedDays === 7 ? 'bg-green-500' :
                                                                         capsule.completedDays >= 4 ? 'bg-yellow-500' :
@@ -912,45 +912,41 @@ export default function AnalyticsPage() {
                                                 })}
                                             </div>
                                         ) : (
-                                            <p className="text-sm text-white/60">No data yet</p>
+                                            <p className="text-xs text-white/60">No data yet</p>
                                         )}
                                     </div>
                                 </div>
                             ) : (
-                                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-6 text-center text-white/60">
+                                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 text-center text-white/60 text-sm">
                                     No trend data available for this habit yet.
                                 </div>
                             )}
                         </>
                     ) : (
-                        <p className="text-sm text-white/60">No habits yet. Create habits to see trend data.</p>
+                        <p className="text-xs text-white/60">No habits yet. Create habits to see trend data.</p>
                     )}
                 </section>
 
                 {/* AI Facts Section */}
                 {facts && facts.facts && facts.facts.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-4">
-                        <h2 className="text-2xl font-semibold text-white flex items-center gap-2">
-                            <span className="text-2xl">🤖</span>
-                            <span>AI facts</span>
-                        </h2>
-                        <div className="space-y-3">
+                    <CollapsibleCard title="AI facts" defaultOpen={false}>
+                        <div className="space-y-2">
                             {facts.facts.map((fact, idx) => (
-                                <div key={idx} className="flex items-start gap-3">
-                                    <span className="text-[#7DD3FC] mt-1 text-lg">•</span>
-                                    <p className="text-sm text-white flex-1">{fact}</p>
+                                <div key={idx} className="flex items-start gap-2.5">
+                                    <span className="text-[#7DD3FC] mt-0.5 text-base">•</span>
+                                    <p className="text-sm text-white flex-1 leading-snug">{fact}</p>
                                 </div>
                             ))}
                         </div>
-                    </section>
+                    </CollapsibleCard>
                 )}
 
                 {/* Habit Correlations Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-4">
-                    <h2 className="text-2xl font-semibold text-white">Habit correlations</h2>
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
+                    <h2 className="text-xl font-semibold text-white">Habit correlations</h2>
                     <AICorrelationInsights />
                     {correlations && correlations.length > 0 ? (
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             {correlations.map((corr, idx) => {
                                 // Extract emoji and title for habit_a
                                 const emojiA = corr.habit_a.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u)?.[0] || '';
@@ -963,11 +959,11 @@ export default function AnalyticsPage() {
                                 const percentage = Math.round(corr.correlation * 100);
 
                                 return (
-                                    <div key={idx} className="flex items-center justify-between py-2">
-                                        <span className="text-sm text-white flex-1">
+                                    <div key={idx} className="flex items-center justify-between py-1.5">
+                                        <span className="text-xs text-white flex-1">
                                             {emojiA ? `${emojiA} ` : ''}{titleA} ↔ {emojiB ? `${emojiB} ` : ''}{titleB}
                                         </span>
-                                        <span className="text-sm font-semibold text-white ml-4 flex-shrink-0">
+                                        <span className="text-xs font-semibold text-white ml-3 flex-shrink-0">
                                             {percentage}%
                                         </span>
                                     </div>
@@ -975,15 +971,15 @@ export default function AnalyticsPage() {
                             })}
                         </div>
                     ) : (
-                        <p className="text-sm text-white/60">No data yet</p>
+                        <p className="text-xs text-white/60">No data yet</p>
                     )}
                 </section>
 
 
                 {/* Advanced Insights Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-4">
-                    <h2 className="text-2xl font-semibold text-white">Advanced insights</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
+                    <h2 className="text-xl font-semibold text-white">Advanced insights</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {/* Weak windows */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">

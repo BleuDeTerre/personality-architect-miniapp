@@ -108,39 +108,39 @@ export default function DashboardPage() {
   const xpRemaining = Math.max(0, xpTarget - xp);
 
   return (
-    <MiniAppPage>
-      <section className="space-y-4">
-        <div className="p-5 sm:p-6">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-3">Personality Architect</h1>
-          <div className="mt-4 max-w-3xl ml-auto">
+    <MiniAppPage className="pt-1.5">
+      <section className="space-y-2.5">
+        <div className="p-3 sm:p-4">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Personality Architect</h1>
+          <div className="mt-1 max-w-3xl ml-auto space-y-1.5">
             <p className="text-[#c3c8d4] italic text-sm leading-relaxed">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
-            <p className="text-[#8d92a3] text-xs italic text-right mt-2">— Aristotle</p>
+            <p className="text-[#8d92a3] text-xs italic text-right">— Aristotle</p>
           </div>
           {gamificationStats && (
-            <div className="mt-6 rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 backdrop-blur">
+            <div className="mt-4 rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 backdrop-blur">
               <div className="flex items-center justify-between text-sm text-white/70">
                 <span>{levelName} · Level {level}</span>
                 <span>{xp.toLocaleString()} XP</span>
               </div>
-              <div className="mt-2 h-3 rounded-full bg-white/20 overflow-hidden">
+              <div className="mt-1.5 h-2.5 rounded-full bg-white/20 overflow-hidden">
                 <div className="h-full rounded-full bg-gradient-to-r from-[#8B5CF6] via-[#7C3AED] to-[#C084FC]" style={{ width: `${progress}%` }} />
               </div>
-              <div className="mt-2 text-xs text-white/60">{xpRemaining > 0 ? `${xpRemaining.toLocaleString()} XP until next level` : 'Maxed out!'}</div>
+              <div className="mt-1.5 text-xs text-white/60">{xpRemaining > 0 ? `${xpRemaining.toLocaleString()} XP until next level` : 'Maxed out!'}</div>
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-1.5">
           {NAVIGATION.map(item => (
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-3xl bg-[#1a1b2e] p-4 flex items-start gap-3 text-white hover:bg-[#252640] transition"
+              className="rounded-3xl bg-[#1a1b2e] p-3 flex items-start gap-2.5 text-white hover:bg-[#252640] transition"
             >
               <div className="text-2xl">{item.icon}</div>
               <div>
-                <div className="text-lg font-semibold text-white">{item.label}</div>
-                <p className="text-sm text-white/70">{item.desc}</p>
+                <div className="text-base font-semibold text-white">{item.label}</div>
+                <p className="text-xs text-white/70 leading-snug">{item.desc}</p>
               </div>
             </Link>
           ))}

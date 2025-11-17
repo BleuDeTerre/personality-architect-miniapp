@@ -10,7 +10,7 @@ interface MiniAppPageProps {
 export default function MiniAppPage({ children, className, footerSlot }: MiniAppPageProps) {
     return (
         <div className="min-h-screen bg-[#0c0f1a] text-white pb-20">
-            <div className={["w-full max-w-5xl mx-auto px-4 py-4 sm:px-6", className ?? ""].join(" ").trim()}>
+            <div className={["w-full max-w-5xl mx-auto px-4 py-3 sm:px-6", className ?? ""].join(" ").trim()}>
                 {children}
             </div>
             {footerSlot && (
