@@ -100,7 +100,7 @@ export default function DatePicker({ value, onChange, placeholder = 'MM/DD/YYYY'
     };
 
     return (
-        <div ref={containerRef} className="relative">
+        <div ref={containerRef} className="relative w-full">
             <input
                 type="text"
                 placeholder={placeholder}

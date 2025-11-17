@@ -418,36 +418,34 @@ export default function WheelPage() {
                             )}
                         </div>
 
-                        {/* Category Grid Below Chart - Horizontal Scroll */}
-                        <div className="overflow-x-auto no-scrollbar">
-                            <div className="flex gap-2 min-w-max">
-                                {useMemo(() => {
-                                    const currentItems = editingValues ? editItems : items;
-                                    // Order: Spirituality, Career, Relationships, Health, Personal Growth, Joy & Leisure, Social, Finances, Environment, Inner State
-                                    const displayOrder = ['Spirituality', 'Career', 'Relationships', 'Health', 'Personal Growth', 'Joy & Leisure', 'Social', 'Finances', 'Environment', 'Inner State'];
-                                    return displayOrder.map(areaName => {
-                                        const item = currentItems.find(i => i.area === areaName);
-                                        if (!item) return null;
-                                        const areaInfo = AREAS.find(a => a.name === areaName);
-                                        const areaColor = areaInfo?.color ?? '#8B5CF6';
-                                        return (
-                                            <div
-                                                key={item.area}
-                                                className="rounded-xl border border-white/10 bg-[#1a1b2e] p-2.5 flex flex-col items-center gap-1.5 min-w-[80px] flex-shrink-0"
+                        {/* Category Grid Below Chart - 2 Columns */}
+                        <div className="grid grid-cols-2 gap-3">
+                            {useMemo(() => {
+                                const currentItems = editingValues ? editItems : items;
+                                // Order: Spirituality, Career, Relationships, Health, Personal Growth, Joy & Leisure, Social, Finances, Environment, Inner State
+                                const displayOrder = ['Spirituality', 'Career', 'Relationships', 'Health', 'Personal Growth', 'Joy & Leisure', 'Social', 'Finances', 'Environment', 'Inner State'];
+                                return displayOrder.map(areaName => {
+                                    const item = currentItems.find(i => i.area === areaName);
+                                    if (!item) return null;
+                                    const areaInfo = AREAS.find(a => a.name === areaName);
+                                    const areaColor = areaInfo?.color ?? '#8B5CF6';
+                                    return (
+                                        <div
+                                            key={item.area}
+                                            className="rounded-xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col items-center gap-2"
+                                        >
+                                            <span className="text-xl">{areaInfo?.icon ?? '•'}</span>
+                                            <span className="text-xs font-semibold text-white text-center leading-tight">{item.area}</span>
+                                            <span
+                                                className="text-xs font-medium rounded-full px-3 py-1"
+                                                style={{ backgroundColor: `${areaColor}20`, color: areaColor, border: `1px solid ${areaColor}` }}
                                             >
-                                                <span className="text-lg">{areaInfo?.icon ?? '•'}</span>
-                                                <span className="text-[10px] font-semibold text-white text-center leading-tight truncate w-full">{item.area}</span>
-                                                <span
-                                                    className="text-[10px] font-medium rounded-full px-2 py-0.5 whitespace-nowrap"
-                                                    style={{ backgroundColor: `${areaColor}20`, color: areaColor, border: `1px solid ${areaColor}` }}
-                                                >
-                                                    {item.score}/10
-                                                </span>
-                                            </div>
-                                        );
-                                    }).filter(Boolean);
-                                }, [editingValues, editItems, items])}
-                            </div>
+                                                {item.score}/10
+                                            </span>
+                                        </div>
+                                    );
+                                }).filter(Boolean);
+                            }, [editingValues, editItems, items])}
                         </div>
                     </div>
                 </section>

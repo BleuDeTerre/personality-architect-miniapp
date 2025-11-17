@@ -381,7 +381,22 @@ export default function ProfilePage() {
                                 </div>
                             </div>
                         </div>
-                    ) : null}
+                    ) : (
+                        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                            <div className="flex items-start gap-4">
+                                <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-2xl text-white/60">
+                                    🧑‍🚀
+                                </div>
+                                <div className="flex-1">
+                                    <div className="text-xl font-bold text-white mb-1">Farcaster user</div>
+                                    <div className="text-sm text-white/60 mb-2">Connect your Farcaster profile to unlock personalized insights.</div>
+                                    <p className="text-xs text-white/50">
+                                        Open the app from Farcaster to automatically link your profile.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </section>
 
                 {/* Quest Board Section */}

@@ -128,7 +128,7 @@ export default function HabitsPage() {
     const [title, setTitle] = useState('');
     const [emoji, setEmoji] = useState<string>('');
     const [targetDays, setTargetDays] = useState(3);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [plan, setPlan] = useState<string>('free');
     const [showTemplates, setShowTemplates] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -191,10 +191,21 @@ export default function HabitsPage() {
                 return;
             }
 
-            // Убираем дубликаты по id
-            const uniqueHabits = base.filter((h: any, index: number, self: any[]) => 
-                index === self.findIndex((t: any) => t.id === h.id)
-            );
+            // Убираем дубликаты по id и title
+            const seenIds = new Set<string>();
+            const seenTitles = new Set<string>();
+            const uniqueHabits: any[] = [];
+            for (const habit of base) {
+                const normalizedTitle = (habit.title || '').trim().toLowerCase();
+                if (seenIds.has(habit.id) || (normalizedTitle && seenTitles.has(normalizedTitle))) {
+                    continue;
+                }
+                seenIds.add(habit.id);
+                if (normalizedTitle) {
+                    seenTitles.add(normalizedTitle);
+                }
+                uniqueHabits.push(habit);
+            }
 
             const ids = uniqueHabits.map((h: any) => h.id);
             const rs = await fetch('/api/habits/streaks', {
@@ -241,36 +252,35 @@ export default function HabitsPage() {
 
     useEffect(() => {
         let mounted = true;
-        
+
         (async () => {
             const fid = await getUserFid();
-            if (!fid) {
-                console.log('[HabitsPage] No FID, skipping fetch');
-                return;
-            }
-
             const { data } = await supabase.auth.getUser();
-            if (!data.user) {
+
+            if (!data.user && fid) {
                 console.log('[HabitsPage] No user, attempting login...');
-                const res = await fetch('/api/auth/farcaster-login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fid }),
-                });
-                const loginData = await res.json();
-                if (loginData.access_token) {
-                    await supabase.auth.setSession({ access_token: loginData.access_token, refresh_token: '' });
-                    console.log('[HabitsPage] Login successful');
-                } else {
-                    console.error('[HabitsPage] Login failed:', loginData);
-                    return;
+                try {
+                    const res = await fetch('/api/auth/farcaster-login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fid }),
+                    });
+                    const loginData = await res.json();
+                    if (loginData.access_token) {
+                        await supabase.auth.setSession({ access_token: loginData.access_token, refresh_token: '' });
+                        console.log('[HabitsPage] Login successful');
+                    } else {
+                        console.error('[HabitsPage] Login failed:', loginData);
+                    }
+                } catch (error) {
+                    console.error('[HabitsPage] Login error:', error);
                 }
             }
 
-            // Проверяем сессию еще раз после логина
             const { data: userData } = await supabase.auth.getUser();
-            if (!userData.user) {
-                console.error('[HabitsPage] Still no user after login attempt');
+            if (!fid && !userData.user) {
+                console.warn('[HabitsPage] No FID or Supabase session, skipping fetch');
+                setLoading(false);
                 return;
             }
 
@@ -621,6 +631,12 @@ export default function HabitsPage() {
                                     onChange={(e) => setTitle(e.target.value)}
                                     className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                                     required
+                                    onInvalid={(e) => {
+                                        e.currentTarget.setCustomValidity('Please fill in this field.');
+                                    }}
+                                    onInput={(e) => {
+                                        e.currentTarget.setCustomValidity('');
+                                    }}
                                 />
                             </div>
                             <div>
