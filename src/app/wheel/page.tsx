@@ -223,9 +223,9 @@ export default function WheelPage() {
 
     return (
         <MiniAppPage>
-            <div className="space-y-6">
+            <div className="space-y-4">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                     <p className="text-xs uppercase tracking-wide text-white/60 mb-2">WHEEL OF LIFE — WEEK {week}</p>
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Life Balance Overview</h1>
                     <p className="text-sm text-white/80 mb-4">
@@ -253,7 +253,7 @@ export default function WheelPage() {
                 </section>
 
                 {editingValues && (
-                    <section data-wheel-section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                    <section data-wheel-section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                         <div className="flex flex-col gap-6">
                             {/* Header */}
                             <div className="flex items-start justify-between">
@@ -432,12 +432,12 @@ export default function WheelPage() {
                                     return (
                                         <div
                                             key={item.area}
-                                            className="rounded-xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col items-center gap-2"
+                                            className="rounded-full border border-white/10 bg-white/5 px-3 py-2 flex items-center gap-2"
                                         >
-                                            <span className="text-xl">{areaInfo?.icon ?? '•'}</span>
-                                            <span className="text-xs font-semibold text-white text-center leading-tight">{item.area}</span>
+                                            <span className="text-lg">{areaInfo?.icon ?? '•'}</span>
+                                            <span className="text-xs font-semibold text-white truncate">{item.area}</span>
                                             <span
-                                                className="text-xs font-medium rounded-full px-3 py-1"
+                                                className="ml-auto text-xs font-semibold rounded-full px-2.5 py-0.5"
                                                 style={{ backgroundColor: `${areaColor}20`, color: areaColor, border: `1px solid ${areaColor}` }}
                                             >
                                                 {item.score}/10
@@ -452,7 +452,7 @@ export default function WheelPage() {
 
                 {/* Share Section */}
                 {shareTemplates.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                         <ShareCastComposer
                             templates={shareTemplates}
                             sectionTitle="Share your wheel"
@@ -461,7 +461,7 @@ export default function WheelPage() {
                     </section>
                 )}
 
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 space-y-4">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 space-y-4">
                     <h2 className="text-xl font-semibold text-white mb-4">AI Insights</h2>
                     <AIWheelInsights />
                     <h2 className="text-xl font-semibold text-white mt-6">Coach</h2>
@@ -477,7 +477,7 @@ export default function WheelPage() {
                     </div>
                 </section>
 
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 space-y-4">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 space-y-4">
                     <h2 className="text-xl font-semibold text-white">Trends</h2>
                     <div className="overflow-x-auto rounded-2xl border border-white/10">
                         <table className="min-w-full border-collapse text-sm text-white/80">

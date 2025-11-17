@@ -90,6 +90,7 @@ export default function ProfilePage() {
     const [walletError, setWalletError] = useState<string | null>(null);
 
     const [loading, setLoading] = useState(true);
+    const [badgesLoading, setBadgesLoading] = useState(true);
     const [gamificationStats, setGamificationStats] = useState<UserStats | null>(null);
     const [currentPlan, setCurrentPlan] = useState<'free' | 'pro' | 'premium'>('free');
 
@@ -154,20 +155,49 @@ export default function ProfilePage() {
 
             const { data, error } = response;
             if (error) throw error;
-            if (!data) {
+            if (!data && fid) {
+                try {
+                    const headers = await authHeaders();
+                    const fallbackRes = await fetch('/api/neynar/users', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({ fids: [fid] }),
+                    });
+                    if (fallbackRes.ok) {
+                        const fallbackData = await fallbackRes.json();
+                        const fallbackProfile = Array.isArray(fallbackData.users) ? fallbackData.users[0] : null;
+                        if (fallbackProfile) {
+                            setNeynarProfile({
+                                fid: fallbackProfile.fid ?? fid,
+                                username: fallbackProfile.username ?? null,
+                                displayName: fallbackProfile.displayName ?? null,
+                                pfpUrl: fallbackProfile.pfpUrl ?? null,
+                                bio: fallbackProfile.bio ?? null,
+                                followerCount: fallbackProfile.followerCount ?? null,
+                                followingCount: fallbackProfile.followingCount ?? null,
+                                updatedAt: new Date().toISOString(),
+                            });
+                            return;
+                        }
+                    }
+                } catch (fallbackErr) {
+                    console.error('[Profile] Fallback fetch failed:', fallbackErr);
+                }
                 setNeynarProfile(null);
                 return;
             }
-            setNeynarProfile({
-                fid: data.fid ?? null,
-                username: data.username ?? null,
-                displayName: data.display_name ?? null,
-                pfpUrl: data.pfp_url ?? null,
-                bio: data.bio ?? null,
-                followerCount: data.follower_count ?? null,
-                followingCount: data.following_count ?? null,
-                updatedAt: data.updated_at ?? null,
-            });
+            if (data) {
+                setNeynarProfile({
+                    fid: data.fid ?? null,
+                    username: data.username ?? null,
+                    displayName: data.display_name ?? null,
+                    pfpUrl: data.pfp_url ?? null,
+                    bio: data.bio ?? null,
+                    followerCount: data.follower_count ?? null,
+                    followingCount: data.following_count ?? null,
+                    updatedAt: data.updated_at ?? null,
+                });
+            }
         } catch (err: unknown) {
             console.error('[Neynar] Failed to load profile', err);
             const message = err instanceof Error ? err.message : 'Failed to load profile';
@@ -215,8 +245,12 @@ export default function ProfilePage() {
             });
             // Wallet input will be shown when user clicks "Change wallet"
 
-            await refreshMints();
-            await refreshEligibility();
+            try {
+                await refreshMints();
+                await refreshEligibility();
+            } finally {
+                setBadgesLoading(false);
+            }
             await loadNeynarProfile(fid, data.user?.id ?? null);
 
             // Load gamification stats
@@ -320,13 +354,13 @@ export default function ProfilePage() {
 
     return (
         <MiniAppPage>
-            <div className="space-y-6">
+            <div className="space-y-4">
                 {/* Profile Section */}
-                <section className="space-y-4">
+                <section className="space-y-3">
                     <h1 className="text-2xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-4">Profile</h1>
 
                     {neynarLoading ? (
-                        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 animate-pulse">
+                        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 animate-pulse">
                             <div className="flex items-center gap-4">
                                 <div className="w-16 h-16 rounded-full bg-white/10"></div>
                                 <div className="flex-1 space-y-2">
@@ -336,7 +370,7 @@ export default function ProfilePage() {
                             </div>
                         </div>
                     ) : neynarProfile ? (
-                        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                             <div className="flex items-start gap-4">
                                 {/* Profile Picture */}
                                 <div className="w-16 h-16 rounded-full overflow-hidden bg-white/10 flex items-center justify-center text-2xl font-semibold text-white/80 relative flex-shrink-0">
@@ -382,7 +416,7 @@ export default function ProfilePage() {
                             </div>
                         </div>
                     ) : (
-                        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                             <div className="flex items-start gap-4">
                                 <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-2xl text-white/60">
                                     🧑‍🚀
@@ -404,7 +438,7 @@ export default function ProfilePage() {
 
                 {/* Save Mini App Section */}
                 {isRunningInMiniApp() && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 mb-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 mb-6">
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-xs uppercase tracking-wide text-white/60 mb-1">QUICK ACCESS</p>
@@ -430,7 +464,7 @@ export default function ProfilePage() {
                 )}
 
                 {/* Current Plan Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 mb-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 mb-6">
                     <div className="flex items-start justify-between">
                         <div>
                             <p className="text-xs uppercase tracking-wide text-white/60 mb-1">CURRENT PLAN</p>
@@ -446,7 +480,7 @@ export default function ProfilePage() {
                 </section>
 
                 {/* Wallet Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 mb-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 mb-6">
                     <div className="flex items-start justify-between mb-4">
                         <div>
                             <p className="text-xs uppercase tracking-wide text-white/60 mb-1">WALLET</p>
@@ -532,9 +566,14 @@ export default function ProfilePage() {
                 </section>
 
                 {/* Badges with Mint buttons */}
-                <section className="mb-6">
-                    <h2 className="text-xl font-semibold mb-3">Badges Gallery</h2>
-                    {loading ? (
+                <section className="mb-6 rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-semibold">Badges Gallery</h2>
+                        {badgesLoading && (
+                            <span className="text-sm text-white/70">Loading…</span>
+                        )}
+                    </div>
+                    {badgesLoading ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             {[1, 2, 3, 4, 5, 6].map(i => (
                                 <div key={i} className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
@@ -548,7 +587,7 @@ export default function ProfilePage() {
                                 </div>
                             ))}
                         </div>
-                    ) : (
+                    ) : BADGES.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             {BADGES.map(b => {
                                 const st = statusMap[b.slug] ?? 'none';
@@ -584,6 +623,10 @@ export default function ProfilePage() {
                                 );
                             })}
                         </div>
+                    ) : (
+                        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e]/60 p-4 text-center text-white/60">
+                            No badges available yet.
+                        </div>
                     )}
                 </section>
 
@@ -594,7 +637,7 @@ export default function ProfilePage() {
                 </section>
 
                 {/* Export Data */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 relative overflow-hidden">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 relative overflow-hidden">
                     {/* Content visible through blur */}
                     <div className="pointer-events-none">
                         <div className="flex items-start justify-between mb-4">

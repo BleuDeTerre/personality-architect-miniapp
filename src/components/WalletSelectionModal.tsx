@@ -21,18 +21,29 @@ export default function WalletSelectionModal() {
     const [checking, setChecking] = useState(true);
 
     useEffect(() => {
+        const hasSeenWalletPrompt = typeof window !== 'undefined' && localStorage.getItem('wallet_selection_seen') === 'true';
+        const forceShowInMiniApp = typeof window !== 'undefined' && isRunningInMiniApp() && !hasSeenWalletPrompt;
+
+        const preloadWallet = async () => {
+            if (isRunningInMiniApp()) {
+                const context = await getFrameContext();
+                const wallet = context?.user?.custodyAddress || context?.user?.walletAddress || null;
+                setFarcasterWallet(wallet);
+            }
+        };
+
+        if (forceShowInMiniApp) {
+            preloadWallet();
+            setShow(true);
+            setChecking(false);
+        }
+
         // Сначала подписываемся на изменения сессии, чтобы отслеживать логин в реальном времени
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (session?.user) {
+            if (session?.user && !forceShowInMiniApp) {
                 setShow(false);
-            } else {
-                // Пользователь разлогинился - показываем окно
-                // Получаем Farcaster wallet из контекста (только если в Mini App)
-                if (isRunningInMiniApp()) {
-                    const context = await getFrameContext();
-                    const wallet = context?.user?.custodyAddress || context?.user?.walletAddress || null;
-                    setFarcasterWallet(wallet);
-                }
+            } else if (!session?.user) {
+                await preloadWallet();
                 // Показываем после AddMiniAppModal (через 1 секунду после него)
                 setTimeout(() => {
                     setShow(true);
@@ -40,51 +51,57 @@ export default function WalletSelectionModal() {
             }
         });
 
-        // Затем проверяем текущее состояние
-        const checkUser = async () => {
-            try {
-                const { data } = await supabase.auth.getUser();
-                
-                // Показываем для всех незалогиненных пользователей
-                if (!data.user) {
-                    // Получаем Farcaster wallet из контекста (только если в Mini App)
-                    if (isRunningInMiniApp()) {
-                        const context = await getFrameContext();
-                        const wallet = context?.user?.custodyAddress || context?.user?.walletAddress || null;
-                        setFarcasterWallet(wallet);
-                    }
+        if (!forceShowInMiniApp) {
+            // Затем проверяем текущее состояние
+            const checkUser = async () => {
+                try {
+                    const { data } = await supabase.auth.getUser();
                     
-                    // Проверяем, закрыто ли AddMiniAppModal (через проверку интервала)
-                    const checkAddModalClosed = setInterval(() => {
-                        // Проверяем, есть ли активное модальное окно AddMiniAppModal
-                        const addModalElement = document.querySelector('[data-modal="add-miniapp"]');
-                        if (!addModalElement || addModalElement.getAttribute('data-show') === 'false') {
+                    // Показываем для всех незалогиненных пользователей
+                    if (!data.user) {
+                        await preloadWallet();
+                        
+                        // Проверяем, закрыто ли AddMiniAppModal (через проверку интервала)
+                        const checkAddModalClosed = setInterval(() => {
+                            // Проверяем, есть ли активное модальное окно AddMiniAppModal
+                            const addModalElement = document.querySelector('[data-modal="add-miniapp"]');
+                            if (!addModalElement || addModalElement.getAttribute('data-show') === 'false') {
+                                clearInterval(checkAddModalClosed);
+                                setShow(true);
+                            }
+                        }, 200);
+                        
+                        // Показываем через 1.5 секунды в любом случае (fallback)
+                        setTimeout(() => {
                             clearInterval(checkAddModalClosed);
                             setShow(true);
-                        }
-                    }, 200);
-                    
-                    // Показываем через 1.5 секунды в любом случае (fallback)
-                    setTimeout(() => {
-                        clearInterval(checkAddModalClosed);
-                        setShow(true);
-                    }, 1500);
-                } else {
-                    setShow(false);
+                        }, 1500);
+                    } else {
+                        setShow(false);
+                    }
+                } catch (error) {
+                    console.error('[WalletSelectionModal] Error checking user:', error);
+                } finally {
+                    setChecking(false);
                 }
-            } catch (error) {
-                console.error('[WalletSelectionModal] Error checking user:', error);
-            } finally {
-                setChecking(false);
-            }
-        };
+            };
 
-        checkUser();
+            checkUser();
+        }
 
         return () => {
             subscription.unsubscribe();
         };
     }, []);
+
+    const getAuthHeaders = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return null;
+        return {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+        };
+    };
 
     const handleSelectWallet = (option: WalletOption) => {
         setSelectedWallet(option);
@@ -97,6 +114,19 @@ export default function WalletSelectionModal() {
             try {
                 // Кошелек уже доступен из контекста, просто закрываем окно
                 // Пользователь может использовать его после регистрации
+                if (farcasterWallet) {
+                    localStorage.setItem('selected_wallet', farcasterWallet);
+                    localStorage.setItem('wallet_type', 'farcaster');
+                    const headers = await getAuthHeaders();
+                    if (headers) {
+                        await fetch('/api/profile/wallet', {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify({ wallet: farcasterWallet }),
+                        }).catch(() => undefined);
+                    }
+                }
+                localStorage.setItem('wallet_selection_seen', 'true');
                 setShow(false);
             } catch (error) {
                 console.error('[WalletSelectionModal] Failed to use Farcaster wallet:', error);
@@ -114,6 +144,15 @@ export default function WalletSelectionModal() {
                 // Сохраняем выбор в localStorage для использования после регистрации
                 localStorage.setItem('selected_wallet', externalWallet);
                 localStorage.setItem('wallet_type', 'external');
+                localStorage.setItem('wallet_selection_seen', 'true');
+                const headers = await getAuthHeaders();
+                if (headers) {
+                    await fetch('/api/profile/wallet', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({ wallet: externalWallet }),
+                    }).catch(() => undefined);
+                }
                 setShow(false);
             } catch (error) {
                 console.error('[WalletSelectionModal] Failed to set external wallet:', error);
@@ -242,7 +281,7 @@ export default function WalletSelectionModal() {
                 )}
 
                 {/* Buttons */}
-                <div className="flex gap-3">
+                <div className="flex gap-3 sticky bottom-0 bg-[#1a1b2e] pt-2">
                     <button
                         onClick={handleCancel}
                         className="flex-1 rounded-2xl border border-white/10 bg-[#1a1b2e] px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10"

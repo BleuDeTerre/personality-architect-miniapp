@@ -107,7 +107,7 @@ export default function DatePicker({ value, onChange, placeholder = 'MM/DD/YYYY'
                 value={displayValue}
                 readOnly
                 onClick={() => setIsOpen(!isOpen)}
-                className={`${className} cursor-pointer`}
+                className={`w-full ${className} cursor-pointer`}
             />
             {isOpen && (
                 <div className="absolute z-50 mt-2 w-56 rounded-2xl border border-white/10 bg-[#1a1b2e] p-2.5 shadow-xl backdrop-blur right-0">

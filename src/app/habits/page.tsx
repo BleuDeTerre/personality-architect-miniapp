@@ -128,7 +128,8 @@ export default function HabitsPage() {
     const [title, setTitle] = useState('');
     const [emoji, setEmoji] = useState<string>('');
     const [targetDays, setTargetDays] = useState(3);
-    const [loading, setLoading] = useState(true);
+    const [loadingHabits, setLoadingHabits] = useState(true);
+    const [addingHabit, setAddingHabit] = useState(false);
     const [plan, setPlan] = useState<string>('free');
     const [showTemplates, setShowTemplates] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -167,7 +168,7 @@ export default function HabitsPage() {
     }, []);
 
     const fetchHabits = useCallback(async () => {
-        setLoading(true);
+        setLoadingHabits(true);
         try {
             const hdrs = await authHeaders();
             const res = await fetch('/api/habits/list', { headers: hdrs });
@@ -229,7 +230,7 @@ export default function HabitsPage() {
             console.error('[HabitsPage] Error fetching habits:', error);
             setHabits([]);
         } finally {
-            setLoading(false);
+            setLoadingHabits(false);
         }
     }, [authHeaders]);
 
@@ -280,7 +281,7 @@ export default function HabitsPage() {
             const { data: userData } = await supabase.auth.getUser();
             if (!fid && !userData.user) {
                 console.warn('[HabitsPage] No FID or Supabase session, skipping fetch');
-                setLoading(false);
+                setLoadingHabits(false);
                 return;
             }
 
@@ -337,16 +338,21 @@ export default function HabitsPage() {
             return;
         }
 
-        const res = await fetch('/api/habits/create', {
-            method: 'POST',
-            headers: await authHeaders(),
-            body: JSON.stringify({ title: `${emoji} ${title}`.trim(), target_days_per_week: targetDays }),
-        });
-        if (res.ok) {
-            setTitle('');
-            setEmoji('');
-            setTargetDays(3);
-            fetchHabits();
+        setAddingHabit(true);
+        try {
+            const res = await fetch('/api/habits/create', {
+                method: 'POST',
+                headers: await authHeaders(),
+                body: JSON.stringify({ title: `${emoji} ${title}`.trim(), target_days_per_week: targetDays }),
+            });
+            if (res.ok) {
+                setTitle('');
+                setEmoji('');
+                setTargetDays(3);
+                fetchHabits();
+            }
+        } finally {
+            setAddingHabit(false);
         }
     }
 
@@ -569,9 +575,9 @@ export default function HabitsPage() {
             )}
 
             <MiniAppPage>
-                <div className="space-y-6">
+                <div className="space-y-4">
                     {/* Header Card */}
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5">
                         <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">My Habits</h1>
                         <p className="text-sm text-white/80">
                             Build routines faster, track completions, and unlock streak rewards.
@@ -579,7 +585,7 @@ export default function HabitsPage() {
                     </section>
 
                     {/* Add Habit Form */}
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                         <form onSubmit={addHabit} className="flex flex-col gap-4">
                             <div className="relative">
                                 <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">EMOJI</label>
@@ -660,17 +666,17 @@ export default function HabitsPage() {
                             </button>
                             <button
                                 type="submit"
-                                disabled={loading}
-                                className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-center font-semibold text-white transition hover:opacity-90 disabled:opacity-60 shadow-lg shadow-[#8B5CF6]/40"
+                                disabled={addingHabit}
+                                className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-2.5 text-center font-semibold text-white transition hover:opacity-90 disabled:opacity-60 shadow-lg shadow-[#8B5CF6]/40"
                             >
-                                {loading ? 'Adding…' : 'Add Habit'}
+                                {addingHabit ? 'Adding…' : 'Add Habit'}
                             </button>
                         </form>
                     </section>
 
                     {/* Search and Filter */}
                     {habits.length > 0 && (
-                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                             <div className="flex flex-col gap-3">
                                 <div className="relative">
                                     <svg
@@ -709,7 +715,7 @@ export default function HabitsPage() {
 
                     {/* Share Section */}
                     {habitShareTemplates.length > 0 && (
-                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                             <ShareCastComposer
                                 templates={habitShareTemplates}
                                 sectionTitle="Share your habits"
@@ -719,8 +725,8 @@ export default function HabitsPage() {
                     )}
 
                     {/* Habits Grid */}
-                    {loading ? (
-                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                    {loadingHabits ? (
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                             <div className="grid grid-cols-2 gap-3">
                                 {[1, 2, 3, 4, 5, 6].map(i => (
                                     <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">

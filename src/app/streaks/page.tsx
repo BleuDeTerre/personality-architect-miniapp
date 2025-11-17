@@ -341,7 +341,7 @@ export default function StreaksPage() {
 
     return (
         <MiniAppPage>
-            <div className="space-y-6">
+            <div className="space-y-4">
                 {/* Header Card */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Streaks Analytics</h1>
@@ -352,7 +352,7 @@ export default function StreaksPage() {
 
                 {/* Share Section */}
                 {shareTemplates.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                         <div className="flex items-start justify-between mb-4">
                             <div>
                                 <h2 className="text-xl font-semibold text-white mb-1">Share your streak</h2>
@@ -373,7 +373,7 @@ export default function StreaksPage() {
                 )}
 
                 {/* Statistics Cards and Progress */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                     {/* 2x2 Grid of Statistics Cards */}
                     <div className="grid grid-cols-2 gap-4 mb-6">
                         {/* Current Streak */}
@@ -446,7 +446,7 @@ export default function StreaksPage() {
                 <AIStreakRecovery />
 
                 {/* Habit spotlight */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                     <h2 className="text-3xl font-bold text-white mb-2">Habit spotlight</h2>
                     <p className="text-sm text-white/70 mb-4">Deep dive into all habits performance over time.</p>
 
@@ -525,7 +525,7 @@ export default function StreaksPage() {
                 </section>
 
                 {/* Habit focus */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                     <h2 className="text-2xl font-semibold text-white mb-4">Habit focus</h2>
                     {loading ? (
                         <div className="grid grid-cols-2 gap-4">
@@ -580,7 +580,7 @@ export default function StreaksPage() {
                 </section>
 
                 {/* Momentum Timeline */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                     <h2 className="text-2xl font-semibold text-white mb-6">Momentum timeline</h2>
                     {loading ? (
                         <div className="space-y-4">

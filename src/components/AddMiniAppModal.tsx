@@ -17,40 +17,48 @@ export default function AddMiniAppModal() {
     const [checking, setChecking] = useState(true);
 
     useEffect(() => {
+        const hasSeen = typeof window !== 'undefined' && localStorage.getItem('add_miniapp_seen') === 'true';
+        const forceShowInMiniApp = typeof window !== 'undefined' && isRunningInMiniApp() && !hasSeen;
+
+        if (forceShowInMiniApp) {
+            setShow(true);
+            setChecking(false);
+        } else {
+            setShow(false);
+        }
+
         // Сначала подписываемся на изменения сессии, чтобы отслеживать логин в реальном времени
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (session?.user) {
-                // Пользователь залогинился - скрываем окно
-                setShow(false);
-            } else {
-                // Пользователь разлогинился - показываем окно сразу
-                setShow(true);
+            if (!forceShowInMiniApp) {
+                setShow(!session?.user);
             }
         });
 
-        // Затем проверяем текущее состояние
-        const checkUser = async () => {
-            try {
-                const { data } = await supabase.auth.getUser();
-                
-                // Показываем для всех незалогиненных пользователей
-                if (!data.user) {
-                    // Минимальная задержка для плавного появления
-                    setTimeout(() => {
-                        setShow(true);
-                    }, 500);
-                } else {
-                    // Если пользователь залогинен - скрываем окно
-                    setShow(false);
+        if (!forceShowInMiniApp) {
+            // Затем проверяем текущее состояние только если не форсим показ
+            const checkUser = async () => {
+                try {
+                    const { data } = await supabase.auth.getUser();
+                    
+                    // Показываем для всех незалогиненных пользователей
+                    if (!data.user) {
+                        // Минимальная задержка для плавного появления
+                        setTimeout(() => {
+                            setShow(true);
+                        }, 500);
+                    } else {
+                        // Если пользователь залогинен - скрываем окно
+                        setShow(false);
+                    }
+                } catch (error) {
+                    console.error('[AddMiniAppModal] Error checking user:', error);
+                } finally {
+                    setChecking(false);
                 }
-            } catch (error) {
-                console.error('[AddMiniAppModal] Error checking user:', error);
-            } finally {
-                setChecking(false);
-            }
-        };
+            };
 
-        checkUser();
+            checkUser();
+        }
 
         return () => {
             subscription.unsubscribe();

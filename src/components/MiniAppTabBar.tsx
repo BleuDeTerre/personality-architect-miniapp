@@ -72,14 +72,14 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
         <div
             ref={scrollContainerRef}
             className={[
-                "w-full max-w-md mx-auto rounded-3xl bg-[#0c0f1a]/80 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur",
+                "w-full max-w-md mx-auto rounded-xl bg-[#0c0f1a]/80 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur",
                 "overflow-x-auto no-scrollbar",
                 className ?? "",
             ]
                 .join(" ")
                 .trim()}
         >
-            <nav className="flex items-center gap-1.5 px-4 py-2.5 min-w-max">
+            <nav className="flex items-center gap-1.5 px-3 py-1.5 min-w-max">
                 {NAV_ITEMS.map((item, index) => {
                     const isActive = index === activeIndex;
                     return (
@@ -89,7 +89,7 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
                             ref={isActive ? activeLinkRef : null}
                             onClick={handleLinkClick}
                             className={[
-                                "flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-xs transition-all whitespace-nowrap",
+                                "flex flex-col items-center gap-1 rounded-lg px-3 py-1.5 text-xs transition-all whitespace-nowrap",
                                 "flex-shrink-0 w-20",
                                 isActive
                                     ? "bg-white/10 text-white"

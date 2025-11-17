@@ -32,7 +32,8 @@ export default function GoalsPage() {
     const [target, setTarget] = useState('');
     const [unit, setUnit] = useState('');
     const [dueDate, setDueDate] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [loadingGoals, setLoadingGoals] = useState(true);
+    const [mutatingGoal, setMutatingGoal] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [searchQuery, setSearchQuery] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -56,7 +57,7 @@ export default function GoalsPage() {
     }, []);
 
     const fetchGoals = useCallback(async () => {
-        setLoading(true);
+        setLoadingGoals(true);
         try {
             const headers = await authHeaders();
             const res = await fetch('/api/goals', { headers });
@@ -75,7 +76,7 @@ export default function GoalsPage() {
             console.error('[GoalsPage] Error fetching goals:', error);
             setGoals([]);
         } finally {
-            setLoading(false);
+            setLoadingGoals(false);
         }
     }, [authHeaders]);
 
@@ -120,7 +121,7 @@ export default function GoalsPage() {
 
     async function addGoal() {
         if (!title.trim()) return;
-        setLoading(true);
+        setMutatingGoal(true);
         try {
             const headers = await authHeaders();
             const res = await fetch('/api/goals', {
@@ -143,12 +144,12 @@ export default function GoalsPage() {
                 await fetchGoals();
             }
         } finally {
-            setLoading(false);
+            setMutatingGoal(false);
         }
     }
 
     async function updateGoal(goal: Goal) {
-        setLoading(true);
+        setMutatingGoal(true);
         try {
             const headers = await authHeaders();
             const res = await fetch(`/api/goals/${goal.id}`, {
@@ -161,13 +162,13 @@ export default function GoalsPage() {
                 await fetchGoals();
             }
         } finally {
-            setLoading(false);
+            setMutatingGoal(false);
         }
     }
 
     async function deleteGoal(id: number) {
         if (!confirm('Delete this goal?')) return;
-        setLoading(true);
+        setMutatingGoal(true);
         try {
             const headers = await authHeaders();
             const res = await fetch(`/api/goals/${id}`, {
@@ -178,7 +179,7 @@ export default function GoalsPage() {
                 await fetchGoals();
             }
         } finally {
-            setLoading(false);
+            setMutatingGoal(false);
         }
     }
 
@@ -274,7 +275,7 @@ export default function GoalsPage() {
 
     return (
         <MiniAppPage>
-            <div className="space-y-6">
+            <div className="space-y-4">
                 {/* Header Card */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">My Goals</h1>
@@ -298,7 +299,7 @@ export default function GoalsPage() {
                 <AIGoalReview />
 
                 {/* Goal Creation Form */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                     <form
                         onSubmit={(e) => {
                             e.preventDefault();
@@ -355,18 +356,18 @@ export default function GoalsPage() {
                                 className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
                             />
                         </div>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-center font-semibold text-white transition hover:opacity-90 disabled:opacity-60 shadow-lg shadow-[#8B5CF6]/40"
-                        >
-                            {loading ? 'Saving…' : 'Add Goal'}
-                        </button>
+                            <button
+                                type="submit"
+                                disabled={mutatingGoal}
+                                className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-center font-semibold text-white transition hover:opacity-90 disabled:opacity-60 shadow-lg shadow-[#8B5CF6]/40"
+                            >
+                                {mutatingGoal ? 'Saving…' : 'Add Goal'}
+                            </button>
                     </form>
                 </section>
 
                 {/* Search and Filter */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-4">
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 space-y-4">
                     {/* Search Bar */}
                     <div className="relative">
                         <svg
@@ -414,7 +415,7 @@ export default function GoalsPage() {
                     </div>
                 </section>
 
-                {loading && goals.length === 0 ? (
+                {loadingGoals && goals.length === 0 ? (
                     <div className="space-y-3">
                         {[1, 2, 3].map(i => (
                             <div key={i} className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
@@ -448,7 +449,7 @@ export default function GoalsPage() {
                                             <div className="flex gap-2">
                                                 <button
                                                     onClick={() => updateGoal(goal)}
-                                                    disabled={loading}
+                                                    disabled={mutatingGoal}
                                                     className="rounded-2xl bg-gradient-to-r from-[#2BD4A4] to-[#12b886] px-4 py-2 text-sm font-semibold text-[#041812] transition disabled:opacity-60"
                                                 >
                                                     Save
@@ -488,7 +489,7 @@ export default function GoalsPage() {
                                                         ? 'bg-gradient-to-r from-[#2BD4A4] to-[#14b8a6] text-[#041812]'
                                                         : 'bg-white/10 text-white hover:bg-white/20'
                                                         }`}
-                                                    disabled={loading}
+                                                    disabled={mutatingGoal}
                                                     aria-label={goal.status === 'completed' ? 'Completed' : 'Mark done'}
                                                 >
                                                     <svg
@@ -509,7 +510,7 @@ export default function GoalsPage() {
                                                     <button
                                                         onClick={() => setEditingId(goal.id)}
                                                         className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
-                                                        disabled={loading}
+                                                        disabled={mutatingGoal}
                                                     >
                                                         Edit
                                                     </button>
@@ -517,7 +518,7 @@ export default function GoalsPage() {
                                                 <button
                                                     onClick={() => deleteGoal(goal.id)}
                                                     className="rounded-2xl border border-red-400/30 bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/30 disabled:opacity-60"
-                                                    disabled={loading}
+                                                    disabled={mutatingGoal}
                                                 >
                                                     Delete
                                                 </button>

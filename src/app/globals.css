@@ -31,6 +31,8 @@
 body {
   background: var(--bg);
   color: var(--text);
+  overflow-y: scroll;
+  overflow-x: hidden;
 }
 
 /* === Tailwind Config === */
