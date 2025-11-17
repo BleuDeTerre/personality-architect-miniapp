@@ -2,14 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
+import { useMiniApp } from '@neynar/react';
 import MiniAppPage from '@/components/MiniAppPage';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
-import { BADGES } from '@/lib/badges';
-import BadgeImage from '@/components/BadgeImage';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
-
-type MintStatus = 'none' | 'pending' | 'success' | 'failed';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -80,14 +76,7 @@ const ALL_PLANS_FEATURES = [
 export default function PricingPage() {
     const [currentPlan, setCurrentPlan] = useState<string>('free');
     const [loading, setLoading] = useState(false);
-    const [wallet, setWallet] = useState<string>('');
-    const [walletInput, setWalletInput] = useState<string>('');
-    const [walletSaving, setWalletSaving] = useState(false);
-    const [walletError, setWalletError] = useState<string | null>(null);
     const [gamificationStats, setGamificationStats] = useState<UserStats | null>(null);
-    const [statusMap, setStatusMap] = useState<Record<string, MintStatus>>({});
-    const [eligMap, setEligMap] = useState<Record<string, { eligible: boolean; reason: string }>>({});
-    const [busyCode, setBusyCode] = useState<string | null>(null);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -96,49 +85,6 @@ export default function PricingPage() {
             Authorization: `Bearer ${session?.access_token ?? ''}`,
         };
     }, []);
-
-    // Already minted badge statuses
-    const refreshMints = useCallback(async () => {
-        const r = await fetch('/api/mints/status', { headers: await authHeaders() });
-        if (!r.ok) return;
-        const rows: Array<{ badge_code: string; status: MintStatus }> = await r.json();
-        const map: Record<string, MintStatus> = {};
-        rows.forEach(x => { map[x.badge_code] = x.status; });
-        setStatusMap(map);
-    }, [authHeaders]);
-
-    // Eligibility per badge
-    const refreshEligibility = useCallback(async () => {
-        const entries = await Promise.all(
-            BADGES.map(async b => {
-                const r = await fetch(`/api/mints/eligibility?code=${b.slug}`, { headers: await authHeaders() });
-                if (!r.ok) return [b.slug, { eligible: false, reason: 'error' }] as const;
-                const j = await r.json();
-                return [b.slug, { eligible: !!j.eligible, reason: String(j.reason || '') }] as const;
-            })
-        );
-        setEligMap(Object.fromEntries(entries));
-    }, [authHeaders]);
-
-    // Mint button
-    async function mint(slug: string) {
-        setBusyCode(slug);
-        try {
-            const r = await fetch('/api/mints/mint', {
-                method: 'POST',
-                headers: await authHeaders(),
-                body: JSON.stringify({ code: slug, to: wallet }),
-            });
-            const j = await r.json();
-            if (!r.ok) {
-                alert(`Mint blocked: ${j?.reason || j?.error || 'error'}`);
-                return;
-            }
-            await refreshMints();
-        } finally {
-            setBusyCode(null);
-        }
-    }
 
     const loadCurrentPlan = useCallback(async () => {
         try {
@@ -153,14 +99,12 @@ export default function PricingPage() {
         }
     }, [authHeaders]);
 
-    useEffect(() => {
-        initializeSDK();
-    }, []);
+    const { isSDKLoaded, context } = useMiniApp();
 
     useEffect(() => {
         (async () => {
-            const fid = await getUserFid();
-            if (!fid) return;
+            if (!isSDKLoaded || !context?.user?.fid) return;
+            const fid = Number(context.user.fid);
 
             const { data } = await supabase.auth.getUser();
             if (!data.user) {
@@ -177,27 +121,14 @@ export default function PricingPage() {
 
             await loadCurrentPlan();
 
-            // Load wallet
-            const walletRes = await fetch('/api/profile/preferences', { headers: await authHeaders() });
-            if (walletRes.ok) {
-                const walletData = await walletRes.json();
-                const userWallet = walletData.wallet || '';
-                setWallet(userWallet);
-                setWalletInput(userWallet);
-            }
-
             // Load gamification stats
             const statsRes = await fetch('/api/stats/gamification', { headers: await authHeaders() });
             if (statsRes.ok) {
                 const stats = await statsRes.json();
                 setGamificationStats(stats);
             }
-
-            // Load badge statuses
-            await refreshMints();
-            await refreshEligibility();
         })();
-    }, [loadCurrentPlan, authHeaders, refreshMints, refreshEligibility]);
+    }, [loadCurrentPlan, authHeaders]);
 
     const handleUpgrade = async (planId: string) => {
         if (planId === 'free') return;
@@ -220,33 +151,6 @@ export default function PricingPage() {
             }
         } finally {
             setLoading(false);
-        }
-    };
-
-    const handleWalletSave = async () => {
-        setWalletError(null);
-        if (!/^0x[0-9a-fA-F]{40}$/.test(walletInput)) {
-            setWalletError('Invalid wallet address');
-            return;
-        }
-
-        setWalletSaving(true);
-        try {
-            const hdrs = await authHeaders();
-            const res = await fetch('/api/profile/wallet', {
-                method: 'POST',
-                headers: hdrs,
-                body: JSON.stringify({ wallet: walletInput }),
-            });
-
-            if (res.ok) {
-                setWallet(walletInput);
-            } else {
-                const { error: message } = await res.json();
-                setWalletError(message || 'Failed to save wallet');
-            }
-        } finally {
-            setWalletSaving(false);
         }
     };
 

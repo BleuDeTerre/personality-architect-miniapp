@@ -3,7 +3,6 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
-import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
 
 export async function GET(req: NextRequest) {
@@ -13,8 +12,7 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
         }
 
-        const { id: userId } = await requireUserFromReq(req);
-        const supa = createUserServerClient(token);
+        await requireUserFromReq(req);
 
         // Получаем корреляции
         const headers = {
@@ -74,7 +72,7 @@ export async function GET(req: NextRequest) {
                     explanation: result.explanation || 'These habits are often completed together.',
                     suggestion: result.suggestion || 'Try doing them together to build momentum.',
                 });
-            } catch (aiError) {
+            } catch (_aiError) {
                 // Fallback
                 insights.push({
                     habitA: corr.habit_a,

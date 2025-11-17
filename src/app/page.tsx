@@ -1,20 +1,15 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { createClient } from '@supabase/supabase-js';
 import { calculateXP, calculateLevel, getLevelProgress, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
-import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
+import { useMiniApp } from '@neynar/react';
+import { supabase } from '@/lib/supabase';
 import DailyQuests from '@/components/DailyQuests';
 import MiniAppPage from '@/components/MiniAppPage';
 import AIMotivationMessage from '@/components/AIMotivationMessage';
 import AIPredictiveAlerts from '@/components/AIPredictiveAlerts';
 import AddMiniAppModal from '@/components/AddMiniAppModal';
 import WalletSelectionModal from '@/components/WalletSelectionModal';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 const NAVIGATION = [
   { href: '/habits', label: 'Habits', icon: '✅', desc: 'Track your daily habits' },
@@ -28,6 +23,7 @@ const NAVIGATION = [
 ];
 
 export default function DashboardPage() {
+  const { isSDKLoaded, context } = useMiniApp();
   const [gamificationStats, setGamificationStats] = useState<UserStats | null>(null);
   const [_loading, setLoading] = useState(false);
   const [_showOnboarding, _setShowOnboarding] = useState(false);
@@ -41,49 +37,124 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    initializeSDK();
-  }, []);
-
-  useEffect(() => {
     (async () => {
-      // Задержка перед автоматическим логином, чтобы модальные окна успели показаться
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Ждем загрузки Neynar SDK
+      if (!isSDKLoaded) {
+        console.log('[Dashboard] Waiting for Neynar SDK to load...');
+        return;
+      }
 
-      const fid = await getUserFid();
-      if (!fid) return;
+      // Ждем немного, чтобы Supabase успел восстановить сессию из localStorage
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
-        // Получаем выбранный кошелек из localStorage (если был выбран)
-        const selectedWallet = localStorage.getItem('selected_wallet');
-        const walletType = localStorage.getItem('wallet_type') || 'farcaster';
+      // Проверяем сессию
+      const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData.session?.user;
 
-        // Получаем Farcaster wallet из контекста
-        const { getFrameContext } = await import('@/lib/farcaster-sdk');
-        const context = await getFrameContext();
-        const farcasterWallet = context?.user?.custodyAddress || context?.user?.walletAddress || null;
+      // Проверяем localStorage напрямую для диагностики
+      if (typeof window !== 'undefined') {
+        const supabaseSession = localStorage.getItem('sb-' + process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/https?:\/\//, '').replace(/[^a-z0-9]/gi, '-') + '-auth-token');
+        console.log('[Dashboard] localStorage session:', supabaseSession ? 'exists' : 'missing');
+      }
 
-        // Определяем финальный кошелек
-        const wallet = walletType === 'external' && selectedWallet
-          ? selectedWallet
-          : farcasterWallet;
+      // Если есть сессия - все ок
+      if (user) {
+        console.log('[Dashboard] User already logged in:', user.id);
+        return;
+      }
+
+      // Получаем FID любым способом
+      let fid: number | null = null;
+
+      // 1. Из Neynar context (приоритет)
+      if (context?.user?.fid) {
+        fid = Number(context.user.fid);
+        console.log('[Dashboard] Got FID from Neynar context:', fid);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('user_fid', String(fid));
+        }
+      }
+
+      // 2. Из localStorage (если не получили из Neynar)
+      if (!fid && typeof window !== 'undefined') {
+        const savedFid = localStorage.getItem('user_fid');
+        if (savedFid) {
+          fid = Number(savedFid);
+          console.log('[Dashboard] Got FID from localStorage:', fid);
+        }
+      }
+
+      // 3. Из URL параметров (для теста/fallback)
+      if (!fid && typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const fidFromUrl = urlParams.get('fid');
+        if (fidFromUrl) {
+          fid = Number(fidFromUrl);
+          console.log('[Dashboard] Got FID from URL:', fid);
+          localStorage.setItem('user_fid', String(fid));
+        }
+      }
+
+      if (!fid) {
+        console.error('[Dashboard] Cannot login without FID. Neynar SDK not loaded and no FID in localStorage or URL.');
+        return;
+      }
+
+      // Логинимся
+      console.log('[Dashboard] Logging in with FID:', fid);
+      try {
+        const selectedWallet = typeof window !== 'undefined' ? localStorage.getItem('selected_wallet') : null;
+        const walletType = typeof window !== 'undefined' ? (localStorage.getItem('wallet_type') || 'farcaster') : 'farcaster';
+
+        const farcasterWallet = (context?.user as any)?.custodyAddress || (context?.user as any)?.walletAddress || null;
+        const wallet = walletType === 'external' && selectedWallet ? selectedWallet : farcasterWallet;
 
         const res = await fetch('/api/auth/farcaster-login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fid,
-            wallet: wallet,
-            walletType: walletType,
-          }),
+          body: JSON.stringify({ fid, wallet, walletType }),
         });
-        const { access_token } = await res.json();
-        if (access_token) {
-          await supabase.auth.setSession({ access_token, refresh_token: '' });
-          // Очищаем localStorage после успешной регистрации
-          localStorage.removeItem('selected_wallet');
-          localStorage.removeItem('wallet_type');
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          console.error('[Dashboard] Login failed:', res.status, errorData);
+          return;
         }
+
+        const loginData = await res.json();
+        if (loginData.error) {
+          console.error('[Dashboard] Login error:', loginData.error, loginData.message);
+          return;
+        }
+
+        if (loginData.access_token) {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: loginData.access_token,
+            refresh_token: loginData.refresh_token || loginData.access_token,
+          });
+
+          if (sessionError) {
+            console.error('[Dashboard] Failed to set session:', sessionError);
+            return;
+          }
+
+          console.log('[Dashboard] Login successful');
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('selected_wallet');
+            localStorage.removeItem('wallet_type');
+            if (loginData.user_id && loginData.access_token) {
+              // Сохраняем FID для будущих использований
+              const { data: { user: newUser } } = await supabase.auth.getUser();
+              if (newUser?.user_metadata?.fid) {
+                localStorage.setItem('user_fid', String(newUser.user_metadata.fid));
+              }
+            }
+          }
+        } else {
+          console.error('[Dashboard] No access_token in response');
+        }
+      } catch (error) {
+        console.error('[Dashboard] Login error:', error);
       }
 
       // Load gamification stats
@@ -96,7 +167,7 @@ export default function DashboardPage() {
         setLoading(false);
       }
     })();
-  }, [authHeaders]);
+  }, [authHeaders, isSDKLoaded, context]);
 
   // Используем totalXP из таблицы xp_events, если доступен, иначе рассчитываем
   const xp = gamificationStats?.totalXP ?? (gamificationStats ? calculateXP(gamificationStats) : 0);
@@ -106,6 +177,16 @@ export default function DashboardPage() {
   const _levelColor = getLevelColor(level);
   const xpTarget = (level + 1) ** 2 * 100;
   const xpRemaining = Math.max(0, xpTarget - xp);
+
+  if (!isSDKLoaded) {
+    return (
+      <MiniAppPage className="pt-1.5">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-white/70">Загрузка...</div>
+        </div>
+      </MiniAppPage>
+    );
+  }
 
   return (
     <MiniAppPage className="pt-1.5">

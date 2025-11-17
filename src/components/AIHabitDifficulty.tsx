@@ -21,12 +21,12 @@ type DifficultyData = {
 
 type Props = {
     habitId: string;
-    habitTitle: string;
+    habitTitle?: string;
     currentTarget: number;
     onTargetUpdate?: (newTarget: number) => void;
 };
 
-export default function AIHabitDifficulty({ habitId, habitTitle, currentTarget, onTargetUpdate }: Props) {
+export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpdate }: Props) {
     const [data, setData] = useState<DifficultyData | null>(null);
     const [loading, setLoading] = useState(false);
     const [expanded, setExpanded] = useState(false);

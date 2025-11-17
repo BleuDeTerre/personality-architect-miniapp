@@ -33,6 +33,12 @@ export default function AIPredictiveAlerts() {
         async function loadAlerts() {
             try {
                 setLoading(true);
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session?.access_token) {
+                    console.log('[AI Predictive Alerts] No session, skipping load');
+                    setLoading(false);
+                    return;
+                }
                 const headers = await authHeaders();
                 const res = await fetch('/api/ai/predictive-alerts', { headers });
                 if (res.ok) {
@@ -47,9 +53,19 @@ export default function AIPredictiveAlerts() {
         }
         loadAlerts();
 
+        // Слушаем изменения сессии
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.access_token) {
+                loadAlerts();
+            }
+        });
+
         // Обновляем каждые 30 минут
         const interval = setInterval(loadAlerts, 30 * 60 * 1000);
-        return () => clearInterval(interval);
+        return () => {
+            subscription.unsubscribe();
+            clearInterval(interval);
+        };
     }, [authHeaders]);
 
     if (loading || alerts.length === 0) return null;

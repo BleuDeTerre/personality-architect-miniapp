@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
                         message,
                         suggestion: `Consider setting a reminder for ${dayName}s`,
                     });
-                } catch (aiError) {
+                } catch (_aiError) {
                     // Fallback
                     alerts.push({
                         habitId: habit.id,

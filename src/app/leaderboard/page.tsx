@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { initializeSDK, getUserFid, getFrameContext } from '@/lib/farcaster-sdk';
+import { useMiniApp } from '@neynar/react';
 import { createClient } from '@supabase/supabase-js';
 import Image from 'next/image';
 import MiniAppPage from '@/components/MiniAppPage';
@@ -36,15 +36,13 @@ export default function LeaderboardPage() {
     const [myUserId, setMyUserId] = useState<string | null>(null);
     const [_ctx, setCtx] = useState<any>(null);
 
-    useEffect(() => {
-        initializeSDK();
-    }, []);
+    const { isSDKLoaded, context: neynarContext } = useMiniApp();
 
     useEffect(() => {
         (async () => {
-            const context = await getFrameContext();
-            setCtx(context);
-            const fid = await getUserFid();
+            if (!isSDKLoaded || !neynarContext) return;
+            setCtx(neynarContext);
+            const fid = neynarContext?.user?.fid ? Number(neynarContext.user.fid) : null;
             if (!fid) return;
 
             const { data } = await supabase.auth.getUser();

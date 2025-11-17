@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import ClientToaster from "@/components/ClientToaster";
+import NeynarProvider from "@/components/NeynarProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -63,9 +64,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <NeynarProvider>
           <ServiceWorkerRegistration />
           <ClientToaster />
-            {children}
+          {children}
+        </NeynarProvider>
       </body>
     </html>
   );

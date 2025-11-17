@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
+import { useMiniApp } from '@neynar/react';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import AIStreakRecovery from '@/components/AIStreakRecovery';
@@ -243,15 +243,13 @@ export default function StreaksPage() {
         }
     }, [authHeaders, last7Days, last8Weeks]);
 
-    useEffect(() => {
-        initializeSDK();
-    }, []);
+    const { isSDKLoaded, context } = useMiniApp();
 
     // Загружаем данные
     useEffect(() => {
         (async () => {
-            const fid = await getUserFid();
-            if (!fid) return;
+            if (!isSDKLoaded || !context?.user?.fid) return;
+            const fid = Number(context.user.fid);
 
             const { data } = await supabase.auth.getUser();
             if (!data.user) {

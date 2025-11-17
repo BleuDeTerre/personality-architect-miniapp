@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { getFrameContext, isRunningInMiniApp } from '@/lib/farcaster-sdk';
+import { useMiniApp } from '@neynar/react';
 import { createClient } from '@supabase/supabase-js';
 import { X, Wallet, Smartphone } from 'lucide-react';
 
@@ -13,86 +13,84 @@ const supabase = createClient(
 type WalletOption = 'farcaster' | 'external' | null;
 
 export default function WalletSelectionModal() {
+    const { isSDKLoaded, context } = useMiniApp();
     const [show, setShow] = useState(false);
     const [selectedWallet, setSelectedWallet] = useState<WalletOption>(null);
     const [externalWallet, setExternalWallet] = useState('');
     const [farcasterWallet, setFarcasterWallet] = useState<string | null>(null);
     const [connecting, setConnecting] = useState(false);
-    const [checking, setChecking] = useState(true);
 
     useEffect(() => {
+        if (!isSDKLoaded) return;
+
         const hasSeenWalletPrompt = typeof window !== 'undefined' && localStorage.getItem('wallet_selection_seen') === 'true';
-        const forceShowInMiniApp = typeof window !== 'undefined' && isRunningInMiniApp() && !hasSeenWalletPrompt;
 
-        const preloadWallet = async () => {
-            if (isRunningInMiniApp()) {
-                const context = await getFrameContext();
-                const wallet = context?.user?.custodyAddress || context?.user?.walletAddress || null;
-                setFarcasterWallet(wallet);
-            }
-        };
-
-        if (forceShowInMiniApp) {
-            preloadWallet();
-            setShow(true);
-            setChecking(false);
+        // Загружаем wallet из контекста, если доступен
+        if (context?.user) {
+            const wallet = (context.user as any)?.custodyAddress || (context.user as any)?.walletAddress || null;
+            setFarcasterWallet(wallet);
         }
 
-        // Сначала подписываемся на изменения сессии, чтобы отслеживать логин в реальном времени
+        // Подписываемся на изменения сессии
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (session?.user && !forceShowInMiniApp) {
+            if (session?.user) {
+                // Если пользователь залогинен - скрываем окно
                 setShow(false);
-            } else if (!session?.user) {
-                await preloadWallet();
-                // Показываем после AddMiniAppModal (через 1 секунду после него)
-                setTimeout(() => {
-                    setShow(true);
-                }, 1000);
+            } else {
+                // Если пользователь не залогинен и не видел окно - показываем
+                if (!hasSeenWalletPrompt) {
+                    // Ждем, пока закроется AddMiniAppModal (если оно есть)
+                    const checkAddModalClosed = setInterval(() => {
+                        const addModalElement = document.querySelector('[data-modal="add-miniapp"]');
+                        if (!addModalElement || addModalElement.getAttribute('data-show') === 'false') {
+                            clearInterval(checkAddModalClosed);
+                            setShow(true);
+                        }
+                    }, 200);
+
+                    // Fallback: показываем через 1.5 секунды
+                    setTimeout(() => {
+                        clearInterval(checkAddModalClosed);
+                        setShow(true);
+                    }, 1500);
+                }
             }
         });
 
-        if (!forceShowInMiniApp) {
-            // Затем проверяем текущее состояние
-            const checkUser = async () => {
-                try {
-                    const { data } = await supabase.auth.getUser();
-                    
-                    // Показываем для всех незалогиненных пользователей
-                    if (!data.user) {
-                        await preloadWallet();
-                        
-                        // Проверяем, закрыто ли AddMiniAppModal (через проверку интервала)
-                        const checkAddModalClosed = setInterval(() => {
-                            // Проверяем, есть ли активное модальное окно AddMiniAppModal
-                            const addModalElement = document.querySelector('[data-modal="add-miniapp"]');
-                            if (!addModalElement || addModalElement.getAttribute('data-show') === 'false') {
-                                clearInterval(checkAddModalClosed);
-                                setShow(true);
-                            }
-                        }, 200);
-                        
-                        // Показываем через 1.5 секунды в любом случае (fallback)
-                        setTimeout(() => {
+        // Проверяем текущее состояние при монтировании
+        const checkUser = async () => {
+            try {
+                const { data } = await supabase.auth.getUser();
+
+                if (!data.user && !hasSeenWalletPrompt) {
+                    // Ждем, пока закроется AddMiniAppModal
+                    const checkAddModalClosed = setInterval(() => {
+                        const addModalElement = document.querySelector('[data-modal="add-miniapp"]');
+                        if (!addModalElement || addModalElement.getAttribute('data-show') === 'false') {
                             clearInterval(checkAddModalClosed);
                             setShow(true);
-                        }, 1500);
-                    } else {
-                        setShow(false);
-                    }
-                } catch (error) {
-                    console.error('[WalletSelectionModal] Error checking user:', error);
-                } finally {
-                    setChecking(false);
-                }
-            };
+                        }
+                    }, 200);
 
-            checkUser();
-        }
+                    // Fallback: показываем через 1.5 секунды
+                    setTimeout(() => {
+                        clearInterval(checkAddModalClosed);
+                        setShow(true);
+                    }, 1500);
+                } else {
+                    setShow(false);
+                }
+            } catch (error) {
+                console.error('[WalletSelectionModal] Error checking user:', error);
+            }
+        };
+
+        checkUser();
 
         return () => {
             subscription.unsubscribe();
         };
-    }, []);
+    }, [isSDKLoaded, context]);
 
     const getAuthHeaders = async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -171,7 +169,7 @@ export default function WalletSelectionModal() {
     if (!show) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="relative w-full max-w-md rounded-3xl border border-white/10 bg-[#1a1b2e] p-6 shadow-2xl">
                 {/* Close button */}
                 <button
@@ -195,16 +193,14 @@ export default function WalletSelectionModal() {
                     {/* Farcaster Wallet */}
                     <button
                         onClick={() => handleSelectWallet('farcaster')}
-                        className={`w-full flex items-center gap-3 rounded-2xl border ${
-                            selectedWallet === 'farcaster'
-                                ? 'border-[#8B5CF6] bg-[#8B5CF6]/10'
-                                : 'border-white/10 bg-[#1a1b2e]'
-                        } p-4 text-left hover:bg-white/5 transition`}
+                        className={`w-full flex items-center gap-3 rounded-2xl border ${selectedWallet === 'farcaster'
+                            ? 'border-[#8B5CF6] bg-[#8B5CF6]/10'
+                            : 'border-white/10 bg-[#1a1b2e]'
+                            } p-4 text-left hover:bg-white/5 transition`}
                     >
                         <div
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                selectedWallet === 'farcaster' ? 'bg-[#8B5CF6]/20' : 'bg-white/10'
-                            }`}
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${selectedWallet === 'farcaster' ? 'bg-[#8B5CF6]/20' : 'bg-white/10'
+                                }`}
                         >
                             <Smartphone className={`h-5 w-5 ${selectedWallet === 'farcaster' ? 'text-[#8B5CF6]' : 'text-white'}`} />
                         </div>
@@ -232,16 +228,14 @@ export default function WalletSelectionModal() {
                     {/* External Wallet */}
                     <button
                         onClick={() => handleSelectWallet('external')}
-                        className={`w-full flex items-center gap-3 rounded-2xl border ${
-                            selectedWallet === 'external'
-                                ? 'border-[#8B5CF6] bg-[#8B5CF6]/10'
-                                : 'border-white/10 bg-[#1a1b2e]'
-                        } p-4 text-left hover:bg-white/5 transition`}
+                        className={`w-full flex items-center gap-3 rounded-2xl border ${selectedWallet === 'external'
+                            ? 'border-[#8B5CF6] bg-[#8B5CF6]/10'
+                            : 'border-white/10 bg-[#1a1b2e]'
+                            } p-4 text-left hover:bg-white/5 transition`}
                     >
                         <div
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                selectedWallet === 'external' ? 'bg-[#8B5CF6]/20' : 'bg-white/10'
-                            }`}
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${selectedWallet === 'external' ? 'bg-[#8B5CF6]/20' : 'bg-white/10'
+                                }`}
                         >
                             <Wallet className={`h-5 w-5 ${selectedWallet === 'external' ? 'text-[#8B5CF6]' : 'text-white'}`} />
                         </div>

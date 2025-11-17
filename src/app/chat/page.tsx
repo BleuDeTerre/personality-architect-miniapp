@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { initializeSDK, getUserFid, getFrameContext } from '@/lib/farcaster-sdk';
+import { useMiniApp } from '@neynar/react';
 import { createClient } from '@supabase/supabase-js';
 import MiniAppPage from '@/components/MiniAppPage';
 
@@ -30,15 +30,13 @@ export default function ChatPage() {
         scrollToBottom();
     }, [messages]);
 
-    useEffect(() => {
-        initializeSDK();
-    }, []);
+    const { isSDKLoaded, context: neynarContext } = useMiniApp();
 
     useEffect(() => {
         (async () => {
-            const context = await getFrameContext();
-            setCtx(context);
-            const fid = await getUserFid();
+            if (!isSDKLoaded || !neynarContext) return;
+            setCtx(neynarContext);
+            const fid = neynarContext?.user?.fid ? Number(neynarContext.user.fid) : null;
             if (!fid) return;
 
             const { data } = await supabase.auth.getUser();

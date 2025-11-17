@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { addMiniApp, isRunningInMiniApp } from '@/lib/farcaster-sdk';
+import Image from 'next/image';
+import { useMiniApp } from '@neynar/react';
 import { createClient } from '@supabase/supabase-js';
 import { X, Bell, Smartphone } from 'lucide-react';
 
@@ -11,33 +12,54 @@ const supabase = createClient(
 );
 
 export default function AddMiniAppModal() {
-    if (typeof window !== 'undefined' && isRunningInMiniApp()) {
-        return null;
-    }
-
+    const { isSDKLoaded, actions } = useMiniApp();
     const [show, setShow] = useState(false);
     const [adding, setAdding] = useState(false);
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-    const [hasSeen, setHasSeen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+    const [isMiniAppEnv, setIsMiniAppEnv] = useState(false);
 
     useEffect(() => {
-        const storedSeen = typeof window !== 'undefined' && localStorage.getItem('add_miniapp_seen') === 'true';
-        setHasSeen(storedSeen);
+        setMounted(true);
+        setIsMiniAppEnv(isSDKLoaded);
+    }, [isSDKLoaded]);
 
+    useEffect(() => {
+        if (!mounted) return;
+
+        // Если уже в MiniApp - не показываем окно
+        if (isMiniAppEnv) {
+            try {
+                localStorage.setItem('add_miniapp_seen', 'true');
+            } catch {
+                // ignore
+            }
+            setShow(false);
+            return;
+        }
+
+        // Если уже видели это окно - не показываем
+        const storedSeen = typeof window !== 'undefined' && localStorage.getItem('add_miniapp_seen') === 'true';
         if (storedSeen) {
             setShow(false);
             return;
         }
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setShow(!session?.user);
+        // Подписываемся на изменения сессии
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+            // Показываем только если пользователь не залогинен
+            setShow(!session?.user && !isMiniAppEnv && !storedSeen);
         });
 
+        // Проверяем текущее состояние
         const checkUser = async () => {
             try {
                 const { data } = await supabase.auth.getUser();
 
-                if (!data.user) {
+                if (!data.user && !isMiniAppEnv && !storedSeen) {
+                    // Показываем через небольшую задержку для плавности
                     setTimeout(() => {
                         setShow(true);
                     }, 500);
@@ -54,14 +76,14 @@ export default function AddMiniAppModal() {
         return () => {
             subscription.unsubscribe();
         };
-    }, []);
+    }, [mounted, isMiniAppEnv]);
 
     const handleAddToFarcaster = async () => {
         setAdding(true);
         try {
             // Вызываем addMiniApp только если в Mini App
-            if (isRunningInMiniApp()) {
-                await addMiniApp();
+            if (isSDKLoaded && actions?.addMiniApp) {
+                await actions.addMiniApp();
             }
             setShow(false);
         } catch (error) {
@@ -78,8 +100,11 @@ export default function AddMiniAppModal() {
     };
 
     const markSeen = () => {
-        localStorage.setItem('add_miniapp_seen', 'true');
-        setHasSeen(true);
+        try {
+            localStorage.setItem('add_miniapp_seen', 'true');
+        } catch {
+            // ignore
+        }
     };
 
     const handleCancel = () => {
@@ -95,7 +120,7 @@ export default function AddMiniAppModal() {
         markSeen();
     };
 
-    if (!show) return null;
+    if (!show || isMiniAppEnv) return null;
 
     return (
         <div
@@ -117,10 +142,13 @@ export default function AddMiniAppModal() {
                 <div className="flex justify-center mb-6">
                     <div className="relative">
                         <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#8B5CF6] to-[#6D28D9] flex items-center justify-center shadow-lg overflow-hidden">
-                            <img
+                            <Image
                                 src="/miniapp/icon.png"
                                 alt="Personality Architect"
+                                width={80}
+                                height={80}
                                 className="w-full h-full object-cover"
+                                unoptimized
                             />
                         </div>
                         <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-[#8B5CF6] flex items-center justify-center">
@@ -158,8 +186,8 @@ export default function AddMiniAppModal() {
                     <button
                         onClick={handleEnableNotifications}
                         className={`w-full flex items-center gap-3 rounded-2xl border ${notificationsEnabled
-                                ? 'border-[#8B5CF6] bg-[#8B5CF6]/10'
-                                : 'border-white/10 bg-[#1a1b2e]'
+                            ? 'border-[#8B5CF6] bg-[#8B5CF6]/10'
+                            : 'border-white/10 bg-[#1a1b2e]'
                             } p-4 text-left hover:bg-white/5 transition`}
                     >
                         <div

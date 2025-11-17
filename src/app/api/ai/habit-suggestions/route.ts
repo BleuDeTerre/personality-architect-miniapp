@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
                         optimalTime,
                         suggestion,
                     });
-                } catch (aiError) {
+                } catch (_aiError) {
                     // Fallback
                     suggestions.push({
                         habitId: habit.id,

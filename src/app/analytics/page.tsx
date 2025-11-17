@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
+import { useMiniApp } from '@neynar/react';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import AICorrelationInsights from '@/components/AICorrelationInsights';
@@ -294,14 +294,12 @@ export default function AnalyticsPage() {
         }
     }, [selectedHabitId, fetchHabitTrend]);
 
-    useEffect(() => {
-        initializeSDK();
-    }, []);
+    const { isSDKLoaded, context } = useMiniApp();
 
     useEffect(() => {
         (async () => {
-            const fid = await getUserFid();
-            if (!fid) return;
+            if (!isSDKLoaded || !context?.user?.fid) return;
+            const fid = Number(context.user.fid);
 
             const { data } = await supabase.auth.getUser();
             if (!data.user) {
@@ -979,7 +977,7 @@ export default function AnalyticsPage() {
                 {/* Advanced Insights Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
                     <h2 className="text-xl font-semibold text-white">Advanced insights</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2">
                         {/* Weak windows */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">

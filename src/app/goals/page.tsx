@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
+import { supabase } from '@/lib/supabase';
+import { useMiniApp } from '@neynar/react';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import CollapsibleCard from '@/components/CollapsibleCard';
@@ -10,10 +10,7 @@ import AIGoalBreakdown from '@/components/AIGoalBreakdown';
 import AIGoalReview from '@/components/AIGoalReview';
 import DatePicker from '@/components/DatePicker';
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Используем централизованный клиент из lib/supabase с правильными настройками
 
 type Goal = {
     id: number;
@@ -27,6 +24,7 @@ type Goal = {
 };
 
 export default function GoalsPage() {
+    const { isSDKLoaded, context } = useMiniApp();
     const [goals, setGoals] = useState<Goal[]>([]);
     const [title, setTitle] = useState('');
     const [metric, setMetric] = useState('');
@@ -51,6 +49,14 @@ export default function GoalsPage() {
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+            console.warn('[GoalsPage] No access token in session');
+            // Попробуем получить через getUser
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                console.warn('[GoalsPage] No user found');
+            }
+        }
         return {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session?.access_token ?? ''}`,
@@ -79,39 +85,145 @@ export default function GoalsPage() {
         } finally {
             setLoadingGoals(false);
         }
-    }, [authHeaders]);
-
-    useEffect(() => {
-        initializeSDK();
-    }, []);
+    }, [authHeaders, isSDKLoaded, context]);
 
     useEffect(() => {
         let mounted = true;
 
         const ensureSessionAndLoad = async () => {
-            const fid = await getUserFid();
-            const { data } = await supabase.auth.getUser();
+            // ШАГ 1: Ждем немного, чтобы Supabase успел восстановить сессию из localStorage
+            await new Promise(resolve => setTimeout(resolve, 100));
 
-            if (!data.user && fid) {
+            // Проверяем существующую сессию Supabase (автоматически восстанавливается из localStorage)
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            console.log('[GoalsPage] Current session:', {
+                hasSession: !!sessionData.session,
+                hasToken: !!sessionData.session?.access_token,
+                error: sessionError?.message
+            });
+
+            // Также проверяем localStorage напрямую для диагностики
+            if (typeof window !== 'undefined') {
+                const supabaseSession = localStorage.getItem('sb-' + process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/https?:\/\//, '').replace(/[^a-z0-9]/gi, '-') + '-auth-token');
+                console.log('[GoalsPage] localStorage session:', supabaseSession ? 'exists' : 'missing');
+            }
+
+            let fid: number | null = null;
+            const user = sessionData.session?.user;
+
+            // Если есть сессия, получаем FID из user_metadata
+            if (user?.user_metadata?.fid) {
+                fid = Number(user.user_metadata.fid);
+                console.log('[GoalsPage] Got FID from existing session:', fid);
+            } else if (user?.id) {
+                // Если нет FID в metadata, получаем из таблицы users
+                try {
+                    const { data: profileRow } = await supabase
+                        .from('users')
+                        .select('fid')
+                        .eq('id', user.id)
+                        .maybeSingle<{ fid: number | null }>();
+                    if (profileRow?.fid) {
+                        fid = profileRow.fid;
+                        console.log('[GoalsPage] Got FID from users table:', fid);
+                    }
+                } catch (error) {
+                    console.warn('[GoalsPage] Failed to get FID from users table:', error);
+                }
+            }
+
+            // ШАГ 2: Если нет сессии, пробуем получить FID через Neynar SDK
+            if (!user && !fid && isSDKLoaded && context?.user?.fid) {
+                fid = Number(context.user.fid);
+                console.log('[GoalsPage] Got FID from Neynar context:', fid);
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('user_fid', String(fid));
+                }
+            }
+
+            // ШАГ 3: Если все еще нет FID, пробуем из localStorage
+            if (!user && !fid && typeof window !== 'undefined') {
+                const savedFid = localStorage.getItem('user_fid');
+                if (savedFid) {
+                    fid = Number(savedFid);
+                    console.log('[GoalsPage] Got FID from localStorage:', fid);
+                }
+            }
+
+            // Если нет сессии, но есть FID - логинимся
+            if (!user && fid) {
+                console.log('[GoalsPage] No user, attempting login with FID:', fid);
                 try {
                     const res = await fetch('/api/auth/farcaster-login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ fid }),
                     });
+
                     if (!res.ok) {
-                        console.error('[GoalsPage] Login failed', await res.json());
+                        const errorData = await res.json().catch(() => ({}));
+                        console.error('[GoalsPage] Login request failed:', res.status, errorData);
                         return;
                     }
-                    console.log('[GoalsPage] Login successful');
+
+                    const loginData = await res.json();
+                    console.log('[GoalsPage] Login response:', {
+                        hasToken: !!loginData.access_token,
+                        hasRefresh: !!loginData.refresh_token,
+                        error: loginData.error,
+                        userId: loginData.user_id
+                    });
+
+                    if (loginData.error) {
+                        console.error('[GoalsPage] Login error in response:', loginData.error, loginData.message);
+                        return;
+                    }
+
+                    if (loginData.access_token) {
+                        console.log('[GoalsPage] Setting session with token length:', loginData.access_token.length);
+                        const { error: sessionError } = await supabase.auth.setSession({
+                            access_token: loginData.access_token,
+                            refresh_token: loginData.refresh_token || loginData.access_token,
+                        });
+
+                        if (sessionError) {
+                            console.error('[GoalsPage] Failed to set session on load:', sessionError);
+                            return;
+                        }
+
+                        console.log('[GoalsPage] Session set, verifying...');
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                        const { data: { session: newSession }, error: sessionCheckError } = await supabase.auth.getSession();
+
+                        if (sessionCheckError) {
+                            console.error('[GoalsPage] Error checking session:', sessionCheckError);
+                        } else if (!newSession?.access_token) {
+                            console.error('[GoalsPage] Session not set after setSession call on load');
+                        } else {
+                            console.log('[GoalsPage] Session verified, token length:', newSession.access_token.length);
+                            const { data: { user: verifyUser }, error: userError } = await supabase.auth.getUser();
+                            if (userError) {
+                                console.error('[GoalsPage] Error getting user:', userError);
+                            } else if (!verifyUser) {
+                                console.error('[GoalsPage] User not found after session set');
+                            } else {
+                                console.log('[GoalsPage] User verified:', verifyUser.id);
+                            }
+                        }
+                    } else {
+                        console.error('[GoalsPage] No access_token in login response:', loginData);
+                    }
                 } catch (error) {
-                    console.error('[GoalsPage] Login error', error);
+                    console.error('[GoalsPage] Login error:', error);
                 }
+            } else if (!user && !fid) {
+                console.error('[GoalsPage] No user and no FID - cannot login');
             }
 
+            // Проверяем финальное состояние - если есть пользователь, загружаем данные
             const { data: userData } = await supabase.auth.getUser();
-            if (!fid && !userData.user) {
-                console.warn('[GoalsPage] No FID or Supabase session, skipping fetch');
+            if (!userData.user) {
+                console.warn('[GoalsPage] No user, skipping fetch');
                 setLoadingGoals(false);
                 return;
             }
@@ -154,26 +266,155 @@ export default function GoalsPage() {
         if (!title.trim()) return;
         setMutatingGoal(true);
         try {
+            // Проверяем сессию перед сохранением
+            let { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                console.error('[GoalsPage] No session before save, attempting to get FID and login...');
+
+                // Пробуем получить FID из существующей сессии (если есть user)
+                let fid: number | null = null;
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user?.user_metadata?.fid) {
+                    fid = Number(user.user_metadata.fid);
+                    console.log('[GoalsPage] Got FID from user metadata:', fid);
+                }
+
+                // Если не получили из metadata, пробуем через Neynar SDK
+                if (!fid && isSDKLoaded && context?.user?.fid) {
+                    fid = Number(context.user.fid);
+                    console.log('[GoalsPage] Got FID from Neynar context:', fid);
+                }
+
+                // Если все еще нет FID, пробуем из localStorage
+                if (!fid && typeof window !== 'undefined') {
+                    const savedFid = localStorage.getItem('user_fid');
+                    if (savedFid) {
+                        fid = Number(savedFid);
+                        console.log('[GoalsPage] Got FID from localStorage:', fid);
+                    }
+                }
+
+                // Если все еще нет FID, пробуем получить через API (если есть сессия)
+                if (!fid && session) {
+                    try {
+                        const headers = await authHeaders();
+                        const res = await fetch('/api/auth/get-fid', { headers });
+                        if (res.ok) {
+                            const data = await res.json();
+                            fid = data.fid ? Number(data.fid) : null;
+                            console.log('[GoalsPage] Got FID from API:', fid);
+                        }
+                    } catch (error) {
+                        console.warn('[GoalsPage] Failed to get FID from API:', error);
+                    }
+                }
+
+                if (fid) {
+                    const res = await fetch('/api/auth/farcaster-login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fid }),
+                    });
+                    const loginData = await res.json();
+                    console.log('[GoalsPage] Login response:', { hasToken: !!loginData.access_token, hasRefresh: !!loginData.refresh_token });
+                    if (loginData.access_token) {
+                        console.log('[GoalsPage] Setting session with token length:', loginData.access_token.length);
+                        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+                            access_token: loginData.access_token,
+                            refresh_token: loginData.refresh_token || loginData.access_token, // Используем access_token как fallback
+                        });
+                        if (sessionError) {
+                            console.error('[GoalsPage] Failed to set session:', sessionError);
+                            throw new Error('Failed to restore session. Please refresh the page.');
+                        }
+                        console.log('[GoalsPage] Session restored before save:', { hasSession: !!sessionData.session, hasToken: !!sessionData.session?.access_token });
+
+                        // Проверяем, что сессия действительно установилась и токен валидный
+                        const { data: { session: newSession } } = await supabase.auth.getSession();
+                        if (!newSession?.access_token) {
+                            console.error('[GoalsPage] Session not set after setSession call');
+                            const { data: { user }, error: userError } = await supabase.auth.getUser();
+                            console.error('[GoalsPage] getUser result:', { hasUser: !!user, error: userError });
+                            throw new Error('Session not restored. Please refresh the page.');
+                        }
+
+                        // Проверяем валидность токена через getUser
+                        const { data: { user: verifyUser }, error: verifyError } = await supabase.auth.getUser();
+                        if (verifyError || !verifyUser) {
+                            console.error('[GoalsPage] Token validation failed:', verifyError);
+                            throw new Error('Token is invalid. Please refresh the page.');
+                        }
+
+                        console.log('[GoalsPage] Session verified:', {
+                            tokenLength: newSession.access_token.length,
+                            userId: verifyUser.id,
+                            hasFid: !!verifyUser.user_metadata?.fid
+                        });
+                        session = newSession;
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                    } else {
+                        console.error('[GoalsPage] No access_token in login response:', loginData);
+                        throw new Error('Failed to get access token. Please refresh the page.');
+                    }
+                } else {
+                    throw new Error('No FID available. Please refresh the page.');
+                }
+            }
+
             const headers = await authHeaders();
-            const res = await fetch('/api/goals', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                    title,
-                    metric: metric || null,
-                    target: target ? Number(target) : null,
-                    unit: unit || null,
-                    due_date: dueDate || null,
-                }),
-            });
+            const hasToken = !!headers.Authorization && headers.Authorization !== 'Bearer ';
+            console.log('[GoalsPage] Creating goal with headers:', { hasToken });
+
+            if (!hasToken) {
+                throw new Error('No authentication token available. Please refresh the page and try again.');
+            }
+
+            let res: Response;
+            let data: any = {};
+            try {
+                res = await fetch('/api/goals', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        title,
+                        metric: metric || null,
+                        target: target ? Number(target) : null,
+                        unit: unit || null,
+                        due_date: dueDate || null,
+                    }),
+                });
+                try {
+                    data = await res.json();
+                } catch (jsonError) {
+                    console.error('[GoalsPage] Failed to parse response JSON:', jsonError);
+                    data = { error: 'Invalid response from server' };
+                }
+            } catch (fetchError) {
+                console.error('[GoalsPage] Fetch error:', fetchError);
+                throw new Error('Network error. Please check your connection and try again.');
+            }
+
             if (res.ok) {
+                console.log('[GoalsPage] Goal created successfully:', data);
                 setTitle('');
                 setMetric('');
                 setTarget('');
                 setUnit('');
                 setDueDate('');
                 await fetchGoals();
+            } else {
+                console.error('[GoalsPage] Failed to create goal:', res.status, data);
+                const { toast } = await import('sonner');
+                toast.error('Failed to create goal', {
+                    description: data.error || data.message || `Server error (${res.status})`,
+                });
             }
+        } catch (error) {
+            console.error('[GoalsPage] Error creating goal:', error);
+            const { toast } = await import('sonner');
+            toast.error('Error creating goal', {
+                description: error instanceof Error ? error.message : 'Unknown error',
+            });
         } finally {
             setMutatingGoal(false);
         }
@@ -399,7 +640,7 @@ export default function GoalsPage() {
                 </section>
 
                 {/* Search and Filter */}
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
                     {/* Search Bar */}
                     <div className="relative">
                         <svg

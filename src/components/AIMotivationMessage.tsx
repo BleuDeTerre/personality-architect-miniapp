@@ -24,6 +24,12 @@ export default function AIMotivationMessage() {
         async function loadMotivation() {
             try {
                 setLoading(true);
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session?.access_token) {
+                    console.log('[AI Motivation] No session, skipping load');
+                    setLoading(false);
+                    return;
+                }
                 const headers = await authHeaders();
                 const res = await fetch('/api/ai/daily-motivation', { headers });
                 if (res.ok) {
@@ -37,6 +43,15 @@ export default function AIMotivationMessage() {
             }
         }
         loadMotivation();
+
+        // Слушаем изменения сессии
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.access_token) {
+                loadMotivation();
+            }
+        });
+
+        return () => subscription.unsubscribe();
     }, [authHeaders]);
 
     if (loading) {

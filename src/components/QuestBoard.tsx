@@ -41,6 +41,12 @@ export default function QuestBoard({ className }: QuestBoardProps) {
     const loadQuests = useCallback(async () => {
         setLoading(true);
         try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                console.log('[QuestBoard] No session, skipping load');
+                setLoading(false);
+                return;
+            }
             const headers = await authHeaders();
             const res = await fetch('/api/gamification/daily-quests', { headers, cache: 'no-store' });
             if (!res.ok) throw new Error('failed_to_load');

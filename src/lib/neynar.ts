@@ -193,8 +193,8 @@ export async function recastCast(
  * Используйте реакции через publishCast
  */
 export async function likeCast(
-    signerUuid: string,
-    castHash: string
+    _signerUuid: string,
+    _castHash: string
 ) {
     if (!neynarClient) {
         throw new Error("Neynar client is not configured");

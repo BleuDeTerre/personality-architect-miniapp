@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import { createClient, type PostgrestError } from '@supabase/supabase-js';
-import { initializeSDK, getFrameContext, getUserFid, addMiniApp, isRunningInMiniApp } from '@/lib/farcaster-sdk';
+import { useMiniApp } from '@neynar/react';
 import { BADGES } from '@/lib/badges';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
 import BadgeImage from '@/components/BadgeImage';
@@ -57,17 +57,9 @@ type FrameContextUser = {
     walletAddress?: string | null;
 };
 
-type FrameContext = {
-    user?: FrameContextUser | null;
-};
-
-type MiniAppContext = {
-    getFrameContext?: () => Promise<FrameContext | null>;
-};
-
 
 export default function ProfilePage() {
-    // SDK debug
+    const { isSDKLoaded, context } = useMiniApp();
 
     // Profile
     const [p, setP] = useState<Profile>({
@@ -206,79 +198,96 @@ export default function ProfilePage() {
         } finally {
             setNeynarLoading(false);
         }
-    }, []);
+    }, [authHeaders]);
 
     // Init: miniapp context, soft Supabase login, load mint status/eligibility
     useEffect(() => {
-        initializeSDK();
-    }, []);
-
-    useEffect(() => {
+        let cancelled = false;
         (async () => {
-            const frame = await getFrameContext();
-
-
-            let fid = frame?.user?.fid ?? null;
-            const wallet = frame?.user?.custodyAddress ?? frame?.user?.walletAddress ?? null;
-
-            // Supabase session
-            let { data } = await supabase.auth.getUser();
-            if (!data.user && fid) {
-                const res = await fetch('/api/auth/farcaster-login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fid }),
-                });
-                const { access_token } = await res.json().catch(() => ({}));
-                if (access_token) {
-                    await supabase.auth.setSession({ access_token, refresh_token: '' });
-                    ({ data } = await supabase.auth.getUser());
-                }
-            }
-
-            if (!fid && data.user?.id) {
-                const { data: profileRow } = await supabase
-                    .from('users')
-                    .select('fid')
-                    .eq('id', data.user.id)
-                    .maybeSingle<{ fid: number | null }>();
-                if (profileRow?.fid) {
-                    fid = profileRow.fid;
-                }
-            }
-
-            setP({
-                fid,
-                supaUserId: data.user?.id ?? null,
-                wallet,
-                plan: 'free',
-                plan_until: null,
-            });
-            // Wallet input will be shown when user clicks "Change wallet"
-
             try {
-                await refreshMints();
-                await refreshEligibility();
+                // Ждем загрузки Neynar SDK
+                if (!isSDKLoaded) {
+                    return;
+                }
+
+                let fid = context?.user?.fid ? Number(context.user.fid) : null;
+                const wallet = (context?.user as any)?.custodyAddress ?? (context?.user as any)?.walletAddress ?? null;
+
+                // Supabase session
+                let { data } = await supabase.auth.getUser();
+                if (!data.user && fid) {
+                    const res = await fetch('/api/auth/farcaster-login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fid }),
+                    });
+                    const { access_token } = await res.json().catch(() => ({}));
+                    if (access_token) {
+                        await supabase.auth.setSession({ access_token, refresh_token: '' });
+                        ({ data } = await supabase.auth.getUser());
+                    }
+                }
+
+                if (!fid && data.user?.id) {
+                    const { data: profileRow } = await supabase
+                        .from('users')
+                        .select('fid')
+                        .eq('id', data.user.id)
+                        .maybeSingle<{ fid: number | null }>();
+                    if (profileRow?.fid) {
+                        fid = profileRow.fid;
+                    }
+                }
+
+                if (cancelled) return;
+
+                setP({
+                    fid,
+                    supaUserId: data.user?.id ?? null,
+                    wallet,
+                    plan: 'free',
+                    plan_until: null,
+                });
+
+                await Promise.allSettled([refreshMints(), refreshEligibility()]);
+
+                if (!cancelled) {
+                    setBadgesLoading(false);
+                }
+
+                await loadNeynarProfile(fid, data.user?.id ?? null);
+
+                if (cancelled) return;
+
+                // Load gamification stats
+                const statsRes = await fetch('/api/stats/gamification', { headers: await authHeaders() });
+                if (statsRes.ok) {
+                    const stats = await statsRes.json();
+                    setGamificationStats(stats);
+                }
+
+                // Load current plan
+                const planRes = await fetch('/api/plan', { headers: await authHeaders() });
+                if (planRes.ok) {
+                    const planData = await planRes.json();
+                    setCurrentPlan(planData.plan || 'free');
+                }
+            } catch (error) {
+                console.error('[Profile] init error:', error);
+                if (!cancelled) {
+                    setBadgesLoading(false);
+                }
             } finally {
-                setBadgesLoading(false);
+                if (!cancelled) {
+                    setLoading(false);
+                }
             }
-            await loadNeynarProfile(fid, data.user?.id ?? null);
+        })();
 
-            // Load gamification stats
-            const statsRes = await fetch('/api/stats/gamification', { headers: await authHeaders() });
-            if (statsRes.ok) {
-                const stats = await statsRes.json();
-                setGamificationStats(stats);
-            }
-
-            // Load current plan
-            const planRes = await fetch('/api/plan', { headers: await authHeaders() });
-            if (planRes.ok) {
-                const planData = await planRes.json();
-                setCurrentPlan(planData.plan || 'free');
-            }
-        })().finally(() => setLoading(false));
-    }, [refreshMints, refreshEligibility, loadNeynarProfile, authHeaders]);
+        return () => {
+            cancelled = true;
+        };
+    }, [refreshMints, refreshEligibility, loadNeynarProfile, authHeaders, isSDKLoaded, context]);
 
     useEffect(() => {
         if (!p.fid && !p.supaUserId) return;

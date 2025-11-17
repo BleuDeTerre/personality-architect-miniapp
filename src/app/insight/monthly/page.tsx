@@ -32,8 +32,8 @@ async function openShare(kind: 'monthly', month: string, title: string, text: st
     const r = await fetch(`/api/share/link?${qs.toString()}`, { cache: 'no-store' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const { url } = await r.json();
-    const { openUrl } = await import('@/lib/farcaster-sdk');
-    await openUrl(url);
+    // Открываем URL через window.open, так как это не компонент с useMiniApp
+    window.open(url, '_blank');
 }
 // -------------------------------------------------------------------
 

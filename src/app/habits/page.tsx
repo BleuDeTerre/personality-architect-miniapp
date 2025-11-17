@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import { initializeSDK, getUserFid } from '@/lib/farcaster-sdk';
+import { supabase } from '@/lib/supabase';
+import { useMiniApp } from '@neynar/react';
 import { X, Loader2 } from 'lucide-react';
 import LevelUpAnimation from '@/components/LevelUpAnimation';
 import AchievementAnimation from '@/components/AchievementAnimation';
@@ -10,10 +10,7 @@ import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCa
 import MiniAppPage from '@/components/MiniAppPage';
 import CollapsibleCard from '@/components/CollapsibleCard';
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Используем централизованный клиент из lib/supabase с правильными настройками
 
 type Habit = {
     id: string;
@@ -125,6 +122,7 @@ const POPULAR_EMOJIS = [
 ];
 
 export default function HabitsPage() {
+    const { isSDKLoaded, context } = useMiniApp();
     const [habits, setHabits] = useState<Habit[]>([]);
     const [title, setTitle] = useState('');
     const [emoji, setEmoji] = useState<string>('');
@@ -162,6 +160,14 @@ export default function HabitsPage() {
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+            console.warn('[HabitsPage] No access token in session');
+            // Попробуем получить через getUser
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                console.warn('[HabitsPage] No user found');
+            }
+        }
         return {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session?.access_token ?? ''}`,
@@ -233,7 +239,7 @@ export default function HabitsPage() {
         } finally {
             setLoadingHabits(false);
         }
-    }, [authHeaders]);
+    }, [authHeaders, isSDKLoaded, context]);
 
     const loadPlan = useCallback(async () => {
         try {
@@ -246,50 +252,167 @@ export default function HabitsPage() {
         } catch (e) {
             console.error('[HabitsPage] Failed to load plan', e);
         }
-    }, [authHeaders]);
-
-    useEffect(() => {
-        initializeSDK();
-    }, []);
+    }, [authHeaders, isSDKLoaded, context]);
 
     useEffect(() => {
         let mounted = true;
 
         const ensureSessionAndLoad = async () => {
-            const fid = await getUserFid();
-            const { data } = await supabase.auth.getUser();
+            // ШАГ 1: Ждем немного, чтобы Supabase успел восстановить сессию из localStorage
+            await new Promise(resolve => setTimeout(resolve, 100));
 
-            if (!data.user && fid) {
-                console.log('[HabitsPage] No user, attempting login...');
+            // Проверяем существующую сессию Supabase (автоматически восстанавливается из localStorage)
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            console.log('[HabitsPage] Current session:', {
+                hasSession: !!sessionData.session,
+                hasToken: !!sessionData.session?.access_token,
+                error: sessionError?.message
+            });
+
+            // Также проверяем localStorage напрямую для диагностики
+            if (typeof window !== 'undefined') {
+                const supabaseSession = localStorage.getItem('sb-' + process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/https?:\/\//, '').replace(/[^a-z0-9]/gi, '-') + '-auth-token');
+                console.log('[HabitsPage] localStorage session:', supabaseSession ? 'exists' : 'missing');
+            }
+
+            let fid: number | null = null;
+            const user = sessionData.session?.user;
+
+            // Если есть сессия, получаем FID из user_metadata
+            if (user?.user_metadata?.fid) {
+                fid = Number(user.user_metadata.fid);
+                console.log('[HabitsPage] Got FID from existing session:', fid);
+            } else if (user?.id) {
+                // Если нет FID в metadata, получаем из таблицы users
+                try {
+                    const { data: profileRow } = await supabase
+                        .from('users')
+                        .select('fid')
+                        .eq('id', user.id)
+                        .maybeSingle<{ fid: number | null }>();
+                    if (profileRow?.fid) {
+                        fid = profileRow.fid;
+                        console.log('[HabitsPage] Got FID from users table:', fid);
+                    }
+                } catch (error) {
+                    console.warn('[HabitsPage] Failed to get FID from users table:', error);
+                }
+            }
+
+            // ШАГ 2: Если нет сессии, пробуем получить FID из localStorage (если был сохранен ранее)
+            if (!user && !fid && typeof window !== 'undefined') {
+                try {
+                    const savedFid = localStorage.getItem('user_fid');
+                    if (savedFid) {
+                        fid = Number(savedFid);
+                        console.log('[HabitsPage] Got FID from localStorage:', fid);
+                    }
+                } catch (error) {
+                    console.warn('[HabitsPage] Failed to get FID from localStorage:', error);
+                }
+            }
+
+            // ШАГ 3: Если все еще нет FID, пробуем получить через Neynar SDK
+            if (!user && !fid && isSDKLoaded && context?.user?.fid) {
+                fid = Number(context.user.fid);
+                console.log('[HabitsPage] Got FID from Neynar context:', fid);
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('user_fid', String(fid));
+                }
+            }
+
+            // ШАГ 4: Если все еще нет FID, пробуем из localStorage
+            if (!user && !fid && typeof window !== 'undefined') {
+                const savedFid = localStorage.getItem('user_fid');
+                if (savedFid) {
+                    fid = Number(savedFid);
+                    console.log('[HabitsPage] Got FID from localStorage:', fid);
+                }
+            }
+
+            // Если нет сессии, но есть FID - логинимся
+            if (!user && fid) {
+                console.log('[HabitsPage] No user, attempting login with FID:', fid);
                 try {
                     const res = await fetch('/api/auth/farcaster-login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ fid }),
                     });
+
+                    if (!res.ok) {
+                        const errorData = await res.json().catch(() => ({}));
+                        console.error('[HabitsPage] Login request failed:', res.status, errorData);
+                        return;
+                    }
+
                     const loginData = await res.json();
+                    console.log('[HabitsPage] Login response:', {
+                        hasToken: !!loginData.access_token,
+                        hasRefresh: !!loginData.refresh_token,
+                        error: loginData.error,
+                        userId: loginData.user_id
+                    });
+
+                    if (loginData.error) {
+                        console.error('[HabitsPage] Login error in response:', loginData.error, loginData.message);
+                        return;
+                    }
+
                     if (loginData.access_token) {
-                        await supabase.auth.setSession({ access_token: loginData.access_token, refresh_token: '' });
-                        console.log('[HabitsPage] Login successful');
+                        console.log('[HabitsPage] Setting session with token length:', loginData.access_token.length);
+                        const { error: sessionError } = await supabase.auth.setSession({
+                            access_token: loginData.access_token,
+                            refresh_token: loginData.refresh_token || loginData.access_token,
+                        });
+
+                        if (sessionError) {
+                            console.error('[HabitsPage] Failed to set session on load:', sessionError);
+                            return;
+                        }
+
+                        console.log('[HabitsPage] Session set, verifying...');
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                        const { data: { session: newSession }, error: sessionCheckError } = await supabase.auth.getSession();
+
+                        if (sessionCheckError) {
+                            console.error('[HabitsPage] Error checking session:', sessionCheckError);
+                        } else if (!newSession?.access_token) {
+                            console.error('[HabitsPage] Session not set after setSession call on load');
+                        } else {
+                            console.log('[HabitsPage] Session verified, token length:', newSession.access_token.length);
+                            const { data: { user: verifyUser }, error: userError } = await supabase.auth.getUser();
+                            if (userError) {
+                                console.error('[HabitsPage] Error getting user:', userError);
+                            } else if (!verifyUser) {
+                                console.error('[HabitsPage] User not found after session set');
+                            } else {
+                                console.log('[HabitsPage] User verified:', verifyUser.id);
+                                if (verifyUser.user_metadata?.fid && typeof window !== 'undefined') {
+                                    localStorage.setItem('user_fid', String(verifyUser.user_metadata.fid));
+                                }
+                            }
+                        }
                     } else {
-                        console.error('[HabitsPage] Login failed:', loginData);
+                        console.error('[HabitsPage] No access_token in login response:', loginData);
                     }
                 } catch (error) {
                     console.error('[HabitsPage] Login error:', error);
                 }
+            } else if (!user && !fid) {
+                console.error('[HabitsPage] No user and no FID - cannot login');
             }
 
+            // Проверяем финальное состояние - если есть пользователь, загружаем данные
             const { data: userData } = await supabase.auth.getUser();
-            if (!fid && !userData.user) {
-                console.warn('[HabitsPage] No FID or Supabase session, skipping fetch');
+            if (!userData.user) {
+                console.warn('[HabitsPage] No user, skipping fetch');
                 setLoadingHabits(false);
                 return;
             }
 
             if (!mounted) return;
-
             await loadPlan();
-            console.log('[HabitsPage] Fetching habits...');
             await fetchHabits();
         };
 
@@ -354,17 +477,147 @@ export default function HabitsPage() {
 
         setAddingHabit(true);
         try {
-            const res = await fetch('/api/habits/create', {
-                method: 'POST',
-                headers: await authHeaders(),
-                body: JSON.stringify({ title: `${emoji} ${title}`.trim(), target_days_per_week: targetDays }),
-            });
+            // Проверяем сессию перед сохранением
+            let { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                console.error('[HabitsPage] No session before save, attempting to get FID and login...');
+
+                // Пробуем получить FID из существующей сессии (если есть user)
+                let fid: number | null = null;
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user?.user_metadata?.fid) {
+                    fid = Number(user.user_metadata.fid);
+                    console.log('[HabitsPage] Got FID from user metadata:', fid);
+                }
+
+                // Если не получили из metadata, пробуем через Neynar SDK
+                if (!fid && isSDKLoaded && context?.user?.fid) {
+                    fid = Number(context.user.fid);
+                    console.log('[HabitsPage] Got FID from Neynar context:', fid);
+                }
+
+                // Если все еще нет FID, пробуем из localStorage
+                if (!fid && typeof window !== 'undefined') {
+                    const savedFid = localStorage.getItem('user_fid');
+                    if (savedFid) {
+                        fid = Number(savedFid);
+                        console.log('[HabitsPage] Got FID from localStorage:', fid);
+                    }
+                }
+
+                // Если все еще нет FID, пробуем получить через API (если есть сессия)
+                if (!fid && session) {
+                    try {
+                        const headers = await authHeaders();
+                        const res = await fetch('/api/auth/get-fid', { headers });
+                        if (res.ok) {
+                            const data = await res.json();
+                            fid = data.fid ? Number(data.fid) : null;
+                            console.log('[HabitsPage] Got FID from API:', fid);
+                        }
+                    } catch (error) {
+                        console.warn('[HabitsPage] Failed to get FID from API:', error);
+                    }
+                }
+
+                if (fid) {
+                    const res = await fetch('/api/auth/farcaster-login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fid }),
+                    });
+                    const loginData = await res.json();
+                    console.log('[HabitsPage] Login response:', { hasToken: !!loginData.access_token, hasRefresh: !!loginData.refresh_token });
+                    if (loginData.access_token) {
+                        console.log('[HabitsPage] Setting session with token length:', loginData.access_token.length);
+                        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+                            access_token: loginData.access_token,
+                            refresh_token: loginData.refresh_token || loginData.access_token, // Используем access_token как fallback
+                        });
+                        if (sessionError) {
+                            console.error('[HabitsPage] Failed to set session:', sessionError);
+                            throw new Error('Failed to restore session. Please refresh the page.');
+                        }
+                        console.log('[HabitsPage] Session restored before save:', { hasSession: !!sessionData.session, hasToken: !!sessionData.session?.access_token });
+
+                        // Проверяем, что сессия действительно установилась и токен валидный
+                        const { data: { session: newSession } } = await supabase.auth.getSession();
+                        if (!newSession?.access_token) {
+                            console.error('[HabitsPage] Session not set after setSession call');
+                            const { data: { user }, error: userError } = await supabase.auth.getUser();
+                            console.error('[HabitsPage] getUser result:', { hasUser: !!user, error: userError });
+                            throw new Error('Session not restored. Please refresh the page.');
+                        }
+
+                        // Проверяем валидность токена через getUser
+                        const { data: { user: verifyUser }, error: verifyError } = await supabase.auth.getUser();
+                        if (verifyError || !verifyUser) {
+                            console.error('[HabitsPage] Token validation failed:', verifyError);
+                            throw new Error('Token is invalid. Please refresh the page.');
+                        }
+
+                        console.log('[HabitsPage] Session verified:', {
+                            tokenLength: newSession.access_token.length,
+                            userId: verifyUser.id,
+                            hasFid: !!verifyUser.user_metadata?.fid
+                        });
+                        session = newSession;
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                    } else {
+                        console.error('[HabitsPage] No access_token in login response:', loginData);
+                        throw new Error('Failed to get access token. Please refresh the page.');
+                    }
+                } else {
+                    throw new Error('No FID available. Please refresh the page.');
+                }
+            }
+
+            const headers = await authHeaders();
+            const hasToken = !!headers.Authorization && headers.Authorization !== 'Bearer ';
+            console.log('[HabitsPage] Creating habit with headers:', { hasToken });
+
+            if (!hasToken) {
+                throw new Error('No authentication token available. Please refresh the page and try again.');
+            }
+
+            let res: Response;
+            let data: any = {};
+            try {
+                res = await fetch('/api/habits/create', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ title: `${emoji} ${title}`.trim(), target_days_per_week: targetDays }),
+                });
+                try {
+                    data = await res.json();
+                } catch (jsonError) {
+                    console.error('[HabitsPage] Failed to parse response JSON:', jsonError);
+                    data = { error: 'Invalid response from server' };
+                }
+            } catch (fetchError) {
+                console.error('[HabitsPage] Fetch error:', fetchError);
+                throw new Error('Network error. Please check your connection and try again.');
+            }
+
             if (res.ok) {
+                console.log('[HabitsPage] Habit created successfully:', data);
                 setTitle('');
                 setEmoji('');
                 setTargetDays(3);
-                fetchHabits();
+                await fetchHabits();
+            } else {
+                console.error('[HabitsPage] Failed to create habit:', res.status, data);
+                const { toast } = await import('sonner');
+                toast.error('Failed to create habit', {
+                    description: data.error || data.message || `Server error (${res.status})`,
+                });
             }
+        } catch (error) {
+            console.error('[HabitsPage] Error creating habit:', error);
+            const { toast } = await import('sonner');
+            toast.error('Error creating habit', {
+                description: error instanceof Error ? error.message : 'Unknown error',
+            });
         } finally {
             setAddingHabit(false);
         }

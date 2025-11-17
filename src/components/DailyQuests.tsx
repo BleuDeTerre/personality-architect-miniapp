@@ -24,6 +24,12 @@ export default function DailyQuests() {
         async function loadQuests() {
             try {
                 setLoading(true);
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session?.access_token) {
+                    console.log('[DailyQuests] No session, skipping load');
+                    setLoading(false);
+                    return;
+                }
                 const headers = await authHeaders();
                 const res = await fetch('/api/gamification/daily-quests', { headers, cache: 'no-store' });
                 if (res.ok) {
@@ -38,9 +44,19 @@ export default function DailyQuests() {
         }
         loadQuests();
 
+        // Слушаем изменения сессии
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.access_token) {
+                loadQuests();
+            }
+        });
+
         // Reload quests every minute to check if date changed
         const interval = setInterval(loadQuests, 60000);
-        return () => clearInterval(interval);
+        return () => {
+            subscription.unsubscribe();
+            clearInterval(interval);
+        };
     }, [authHeaders]);
 
     if (loading) {

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { SHARE_PREVIEW_VERSION } from "@/lib/sharePreviewVersion";
-import { composeCast, isRunningInMiniApp, openUrl } from "@/lib/farcaster-sdk";
+import { useMiniApp } from '@neynar/react';
 
 export type CastTemplate = {
     key: string;
@@ -35,6 +35,7 @@ export default function ShareCastComposer({
     sectionTitle,
     prepareHeaders,
 }: ShareCastComposerProps) {
+    const { isSDKLoaded, actions } = useMiniApp();
     const [selectedKey, setSelectedKey] = useState<string>(() => templates[0]?.key ?? "");
     const [origin, setOrigin] = useState<string>("");
     const [loading, setLoading] = useState(false);
@@ -75,12 +76,11 @@ export default function ShareCastComposer({
         if (!selected) return;
         setLoading(true);
 
-        const isInMiniApp = isRunningInMiniApp();
-        const method = isInMiniApp ? 'native_composeCast' : 'api_publishCast';
+        const isInMiniApp = isSDKLoaded && actions?.composeCast;
 
         try {
             // Пробуем нативный метод, если в Mini App
-            if (isInMiniApp) {
+            if (isInMiniApp && actions.composeCast) {
                 const embeds: string[] = [];
 
                 // Добавляем preview изображение
@@ -93,7 +93,13 @@ export default function ShareCastComposer({
                     embeds.push(`${origin}${selected.targetPath}`);
                 }
 
-                await composeCast(selected.text, embeds.length > 0 ? embeds : undefined);
+                const embedsTuple = embeds.length > 0
+                    ? (embeds.length === 1 ? [embeds[0]] as [string] : [embeds[0], embeds[1]] as [string, string])
+                    : undefined;
+                await actions.composeCast({
+                    text: selected.text,
+                    embeds: embedsTuple,
+                });
 
                 // Логируем успешное использование нативного метода
                 try {
@@ -163,7 +169,13 @@ export default function ShareCastComposer({
                         description: data.error ?? "Try again later.",
                         action: {
                             label: "Open",
-                            onClick: () => openUrl(data.fallback!),
+                            onClick: () => {
+                                if (actions?.openUrl) {
+                                    actions.openUrl({ url: data.fallback! });
+                                } else {
+                                    window.open(data.fallback!, '_blank');
+                                }
+                            },
                         },
                     });
                     return;
@@ -174,7 +186,11 @@ export default function ShareCastComposer({
                 description: "Check Warpcast feed for your update.",
             });
             if (data.castUrl) {
-                await openUrl(data.castUrl);
+                if (actions?.openUrl) {
+                    await actions.openUrl({ url: data.castUrl });
+                } else {
+                    window.open(data.castUrl, '_blank');
+                }
             }
         } catch (error: any) {
             toast.error("Unable to publish cast", {

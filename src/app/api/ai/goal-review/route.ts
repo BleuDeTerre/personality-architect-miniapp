@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
                     recommendation: result.recommendation || 'Stay consistent and track your progress.',
                     isOnTrack,
                 });
-            } catch (aiError) {
+            } catch (_aiError) {
                 // Fallback
                 reviews.push({
                     goalId: goal.id,

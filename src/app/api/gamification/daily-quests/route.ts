@@ -27,9 +27,21 @@ function startOfMonth(date: Date): string {
 export async function GET(req: NextRequest) {
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-        if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+        if (!token) {
+            console.error('[Daily Quests] No token found in Authorization header');
+            return NextResponse.json({ error: 'unauthorized', message: 'No token provided' }, { status: 401 });
+        }
 
-        const { id: userId } = await requireUserFromReq(req);
+        let userId: string;
+        try {
+            const userAuth = await requireUserFromReq(req);
+            userId = userAuth.id;
+            console.log('[Daily Quests] User authenticated:', userId);
+        } catch (authError: any) {
+            console.error('[Daily Quests] Auth error:', authError?.message || authError);
+            return NextResponse.json({ error: 'unauthorized', message: authError?.message || 'Authentication failed' }, { status: 401 });
+        }
+
         const supa = createUserServerClient(token);
 
         const today = new Date();

@@ -7,9 +7,21 @@ import { createUserServerClient } from '@/lib/supabase';
 export async function POST(req: NextRequest) {
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-        if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+        if (!token) {
+            console.error('[Habits Create] No token found in Authorization header');
+            return NextResponse.json({ error: 'unauthorized', message: 'No token provided' }, { status: 401 });
+        }
 
-        const { id: userId } = await requireUserFromReq(req);
+        let userId: string;
+        try {
+            const userAuth = await requireUserFromReq(req);
+            userId = userAuth.id;
+            console.log('[Habits Create] User authenticated:', userId);
+        } catch (authError: any) {
+            console.error('[Habits Create] Auth error:', authError?.message || authError);
+            return NextResponse.json({ error: 'unauthorized', message: authError?.message || 'Authentication failed' }, { status: 401 });
+        }
+
         const supa = createUserServerClient(token);
 
         const body = await req.json().catch(() => ({}));
