@@ -110,20 +110,22 @@ export default function ChatPage() {
 
     return (
         <MiniAppPage>
-            <div className="flex flex-col h-full space-y-6">
+            <div className="flex flex-col h-full space-y-4">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5">
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">AI Coach Chat</h1>
                     <p className="text-sm text-white/80">Ask about your habits, goals, or progress. Your coach is here 24/7.</p>
                 </section>
 
                 {/* Chat Area */}
-                <div className="flex-1 min-h-[400px] overflow-y-auto rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-4">
+                <div className="flex-1 min-h-[260px] overflow-y-auto rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 space-y-4">
                     {messages.length === 0 ? (
-                        <div className="flex items-center justify-center h-full">
-                            <div className="text-center">
-                                <div className="text-base text-white/90 mb-1">👋 Hi! I&apos;m your AI coach</div>
-                                <div className="text-sm text-white/90">Ask me about your habits, goals, or progress</div>
+                        <div className="flex items-start justify-center h-full pt-4">
+                            <div className="text-center space-y-1.5">
+                                <div className="text-lg text-white/90 leading-tight">👋 Hi! I&apos;m your AI coach</div>
+                                <div className="text-xs text-white/70 leading-tight max-w-[220px] mx-auto">
+                                    Ask me about your habits, goals, or progress
+                                </div>
                             </div>
                         </div>
                     ) : (
@@ -163,7 +165,7 @@ export default function ChatPage() {
                 </div>
 
                 {/* Input Area */}
-                <div className="flex gap-3">
+                <div className="flex gap-2.5">
                     <input
                         type="text"
                         value={input}

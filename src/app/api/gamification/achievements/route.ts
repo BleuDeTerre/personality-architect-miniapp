@@ -22,9 +22,10 @@ export async function GET(req: NextRequest) {
         const supa = createUserServerClient(token);
 
         // Получаем статистику пользователя
+        // Учитываем и value и is_completed для консистентности
         const [habitsRes, logsRes, statsRes, eventsRes] = await Promise.all([
             supa.from('habits').select('id, created_at').eq('user_id', userId),
-            supa.from('habit_logs').select('id').eq('user_id', userId).eq('value', true),
+            supa.from('habit_logs').select('id').eq('user_id', userId).or('value.eq.true,is_completed.eq.true'),
             supa.rpc('get_habit_streak', { p_user: userId }),
             supa.from('events_log').select('name').eq('user_id', userId).eq('name', 'share.farcaster'),
         ]);
@@ -73,13 +74,14 @@ export async function GET(req: NextRequest) {
                 weekDays.push(formatDate(day));
             }
 
+            // Учитываем и value и is_completed для консистентности
             const { data: weekLogs } = await supa
                 .from('habit_logs')
                 .select('habit_id, date')
                 .eq('user_id', userId)
                 .in('habit_id', activeHabitIds)
                 .in('date', weekDays)
-                .eq('value', true);
+                .or('value.eq.true,is_completed.eq.true');
 
             // Проверяем, выполнены ли все привычки каждый день недели
             const weekCompletedHabits = new Map<string, Set<string>>();
@@ -101,13 +103,14 @@ export async function GET(req: NextRequest) {
                 monthDays.push(formatDate(new Date(d)));
             }
 
+            // Учитываем и value и is_completed для консистентности
             const { data: monthLogs } = await supa
                 .from('habit_logs')
                 .select('habit_id, date')
                 .eq('user_id', userId)
                 .in('habit_id', activeHabitIds)
                 .in('date', monthDays)
-                .eq('value', true);
+                .or('value.eq.true,is_completed.eq.true');
 
             const monthCompletedHabits = new Map<string, Set<string>>();
             (monthLogs || []).forEach((log: any) => {

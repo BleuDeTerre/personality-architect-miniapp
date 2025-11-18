@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     let query = supa
       .from('habit_logs')
-      .select('id, habit_id, date, value, note')
+      .select('id, habit_id, date, value, is_completed')
       .eq('user_id', userId);
 
     if (date) {
@@ -38,7 +38,11 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ items: data ?? [] });
+    const normalized = (data ?? []).map(log => ({
+      ...log,
+      value: log.value ?? log.is_completed ?? false,
+    }));
+    return NextResponse.json({ items: normalized });
   } catch {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
@@ -56,24 +60,24 @@ export async function POST(req: NextRequest) {
     const habit_id = body?.habit_id as string | undefined;
     const date = (body?.date as string | undefined)?.slice(0, 10);
     const value = typeof body?.value === 'boolean' ? body.value : true;
-    const note = (body?.note as string | undefined) ?? null;
 
     if (!habit_id || !date) {
       return NextResponse.json({ error: 'habit_id_and_date_required' }, { status: 400 });
     }
 
-    const payload = { user_id: userId, habit_id, date, value, note };
+    const payload = { user_id: userId, habit_id, date, value, is_completed: value };
 
     // Проверяем, было ли уже выполнено (для определения нового выполнения)
+    // Учитываем и value и is_completed для консистентности
     const { data: existing } = await supa
       .from('habit_logs')
-      .select('value')
+      .select('value, is_completed')
       .eq('user_id', userId)
       .eq('habit_id', habit_id)
       .eq('date', date)
       .maybeSingle();
 
-    const wasCompleted = existing?.value === true;
+    const wasCompleted = existing?.value === true || existing?.is_completed === true;
     const isNowCompleted = value === true;
 
     const { data, error } = await supa
@@ -165,12 +169,13 @@ export async function POST(req: NextRequest) {
           (existingAchievements || []).map((e: any) => e.metadata?.achievement_id).filter(Boolean)
         );
 
-        // Получаем статистику для проверки достижений
-        const [habitsCheck, logsCheck, statsCheck] = await Promise.all([
-          supa.from('habits').select('id').eq('user_id', userId),
-          supa.from('habit_logs').select('id').eq('user_id', userId).eq('value', true),
-          supa.rpc('get_habit_streak', { p_user: userId }),
-        ]);
+                // Получаем статистику для проверки достижений
+                // Учитываем и value и is_completed для консистентности
+                const [habitsCheck, logsCheck, statsCheck] = await Promise.all([
+                  supa.from('habits').select('id').eq('user_id', userId),
+                  supa.from('habit_logs').select('id').eq('user_id', userId).or('value.eq.true,is_completed.eq.true'),
+                  supa.rpc('get_habit_streak', { p_user: userId }),
+                ]);
 
         const totalHabits = habitsCheck.data?.length || 0;
         const totalLogs = logsCheck.data?.length || 0;

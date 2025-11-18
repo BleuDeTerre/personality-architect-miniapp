@@ -47,11 +47,19 @@ export default function CollapsibleCard({
                     {actionSlot}
                     <span
                         className={cn(
-                            'inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/15 text-xs text-white/70 transition-transform',
-                            open ? 'rotate-180' : 'rotate-0'
+                            'inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5 text-sm text-white/80 transition-all',
+                            open ? 'rotate-180 shadow-[0_0_12px_rgba(139,92,246,0.35)] border-white/25' : 'rotate-0'
                         )}
+                        aria-hidden="true"
                     >
-                        ⌄
+                        <svg
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3.5 w-3.5 stroke-current"
+                        >
+                            <path d="M5 8l5 4 5-4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
                     </span>
                 </div>
             </button>

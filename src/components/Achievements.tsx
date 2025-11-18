@@ -4,6 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 import { ACHIEVEMENTS, getRarityColor } from '@/lib/achievements';
 import type { AchievementCheck } from '@/lib/achievements';
 import { calculateQuestProgress, type Quest } from '@/lib/daily-quests';
+import { BADGES, type Badge } from '@/lib/badges';
+import BadgeImage from '@/components/BadgeImage';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,7 +22,22 @@ type QuestBuckets = {
 
 type QuestTab = 'daily' | 'weekly' | 'monthly';
 
-export default function Achievements() {
+type MintStatus = 'none' | 'pending' | 'success' | 'failed';
+
+type BadgePanelProps = {
+    loading: boolean;
+    statusMap: Record<string, MintStatus>;
+    eligibility: Record<string, { eligible: boolean; reason: string }>;
+    busyCode: string | null;
+    wallet?: string | null;
+    onMint: (slug: Badge['slug']) => Promise<void>;
+};
+
+type AchievementsProps = {
+    badgePanel?: BadgePanelProps;
+};
+
+export default function Achievements({ badgePanel }: AchievementsProps) {
     const [achievements, setAchievements] = useState<AchievementCheck[]>(() =>
         ACHIEVEMENTS.map(achievement => ({
             achievement,
@@ -31,6 +48,7 @@ export default function Achievements() {
     const [loading, setLoading] = useState(true);
     const [isExpanded, setIsExpanded] = useState(false);
     const [questsExpanded, setQuestsExpanded] = useState(false);
+    const [badgesExpanded, setBadgesExpanded] = useState(false);
     const [questsLoading, setQuestsLoading] = useState(true);
     const [questTab, setQuestTab] = useState<QuestTab>('daily');
     const [questBuckets, setQuestBuckets] = useState<QuestBuckets | null>(null);
@@ -179,6 +197,88 @@ export default function Achievements() {
         },
     };
 
+    const renderBadges = () => {
+        if (!badgePanel) return null;
+        if (badgePanel.loading) {
+            return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[1, 2].map(i => (
+                        <div key={i} className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
+                            <div className="flex items-start gap-4">
+                                <div className="w-16 h-16 bg-white/20 rounded-2xl"></div>
+                                <div className="flex-1 space-y-2">
+                                    <div className="h-4 bg-white/15 rounded w-1/2" />
+                                    <div className="h-3 bg-white/10 rounded w-3/4" />
+                                    <div className="h-8 bg-white/5 rounded" />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        if (!BADGES.length) {
+            return (
+                <div className="rounded-3xl border border-white/10 bg-[#1a1b2e]/60 p-4 text-center text-white/60">
+                    No badges available yet.
+                </div>
+            );
+        }
+
+        return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {BADGES.map(badge => {
+                    const st = badgePanel.statusMap[badge.slug] ?? 'none';
+                    const elig = badgePanel.eligibility[badge.slug] ?? { eligible: false, reason: '' };
+                    const disabled = !badgePanel.wallet || st === 'pending' || badgePanel.busyCode === badge.slug;
+                    return (
+                        <div key={badge.slug} className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col">
+                            <div className="flex items-start gap-4 mb-4">
+                                <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white/5 flex items-center justify-center">
+                                    <BadgeImage src={badge.image} alt={badge.title} className="w-16 h-16 object-cover" />
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="text-base font-semibold text-white">{badge.title}</h4>
+                                    <p className="text-sm text-white/70">{badge.description}</p>
+                                </div>
+                            </div>
+                            <div className="mt-auto">
+                                {!badgePanel.wallet ? (
+                                    <div className="text-sm text-white/60 mb-2">Connect wallet to mint.</div>
+                                ) : (
+                                    <div className="text-xs text-white/50 mb-2">
+                                        {elig.eligible ? 'Eligible to mint' : elig.reason || 'Requirement not met'}
+                                    </div>
+                                )}
+                                <button
+                                    disabled={disabled || !elig.eligible || st === 'success'}
+                                    onClick={async () => {
+                                        if (disabled || !elig.eligible || st === 'success') return;
+                                        await badgePanel.onMint(badge.slug);
+                                    }}
+                                    className={`w-full rounded-2xl px-4 py-2 text-sm font-semibold transition ${
+                                        st === 'success'
+                                            ? 'bg-white/10 text-white cursor-default'
+                                            : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white hover:opacity-90 disabled:opacity-50'
+                                    }`}
+                                >
+                                    {badgePanel.busyCode === badge.slug
+                                        ? 'Minting…'
+                                        : !badgePanel.wallet
+                                            ? 'Add wallet'
+                                            : st === 'success'
+                                                ? '✅ Minted'
+                                                : 'Mint'}
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
     return (
         <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-6">
             {/* Achievements accordion */}
@@ -300,6 +400,27 @@ export default function Achievements() {
                     </div>
                 )}
             </div>
+
+            {badgePanel && (
+                <div className="border-t border-white/10 pt-4">
+                    <button
+                        type="button"
+                        onClick={() => setBadgesExpanded(prev => !prev)}
+                        className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition"
+                    >
+                        <h3 className="text-xl font-semibold text-white">Badges gallery</h3>
+                        <svg
+                            className={`h-5 w-5 text-white/60 transition-transform ${badgesExpanded ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    {badgesExpanded && renderBadges()}
+                </div>
+            )}
         </div>
     );
 }

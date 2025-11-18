@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
         const { data, error } = await supa
             .from('habits')
-            .select('*')
+            .select('id,title,target_days_per_week,is_active')
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
 
@@ -23,8 +23,27 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: 400 });
         }
 
-        console.log(`[Habits List] Found ${data?.length || 0} habits for user ${userId}`);
-        return NextResponse.json(data ?? []);
+        const today = new Date().toISOString().slice(0, 10);
+        // Учитываем и value и is_completed для консистентности
+        const { data: todayLogs, error: logsError } = await supa
+            .from('habit_logs')
+            .select('habit_id,value,is_completed')
+            .eq('user_id', userId)
+            .eq('date', today)
+            .or('value.eq.true,is_completed.eq.true');
+
+        if (logsError) {
+            console.error('[Habits List] Failed to load logs:', logsError);
+        }
+
+        const completedSet = new Set<string>((todayLogs ?? []).map(log => log.habit_id));
+        const response = (data ?? []).map(habit => ({
+            ...habit,
+            is_completed: completedSet.has(habit.id),
+        }));
+
+        console.log(`[Habits List] Found ${response.length} habits for user ${userId}`);
+        return NextResponse.json(response);
     } catch {
         return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     }

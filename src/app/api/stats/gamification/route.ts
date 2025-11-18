@@ -13,9 +13,10 @@ export async function GET(req: NextRequest) {
         const supa = createUserServerClient(token);
 
         // Получаем статистику пользователя
+        // Учитываем и value и is_completed для консистентности
         const [habitsRes, logsRes, statsRes, badgesRes, wheelRes, xpRes] = await Promise.all([
             supa.from('habits').select('id').eq('user_id', userId),
-            supa.from('habit_logs').select('id').eq('user_id', userId).eq('value', true),
+            supa.from('habit_logs').select('id').eq('user_id', userId).or('value.eq.true,is_completed.eq.true'),
             supa.rpc('get_habit_streak', { p_user: userId }),
             supa.from('mints').select('badge_code').eq('user_id', userId).eq('status', 'success'),
             supa.from('wheel_scores').select('week').eq('user_id', userId),

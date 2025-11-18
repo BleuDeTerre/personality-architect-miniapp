@@ -14,6 +14,7 @@ const STORAGE_KEY = 'ai_motivation_message';
 export default function AIMotivationMessage() {
     const [message, setMessage] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isOpen, setIsOpen] = useState(false);
     const lastFetchRef = useRef(0);
 
     const authHeaders = useCallback(async () => {
@@ -94,7 +95,8 @@ export default function AIMotivationMessage() {
         loadMotivation();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.access_token) {
+            if (!session?.access_token) return;
+            if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
                 loadMotivation(true);
             }
         });
@@ -102,23 +104,40 @@ export default function AIMotivationMessage() {
         return () => subscription.unsubscribe();
     }, [loadMotivation]);
 
-    if (loading) {
-        return (
-            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
-                <div className="flex items-start gap-3">
-                    <div className="text-2xl">💬</div>
-                    <div className="h-4 w-3/4 rounded bg-white/10" />
-                </div>
-            </div>
-        );
-    }
+    const content = message || FALLBACK_MESSAGES[0];
 
     return (
-        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
-            <div className="flex items-start gap-3">
-                <div className="text-2xl">💬</div>
-                <p className="text-sm text-white/90 leading-relaxed">{message || FALLBACK_MESSAGES[0]}</p>
+        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                    <span className="text-2xl">💬</span>
+                    <div>
+                        <p className="text-sm font-semibold text-white leading-tight">Daily AI tip</p>
+                        {!isOpen && (
+                            <p className="text-xs text-white/60 leading-tight">
+                                {loading ? 'Loading…' : 'Tap to view today’s advice'}
+                            </p>
+                        )}
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => setIsOpen(prev => !prev)}
+                    className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-white/80 hover:bg-white/10 transition"
+                    disabled={loading}
+                >
+                    {isOpen ? 'Hide tip' : 'Show tip'}
+                </button>
             </div>
+            {isOpen && (
+                <div className="mt-3 text-sm text-white/90 leading-relaxed">
+                    {loading ? (
+                        <div className="h-4 w-3/4 rounded bg-white/10 animate-pulse" />
+                    ) : (
+                        content
+                    )}
+                </div>
+            )}
         </div>
     );
 }

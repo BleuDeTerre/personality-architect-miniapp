@@ -6,10 +6,16 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { generateDailyQuests, generateMonthlyQuests, generateWeeklyQuests, type Quest, type QuestStats } from '@/lib/daily-quests';
 
-function todayUTC(): string {
-    const d = new Date();
-    return d.toISOString().slice(0, 10);
-}
+type HabitLogRow = {
+    habit_id: string;
+    date?: string | null;
+    created_at?: string | null;
+    value?: boolean | null;
+    is_completed?: boolean | null;
+};
+
+const isLogCompleted = (log: HabitLogRow) =>
+    log?.value === true || log?.is_completed === true;
 
 function startOfWeek(date: Date): string {
     const d = new Date(date);
@@ -32,6 +38,18 @@ function endOfUTCDay(date: Date): Date {
     const end = startOfUTCDay(date);
     end.setUTCDate(end.getUTCDate() + 1);
     return end;
+}
+
+function localDateToUtcStart(dateStr: string, offsetMs: number): Date {
+    const utcMidnight = Date.parse(`${dateStr}T00:00:00.000Z`);
+    return new Date(utcMidnight + offsetMs);
+}
+
+function getLocalDateFromISO(iso: string | null | undefined, offsetMs: number): string | null {
+    if (!iso) return null;
+    const date = new Date(iso);
+    const local = new Date(date.getTime() - offsetMs);
+    return local.toISOString().slice(0, 10);
 }
 
 export async function GET(req: NextRequest) {
@@ -57,66 +75,79 @@ export async function GET(req: NextRequest) {
         const timezoneOffsetMinutes = Number.isFinite(tzOffsetMinutesRaw) ? tzOffsetMinutesRaw : 0;
         const timezoneOffsetMs = timezoneOffsetMinutes * 60 * 1000;
 
-        const today = new Date();
-        const todayStr = todayUTC();
-        const weekStart = startOfWeek(today);
-        const monthStart = startOfMonth(today);
+        const clientNow = new Date(Date.now() - timezoneOffsetMs);
+        const todayStr = clientNow.toISOString().slice(0, 10);
+        const weekStart = startOfWeek(clientNow);
+        const monthStart = startOfMonth(clientNow);
 
-        const dayStart = startOfUTCDay(today);
-        const dayEnd = endOfUTCDay(today);
-        const weekStartDate = new Date(`${weekStart}T00:00:00.000Z`);
-        const monthStartDate = new Date(`${monthStart}T00:00:00.000Z`);
+        const dayStart = localDateToUtcStart(todayStr, timezoneOffsetMs);
+        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+        const weekStartDate = localDateToUtcStart(weekStart, timezoneOffsetMs);
+        const monthStartDate = localDateToUtcStart(monthStart, timezoneOffsetMs);
         const dayStartIso = dayStart.toISOString();
         const dayEndIso = dayEnd.toISOString();
+        const weekStartIso = weekStartDate.toISOString();
+        const monthStartIso = monthStartDate.toISOString();
 
         const [habitsRes, logsTodayRes, streakRes, logsWeekRes, logsMonthRes, shareEventsRes, wheelWeekRes, wheelMonthRes] = await Promise.all([
             supa.from('habits').select('id').eq('user_id', userId).eq('is_active', true),
             supa
                 .from('habit_logs')
-                .select('habit_id, created_at')
+                .select('habit_id, created_at, value, is_completed')
                 .eq('user_id', userId)
-                .eq('date', todayStr)
-                .eq('value', true),
+                .gte('created_at', dayStartIso)
+                .lt('created_at', dayEndIso),
             supa.rpc('get_habit_streak', { p_user: userId }),
             supa
                 .from('habit_logs')
-                .select('date, habit_id, value')
+                .select('date, habit_id, value, is_completed, created_at')
                 .eq('user_id', userId)
-                .eq('value', true)
-                .gte('date', weekStart)
-                .lte('date', todayStr),
+                .gte('created_at', weekStartIso)
+                .lt('created_at', dayEndIso),
             supa
                 .from('habit_logs')
-                .select('date, habit_id, value')
+                .select('date, habit_id, value, is_completed, created_at')
                 .eq('user_id', userId)
-                .eq('value', true)
-                .gte('date', monthStart)
-                .lte('date', todayStr),
+                .gte('created_at', monthStartIso)
+                .lt('created_at', dayEndIso),
             supa
                 .from('events_log')
                 .select('name, props, created_at')
                 .eq('user_id', userId)
                 .eq('name', 'share_cast_published')
-                .gte('created_at', monthStartDate.toISOString())
-                .lte('created_at', dayEndIso),
+                .gte('created_at', monthStartIso)
+                .lt('created_at', dayEndIso),
             supa
                 .from('wheel_scores')
                 .select('updated_at')
                 .eq('user_id', userId)
-                .gte('updated_at', weekStartDate.toISOString())
-                .lte('updated_at', dayEndIso),
+                .gte('updated_at', weekStartIso)
+                .lt('updated_at', dayEndIso),
             supa
                 .from('wheel_scores')
                 .select('updated_at')
                 .eq('user_id', userId)
-                .gte('updated_at', monthStartDate.toISOString())
-                .lte('updated_at', dayEndIso),
+                .gte('updated_at', monthStartIso)
+                .lt('updated_at', dayEndIso),
         ]);
 
         const totalHabits = habitsRes.data?.length ?? 0;
-        const logsToday = logsTodayRes.data ?? [];
-        const logsWeek = logsWeekRes.data ?? [];
-        const logsMonth = logsMonthRes.data ?? [];
+        const logsTodayRaw = ((logsTodayRes.data ?? []) as HabitLogRow[]).filter(isLogCompleted);
+        const logsWeekRaw = ((logsWeekRes.data ?? []) as HabitLogRow[]).filter(isLogCompleted);
+        const logsMonthRaw = ((logsMonthRes.data ?? []) as HabitLogRow[]).filter(isLogCompleted);
+
+        const logsToday = logsTodayRaw.map(log => ({
+            ...log,
+            localDate: getLocalDateFromISO(log.created_at, timezoneOffsetMs) ?? log.date ?? todayStr,
+        }));
+        const logsWeek = logsWeekRaw.map(log => ({
+            ...log,
+            localDate: getLocalDateFromISO(log.created_at, timezoneOffsetMs) ?? log.date ?? weekStart,
+        }));
+        const logsMonth = logsMonthRaw.map(log => ({
+            ...log,
+            localDate: getLocalDateFromISO(log.created_at, timezoneOffsetMs) ?? log.date ?? monthStart,
+        }));
         const shareEvents = shareEventsRes.data ?? [];
         const wheelWeek = wheelWeekRes.data ?? [];
         const wheelMonth = wheelMonthRes.data ?? [];
@@ -154,13 +185,17 @@ export async function GET(req: NextRequest) {
 
         const weeklyDayMap = new Map<string, number>();
         logsWeek.forEach(log => {
-            const count = weeklyDayMap.get(log.date) ?? 0;
-            weeklyDayMap.set(log.date, count + 1);
+            const key = log.localDate ?? log.date;
+            if (!key) return;
+            const count = weeklyDayMap.get(key) ?? 0;
+            weeklyDayMap.set(key, count + 1);
         });
         const monthlyDayMap = new Map<string, number>();
         logsMonth.forEach(log => {
-            const count = monthlyDayMap.get(log.date) ?? 0;
-            monthlyDayMap.set(log.date, count + 1);
+            const key = log.localDate ?? log.date;
+            if (!key) return;
+            const count = monthlyDayMap.get(key) ?? 0;
+            monthlyDayMap.set(key, count + 1);
         });
 
         const activeDaysThisWeek = Array.from(weeklyDayMap.values()).filter(count => count > 0).length;

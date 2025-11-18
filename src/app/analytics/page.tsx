@@ -603,7 +603,7 @@ export default function AnalyticsPage() {
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">Advanced Analytics</h1>
                     <p className="text-sm text-white/70">
-                        First wave of dashboards arrives here. Core metrics show up as soon as we collect enough data. Below that — the roadmap of smarter insights we&apos;re building next.
+                        First wave of dashboards arrives here. Core metrics show up as soon as we collect enough data. Below that - the roadmap of smarter insights we&apos;re building next.
                     </p>
                 </section>
 
@@ -857,53 +857,47 @@ export default function AnalyticsPage() {
                                             <p className="text-xs text-white/70">Each capsule shows completion rate and longest run for the week.</p>
                                         </div>
                                         {weeklyCapsules.length > 0 ? (
-                                            <div className="flex gap-2.5 overflow-x-auto pb-1.5">
+                                            <div className="flex gap-2 overflow-x-auto pb-1.5 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                                                 {weeklyCapsules.map((capsule, idx) => {
                                                     const startStr = capsule.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                                                     const endStr = capsule.weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
                                                     // Determine colors based on completion rate
-                                                    let bgColor = 'bg-red-500/30';
-                                                    let borderColor = 'border-red-500/50';
+                                                    let bgColor = 'bg-[#3b1721]';
+                                                    let borderColor = 'border-[#ff7a92]/40';
+                                                    let barColor = 'bg-[#ff7a92]';
                                                     const textColor = 'text-white';
 
                                                     if (capsule.completedDays === 7) {
                                                         // Green for perfect week
-                                                        bgColor = 'bg-green-500/30';
-                                                        borderColor = 'border-green-500/50';
+                                                        bgColor = 'bg-[#12311f]';
+                                                        borderColor = 'border-emerald-300/40';
+                                                        barColor = 'bg-emerald-300';
                                                     } else if (capsule.completedDays >= 4) {
                                                         // Yellow for good progress
-                                                        bgColor = 'bg-yellow-500/30';
-                                                        borderColor = 'border-yellow-500/50';
+                                                        bgColor = 'bg-[#2f2612]';
+                                                        borderColor = 'border-amber-300/40';
+                                                        barColor = 'bg-amber-300';
                                                     } else if (capsule.completedDays > 0) {
                                                         // Brown/orange for partial progress
-                                                        bgColor = 'bg-orange-600/30';
-                                                        borderColor = 'border-orange-600/50';
+                                                        bgColor = 'bg-[#2a1a16]';
+                                                        borderColor = 'border-orange-400/40';
+                                                        barColor = 'bg-orange-300';
                                                     }
 
                                                     return (
                                                         <div
                                                             key={idx}
-                                                            className={`flex-shrink-0 rounded-2xl border ${borderColor} ${bgColor} p-3 min-w-[150px] flex flex-col gap-2`}
+                                                            className={`rounded-3xl border ${borderColor} ${bgColor} px-2.5 py-5 flex flex-col items-center text-center gap-1.5 shadow-[0_0_25px_rgba(0,0,0,0.25)] min-w-[100px] min-h-[140px] snap-start`}
                                                         >
-                                                            <div className="text-[11px] text-white/60 text-center">
-                                                                {startStr} → {endStr}
-                                                            </div>
-                                                            <div className={`text-base font-semibold ${textColor} text-center`}>
+                                                            <div className={`text-2xl font-semibold ${textColor}`}>
                                                                 {capsule.completedDays}/{capsule.totalDays}
                                                             </div>
-                                                            <div className={`text-xs ${textColor} text-center`}>
-                                                                {capsule.longestRun === 0 ? 'Longest Break' : `Longest ${capsule.longestRun}d`}
+                                                            <div className={`text-xs ${textColor}`}>
+                                                                {capsule.longestRun === 0 ? 'Longest break' : `Longest ${capsule.longestRun}d`}
                                                             </div>
-                                                            {/* Progress bar */}
-                                                            <div className="relative w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                                                <div
-                                                                    className={`h-full rounded-full ${capsule.completedDays === 7 ? 'bg-green-500' :
-                                                                        capsule.completedDays >= 4 ? 'bg-yellow-500' :
-                                                                            capsule.completedDays > 0 ? 'bg-orange-600' : 'bg-transparent'
-                                                                        }`}
-                                                                    style={{ width: `${(capsule.completedDays / capsule.totalDays) * 100}%` }}
-                                                                />
+                                                            <div className="mt-auto text-[11px] text-white/70 font-medium tracking-wide">
+                                                                {startStr} → {endStr}
                                                             </div>
                                                         </div>
                                                     );

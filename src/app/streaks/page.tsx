@@ -14,7 +14,7 @@ const supabase = createClient(
 );
 
 type Habit = { id: string; title: string; icon?: string; is_active?: boolean };
-type Log = { habit_id: string; date: string; value: boolean; created_at?: string };
+type Log = { habit_id: string; date: string; value?: boolean; is_completed?: boolean; created_at?: string };
 type Stats = { current_streak: number; best_streak: number; last_completed: string | null };
 type HabitWithStats = {
     id: string;
@@ -43,6 +43,7 @@ export default function StreaksPage() {
     const [stats, setStats] = useState<Stats>({ current_streak: 0, best_streak: 0, last_completed: null });
     const [loading, setLoading] = useState(false);
     const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
+    const [expandedWeeks, setExpandedWeeks] = useState<boolean>(false);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -89,6 +90,12 @@ export default function StreaksPage() {
         }
 
         return weeks;
+    }, []);
+
+    const isLogCompleted = useCallback((log: Log | undefined) => {
+        if (!log) return false;
+        // Проверяем оба поля, так как API может возвращать разные форматы
+        return log.value === true || log.is_completed === true;
     }, []);
 
     const fetchData = useCallback(async () => {
@@ -143,15 +150,23 @@ export default function StreaksPage() {
                 const streakData = streaksRes.find((s: any) => s.habit_id === habit.id);
                 const currentStreak = streakData?.streak || 0;
 
-                // Get week progress
+                // Get week progress - проверяем логи для каждого дня недели
                 const weekProgress = last7Days.map(date => {
-                    const dayLog = weekLogs.find((l: Log) => l.habit_id === habit.id && l.date === date && l.value === true);
-                    return !!dayLog;
+                    // Нормализуем дату для сравнения (YYYY-MM-DD)
+                    const normalizedDate = date.slice(0, 10);
+                    // Ищем логи для этой привычки и этой даты
+                    const dayLogs = weekLogs.filter((l: Log) => {
+                        const logDate = l.date?.slice(0, 10);
+                        return l.habit_id === habit.id && logDate === normalizedDate;
+                    });
+                    // Проверяем, есть ли хотя бы один завершенный лог для этого дня
+                    return dayLogs.some((l: Log) => isLogCompleted(l));
                 });
                 const completedDays = weekProgress.filter(Boolean).length;
 
                 // Calculate best streak from all logs
-                const habitLogs = allLogs.filter((l: Log) => l.habit_id === habit.id && l.value === true)
+                const habitLogs = allLogs
+                    .filter((l: Log) => l.habit_id === habit.id && isLogCompleted(l))
                     .map((l: Log) => l.date)
                     .sort();
 
@@ -193,7 +208,7 @@ export default function StreaksPage() {
 
                 // Get logs for this week
                 const weekLogs = allLogs.filter((l: Log) => {
-                    return l.date >= weekStartStr && l.date <= weekEndStr && l.value === true;
+                    return l.date >= weekStartStr && l.date <= weekEndStr && isLogCompleted(l);
                 });
 
                 // Get unique dates with completed habits
@@ -241,7 +256,7 @@ export default function StreaksPage() {
         } finally {
             setLoading(false);
         }
-    }, [authHeaders, last7Days, last8Weeks]);
+    }, [authHeaders, last7Days, last8Weeks, isLogCompleted]);
 
     const { isSDKLoaded, context } = useMiniApp();
 
@@ -266,7 +281,19 @@ export default function StreaksPage() {
 
             await fetchData();
         })();
-    }, [fetchData]);
+    }, [fetchData, isSDKLoaded, context?.user?.fid]);
+
+    // Обновляем данные при возврате на страницу (focus)
+    useEffect(() => {
+        const handleFocus = () => {
+            if (isSDKLoaded && context?.user?.fid) {
+                fetchData();
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
+    }, [fetchData, isSDKLoaded, context?.user?.fid]);
 
     // Считаем сколько дней до следующего streak badge
     const nextBadgeDays = useMemo(() => {
@@ -517,24 +544,24 @@ export default function StreaksPage() {
 
                 {/* Habit focus */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-                    <h2 className="text-2xl font-semibold text-white mb-4">Habit focus</h2>
+                    <h2 className="text-xl font-semibold text-white mb-3">Habit focus</h2>
                     {loading ? (
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                             {[1, 2, 3, 4, 5, 6].map(i => (
-                                <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
-                                    <div className="h-6 bg-white/10 rounded w-3/4 mb-3"></div>
-                                    <div className="h-4 bg-white/10 rounded w-1/2 mb-2"></div>
-                                    <div className="h-4 bg-white/10 rounded w-1/2 mb-3"></div>
+                                <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 animate-pulse min-h-[140px]">
+                                    <div className="h-5 bg-white/10 rounded w-3/4 mb-2"></div>
+                                    <div className="h-3 bg-white/10 rounded w-1/2 mb-1.5"></div>
+                                    <div className="h-3 bg-white/10 rounded w-1/2 mb-2"></div>
                                     <div className="flex gap-1">
                                         {[1, 2, 3, 4, 5, 6, 7].map(j => (
-                                            <div key={j} className="h-3 w-3 rounded bg-white/10"></div>
+                                            <div key={j} className="h-2.5 w-2.5 rounded bg-white/10"></div>
                                         ))}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     ) : habitsWithStats.length === 0 ? (
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-6 text-center text-white/60">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5 text-center text-xs text-white/60">
                             No active habits yet. Create habits to track your streaks!
                         </div>
                     ) : (
@@ -542,24 +569,24 @@ export default function StreaksPage() {
                             {habitsWithStats.map((habit) => (
                                 <div
                                     key={habit.id}
-                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-3"
+                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col gap-2 min-h-[140px]"
                                 >
-                                    <div className="flex items-center gap-2">
-                                        {habit.icon && <span className="text-2xl">{habit.icon}</span>}
-                                        <h3 className="text-lg font-semibold text-white">{habit.title}</h3>
+                                    <div className="flex items-center gap-1.5">
+                                        {habit.icon && <span className="text-xl">{habit.icon}</span>}
+                                        <h3 className="text-base font-semibold text-white leading-tight">{habit.title}</h3>
                                     </div>
-                                    <div className="text-sm text-white/70">
+                                    <div className="text-xs text-white/70 space-y-0.5 leading-tight">
                                         <div>Current streak: {habit.current_streak}d</div>
                                         <div>Best {habit.best_streak}d</div>
                                     </div>
-                                    <div className="text-sm text-white/70">
+                                    <div className="text-xs text-white/70 leading-tight">
                                         {habit.completedDays} / 7 days completed
                                     </div>
-                                    <div className="flex gap-1">
+                                    <div className="flex gap-1 mt-auto">
                                         {habit.weekProgress.map((completed, idx) => (
                                             <div
                                                 key={idx}
-                                                className={`h-3 w-3 rounded flex-shrink-0 ${completed ? 'bg-[#2BD4A4]' : 'bg-white/10'
+                                                className={`h-2.5 w-2.5 rounded flex-shrink-0 ${completed ? 'bg-[#2BD4A4]' : 'bg-white/10'
                                                     }`}
                                             />
                                         ))}
@@ -572,34 +599,38 @@ export default function StreaksPage() {
 
                 {/* Momentum Timeline */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-                    <h2 className="text-2xl font-semibold text-white mb-6">Momentum timeline</h2>
+                    <h2 className="text-xl font-semibold text-white mb-4">Momentum timeline</h2>
                     {loading ? (
-                        <div className="space-y-4">
+                        <div className="space-y-2">
                             {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                                <div key={i} className="flex items-start gap-4 animate-pulse">
-                                    <div className="h-3 w-3 rounded-full bg-white/10 mt-1"></div>
-                                    <div className="flex-1 space-y-2">
-                                        <div className="h-5 bg-white/10 rounded w-48"></div>
-                                        <div className="h-4 bg-white/10 rounded w-32"></div>
+                                <div key={i} className="flex items-start gap-3 animate-pulse">
+                                    <div className="h-2.5 w-2.5 rounded-full bg-white/10 mt-0.5"></div>
+                                    <div className="flex-1 space-y-1.5">
+                                        <div className="h-4 bg-white/10 rounded w-48"></div>
+                                        <div className="h-3 bg-white/10 rounded w-32"></div>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     ) : weekStats.length === 0 ? (
-                        <div className="text-center text-white/70 py-8">
+                        <div className="text-center text-white/70 py-6 text-sm">
                             No week data available yet.
                         </div>
                     ) : (
-                        <div className="space-y-4">
+                        <div className="space-y-2">
                             {weekStats.map((week, idx) => {
                                 const startStr = week.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                                 const endStr = week.weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                                 const isBreak = week.completedDays === 0;
+                                const isRecent = idx < 3;
+                                const shouldShow = isRecent || expandedWeeks;
+
+                                if (!shouldShow) return null;
 
                                 return (
-                                    <div key={idx} className="flex items-start gap-4">
+                                    <div key={idx} className="flex items-start gap-3 leading-tight">
                                         <div
-                                            className={`h-3 w-3 rounded-full flex-shrink-0 mt-1 ${week.color === 'green'
+                                            className={`h-2.5 w-2.5 rounded-full flex-shrink-0 mt-0.5 ${week.color === 'green'
                                                 ? 'bg-[#2BD4A4]'
                                                 : week.color === 'purple'
                                                     ? 'bg-[#A78BFA]'
@@ -607,17 +638,14 @@ export default function StreaksPage() {
                                                 }`}
                                         />
                                         <div className="flex-1 min-w-0">
-                                            <div className="font-semibold text-white mb-1">
+                                            <div className="text-sm font-semibold text-white mb-0.5 leading-tight">
                                                 {startStr} → {endStr}
                                             </div>
-                                            <div className="text-sm text-white/70">
-                                                {week.completedDays}/{week.totalDays} days completed
-                                            </div>
-                                            <div className="text-sm text-white/70 mb-1">
-                                                Longest run: {week.longestRun}d
+                                            <div className="text-xs text-white/70 leading-tight">
+                                                {week.completedDays}/{week.totalDays} days completed • Longest run: {week.longestRun}d
                                             </div>
                                             {isBreak && (
-                                                <div className="text-sm text-red-400 mt-1">
+                                                <div className="text-xs text-red-400 mt-0.5 leading-tight">
                                                     Break detected — rebuild momentum
                                                 </div>
                                             )}
@@ -625,6 +653,14 @@ export default function StreaksPage() {
                                     </div>
                                 );
                             })}
+                            {weekStats.length > 3 && (
+                                <button
+                                    onClick={() => setExpandedWeeks(!expandedWeeks)}
+                                    className="text-xs text-[#A78BFA] hover:text-[#8B5CF6] transition mt-1"
+                                >
+                                    {expandedWeeks ? 'Show less' : `Show ${weekStats.length - 3} more weeks`}
+                                </button>
+                            )}
                         </div>
                     )}
                 </section>

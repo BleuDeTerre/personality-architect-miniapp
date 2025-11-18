@@ -30,30 +30,31 @@ export async function checkXPBonuses(
     bonuses.push({
         type: 'habit_log',
         xp: XP_REWARDS.habit_log,
-        description: 'Выполнение привычки',
+        description: 'Habit completed',
         metadata: { habit_id: habitId },
     });
 
     // 1. Проверка: первое выполнение дня
-    const { data: todayLogs } = await supabase
+    // Учитываем и value и is_completed для консистентности
+    const { count: todayCount } = await supabase
         .from('habit_logs')
-        .select('id')
+        .select('id', { count: 'exact', head: true })
         .eq('user_id', userId)
         .eq('date', date)
-        .eq('value', true)
-        .limit(1);
+        .or('value.eq.true,is_completed.eq.true');
 
-    if (todayLogs && todayLogs.length === 1) {
+    if ((todayCount ?? 0) === 1) {
         // Это первая привычка выполненная сегодня
         bonuses.push({
             type: 'bonus_first_day',
             xp: XP_REWARDS.bonus_first_day,
-            description: 'Первая привычка дня!',
+            description: 'First habit of the day!',
         });
         totalXP += XP_REWARDS.bonus_first_day;
     }
 
     // 2. Проверка: выполнение всех активных привычек дня
+    // Учитываем и value и is_completed для консистентности
     const [habitsRes, completedRes] = await Promise.all([
         supabase
             .from('habits')
@@ -65,17 +66,20 @@ export async function checkXPBonuses(
             .select('habit_id')
             .eq('user_id', userId)
             .eq('date', date)
-            .eq('value', true),
+            .or('value.eq.true,is_completed.eq.true'),
     ]);
 
     const activeHabits = habitsRes.data || [];
     const completedHabits = new Set((completedRes.data || []).map((l: any) => l.habit_id));
 
+    // Убеждаемся, что текущая привычка тоже учтена
+    completedHabits.add(habitId);
+
     if (activeHabits.length > 0 && completedHabits.size === activeHabits.length) {
         bonuses.push({
             type: 'bonus_all_habits',
             xp: XP_REWARDS.bonus_all_habits,
-            description: 'Все привычки выполнены! 🎉',
+            description: 'All habits completed! 🎉',
             metadata: { total_habits: activeHabits.length },
         });
         totalXP += XP_REWARDS.bonus_all_habits;
@@ -91,7 +95,7 @@ export async function checkXPBonuses(
         bonuses.push({
             type: 'bonus_weekly_streak',
             xp: XP_REWARDS.bonus_weekly_streak,
-            description: `Недельный streak: ${currentStreak} дней! 🔥`,
+            description: `Weekly streak: ${currentStreak} days! 🔥`,
             metadata: { streak_days: currentStreak },
         });
         totalXP += XP_REWARDS.bonus_weekly_streak;

@@ -524,7 +524,7 @@ export default function GoalsPage() {
             const due = nextDeadline.due_date ? new Date(nextDeadline.due_date) : null;
             const now = new Date();
             const daysLeft = due ? Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
-            const dueLabel = due ? due.toLocaleDateString() : 'soon';
+            const dueLabel = due ? due.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Soon';
             templates.push({
                 key: `upcoming-${nextDeadline.id}`,
                 label: `Next: ${nextDeadline.title}`,
@@ -705,7 +705,7 @@ export default function GoalsPage() {
                     <div className="space-y-2.5">
                         {filteredGoals.map(goal => {
                             const editing = editingId === goal.id;
-                            const _dueLabel = goal.due_date ? new Date(goal.due_date).toLocaleDateString() : 'Flexible';
+                            const _dueLabel = goal.due_date ? new Date(goal.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Flexible';
                             return (
                                 <div
                                     key={goal.id}
@@ -748,7 +748,7 @@ export default function GoalsPage() {
                                                 )}
                                                 {goal.due_date && (
                                                     <div className="mt-1 text-sm text-white/60">
-                                                        {new Date(goal.due_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                                                        {new Date(goal.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                                     </div>
                                                 )}
                                                 {goal.status && (

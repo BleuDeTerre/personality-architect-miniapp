@@ -31,13 +31,18 @@ export async function POST(req: NextRequest) {
         const body = await req.json().catch(() => ({}));
         const week = String(body?.week ?? '');
         const area = String(body?.area ?? '').trim();
+        const domain = String(body?.domain ?? body?.area ?? '').trim();
         const score = Number(body?.score);
+        const day = body?.day ? String(body.day).slice(0, 10) : new Date().toISOString().slice(0, 10);
 
         if (!/^\d{4}-W\d{2}$/.test(week)) {
             return NextResponse.json({ error: 'bad_week' }, { status: 400 });
         }
         if (!area) {
             return NextResponse.json({ error: 'area_required' }, { status: 400 });
+        }
+        if (!domain) {
+            return NextResponse.json({ error: 'domain_required' }, { status: 400 });
         }
         if (!Number.isInteger(score) || score < 0 || score > 10) {
             return NextResponse.json({ error: 'score_0_10' }, { status: 400 });
@@ -49,7 +54,9 @@ export async function POST(req: NextRequest) {
                 {
                     user_id: userId,
                     week,
+                    day,
                     area,
+                    domain,
                     score,
                     updated_at: new Date().toISOString(),
                 },

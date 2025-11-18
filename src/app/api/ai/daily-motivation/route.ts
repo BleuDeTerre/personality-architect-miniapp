@@ -20,40 +20,219 @@ export async function GET(req: NextRequest) {
         const today = new Date();
         const dayOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][today.getDay()];
         const todayStr = today.toISOString().slice(0, 10);
+        const dayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+        const dayEnd = new Date(dayStart.getTime() + 86400000);
 
-        const [habitsRes, logsRes, statsRes, goalsRes] = await Promise.all([
+        // Проверяем кеш в events_log (одно сообщение в сутки)
+        try {
+            const { data: cached } = await supa
+                .from('events_log')
+                .select('props')
+                .eq('name', 'daily_motivation')
+                .gte('created_at', dayStart.toISOString())
+                .lt('created_at', dayEnd.toISOString())
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            const cachedMessage = cached?.[0]?.props?.message;
+            if (typeof cachedMessage === 'string' && cachedMessage.trim().length > 0) {
+                return NextResponse.json({ message: cachedMessage, cached: true });
+            }
+        } catch (cacheError) {
+            console.warn('[AI Daily Motivation] Cache lookup failed:', cacheError);
+        }
+
+        // Получаем данные за последние 7 дней для динамических инсайтов
+        const sevenDaysAgo = new Date(today);
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
+
+        const [habitsRes, logsTodayRes, logsWeekRes, statsRes, goalsRes, wheelRes, questEventsRes] = await Promise.all([
             supa
                 .from('habits')
-                .select('id, title')
+                .select('id, title, category')
                 .eq('user_id', userId)
                 .eq('is_active', true),
             supa
                 .from('habit_logs')
-                .select('habit_id, date')
+                .select('habit_id, date, value, is_completed')
                 .eq('user_id', userId)
                 .eq('date', todayStr)
-                .eq('value', true),
+                .or('value.eq.true,is_completed.eq.true'),
+            supa
+                .from('habit_logs')
+                .select('habit_id, date, value, is_completed')
+                .eq('user_id', userId)
+                .gte('date', sevenDaysAgoStr)
+                .lte('date', todayStr)
+                .or('value.eq.true,is_completed.eq.true'),
             supa.rpc('get_habit_streak', { p_user: userId }),
             supa
                 .from('goals')
-                .select('id, title, status')
+                .select('id, title, status, progress')
                 .eq('user_id', userId)
                 .eq('status', 'active'),
+            supa
+                .from('wheel_scores')
+                .select('domain, score, day')
+                .eq('user_id', userId)
+                .gte('day', sevenDaysAgoStr)
+                .order('day', { ascending: false })
+                .limit(20),
+            supa
+                .from('events_log')
+                .select('name, created_at')
+                .eq('user_id', userId)
+                .in('name', ['daily_quest_completed', 'weekly_quest_completed', 'monthly_quest_completed'])
+                .gte('created_at', sevenDaysAgoStr)
+                .order('created_at', { ascending: false }),
         ]);
 
         const habits = habitsRes.data || [];
-        const logsToday = logsRes.data || [];
+        const logsToday = logsTodayRes.data || [];
+        const logsWeek = logsWeekRes.data || [];
         const stats = Array.isArray(statsRes.data) ? statsRes.data[0] : { current_streak: 0, best_streak: 0 };
         const goals = goalsRes.data || [];
+        const wheelScores = wheelRes.data || [];
+        const questEvents = questEventsRes.data || [];
 
+        // Анализ выполнения привычек
         const completedToday = new Set(logsToday.map(l => l.habit_id)).size;
         const currentStreak = stats.current_streak || 0;
         const activeHabits = habits.length;
         const activeGoals = goals.length;
 
-        // Генерируем мотивационное сообщение через AI
+        // Анализ трендов за последние 7 дней
+        const habitPerformance: Record<string, { completed: number; total: number; title: string }> = {};
+        habits.forEach(h => {
+            habitPerformance[h.id] = { completed: 0, total: 0, title: h.title };
+        });
+
+        // Подсчитываем выполнение за неделю (учитываем только уникальные дни для каждой привычки)
+        const habitDaysMap: Record<string, Set<string>> = {};
+        habits.forEach(h => {
+            habitDaysMap[h.id] = new Set<string>();
+        });
+
+        logsWeek.forEach(log => {
+            if (log.date && log.habit_id && habitDaysMap[log.habit_id]) {
+                habitDaysMap[log.habit_id].add(log.date);
+            }
+        });
+
+        // Обновляем счетчики на основе уникальных дней
+        Object.entries(habitDaysMap).forEach(([habitId, daysSet]) => {
+            if (habitPerformance[habitId]) {
+                habitPerformance[habitId].completed = daysSet.size;
+            }
+        });
+
+        // Подсчитываем общее количество дней для каждой привычки
+        const startDate = new Date(sevenDaysAgoStr);
+        const endDate = new Date(todayStr);
+        const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        Object.keys(habitPerformance).forEach(hId => {
+            habitPerformance[hId].total = daysDiff;
+        });
+
+        // Находим лучшие и худшие привычки
+        const habitStats = Object.entries(habitPerformance)
+            .map(([id, stats]) => ({
+                id,
+                ...stats,
+                rate: stats.total > 0 ? (stats.completed / stats.total) * 100 : 0,
+            }))
+            .sort((a, b) => b.rate - a.rate);
+
+        const topHabits = habitStats.filter(h => h.rate > 70 && h.completed > 0).slice(0, 3);
+        const strugglingHabits = habitStats.filter(h => h.rate < 30 && h.total > 0).slice(0, 3);
+
+        // Анализ прогресса по целям
+        const goalsProgress = goals.map(g => ({
+            title: g.title,
+            progress: typeof g.progress === 'number' ? g.progress : 0,
+        }));
+
+        // Анализ Wheel of Life изменений
+        const wheelChanges: string[] = [];
+        if (wheelScores.length > 0) {
+            const recentScores = wheelScores.slice(0, 8);
+            const olderScores = wheelScores.slice(8, 16);
+            if (olderScores.length > 0) {
+                const scoreMap: Record<string, { recent: number; older: number }> = {};
+                recentScores.forEach(s => {
+                    if (!scoreMap[s.domain]) scoreMap[s.domain] = { recent: 0, older: 0 };
+                    scoreMap[s.domain].recent = Math.max(scoreMap[s.domain].recent, s.score || 0);
+                });
+                olderScores.forEach(s => {
+                    if (!scoreMap[s.domain]) scoreMap[s.domain] = { recent: 0, older: 0 };
+                    scoreMap[s.domain].older = Math.max(scoreMap[s.domain].older, s.score || 0);
+                });
+                Object.entries(scoreMap).forEach(([domain, scores]) => {
+                    const diff = scores.recent - scores.older;
+                    if (Math.abs(diff) >= 1) {
+                        wheelChanges.push(`${domain}: ${diff > 0 ? '+' : ''}${diff.toFixed(1)}`);
+                    }
+                });
+            }
+        }
+
+        // Анализ квестов
+        const completedQuests = questEvents.length;
+        const recentQuestCompletion = questEvents.filter(e => {
+            const eventDate = new Date(e.created_at);
+            const daysAgo = (today.getTime() - eventDate.getTime()) / (1000 * 60 * 60 * 24);
+            return daysAgo <= 2;
+        }).length;
+
+        // Генерируем мотивационное сообщение через AI с динамическими инсайтами
         const openai = openaiClient();
         const model = pickModel({ deep: false });
+
+        // Формируем контекст для AI
+        const contextParts: string[] = [
+            `Today is ${dayOfWeek}.`,
+            `Progress today: ${completedToday}/${activeHabits} habits completed.`,
+            `Current streak: ${currentStreak} days (best: ${stats.best_streak || 0} days).`,
+        ];
+
+        // Добавляем инсайты о лучших привычках
+        if (topHabits.length > 0) {
+            contextParts.push(`\nStrong habits (last 7 days): ${topHabits.map(h => `${h.title} (${Math.round(h.rate)}%)`).join(', ')}`);
+        }
+
+        // Добавляем инсайты о проблемных привычках
+        if (strugglingHabits.length > 0) {
+            contextParts.push(`Habits needing attention: ${strugglingHabits.map(h => h.title).join(', ')}`);
+        }
+
+        // Добавляем информацию о целях
+        if (goalsProgress.length > 0) {
+            const avgProgress = Math.round(goalsProgress.reduce((sum, g) => sum + g.progress, 0) / goalsProgress.length);
+            contextParts.push(`Active goals: ${activeGoals} (avg progress: ${avgProgress}%)`);
+        }
+
+        // Добавляем изменения в Wheel of Life
+        if (wheelChanges.length > 0) {
+            contextParts.push(`Wheel of Life changes: ${wheelChanges.join(', ')}`);
+        }
+
+        // Добавляем информацию о квестах
+        if (completedQuests > 0) {
+            contextParts.push(`Quests completed recently: ${completedQuests} (${recentQuestCompletion} in last 2 days)`);
+        }
+
+        // Определяем тон сообщения на основе данных
+        let tone = 'encouraging';
+        if (completedToday === 0 && currentStreak === 0) {
+            tone = 'gentle and supportive, focusing on starting fresh';
+        } else if (completedToday >= activeHabits * 0.8) {
+            tone = 'celebratory and energizing';
+        } else if (strugglingHabits.length > topHabits.length) {
+            tone = 'supportive with actionable advice';
+        } else if (currentStreak >= 7) {
+            tone = 'celebratory, acknowledging consistency';
+        }
 
         const chat = await openai.chat.completions.create({
             model,
@@ -61,26 +240,47 @@ export async function GET(req: NextRequest) {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a motivational habit coach. Generate a short, encouraging daily message (2-3 sentences max) in English. Be positive, specific, and actionable. Use emojis sparingly (1-2 max).',
+                    content: 'You are a motivational habit coach. Generate a personalized daily message (2-3 sentences max) in English. Be specific about their actual progress, mention specific habits or achievements when relevant. Be positive, actionable, and authentic. Use emojis sparingly (1-2 max).',
                 },
                 {
                     role: 'user',
                     content: [
-                        `Generate a personalized daily motivation message for ${dayOfWeek}.`,
-                        `Context:`,
-                        `- Active habits: ${activeHabits}`,
-                        `- Completed today: ${completedToday}/${activeHabits}`,
-                        `- Current streak: ${currentStreak} days`,
-                        `- Active goals: ${activeGoals}`,
-                        `- Best streak: ${stats.best_streak || 0} days`,
+                        `Generate a personalized daily motivation message based on these insights:`,
                         ``,
-                        `Make it relevant to the day of week and their progress. If streak is low, encourage starting. If streak is high, celebrate consistency.`,
+                        contextParts.join('\n'),
+                        ``,
+                        `Tone: ${tone}`,
+                        ``,
+                        `Guidelines:`,
+                        `- If they completed most habits today, celebrate it`,
+                        `- If they have strong habits, acknowledge their consistency`,
+                        `- If they have struggling habits, offer gentle encouragement without being pushy`,
+                        `- If streak is high, celebrate their consistency`,
+                        `- If streak is low or zero, encourage a fresh start`,
+                        `- If they completed quests recently, acknowledge their engagement`,
+                        `- If Wheel of Life improved, mention positive changes`,
+                        `- Make it feel personal and relevant to their actual data`,
+                        `- Keep it concise (2-3 sentences)`,
                     ].join('\n'),
                 },
             ],
         });
 
         const message = chat.choices[0]?.message?.content || 'Start your day with intention. Every small step counts! 💪';
+
+        // Сохраняем в events_log как кеш
+        try {
+            await supa.from('events_log').insert({
+                user_id: userId,
+                name: 'daily_motivation',
+                props: {
+                    message,
+                    day: todayStr,
+                },
+            });
+        } catch (insertError) {
+            console.warn('[AI Daily Motivation] Failed to cache message:', insertError);
+        }
 
         return NextResponse.json({ message });
     } catch (error: any) {

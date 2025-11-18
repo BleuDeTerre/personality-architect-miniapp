@@ -1,7 +1,6 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
-import { calculateXP, calculateLevel, getLevelProgress, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
 import { useMiniApp } from '@neynar/react';
 import { supabase } from '@/lib/supabase';
 import DailyQuests from '@/components/DailyQuests';
@@ -24,17 +23,6 @@ const NAVIGATION = [
 
 export default function DashboardPage() {
   const { isSDKLoaded, context } = useMiniApp();
-  const [gamificationStats, setGamificationStats] = useState<UserStats | null>(null);
-  const [_loading, setLoading] = useState(false);
-  const [_showOnboarding, _setShowOnboarding] = useState(false);
-
-  const authHeaders = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    return {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session?.access_token ?? ''}`,
-    };
-  }, []);
 
   useEffect(() => {
     (async () => {
@@ -157,26 +145,8 @@ export default function DashboardPage() {
         console.error('[Dashboard] Login error:', error);
       }
 
-      // Load gamification stats
-      try {
-        setLoading(true);
-        const hdrs = await authHeaders();
-        const gamificationRes = await fetch('/api/stats/gamification', { headers: hdrs }).then(r => r.ok ? r.json() : null);
-        if (gamificationRes) setGamificationStats(gamificationRes);
-      } finally {
-        setLoading(false);
-      }
     })();
-  }, [authHeaders, isSDKLoaded, context]);
-
-  // Используем totalXP из таблицы xp_events, если доступен, иначе рассчитываем
-  const xp = gamificationStats?.totalXP ?? (gamificationStats ? calculateXP(gamificationStats) : 0);
-  const level = calculateLevel(xp);
-  const progress = getLevelProgress(xp, level);
-  const levelName = getLevelName(level);
-  const _levelColor = getLevelColor(level);
-  const xpTarget = (level + 1) ** 2 * 100;
-  const xpRemaining = Math.max(0, xpTarget - xp);
+  }, [isSDKLoaded, context]);
 
   if (!isSDKLoaded) {
     return (
@@ -197,18 +167,6 @@ export default function DashboardPage() {
             <p className="text-[#c3c8d4] italic text-sm leading-relaxed">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
             <p className="text-[#8d92a3] text-xs italic text-right">— Aristotle</p>
           </div>
-          {gamificationStats && (
-            <div className="mt-4 rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 backdrop-blur">
-              <div className="flex items-center justify-between text-sm text-white/70">
-                <span>{levelName} · Level {level}</span>
-                <span>{xp.toLocaleString()} XP</span>
-              </div>
-              <div className="mt-1.5 h-2.5 rounded-full bg-white/20 overflow-hidden">
-                <div className="h-full rounded-full bg-gradient-to-r from-[#8B5CF6] via-[#7C3AED] to-[#C084FC]" style={{ width: `${progress}%` }} />
-              </div>
-              <div className="mt-1.5 text-xs text-white/60">{xpRemaining > 0 ? `${xpRemaining.toLocaleString()} XP until next level` : 'Maxed out!'}</div>
-            </div>
-          )}
         </div>
 
         <div className="grid grid-cols-2 gap-1.5">

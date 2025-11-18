@@ -6,7 +6,6 @@ import { createClient, type PostgrestError } from '@supabase/supabase-js';
 import { useMiniApp } from '@neynar/react';
 import { BADGES } from '@/lib/badges';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
-import BadgeImage from '@/components/BadgeImage';
 import { type CastTemplate } from '@/components/share/ShareCastComposer';
 import Achievements from '@/components/Achievements';
 import MiniAppPage from '@/components/MiniAppPage';
@@ -76,9 +75,6 @@ export default function ProfilePage() {
     const [statusMap, setStatusMap] = useState<Record<string, MintStatus>>({});
     const [eligMap, setEligMap] = useState<Record<string, { eligible: boolean; reason: string }>>({});
     const [busyCode, setBusyCode] = useState<string | null>(null);
-    const [walletInput, setWalletInput] = useState<string | null>(null);
-    const [walletSaving, setWalletSaving] = useState(false);
-    const [walletError, setWalletError] = useState<string | null>(null);
 
     const [loading, setLoading] = useState(true);
     const [badgesLoading, setBadgesLoading] = useState(true);
@@ -468,162 +464,18 @@ export default function ProfilePage() {
                         </a>
                     </div>
                 </section>
-
-                {/* Wallet Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 mb-6">
-                    <div className="flex items-start justify-between mb-4">
-                        <div>
-                            <p className="text-xs uppercase tracking-wide text-white/60 mb-1">WALLET</p>
-                            <p className="text-2xl font-bold text-white mb-2">
-                                {walletInput !== null && walletInput !== undefined ? (
-                                    <span className="text-sm font-normal">{walletInput}</span>
-                                ) : p.wallet ? (
-                                    `${p.wallet.slice(0, 6)}...${p.wallet.slice(-4)}`
-                                ) : (
-                                    'Not connected'
-                                )}
-                            </p>
-                            {!p.wallet && walletInput === null && (
-                                <p className="text-sm text-white/70">
-                                    Personality Architect uses your Farcaster wallet (or any connected EVM address) for badge minting and onchain actions.
-                                </p>
-                            )}
-                        </div>
-                        {walletInput === null && (
-                            <button
-                                onClick={() => setWalletInput(p.wallet ?? '')}
-                                className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10 whitespace-nowrap"
-                            >
-                                Change wallet
-                            </button>
-                        )}
-                    </div>
-                    {walletInput !== null && walletInput !== undefined ? (
-                        <>
-                            <div className="mb-4">
-                                <label className="text-xs text-white/70 mb-1 block">EVM Address</label>
-                                <input
-                                    value={walletInput}
-                                    onChange={e => setWalletInput(e.target.value)}
-                                    placeholder="0x..."
-                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-[#8B5CF6] focus:outline-none"
-                                />
-                                {walletError && <div className="text-xs text-red-400 mt-1">{walletError}</div>}
-                            </div>
-                            <div className="flex gap-3 mb-4">
-                                <button
-                                    onClick={async () => {
-                                        setWalletError(null);
-                                        if (!walletInput || !/^0x[0-9a-fA-F]{40}$/.test(walletInput)) {
-                                            setWalletError('Invalid wallet address');
-                                            return;
-                                        }
-                                        setWalletSaving(true);
-                                        try {
-                                            const r = await fetch('/api/profile/wallet', {
-                                                method: 'POST',
-                                                headers: await authHeaders(),
-                                                body: JSON.stringify({ wallet: walletInput || '' }),
-                                            });
-                                            const j = await r.json();
-                                            if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-                                            setP(prev => ({ ...prev, wallet: walletInput }));
-                                            setWalletInput(null);
-                                        } catch (error) {
-                                            const message = error instanceof Error ? error.message : 'Error saving';
-                                            setWalletError(message);
-                                        } finally {
-                                            setWalletSaving(false);
-                                        }
-                                    }}
-                                    disabled={walletSaving}
-                                    className="flex-1 rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-white font-semibold transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40"
-                                >
-                                    {walletSaving ? 'Saving...' : 'Save'}
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setWalletInput(null);
-                                        setWalletError(null);
-                                    }}
-                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white font-semibold transition hover:bg-white/10"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </>
-                    ) : null}
-                </section>
-
-                {/* Badges with Mint buttons */}
-                <section className="mb-6 rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-semibold">Badges Gallery</h2>
-                        {badgesLoading && (
-                            <span className="text-sm text-white/70">Loading…</span>
-                        )}
-                    </div>
-                    {badgesLoading ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {[1, 2, 3, 4, 5, 6].map(i => (
-                                <div key={i} className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-16 h-16 bg-white/20 rounded-lg"></div>
-                                        <div className="flex-1 space-y-2">
-                                            <div className="h-4 bg-white/20 rounded w-3/4"></div>
-                                            <div className="h-3 bg-white/20 rounded w-full"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : BADGES.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {BADGES.map(b => {
-                                const st = statusMap[b.slug] ?? 'none';
-                                const el = eligMap[b.slug]?.eligible ?? false;
-                                const reason = eligMap[b.slug]?.reason ?? '';
-                                const canMint = el && st === 'none';
-                                return (
-                                    <div
-                                        key={b.slug}
-                                        className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2 transition hover:bg-white/10"
-                                        title={`${b.description}${!el && reason ? `. ${reason}` : ''}`}
-                                    >
-                                        <div className="flex items-start gap-3">
-                                            <BadgeImage src={b.image} alt={b.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
-                                            <div className="flex-1">
-                                                <div className="font-medium">{b.title}</div>
-                                                <div className="text-xs text-white/70">{b.description}</div>
-                                                <div className="text-xs mt-1">
-                                                    Status: <span className="font-mono">{st}</span>
-                                                    {!el && <span className="ml-2 opacity-80">({reason})</span>}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => mint(b.slug)}
-                                            disabled={loading || busyCode === b.slug || !canMint || !p.wallet}
-                                            className={`w-full px-4 py-2 rounded-lg border-2 transition ${canMint ? 'bg-white/20 border-white hover:scale-105' : 'opacity-50 cursor-not-allowed'}`}
-                                            title={!p.wallet ? 'Add wallet address first' : (!canMint ? (!el ? `Not eligible: ${reason}` : 'Already minted') : 'Click to mint as NFT')}
-                                        >
-                                            {busyCode === b.slug ? 'Minting…' : !p.wallet ? 'Add wallet' : (st === 'success' ? '✅ Minted' : 'Mint')}
-                                        </button>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e]/60 p-4 text-center text-white/60">
-                            No badges available yet.
-                        </div>
-                    )}
-                </section>
-
-
                 {/* Achievements Section */}
                 <section className="mb-6">
-                    <Achievements />
+                    <Achievements
+                        badgePanel={{
+                            loading: badgesLoading,
+                            statusMap,
+                            eligibility: eligMap,
+                            busyCode,
+                            wallet: p.wallet,
+                            onMint: mint,
+                        }}
+                    />
                 </section>
 
                 {/* Export Data */}

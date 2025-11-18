@@ -147,6 +147,7 @@ export default function HabitsPage() {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const emojiPickerRef = useRef<HTMLDivElement>(null);
     const [removingHabitId, setRemovingHabitId] = useState<string | null>(null);
+    const [updatingHabitId, setUpdatingHabitId] = useState<string | null>(null);
     const [levelUpState, setLevelUpState] = useState<{ level: number } | null>(null);
     const [achievementState, setAchievementState] = useState<{
         id: string;
@@ -632,7 +633,7 @@ export default function HabitsPage() {
                 body: JSON.stringify({ habit_id: id }),
             });
             if (res.ok) {
-                fetchHabits();
+                setHabits(prev => prev.filter(h => h.id !== id));
             }
         } finally {
             setRemovingHabitId(null);
@@ -640,31 +641,44 @@ export default function HabitsPage() {
     }
 
     async function markComplete(id: string, current?: boolean) {
-        // Prevent marking if already completed
-        if (current) return;
+        if (current || updatingHabitId === id) return;
 
+        setUpdatingHabitId(id);
         const { toast } = await import('sonner');
 
-        const res = await fetch('/api/habits/logs', {
-            method: 'POST',
-            headers: await authHeaders(),
-            body: JSON.stringify({
-                habit_id: id,
-                date: new Date().toISOString().slice(0, 10),
-                value: true, // Always mark as completed, never unmark
-            }),
-        });
+        try {
+            const res = await fetch('/api/habits/logs', {
+                method: 'POST',
+                headers: await authHeaders(),
+                body: JSON.stringify({
+                    habit_id: id,
+                    date: new Date().toISOString().slice(0, 10),
+                    value: true,
+                }),
+            });
 
-        if (res.ok) {
+            if (!res.ok) {
+                const error = await res.json().catch(() => ({}));
+                toast.error('Failed to mark habit', {
+                    description: error?.error || 'Please try again',
+                });
+                return;
+            }
+
             const data = await res.json();
 
-            // Show success toast
+            setHabits(prev =>
+                prev.map(h =>
+                    h.id === id
+                        ? { ...h, is_completed: true, streak: (h.streak ?? 0) + 1 }
+                        : h
+                )
+            );
+
             toast.success('Nice! Habit marked for today.', {
                 description: 'Habit completed',
                 duration: 3000,
             });
-
-            fetchHabits();
 
             if (data.xp_earned > 0 && data.xp_events) {
                 if (data.achievements_unlocked && data.achievements_unlocked.length > 0) {
@@ -694,7 +708,6 @@ export default function HabitsPage() {
                     }
                 }
 
-                // Show XP toast only if there's XP gained (separate from completion toast)
                 const xpGained = data.xp_events.filter((e: any) => e.type !== 'level_up' && e.type !== 'achievement');
                 if (xpGained.length > 0) {
                     setTimeout(() => {
@@ -706,6 +719,8 @@ export default function HabitsPage() {
                     }, 500);
                 }
             }
+        } finally {
+            setUpdatingHabitId(null);
         }
     }
 
@@ -1028,13 +1043,13 @@ export default function HabitsPage() {
                                                     e.stopPropagation();
                                                     await markComplete(h.id, h.is_completed);
                                                 }}
-                                                disabled={h.is_completed}
+                                                disabled={h.is_completed || updatingHabitId === h.id}
                                                 className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition border ${h.is_completed
-                                                    ? 'bg-[#22C55E] text-white border-[#22C55E]'
+                                                    ? 'bg-[#34d399] text-white border-[#34d399]'
                                                     : 'bg-[#252640] text-white border-white/20 hover:bg-[#2a2d50] hover:border-white/30'
                                                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                                             >
-                                                {h.is_completed ? 'Completed' : 'Mark done'}
+                                                {h.is_completed ? 'Completed' : (updatingHabitId === h.id ? 'Saving…' : 'Mark done')}
                                             </button>
                                             <button
                                                 type="button"
@@ -1044,7 +1059,7 @@ export default function HabitsPage() {
                                                     await removeHabit(h.id);
                                                 }}
                                                 disabled={removingHabitId === h.id}
-                                                className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 transition hover:bg-red-500/30 hover:border-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-400/15 border border-red-400/25 text-red-300 transition hover:bg-red-400/25 hover:border-red-400/40 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 aria-label="Remove habit"
                                             >
                                                 {removingHabitId === h.id ? (
@@ -1108,7 +1123,7 @@ export default function HabitsPage() {
                                         key={`${template.category}-${template.title}`}
                                         onClick={() => toggleTemplate(template)}
                                         className={`rounded-2xl border-2 p-4 text-left transition ${isInList
-                                            ? 'border-[#2BD4A4] bg-[#1a1b2e]'
+                                            ? 'border-[#5eead4] bg-[#1a1b2e]'
                                             : 'border-white/10 bg-[#1a1b2e] hover:border-white/20'
                                             }`}
                                     >
@@ -1118,7 +1133,7 @@ export default function HabitsPage() {
                                             {template.targetDays}/week · {template.category}
                                         </div>
                                         <div
-                                            className={`text-xs font-medium ${isInList ? 'text-[#2BD4A4]' : 'text-white'
+                                            className={`text-xs font-medium ${isInList ? 'text-[#5eead4]' : 'text-white'
                                                 }`}
                                         >
                                             {isInList ? 'In your list — click to remove' : 'Click to add'}
