@@ -8,7 +8,6 @@ import { BADGES } from '@/lib/badges';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
 import BadgeImage from '@/components/BadgeImage';
 import { type CastTemplate } from '@/components/share/ShareCastComposer';
-import QuestBoard from '@/components/QuestBoard';
 import Achievements from '@/components/Achievements';
 import MiniAppPage from '@/components/MiniAppPage';
 
@@ -454,8 +453,6 @@ export default function ProfilePage() {
                 </section>
 
                 {/* Quest Board Section */}
-                <QuestBoard className="mb-6" />
-
                 {/* Current Plan Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 mb-6">
                     <div className="flex items-start justify-between">

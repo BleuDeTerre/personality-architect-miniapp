@@ -2,11 +2,40 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase';
 import { getUserProfile, isNeynarEnabled } from '@/lib/neynar';
 
 // Admin client (service role). Server env only.
 const admin = createServiceClient();
+
+// Rate limiting: in-memory store (очищается при перезапуске сервера)
+interface RateLimitEntry {
+    count: number;
+    resetAt: number;
+    blocked: boolean;
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>();
+
+// Конфигурация rate limiting
+const RATE_LIMIT = {
+    maxRequests: 10, // Максимум запросов
+    windowMs: 60 * 1000, // За 1 минуту
+    blockDurationMs: 15 * 60 * 1000, // Блокировка на 15 минут при превышении
+};
+
+// Очистка старых записей каждые 5 минут
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of rateLimitStore.entries()) {
+        if (entry.resetAt < now && !entry.blocked) {
+            rateLimitStore.delete(ip);
+        } else if (entry.blocked && entry.resetAt < now) {
+            rateLimitStore.delete(ip); // Разблокировка после истечения времени
+        }
+    }
+}, 5 * 60 * 1000);
 
 // Optional server-side shared secret.
 // Set FAR_LOGIN_SERVER_SECRET in Vercel and send x-server-secret header from trusted backend/Frame.
@@ -23,14 +52,210 @@ function parseFid(v: unknown): number {
     return n;
 }
 
+// Получение IP адреса из запроса
+function getClientIP(req: NextRequest): string {
+    const forwarded = req.headers.get('x-forwarded-for');
+    const realIP = req.headers.get('x-real-ip');
+    const cfConnectingIP = req.headers.get('cf-connecting-ip'); // Cloudflare
+
+    if (forwarded) {
+        return forwarded.split(',')[0].trim();
+    }
+    if (realIP) {
+        return realIP;
+    }
+    if (cfConnectingIP) {
+        return cfConnectingIP;
+    }
+    return 'unknown';
+}
+
+// Rate limiting проверка
+function checkRateLimit(ip: string): { allowed: boolean; retryAfter?: number } {
+    const now = Date.now();
+    const entry = rateLimitStore.get(ip);
+
+    // Если IP заблокирован
+    if (entry?.blocked && entry.resetAt > now) {
+        const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
+        return { allowed: false, retryAfter };
+    }
+
+    // Если блокировка истекла, снимаем блокировку
+    if (entry?.blocked && entry.resetAt <= now) {
+        rateLimitStore.delete(ip);
+    }
+
+    // Создаем или обновляем запись
+    if (!entry || entry.resetAt < now) {
+        rateLimitStore.set(ip, {
+            count: 1,
+            resetAt: now + RATE_LIMIT.windowMs,
+            blocked: false,
+        });
+        return { allowed: true };
+    }
+
+    // Увеличиваем счетчик
+    entry.count++;
+
+    // Если превышен лимит - блокируем
+    if (entry.count > RATE_LIMIT.maxRequests) {
+        entry.blocked = true;
+        entry.resetAt = now + RATE_LIMIT.blockDurationMs;
+        const retryAfter = Math.ceil(RATE_LIMIT.blockDurationMs / 1000);
+        return { allowed: false, retryAfter };
+    }
+
+    return { allowed: true };
+}
+
+// Логирование подозрительных запросов
+function logSuspiciousRequest(req: NextRequest, reason: string, details?: Record<string, any>) {
+    const ip = getClientIP(req);
+    const userAgent = req.headers.get('user-agent') || 'unknown';
+    const origin = req.headers.get('origin') || 'unknown';
+    const referer = req.headers.get('referer') || 'unknown';
+
+    console.error('[SECURITY] Suspicious request detected:', {
+        reason,
+        ip,
+        userAgent,
+        origin,
+        referer,
+        url: req.url,
+        timestamp: new Date().toISOString(),
+        ...details,
+    });
+}
+
+// Проверка User-Agent: блокируем только явных ботов/скрипты
+function validateUserAgent(req: NextRequest): boolean {
+    const userAgent = req.headers.get('user-agent') || '';
+    const lowerUA = userAgent.toLowerCase();
+
+    // Если User-Agent отсутствует - разрешаем (некоторые клиенты не отправляют)
+    if (!userAgent) return true;
+
+    // В development разрешаем все
+    if (process.env.NODE_ENV !== 'production') {
+        return true;
+    }
+
+    // Список явных бот-паттернов
+    const suspiciousPatterns = [
+        'bot',
+        'crawler',
+        'spider',
+        'scraper',
+        'curl',
+        'wget',
+        'python-requests',
+        'python',
+        'node',
+        'postman',
+        'insomnia',
+    ];
+
+    if (suspiciousPatterns.some(pattern => lowerUA.includes(pattern))) {
+        logSuspiciousRequest(req, 'Suspicious User-Agent (bot/scraper)', { userAgent });
+        return false;
+    }
+
+    // Все остальные User-Agent разрешаем. Origin проверяется отдельно.
+    return true;
+}
+
+// Простая защита от злоупотреблений: проверка origin (для production)
+function validateRequest(req: NextRequest): boolean {
+    // В development разрешаем все запросы
+    if (process.env.NODE_ENV !== 'production') return true;
+
+    const origin = req.headers.get('origin');
+    const referer = req.headers.get('referer');
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+
+    // Если установлен SITE_URL, проверяем что запрос приходит с нашего домена
+    if (siteUrl) {
+        const allowedOrigin = new URL(siteUrl).origin;
+        if (origin && origin !== allowedOrigin) {
+            console.warn('[Farcaster Login] Invalid origin:', origin);
+            return false;
+        }
+        if (referer && !referer.startsWith(allowedOrigin)) {
+            console.warn('[Farcaster Login] Invalid referer:', referer);
+            return false;
+        }
+    }
+
+    return true;
+}
+
 export async function POST(req: NextRequest) {
+    const clientIP = getClientIP(req);
+
     try {
+        // 1. Rate limiting проверка
+        const rateLimitCheck = checkRateLimit(clientIP);
+        if (!rateLimitCheck.allowed) {
+            logSuspiciousRequest(req, 'Rate limit exceeded', {
+                ip: clientIP,
+                retryAfter: rateLimitCheck.retryAfter,
+            });
+            return NextResponse.json(
+                {
+                    error: 'rate_limit_exceeded',
+                    message: 'Too many requests. Please try again later.',
+                    retry_after: rateLimitCheck.retryAfter,
+                },
+                {
+                    status: 429,
+                    headers: {
+                        'Retry-After': String(rateLimitCheck.retryAfter || 900),
+                    },
+                }
+            );
+        }
+
+        // 2. Проверка User-Agent (для MiniApp)
+        if (!validateUserAgent(req)) {
+            return NextResponse.json(
+                { error: 'forbidden', message: 'Invalid User-Agent' },
+                { status: 403 }
+            );
+        }
+
+        // 3. Проверка origin/referer (защита от CSRF)
+        if (!validateRequest(req)) {
+            logSuspiciousRequest(req, 'Invalid origin/referer', { ip: clientIP });
+            return NextResponse.json(
+                { error: 'forbidden', message: 'Invalid origin' },
+                { status: 403 }
+            );
+        }
+
+        // 4. Проверка server secret (если установлен)
         if (!checkServerSecret(req)) {
+            logSuspiciousRequest(req, 'Invalid server secret', { ip: clientIP });
             return NextResponse.json({ error: 'forbidden' }, { status: 403 });
         }
 
+        // 5. Парсинг и валидация FID
         const body = await req.json().catch(() => ({}));
-        const fid = parseFid(body?.fid);
+        let fid: number;
+        try {
+            fid = parseFid(body?.fid);
+        } catch (fidError) {
+            logSuspiciousRequest(req, 'Invalid FID', {
+                ip: clientIP,
+                fid: body?.fid,
+                error: String(fidError),
+            });
+            return NextResponse.json(
+                { error: 'invalid_fid', message: 'Invalid FID format' },
+                { status: 400 }
+            );
+        }
 
         // 0) попытка получить профиль Neynar (не критично для логина)
         let neynarProfile = null as Awaited<ReturnType<typeof getUserProfile>> | null;
@@ -52,7 +277,7 @@ export async function POST(req: NextRequest) {
         // Получаем выбранный кошелек из body (если передан)
         const selectedWallet = body?.wallet || body?.walletAddress || null;
         const walletType = body?.walletType || 'farcaster'; // 'farcaster' или 'external'
-        
+
         // Определяем финальный кошелек:
         // Если передан selectedWallet - используем его (для external wallet)
         // Для Farcaster wallet - будет получен из контекста на клиенте
@@ -84,9 +309,9 @@ export async function POST(req: NextRequest) {
 
             const { error: insErr } = await admin
                 .from('users')
-                .insert({ 
-                    id: userId, 
-                    fid, 
+                .insert({
+                    id: userId,
+                    fid,
                     email,
                     wallet_address: finalWallet,
                 })
@@ -196,19 +421,19 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 3) magic link and optional access_token
+        // 3) Generate access token using direct Supabase Auth API call
         let accessToken: string | null = null;
         console.log('[Farcaster Login] Attempting to generate token for user:', userId, 'email:', email);
-        
+
         try {
             // Сначала проверяем, что пользователь существует в auth.users
             let verifyUser: { user: any } | null = null;
             let verifyError: any = null;
-            
+
             const verifyResult = await admin.auth.admin.getUserById(userId);
             verifyUser = verifyResult.data;
             verifyError = verifyResult.error;
-            
+
             if (verifyError || !verifyUser?.user) {
                 console.error('[Farcaster Login] User not found in auth.users before token generation:', verifyError);
                 // Если пользователя нет, но мы только что его создали, возможно нужно подождать
@@ -227,33 +452,61 @@ export async function POST(req: NextRequest) {
 
             const userEmail = verifyUser?.user?.email || email;
             console.log('[Farcaster Login] Generating token with email:', userEmail);
-            
-            const { data: linkData, error: linkErr } = (admin.auth.admin as any).generateLink
-                ? await (admin.auth.admin as any).generateLink({ type: 'magiclink', email: userEmail })
-                : { data: null, error: new Error('generateLink not available') };
-            
-            if (linkErr) {
-                console.error('[Farcaster Login] generateLink error:', linkErr);
-                // Пробуем альтернативный способ - используем email из verifyUser
-                try {
-                    const altEmail = verifyUser.user.email || email;
-                    console.log('[Farcaster Login] Trying alternative token generation with email:', altEmail);
-                    const { data: sessionData, error: altErr } = await (admin.auth.admin as any).generateLink({
-                        type: 'magiclink',
-                        email: altEmail,
-                    });
-                    if (altErr) {
-                        console.error('[Farcaster Login] Alternative token generation also failed:', altErr);
-                    } else {
-                        accessToken = (sessionData as any)?.properties?.access_token || null;
-                        console.log('[Farcaster Login] Alternative token generation:', { hasToken: !!accessToken, tokenLength: accessToken?.length || 0 });
+
+            // Используем прямой HTTP запрос к Supabase Auth API для создания сессии
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
+            // Метод 1: Пробуем generateLink
+            try {
+                const { data: linkData, error: linkErr } = await (admin.auth.admin as any).generateLink({
+                    type: 'magiclink',
+                    email: userEmail,
+                });
+
+                if (!linkErr && linkData) {
+                    // Проверяем разные возможные места, где может быть токен
+                    accessToken = (linkData as any)?.properties?.access_token
+                        || (linkData as any)?.access_token
+                        || (linkData as any)?.token
+                        || null;
+
+                    if (accessToken) {
+                        console.log('[Farcaster Login] Token from generateLink:', { hasToken: true, tokenLength: accessToken.length });
                     }
-                } catch (altError) {
-                    console.error('[Farcaster Login] Alternative token generation failed:', altError);
                 }
-            } else {
-                accessToken = (linkData as any)?.properties?.access_token || null;
-                console.log('[Farcaster Login] Token from generateLink:', { hasToken: !!accessToken, tokenLength: accessToken?.length || 0 });
+            } catch (linkError) {
+                console.warn('[Farcaster Login] generateLink failed:', linkError);
+            }
+
+            // Метод 2: Если generateLink не сработал, пробуем через временный пароль
+            if (!accessToken) {
+                console.log('[Farcaster Login] Trying fallback method with temporary password...');
+                try {
+                    const tempPassword = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+                    await admin.auth.admin.updateUserById(userId, {
+                        password: tempPassword,
+                        email_confirm: true,
+                    });
+
+                    const tempClient = createSupabaseClient(
+                        supabaseUrl,
+                        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+                    );
+
+                    const { data: signInData, error: signInError } = await tempClient.auth.signInWithPassword({
+                        email: userEmail,
+                        password: tempPassword,
+                    });
+
+                    if (!signInError && signInData?.session?.access_token) {
+                        accessToken = signInData.session.access_token;
+                        console.log('[Farcaster Login] Token from signInWithPassword fallback:', { hasToken: true, tokenLength: accessToken.length });
+                    } else {
+                        console.warn('[Farcaster Login] signInWithPassword fallback failed:', signInError);
+                    }
+                } catch (signInError) {
+                    console.warn('[Farcaster Login] signInWithPassword fallback error:', signInError);
+                }
             }
         } catch (tokenError) {
             console.error('[Farcaster Login] Token generation error:', tokenError);
@@ -261,12 +514,26 @@ export async function POST(req: NextRequest) {
 
         if (!accessToken) {
             console.error('[Farcaster Login] No access token generated for user:', userId);
+            logSuspiciousRequest(req, 'Token generation failed', {
+                ip: clientIP,
+                userId,
+                fid,
+            });
             return NextResponse.json({
                 error: 'failed_to_generate_token',
                 user_id: userId,
                 message: 'Could not generate access token. Please try refreshing the page.',
             }, { status: 500 });
         }
+
+        // Логирование успешного логина
+        console.log('[Farcaster Login] Success:', {
+            ip: clientIP,
+            userId,
+            fid,
+            userAgent: req.headers.get('user-agent'),
+            timestamp: new Date().toISOString(),
+        });
 
         return NextResponse.json({
             user_id: userId,
@@ -275,6 +542,12 @@ export async function POST(req: NextRequest) {
             neynar_profile: neynarProfile,
         });
     } catch (err: any) {
-        return NextResponse.json({ error: err?.message ?? 'internal' }, { status: 500 });
+        const errorMessage = err?.message ?? 'internal';
+        logSuspiciousRequest(req, 'Unexpected error', {
+            ip: clientIP,
+            error: errorMessage,
+            stack: err?.stack,
+        });
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

@@ -24,6 +24,16 @@ function startOfMonth(date: Date): string {
     return d.toISOString().slice(0, 10);
 }
 
+function startOfUTCDay(date: Date): Date {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function endOfUTCDay(date: Date): Date {
+    const end = startOfUTCDay(date);
+    end.setUTCDate(end.getUTCDate() + 1);
+    return end;
+}
+
 export async function GET(req: NextRequest) {
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
@@ -43,17 +53,27 @@ export async function GET(req: NextRequest) {
         }
 
         const supa = createUserServerClient(token);
+        const tzOffsetMinutesRaw = Number(req.headers.get('x-timezone-offset') ?? '0');
+        const timezoneOffsetMinutes = Number.isFinite(tzOffsetMinutesRaw) ? tzOffsetMinutesRaw : 0;
+        const timezoneOffsetMs = timezoneOffsetMinutes * 60 * 1000;
 
         const today = new Date();
         const todayStr = todayUTC();
         const weekStart = startOfWeek(today);
         const monthStart = startOfMonth(today);
 
-        const [habitsRes, logsTodayRes, streakRes, logsWeekRes, logsMonthRes] = await Promise.all([
+        const dayStart = startOfUTCDay(today);
+        const dayEnd = endOfUTCDay(today);
+        const weekStartDate = new Date(`${weekStart}T00:00:00.000Z`);
+        const monthStartDate = new Date(`${monthStart}T00:00:00.000Z`);
+        const dayStartIso = dayStart.toISOString();
+        const dayEndIso = dayEnd.toISOString();
+
+        const [habitsRes, logsTodayRes, streakRes, logsWeekRes, logsMonthRes, shareEventsRes, wheelWeekRes, wheelMonthRes] = await Promise.all([
             supa.from('habits').select('id').eq('user_id', userId).eq('is_active', true),
             supa
                 .from('habit_logs')
-                .select('habit_id')
+                .select('habit_id, created_at')
                 .eq('user_id', userId)
                 .eq('date', todayStr)
                 .eq('value', true),
@@ -72,16 +92,65 @@ export async function GET(req: NextRequest) {
                 .eq('value', true)
                 .gte('date', monthStart)
                 .lte('date', todayStr),
+            supa
+                .from('events_log')
+                .select('name, props, created_at')
+                .eq('user_id', userId)
+                .eq('name', 'share_cast_published')
+                .gte('created_at', monthStartDate.toISOString())
+                .lte('created_at', dayEndIso),
+            supa
+                .from('wheel_scores')
+                .select('updated_at')
+                .eq('user_id', userId)
+                .gte('updated_at', weekStartDate.toISOString())
+                .lte('updated_at', dayEndIso),
+            supa
+                .from('wheel_scores')
+                .select('updated_at')
+                .eq('user_id', userId)
+                .gte('updated_at', monthStartDate.toISOString())
+                .lte('updated_at', dayEndIso),
         ]);
 
         const totalHabits = habitsRes.data?.length ?? 0;
         const logsToday = logsTodayRes.data ?? [];
         const logsWeek = logsWeekRes.data ?? [];
         const logsMonth = logsMonthRes.data ?? [];
+        const shareEvents = shareEventsRes.data ?? [];
+        const wheelWeek = wheelWeekRes.data ?? [];
+        const wheelMonth = wheelMonthRes.data ?? [];
 
         const completedToday = new Set(logsToday.map(l => l.habit_id)).size;
         const streakData = Array.isArray(streakRes.data) ? streakRes.data[0] : { current_streak: 0 };
         const currentStreak = streakData?.current_streak ?? 0;
+
+        const morningLogs = logsToday.filter(log => {
+            if (!log.created_at) return false;
+            const logDate = new Date(log.created_at);
+            if (!(logDate >= dayStart && logDate < dayEnd)) return false;
+            const localDate = new Date(logDate.getTime() - timezoneOffsetMs);
+            return localDate.getHours() < 10;
+        }).length;
+
+        const shareCastsToday = shareEvents.filter(event => {
+            const created = new Date(event.created_at as string);
+            return created >= dayStart && created < dayEnd;
+        }).length;
+        const shareCastsWeek = shareEvents.filter(event => {
+            const created = new Date(event.created_at as string);
+            return created >= weekStartDate && created < dayEnd;
+        }).length;
+        const shareCastsMonth = shareEvents.length;
+        const wheelWeekendShares = shareEvents.filter(event => {
+            const created = new Date(event.created_at as string);
+            const day = created.getUTCDay();
+            const kind = typeof event.props?.kind === 'string' ? event.props.kind : event.props?.kind ?? (event.props && (event.props as any).kind);
+            return (day === 0 || day === 6) && kind === 'wheel';
+        }).length;
+
+        const wheelUpdatesWeek = wheelWeek.length;
+        const wheelUpdatesMonth = wheelMonth.length;
 
         const weeklyDayMap = new Map<string, number>();
         logsWeek.forEach(log => {
@@ -104,6 +173,13 @@ export async function GET(req: NextRequest) {
             completedToday,
             currentStreak,
             logsToday: logsToday.length,
+            morningLogs,
+            shareCastsToday,
+            shareCastsWeek,
+            shareCastsMonth,
+            wheelUpdatesWeek,
+            wheelUpdatesMonth,
+            wheelWeekendShares,
             activeDaysThisWeek,
             perfectDaysThisWeek,
             activeDaysThisMonth,
