@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
         // Проверяем, было ли уже выполнено (для определения нового выполнения)
         const { data: existing } = await supa
             .from('habit_logs')
-            .select('value')
+            .select('value, is_completed')
             .eq('user_id', userId)
             .eq('habit_id', id)
             .eq('date', date)
