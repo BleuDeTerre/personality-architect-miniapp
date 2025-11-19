@@ -609,9 +609,15 @@ export default function HabitsPage() {
             } else {
                 console.error('[HabitsPage] Failed to create habit:', res.status, data);
                 const { toast } = await import('sonner');
-                toast.error('Failed to create habit', {
-                    description: data.error || data.message || `Server error (${res.status})`,
-                });
+                if (data?.error === 'duplicate_habit') {
+                    toast.error('Habit already exists', {
+                        description: data?.message || 'You already track this habit.',
+                    });
+                } else {
+                    toast.error('Failed to create habit', {
+                        description: data?.error || data?.message || `Server error (${res.status})`,
+                    });
+                }
             }
         } catch (error) {
             console.error('[HabitsPage] Error creating habit:', error);
@@ -869,6 +875,7 @@ export default function HabitsPage() {
                     {/* Add Habit Form */}
                     <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
                         <form onSubmit={addHabit} className="flex flex-col gap-3">
+                            <div className="grid grid-cols-2 gap-3">
                             <div className="relative">
                                 <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">EMOJI</label>
                                 <input
@@ -909,6 +916,18 @@ export default function HabitsPage() {
                                         </button>
                                     </div>
                                 )}
+                                </div>
+                                <div>
+                                    <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">TARGET DAYS PER WEEK</label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={7}
+                                        value={targetDays}
+                                        onChange={(e) => setTargetDays(Number(e.target.value))}
+                                        className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                    />
+                                </div>
                             </div>
                             <div>
                                 <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">HABIT TITLE</label>
@@ -925,17 +944,6 @@ export default function HabitsPage() {
                                     onInput={(e) => {
                                         e.currentTarget.setCustomValidity('');
                                     }}
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">TARGET DAYS PER WEEK</label>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={7}
-                                    value={targetDays}
-                                    onChange={(e) => setTargetDays(Number(e.target.value))}
-                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
                                 />
                             </div>
                             <button

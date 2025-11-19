@@ -8,7 +8,7 @@ import { createUserServerClient } from '@/lib/supabase';
 
 function weekStartISO(d = new Date()) {
     const day = d.getUTCDay();
-    const diff = day === 0 ? -6 : 1 - day;
+    const diff = -day;
     const base = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
     base.setUTCDate(base.getUTCDate() + diff);
     return base.toISOString().slice(0, 10);

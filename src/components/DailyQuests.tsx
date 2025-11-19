@@ -48,16 +48,16 @@ function QuestList({ quests }: { quests: Quest[] }) {
                         </div>
                         <div className="w-full mt-3">
                             <div className="text-[13px] text-white/80 tracking-wide mb-1 text-left w-full">
-                                {quest.current}/{quest.target}
-                            </div>
-                            <div className="h-2.5 w-full rounded-full bg-white/10 overflow-hidden">
-                                <div
-                                    className={`h-full transition-all duration-300 ease-out ${quest.completed ? 'bg-[#22C55E]' : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9]'}`}
-                                    style={{ width: `${Math.min(100, progress)}%` }}
-                                />
-                            </div>
-                            <div className="text-[11px] text-white/60 mt-1.5 text-left">
-                                +{quest.xpReward} XP
+                                    {quest.current}/{quest.target}
+                                </div>
+                                <div className="h-2.5 w-full rounded-full bg-white/10 overflow-hidden">
+                                    <div
+                                        className={`h-full transition-all duration-300 ease-out ${quest.completed ? 'bg-[#22C55E]' : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9]'}`}
+                                        style={{ width: `${Math.min(100, progress)}%` }}
+                                    />
+                                </div>
+                                <div className="text-[11px] text-white/60 mt-1.5 text-left">
+                                    +{quest.xpReward} XP
                             </div>
                         </div>
                     </div>

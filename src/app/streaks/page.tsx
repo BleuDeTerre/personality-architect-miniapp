@@ -65,20 +65,19 @@ export default function StreaksPage() {
         return dates;
     }, []);
 
-    // Генерируем последние 8 недель (понедельник - воскресенье)
-    const last8Weeks = useMemo(() => {
+    // Генерируем последние 12 недель (воскресенье - суббота)
+    const last12Weeks = useMemo(() => {
         const today = new Date();
         const weeks: Array<{ start: Date; end: Date }> = [];
 
-        // Найти начало текущей недели (понедельник)
-        const currentDay = today.getDay();
-        const daysToMonday = currentDay === 0 ? 6 : currentDay - 1;
+        // Найти начало текущей недели (воскресенье)
+        const currentDay = today.getDay(); // 0 = Sunday
         const currentWeekStart = new Date(today);
-        currentWeekStart.setDate(today.getDate() - daysToMonday);
+        currentWeekStart.setDate(today.getDate() - currentDay);
         currentWeekStart.setHours(0, 0, 0, 0);
 
-        // Генерируем 8 недель назад
-        for (let i = 0; i < 8; i++) {
+        // Генерируем 12 недель назад
+        for (let i = 0; i < 12; i++) {
             const weekStart = new Date(currentWeekStart);
             weekStart.setDate(currentWeekStart.getDate() - (i * 7));
 
@@ -107,14 +106,38 @@ export default function StreaksPage() {
             const hRes = await fetch('/api/habits/list', { headers: hdrs }).then(r => r.json());
             const allHabits = Array.isArray(hRes) ? hRes.filter((h: any) => h.is_active !== false) : [];
 
+            // Убираем дубликаты по ID (если API вернул дубликаты)
+            const seenIds = new Set<string>();
+            const uniqueHabits = allHabits.filter((h: any) => {
+                if (!h.id || seenIds.has(h.id)) {
+                    return false;
+                }
+                seenIds.add(h.id);
+                return true;
+            });
+
             // Extract emoji from habit titles
-            const habitsWithIcons = allHabits.map((h: any) => {
+            const habitsWithIcons = uniqueHabits.map((h: any) => {
                 const emojiMatch = h.title?.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
                 const icon = emojiMatch ? emojiMatch[0] : undefined;
                 const title = h.title?.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || h.title;
                 return { ...h, icon, title };
             });
-            setHabits(habitsWithIcons);
+
+            // Финальная проверка на дубликаты после обработки (на случай, если обработка создала дубликаты)
+            const finalSeenIds = new Set<string>();
+            const finalUniqueHabits = habitsWithIcons.filter((h: any) => {
+                if (!h.id || finalSeenIds.has(h.id)) {
+                    console.warn('[Streaks] Duplicate habit detected:', h.id, h.title);
+                    return false;
+                }
+                finalSeenIds.add(h.id);
+                return true;
+            });
+
+            console.log('[Streaks] Unique habits count:', finalUniqueHabits.length, 'out of', habitsWithIcons.length, 'out of', allHabits.length);
+            console.log('[Streaks] Habit IDs:', finalUniqueHabits.map(h => ({ id: h.id, title: h.title })));
+            setHabits(finalUniqueHabits);
 
             // Get logs for last 7 days and all time (for best streak calculation)
             // For best streak, we need to look at all logs (last 365 days should be enough)
@@ -124,32 +147,29 @@ export default function StreaksPage() {
             const startDate365Str = startDate365.toISOString().slice(0, 10);
 
             const [weekLogsRes, allLogsRes, statsRes] = await Promise.all([
-                fetch(`/api/habits/logs?from=${last7Days[0]}&to=${last7Days[last7Days.length - 1]}`, { headers: hdrs }).then(r => r.json()),
-                fetch(`/api/habits/logs?from=${startDate365Str}&to=${endDate}`, { headers: hdrs }).then(r => r.json()),
-                fetch('/api/habits/stats', { headers: hdrs }).then(r => r.json()),
+                fetch(`/api/habits/logs?from=${last7Days[0]}&to=${last7Days[last7Days.length - 1]}`, { headers: hdrs, cache: 'no-store' }).then(r => r.json()),
+                fetch(`/api/habits/logs?from=${startDate365Str}&to=${endDate}`, { headers: hdrs, cache: 'no-store' }).then(r => r.json()),
+                fetch('/api/habits/stats', { headers: hdrs, cache: 'no-store' }).then(r => r.json()),
             ]);
 
-            const weekLogs = Array.isArray(weekLogsRes.items) ? weekLogsRes.items : [];
-            const allLogs = Array.isArray(allLogsRes.items) ? allLogsRes.items : [];
+            // Фильтруем только завершенные логи для консистентности
+            const weekLogs = Array.isArray(weekLogsRes.items)
+                ? weekLogsRes.items.filter((l: Log) => isLogCompleted(l))
+                : [];
+            const allLogs = Array.isArray(allLogsRes.items)
+                ? allLogsRes.items.filter((l: Log) => isLogCompleted(l))
+                : [];
+
+            // Отладочное логирование (можно убрать после проверки)
+            console.log('[Streaks] Week logs count:', weekLogs.length, 'All logs count:', allLogs.length);
+            console.log('[Streaks] Sample week log:', weekLogs[0]);
+            console.log('[Streaks] Sample all log:', allLogs[0]);
+
             setLogs(allLogs);
             setStats(statsRes);
 
-            // Get streaks for all habits
-            const habitIds = habitsWithIcons.map(h => h.id);
-            const streaksRes = habitIds.length > 0
-                ? await fetch('/api/habits/streaks', {
-                    method: 'POST',
-                    headers: hdrs,
-                    body: JSON.stringify({ ids: habitIds }),
-                }).then(r => r.json())
-                : [];
-
             // Calculate stats for each habit
-            const habitsStats: HabitWithStats[] = habitsWithIcons.map((habit) => {
-                // Get current streak
-                const streakData = streaksRes.find((s: any) => s.habit_id === habit.id);
-                const currentStreak = streakData?.streak || 0;
-
+            const habitsStats: HabitWithStats[] = finalUniqueHabits.map((habit) => {
                 // Get week progress - проверяем логи для каждого дня недели
                 const weekProgress = last7Days.map(date => {
                     // Нормализуем дату для сравнения (YYYY-MM-DD)
@@ -164,19 +184,47 @@ export default function StreaksPage() {
                 });
                 const completedDays = weekProgress.filter(Boolean).length;
 
-                // Calculate best streak from all logs
+                // Calculate streaks from all logs (более надежно, чем полагаться на функцию БД)
                 const habitLogs = allLogs
                     .filter((l: Log) => l.habit_id === habit.id && isLogCompleted(l))
                     .map((l: Log) => l.date)
                     .sort();
 
+                // Calculate current streak (от сегодня назад)
+                const today = new Date().toISOString().slice(0, 10);
+                let currentStreak = 0;
+                if (habitLogs.length > 0) {
+                    // Находим последний выполненный день
+                    const lastCompletedDate = habitLogs[habitLogs.length - 1];
+                    if (lastCompletedDate === today || habitLogs.includes(today)) {
+                        // Если сегодня выполнено, считаем streak от сегодня назад
+                        const sortedDates = [...new Set(habitLogs)].sort();
+                        let streakCount = 0;
+
+                        // Проверяем последовательные дни от сегодня назад
+                        for (let i = 0; i < 365; i++) {
+                            const checkDate = new Date(today);
+                            checkDate.setDate(checkDate.getDate() - i);
+                            const dateStr = checkDate.toISOString().slice(0, 10);
+                            if (sortedDates.includes(dateStr)) {
+                                streakCount++;
+                            } else {
+                                break;
+                            }
+                        }
+                        currentStreak = streakCount;
+                    }
+                }
+
+                // Calculate best streak from all logs
                 let bestStreak = 0;
                 if (habitLogs.length > 0) {
+                    const uniqueDates = [...new Set(habitLogs)].sort() as string[];
                     let currentRun = 1;
                     let maxRun = 1;
-                    for (let i = 1; i < habitLogs.length; i++) {
-                        const prevDate = new Date(habitLogs[i - 1]);
-                        const currDate = new Date(habitLogs[i]);
+                    for (let i = 1; i < uniqueDates.length; i++) {
+                        const prevDate = new Date(uniqueDates[i - 1] as string);
+                        const currDate = new Date(uniqueDates[i] as string);
                         const daysDiff = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
                         if (daysDiff === 1) {
                             currentRun++;
@@ -199,10 +247,104 @@ export default function StreaksPage() {
                 };
             });
 
-            setHabitsWithStats(habitsStats);
+            // Дополнительная фильтрация дубликатов по ID (на случай, если habitsWithIcons все еще содержит дубликаты)
+            const seenStatsIds = new Set<string>();
+            const uniqueHabitsStats = habitsStats.filter((habit) => {
+                if (!habit.id || seenStatsIds.has(habit.id)) {
+                    console.warn('[Streaks] Duplicate habit in stats:', habit.id, habit.title);
+                    return false;
+                }
+                seenStatsIds.add(habit.id);
+                return true;
+            });
+
+            console.log('[Streaks] Final unique habitsWithStats count:', uniqueHabitsStats.length, 'out of', habitsStats.length);
+            console.log('[Streaks] habitsWithStats IDs:', uniqueHabitsStats.map(h => ({ id: h.id, title: h.title })));
+
+            // Проверка на дубликаты по названию (может быть проблема не в ID, а в одинаковых названиях)
+            const titleCounts = new Map<string, { count: number; habits: Array<{ id: string; title: string }> }>();
+            uniqueHabitsStats.forEach((habit) => {
+                const title = habit.title?.toLowerCase().trim() || '';
+                if (!titleCounts.has(title)) {
+                    titleCounts.set(title, { count: 0, habits: [] });
+                }
+                const entry = titleCounts.get(title)!;
+                entry.count++;
+                entry.habits.push({ id: habit.id, title: habit.title || '' });
+            });
+
+            const duplicatesByTitle = Array.from(titleCounts.entries()).filter(([_, data]) => data.count > 1);
+            if (duplicatesByTitle.length > 0) {
+                console.warn('[Streaks] ⚠️ DUPLICATES BY TITLE FOUND:', duplicatesByTitle);
+                duplicatesByTitle.forEach(([title, data]) => {
+                    console.warn(`[Streaks] Title "${title}": ${data.count} habits with IDs:`, data.habits.map(h => h.id));
+                });
+
+                // Фильтрация дубликатов по названию - оставляем только одну привычку для каждого названия
+                // Выбираем ту, у которой больше всего completedDays (активнее всего)
+                const titleToKeepId = new Map<string, string>();
+
+                duplicatesByTitle.forEach(([normalizedTitle, data]) => {
+                    // Находим все привычки с этим названием из uniqueHabitsStats
+                    const habitsWithSameTitle = uniqueHabitsStats.filter((h) =>
+                        (h.title?.toLowerCase().trim() || '') === normalizedTitle
+                    );
+
+                    // Выбираем ту, у которой больше всего completedDays
+                    // Если одинаково, выбираем с лучшим current_streak
+                    // Если и это одинаково, берем первую (самую старую по порядку)
+                    const bestHabit = habitsWithSameTitle.reduce((best, current) => {
+                        if (current.completedDays > best.completedDays) return current;
+                        if (current.completedDays < best.completedDays) return best;
+                        if (current.current_streak > best.current_streak) return current;
+                        if (current.current_streak < best.current_streak) return best;
+                        return best; // Оставляем первую, если все одинаково
+                    });
+
+                    titleToKeepId.set(normalizedTitle, bestHabit.id);
+                    console.log(`[Streaks] 🔧 Keeping habit "${normalizedTitle}" with ID ${bestHabit.id} (completedDays: ${bestHabit.completedDays}, streak: ${bestHabit.current_streak})`);
+                });
+
+                // Фильтруем uniqueHabitsStats, оставляя только одну привычку для каждого названия
+                const seenTitles = new Set<string>();
+                const deduplicatedByTitle = uniqueHabitsStats.filter((habit) => {
+                    const normalizedTitle = (habit.title?.toLowerCase().trim() || '');
+                    if (titleToKeepId.has(normalizedTitle)) {
+                        // Для названий с дубликатами - оставляем только выбранную
+                        return habit.id === titleToKeepId.get(normalizedTitle);
+                    }
+                    // Для названий без дубликатов - проверяем, что мы еще не видели это название
+                    if (seenTitles.has(normalizedTitle)) {
+                        console.warn(`[Streaks] Unexpected duplicate by title: "${normalizedTitle}"`);
+                        return false;
+                    }
+                    seenTitles.add(normalizedTitle);
+                    return true;
+                });
+
+                console.log(`[Streaks] 🔧 Filtered duplicates by title: ${uniqueHabitsStats.length} → ${deduplicatedByTitle.length} habits`);
+                uniqueHabitsStats.length = 0;
+                uniqueHabitsStats.push(...deduplicatedByTitle);
+            }
+
+            // Проверка на дубликаты по ID (на всякий случай еще раз)
+            const idCounts = new Map<string, number>();
+            uniqueHabitsStats.forEach((habit) => {
+                const count = idCounts.get(habit.id) || 0;
+                idCounts.set(habit.id, count + 1);
+            });
+
+            const duplicatesById = Array.from(idCounts.entries()).filter(([_, count]) => count > 1);
+            if (duplicatesById.length > 0) {
+                console.error('[Streaks] ❌ CRITICAL: DUPLICATES BY ID FOUND:', duplicatesById.map(([id]) => id));
+            } else {
+                console.log('[Streaks] ✅ No duplicates by ID found');
+            }
+
+            setHabitsWithStats(uniqueHabitsStats);
 
             // Calculate week stats for momentum timeline
-            const weeks: WeekStats[] = last8Weeks.map((week) => {
+            const weeks: WeekStats[] = last12Weeks.map((week) => {
                 const weekStartStr = week.start.toISOString().slice(0, 10);
                 const weekEndStr = week.end.toISOString().slice(0, 10);
 
@@ -256,7 +398,7 @@ export default function StreaksPage() {
         } finally {
             setLoading(false);
         }
-    }, [authHeaders, last7Days, last8Weeks, isLogCompleted]);
+    }, [authHeaders, last7Days, last12Weeks, isLogCompleted]);
 
     const { isSDKLoaded, context } = useMiniApp();
 
@@ -465,7 +607,7 @@ export default function StreaksPage() {
 
                 {/* Habit spotlight */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-                    <h2 className="text-3xl font-bold text-white mb-2">Habit spotlight</h2>
+                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-3">Habit spotlight</h2>
                     <p className="text-sm text-white/70 mb-4">Deep dive into all habits performance over time.</p>
 
                     {/* Habit Selector - Moved to top */}
@@ -482,16 +624,29 @@ export default function StreaksPage() {
                                     className="w-full rounded-xl border border-white/10 bg-[#1a1b2e] px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none appearance-none pr-8 truncate"
                                 >
                                     <option value="">Select a habit</option>
-                                    {habitsWithStats.map((habit) => {
-                                        const displayText = habit.icon && habit.title
-                                            ? `${habit.icon} ${habit.title}`
-                                            : habit.title || 'Untitled';
-                                        return (
-                                            <option key={habit.id} value={habit.id}>
-                                                {displayText}
-                                            </option>
-                                        );
-                                    })}
+                                    {(() => {
+                                        // Фильтрация дубликатов для выпадающего списка
+                                        const selectorSeenIds = new Set<string>();
+                                        const uniqueForSelector = habitsWithStats.filter((habit) => {
+                                            if (selectorSeenIds.has(habit.id)) {
+                                                console.warn('[Streaks] 🔴 DUPLICATE IN SELECTOR:', habit.id, habit.title);
+                                                return false;
+                                            }
+                                            selectorSeenIds.add(habit.id);
+                                            return true;
+                                        });
+
+                                        return uniqueForSelector.map((habit) => {
+                                            const displayText = habit.icon && habit.title
+                                                ? `${habit.icon} ${habit.title}`
+                                                : habit.title || 'Untitled';
+                                            return (
+                                                <option key={habit.id} value={habit.id}>
+                                                    {displayText}
+                                                </option>
+                                            );
+                                        });
+                                    })()}
                                 </select>
                                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                                     <svg className="h-4 w-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -544,7 +699,7 @@ export default function StreaksPage() {
 
                 {/* Habit focus */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-                    <h2 className="text-xl font-semibold text-white mb-3">Habit focus</h2>
+                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-3">Habit focus</h2>
                     {loading ? (
                         <div className="grid grid-cols-2 gap-3">
                             {[1, 2, 3, 4, 5, 6].map(i => (
@@ -564,45 +719,62 @@ export default function StreaksPage() {
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5 text-center text-xs text-white/60">
                             No active habits yet. Create habits to track your streaks!
                         </div>
-                    ) : (
-                        <div className="grid grid-cols-2 gap-3">
-                            {habitsWithStats.map((habit) => (
-                                <div
-                                    key={habit.id}
-                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col gap-2 min-h-[140px]"
-                                >
-                                    <div className="flex items-center gap-1.5">
-                                        {habit.icon && <span className="text-xl">{habit.icon}</span>}
-                                        <h3 className="text-base font-semibold text-white leading-tight">{habit.title}</h3>
+                    ) : (() => {
+                        // Финальная проверка на дубликаты перед рендерингом
+                        const renderSeenIds = new Set<string>();
+                        const uniqueForRender = habitsWithStats.filter((habit) => {
+                            if (renderSeenIds.has(habit.id)) {
+                                console.error('[Streaks] 🔴 DUPLICATE DETECTED AT RENDER:', habit.id, habit.title);
+                                return false;
+                            }
+                            renderSeenIds.add(habit.id);
+                            return true;
+                        });
+
+                        if (uniqueForRender.length !== habitsWithStats.length) {
+                            console.error(`[Streaks] 🔴 RENDER: Filtered ${habitsWithStats.length - uniqueForRender.length} duplicates before rendering`);
+                        }
+
+                        return (
+                            <div className="grid grid-cols-2 gap-3">
+                                {uniqueForRender.map((habit) => (
+                                    <div
+                                        key={habit.id}
+                                        className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col gap-2 min-h-[140px]"
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            {habit.icon && <span className="text-xl">{habit.icon}</span>}
+                                            <h3 className="text-base font-semibold text-white leading-tight">{habit.title}</h3>
+                                        </div>
+                                        <div className="text-xs text-white/70 space-y-0.5 leading-tight">
+                                            <div>Current streak: {habit.current_streak}d</div>
+                                            <div>Best {habit.best_streak}d</div>
+                                        </div>
+                                        <div className="text-xs text-white/70 leading-tight">
+                                            {habit.completedDays} / 7 days completed
+                                        </div>
+                                        <div className="flex gap-1 mt-auto">
+                                            {[...habit.weekProgress].reverse().map((completed, idx) => (
+                                                <div
+                                                    key={`${habit.id}-dot-${idx}`}
+                                                    className={`h-2.5 w-2.5 rounded flex-shrink-0 ${completed ? 'bg-[#2BD4A4]' : 'bg-white/10'
+                                                        }`}
+                                                />
+                                            ))}
+                                        </div>
                                     </div>
-                                    <div className="text-xs text-white/70 space-y-0.5 leading-tight">
-                                        <div>Current streak: {habit.current_streak}d</div>
-                                        <div>Best {habit.best_streak}d</div>
-                                    </div>
-                                    <div className="text-xs text-white/70 leading-tight">
-                                        {habit.completedDays} / 7 days completed
-                                    </div>
-                                    <div className="flex gap-1 mt-auto">
-                                        {habit.weekProgress.map((completed, idx) => (
-                                            <div
-                                                key={idx}
-                                                className={`h-2.5 w-2.5 rounded flex-shrink-0 ${completed ? 'bg-[#2BD4A4]' : 'bg-white/10'
-                                                    }`}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                                ))}
+                            </div>
+                        );
+                    })()}
                 </section>
 
                 {/* Momentum Timeline */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-                    <h2 className="text-xl font-semibold text-white mb-4">Momentum timeline</h2>
+                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-4">Momentum timeline</h2>
                     {loading ? (
                         <div className="space-y-2">
-                            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(i => (
                                 <div key={i} className="flex items-start gap-3 animate-pulse">
                                     <div className="h-2.5 w-2.5 rounded-full bg-white/10 mt-0.5"></div>
                                     <div className="flex-1 space-y-1.5">
@@ -622,7 +794,7 @@ export default function StreaksPage() {
                                 const startStr = week.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                                 const endStr = week.weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                                 const isBreak = week.completedDays === 0;
-                                const isRecent = idx < 3;
+                                const isRecent = idx < 4;
                                 const shouldShow = isRecent || expandedWeeks;
 
                                 if (!shouldShow) return null;
@@ -653,12 +825,12 @@ export default function StreaksPage() {
                                     </div>
                                 );
                             })}
-                            {weekStats.length > 3 && (
+                            {weekStats.length > 4 && (
                                 <button
                                     onClick={() => setExpandedWeeks(!expandedWeeks)}
                                     className="text-xs text-[#A78BFA] hover:text-[#8B5CF6] transition mt-1"
                                 >
-                                    {expandedWeeks ? 'Show less' : `Show ${weekStats.length - 3} more weeks`}
+                                    {expandedWeeks ? 'Show less' : `Show ${weekStats.length - 4} more weeks`}
                                 </button>
                             )}
                         </div>

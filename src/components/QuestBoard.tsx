@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { calculateQuestProgress, type Quest } from '@/lib/daily-quests';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
@@ -29,12 +29,20 @@ export default function QuestBoard({ className }: QuestBoardProps) {
     const [quests, setQuests] = useState<QuestBuckets | null>(null);
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState<Tab>('daily');
+    const tzOffsetRef = useRef<number>(typeof window !== 'undefined' ? new Date().getTimezoneOffset() : 0);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            tzOffsetRef.current = new Date().getTimezoneOffset();
+        }
+    }, []);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
         return {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session?.access_token ?? ''}`,
+            'X-Timezone-Offset': String(tzOffsetRef.current),
         };
     }, []);
 

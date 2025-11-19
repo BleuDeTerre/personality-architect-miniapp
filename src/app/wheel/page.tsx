@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
     RadarChart,
@@ -15,6 +15,7 @@ import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCa
 import MiniAppPage from '@/components/MiniAppPage';
 import AIWheelInsights from '@/components/AIWheelInsights';
 import CollapsibleCard from '@/components/CollapsibleCard';
+import WeekPicker from '@/components/WeekPicker';
 
 type Item = { area: string; score: number };
 
@@ -71,6 +72,8 @@ export default function WheelPage() {
     const [editingValues, setEditingValues] = useState(false);
     const [editItems, setEditItems] = useState<Item[]>([]);
     const [canRenderChart, setCanRenderChart] = useState(false);
+
+    const currentWeekRef = useRef<string>(week);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -137,7 +140,7 @@ export default function WheelPage() {
         } finally {
             setWeekLoading(false);
         }
-    }, [authHeaders, isSDKLoaded, context]);
+    }, [authHeaders]);
 
     const loadTrends = useCallback(async () => {
         setTrendsLoading(true);
@@ -151,7 +154,11 @@ export default function WheelPage() {
         } finally {
             setTrendsLoading(false);
         }
-    }, [authHeaders, isSDKLoaded, context]);
+    }, [authHeaders]);
+
+    useEffect(() => {
+        currentWeekRef.current = week;
+    }, [week]);
 
     useEffect(() => {
         let mounted = true;
@@ -313,7 +320,7 @@ export default function WheelPage() {
             }
 
             if (!mounted) return;
-            await loadWeek(week);
+            await loadWeek(currentWeekRef.current);
             await loadTrends();
         };
 
@@ -322,7 +329,7 @@ export default function WheelPage() {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!mounted) return;
             if (session?.user) {
-                await loadWeek(week);
+                await loadWeek(currentWeekRef.current);
                 await loadTrends();
             } else {
                 setItems(AREAS.map(a => ({ area: a.name, score: 5 })));
@@ -333,7 +340,7 @@ export default function WheelPage() {
             mounted = false;
             subscription.unsubscribe();
         };
-    }, [week, loadWeek, loadTrends]);
+    }, [loadWeek, loadTrends, isSDKLoaded, context?.user?.fid]);
 
     useEffect(() => {
         setCanRenderChart(true);
@@ -344,6 +351,12 @@ export default function WheelPage() {
             setEditItems([...items]);
         }
     }, [items, editingValues]);
+
+    const handleWeekChange = useCallback(async (newWeek: string) => {
+        setWeek(newWeek);
+        currentWeekRef.current = newWeek;
+        await loadWeek(newWeek);
+    }, [loadWeek]);
 
     async function saveWeek() {
         setSaving(true);
@@ -620,11 +633,11 @@ export default function WheelPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">ISO Week</label>
-                                    <input
-                                        type="week"
+                                    <WeekPicker
                                         value={week}
-                                        onChange={(e) => setWeek(e.target.value)}
-                                        className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white focus:border-white/40 focus:outline-none"
+                                        onChange={handleWeekChange}
+                                        placeholder="Select week"
+                                        className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white focus:border-white/40 focus:outline-none"
                                     />
                                 </div>
                                 <div>
@@ -901,38 +914,38 @@ export default function WheelPage() {
                     </div>
                 </CollapsibleCard>
 
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
-                    <h2 className="text-xl font-semibold text-white">Trends</h2>
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-2">
+                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Trends</h2>
                     <div className="overflow-x-auto rounded-2xl border border-white/10">
                         <table className="min-w-full border-collapse text-sm text-white/80">
                             <thead className="bg-white/10 text-white/70">
                                 <tr>
-                                    <th className="p-3 text-left">Area</th>
-                                    <th className="p-3 text-right">Last</th>
-                                    <th className="p-3 text-right">Avg 4w</th>
-                                    <th className="p-3 text-right">Avg 12w</th>
-                                    <th className="p-3 text-right">Δ 4w</th>
-                                    <th className="p-3 text-right">Δ 12w</th>
+                                    <th className="px-2 py-1.5 text-left">Area</th>
+                                    <th className="px-2 py-1.5 text-right">Last</th>
+                                    <th className="px-2 py-1.5 text-right">Avg 4w</th>
+                                    <th className="px-2 py-1.5 text-right">Avg 12w</th>
+                                    <th className="px-2 py-1.5 text-right">Δ 4w</th>
+                                    <th className="px-2 py-1.5 text-right">Δ 12w</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {trends.map((area) => (
                                     <tr key={area.area} className="border-t border-white/5">
-                                        <td className="p-3">{area.area}</td>
-                                        <td className="p-3 text-right">{area.last?.toFixed?.(1) ?? area.last}</td>
-                                        <td className="p-3 text-right">{area.avg4?.toFixed?.(1) ?? area.avg4}</td>
-                                        <td className="p-3 text-right">{area.avg12?.toFixed?.(1) ?? area.avg12}</td>
-                                        <td className={`p-3 text-right ${area.delta4 < 0 ? 'text-red-400' : area.delta4 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
+                                        <td className="px-2 py-1.5">{area.area}</td>
+                                        <td className="px-2 py-1.5 text-right">{area.last?.toFixed?.(1) ?? area.last}</td>
+                                        <td className="px-2 py-1.5 text-right">{area.avg4?.toFixed?.(1) ?? area.avg4}</td>
+                                        <td className="px-2 py-1.5 text-right">{area.avg12?.toFixed?.(1) ?? area.avg12}</td>
+                                        <td className={`px-2 py-1.5 text-right ${area.delta4 < 0 ? 'text-red-400' : area.delta4 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
                                             {area.delta4?.toFixed?.(1) ?? area.delta4}
                                         </td>
-                                        <td className={`p-3 text-right ${area.delta12 < 0 ? 'text-red-400' : area.delta12 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
+                                        <td className={`px-2 py-1.5 text-right ${area.delta12 < 0 ? 'text-red-400' : area.delta12 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
                                             {area.delta12?.toFixed?.(1) ?? area.delta12}
                                         </td>
                                     </tr>
                                 ))}
                                 {!trends.length && (
                                     <tr>
-                                        <td colSpan={6} className="p-4 text-center text-white/50">
+                                        <td colSpan={6} className="px-2 py-1.5 text-center text-white/50">
                                             No trend data yet.
                                         </td>
                                     </tr>

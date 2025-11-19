@@ -15,15 +15,14 @@ type Resp = {
     cachedUntil?: string;
 };
 
-function mondayUTC(d = new Date()) {
-    const day = d.getUTCDay();
-    const diff = (day === 0 ? -6 : 1 - day);
-    const m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diff));
+function sundayUTC(d = new Date()) {
+    const day = d.getUTCDay(); // 0 = Sunday
+    const m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day));
     return m.toISOString().slice(0, 10);
 }
 
 export default function WeeklyInsightPage() {
-    const [weekStart, setWeekStart] = useState<string>(mondayUTC());
+    const [weekStart, setWeekStart] = useState<string>(sundayUTC());
     const [data, setData] = useState<Resp | null>(null);
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
@@ -61,14 +60,14 @@ export default function WeeklyInsightPage() {
             <CreditsBadge />
 
             <div>
-                <label className="block mb-1 text-sm">Week (Monday start)</label>
+                <label className="block mb-1 text-sm">Week (Sunday start)</label>
                 <input
                     type="date"
                     value={weekStart}
                     onChange={(e) => setWeekStart(e.target.value)}
                     className="border p-2 rounded w-full"
                 />
-                <div className="text-xs opacity-60 mt-1">Select the Monday of the week.</div>
+                <div className="text-xs opacity-60 mt-1">Select the Sunday that starts the week.</div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">

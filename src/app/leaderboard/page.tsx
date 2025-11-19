@@ -109,7 +109,7 @@ export default function LeaderboardPage() {
             <div className="space-y-4">
                 {/* Header Card */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Leaderboard</h1>
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">Leaderboard</h1>
                     <p className="text-sm text-white/80">
                         Ranked by best streak. All time leaders in habit consistency! 🔥
                     </p>

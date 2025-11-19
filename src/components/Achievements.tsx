@@ -45,7 +45,7 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
             progress: 0,
         }))
     );
-    const [loading, setLoading] = useState(true);
+    const [_loading, setLoading] = useState(true);
     const [isExpanded, setIsExpanded] = useState(false);
     const [questsExpanded, setQuestsExpanded] = useState(false);
     const [badgesExpanded, setBadgesExpanded] = useState(false);
@@ -289,19 +289,14 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
                     className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition"
                 >
                     <h3 className="text-xl font-semibold text-white">Achievements</h3>
-                    <div className="flex items-center gap-3">
-                        <span className="text-sm text-white/60">
-                            {unlockedCount}/{achievements.length}
-                        </span>
-                        <svg
-                            className={`h-5 w-5 text-white/60 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </div>
+                    <svg
+                        className={`h-5 w-5 text-white/60 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                 </button>
 
                 {isExpanded && (
@@ -402,23 +397,31 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
             </div>
 
             {badgePanel && (
-                <div className="border-t border-white/10 pt-4">
-                    <button
-                        type="button"
-                        onClick={() => setBadgesExpanded(prev => !prev)}
-                        className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition"
-                    >
-                        <h3 className="text-xl font-semibold text-white">Badges gallery</h3>
-                        <svg
-                            className={`h-5 w-5 text-white/60 transition-transform ${badgesExpanded ? 'rotate-180' : ''}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                <div className="border-t border-white/10 pt-4 relative overflow-hidden rounded-3xl">
+                    <div className="pointer-events-none opacity-70">
+                        <button
+                            type="button"
+                            onClick={() => setBadgesExpanded(prev => !prev)}
+                            className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition"
                         >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
-                    {badgesExpanded && renderBadges()}
+                            <h3 className="text-xl font-semibold text-white">Badges gallery</h3>
+                            <svg
+                                className={`h-5 w-5 text-white/60 transition-transform ${badgesExpanded ? 'rotate-180' : ''}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        {badgesExpanded && renderBadges()}
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center bg-[#1a1b2e]/80 backdrop-blur-md">
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1a1b2e] border border-white/10">
+                            <span className="text-sm">⏳</span>
+                            <span className="text-sm font-semibold text-white uppercase tracking-wide">Coming soon</span>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

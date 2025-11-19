@@ -35,13 +35,19 @@ export async function GET(req: NextRequest) {
       query = query.eq('habit_id', habitId);
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    // Сортируем по дате (по убыванию - сначала новые записи)
+    const { data, error } = await query.order('date', { ascending: false });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    const normalized = (data ?? []).map(log => ({
-      ...log,
-      value: log.value ?? log.is_completed ?? false,
-    }));
+    // Нормализуем данные: считаем выполненным, если value === true ИЛИ is_completed === true
+    const normalized = (data ?? []).map(log => {
+      const isCompleted = log.value === true || log.is_completed === true;
+      return {
+        ...log,
+        value: isCompleted,
+        is_completed: isCompleted, // Также устанавливаем is_completed для консистентности
+      };
+    });
     return NextResponse.json({ items: normalized });
   } catch {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -169,13 +175,13 @@ export async function POST(req: NextRequest) {
           (existingAchievements || []).map((e: any) => e.metadata?.achievement_id).filter(Boolean)
         );
 
-                // Получаем статистику для проверки достижений
+        // Получаем статистику для проверки достижений
                 // Учитываем и value и is_completed для консистентности
-                const [habitsCheck, logsCheck, statsCheck] = await Promise.all([
-                  supa.from('habits').select('id').eq('user_id', userId),
+        const [habitsCheck, logsCheck, statsCheck] = await Promise.all([
+          supa.from('habits').select('id').eq('user_id', userId),
                   supa.from('habit_logs').select('id').eq('user_id', userId).or('value.eq.true,is_completed.eq.true'),
-                  supa.rpc('get_habit_streak', { p_user: userId }),
-                ]);
+          supa.rpc('get_habit_streak', { p_user: userId }),
+        ]);
 
         const totalHabits = habitsCheck.data?.length || 0;
         const totalLogs = logsCheck.data?.length || 0;

@@ -26,7 +26,7 @@ type Goal = { id: string; title: string; metric?: string; target?: number; unit?
 type WheelTrend = { area: string; last: number; avg4: number; avg12: number; delta4: number; delta12: number };
 type Stats = { current_streak: number; best_streak: number; last_completed: string | null };
 type Habit = { id: string; title: string; is_active?: boolean };
-type Log = { habit_id: string; date: string; value: boolean };
+type Log = { habit_id: string; date: string; value: boolean; is_completed?: boolean };
 type TrendPoint = { date: string; streak: number };
 
 // Sparkline Chart Component
@@ -105,7 +105,7 @@ export default function AnalyticsPage() {
     const [wheelTrends, setWheelTrends] = useState<WheelTrend[]>([]);
     const [stats, setStats] = useState<Stats>({ current_streak: 0, best_streak: 0, last_completed: null });
     const [habits, setHabits] = useState<Habit[]>([]);
-    const [selectedHabitId, setSelectedHabitId] = useState<string>('');
+    const [selectedHabitId, setSelectedHabitId] = useState<string>('all');
     const [habitTrendData, setHabitTrendData] = useState<Array<{ date: string; streak: number }>>([]);
     const [maxStreak, setMaxStreak] = useState<number>(0);
     const [weeklyCapsules, setWeeklyCapsules] = useState<Array<{
@@ -150,18 +150,24 @@ export default function AnalyticsPage() {
             setWheelTrends(wheelRes.areas || []);
             setStats(statsRes);
             const activeHabits = Array.isArray(habitsRes) ? habitsRes.filter((h: Habit) => h.is_active !== false) : [];
-            setHabits(activeHabits);
 
-            // Set first habit as selected if none selected
-            if (activeHabits.length > 0 && !selectedHabitId) {
-                setSelectedHabitId(activeHabits[0].id);
-            }
+            // Убираем дубликаты по ID (если API вернул дубликаты)
+            const seenIds = new Set<string>();
+            const uniqueHabits = activeHabits.filter((h: Habit) => {
+                if (!h.id || seenIds.has(h.id)) {
+                    return false;
+                }
+                seenIds.add(h.id);
+                return true;
+            });
+
+            setHabits(uniqueHabits);
         } finally {
             setLoading(false);
         }
-    }, [authHeaders, selectedHabitId]);
+    }, [authHeaders]);
 
-    // Fetch trend data for selected habit
+    // Fetch trend data for selected habit or all habits
     const fetchHabitTrend = useCallback(async (habitId: string) => {
         if (!habitId) return;
         setLoadingTrend(true);
@@ -174,8 +180,19 @@ export default function AnalyticsPage() {
             startDate.setDate(startDate.getDate() - 90);
             const startDateStr = startDate.toISOString().slice(0, 10);
 
-            const logsRes = await fetch(`/api/habits/logs?from=${startDateStr}&to=${endDate}&habit_id=${habitId}`, { headers: hdrs }).then(r => r.json());
-            const logs = Array.isArray(logsRes.items) ? logsRes.items.filter((l: Log) => l.value === true) : [];
+            // Загружаем логи в зависимости от выбора
+            const isAll = habitId === 'all';
+            const logsRes = isAll
+                ? await fetch(`/api/habits/logs?from=${startDateStr}&to=${endDate}`, { headers: hdrs }).then(r => r.json())
+                : await fetch(`/api/habits/logs?from=${startDateStr}&to=${endDate}&habit_id=${habitId}`, { headers: hdrs }).then(r => r.json());
+
+            // Учитываем и value и is_completed для консистентности
+            const logs = Array.isArray(logsRes.items) ? logsRes.items.filter((l: any) => l.value === true || l.is_completed === true) : [];
+
+            // Для Weekly capsule всегда используем все логи
+            const allLogsRes = await fetch(`/api/habits/logs?from=${startDateStr}&to=${endDate}`, { headers: hdrs }).then(r => r.json());
+            // Учитываем и value и is_completed для консистентности
+            const allLogs = Array.isArray(allLogsRes.items) ? allLogsRes.items.filter((l: any) => l.value === true || l.is_completed === true) : [];
 
             // Calculate streak for each day over the last 90 days
             const trendData: Array<{ date: string; streak: number }> = [];
@@ -213,12 +230,11 @@ export default function AnalyticsPage() {
             setHabitTrendData(trendData);
             setMaxStreak(maxStreakValue);
 
-            // Calculate weekly capsules (last 8 weeks, Monday-Sunday)
+            // Calculate weekly capsules (last 8 weeks, Sunday-Saturday)
             const today = new Date();
-            const currentDay = today.getDay();
-            const daysToMonday = currentDay === 0 ? 6 : currentDay - 1;
+            const currentDay = today.getDay(); // 0 = Sunday
             const currentWeekStart = new Date(today);
-            currentWeekStart.setDate(today.getDate() - daysToMonday);
+            currentWeekStart.setDate(today.getDate() - currentDay);
             currentWeekStart.setHours(0, 0, 0, 0);
 
             const capsules = [];
@@ -234,12 +250,14 @@ export default function AnalyticsPage() {
                 const weekEndStr = weekEnd.toISOString().slice(0, 10);
 
                 // Get logs for this week
-                const weekLogs = logs.filter((l: Log) => {
+                // Если выбрана конкретная привычка, используем логи только для неё, иначе - все логи
+                const weekLogs = (isAll ? allLogs : logs).filter((l: Log) => {
                     return l.date >= weekStartStr && l.date <= weekEndStr;
                 });
 
                 // Get unique dates with completed habits
-                const completedDates = new Set(weekLogs.filter((l: Log) => l.value === true).map((l: Log) => l.date));
+                // Учитываем и value и is_completed для консистентности
+                const completedDates = new Set(weekLogs.filter((l: any) => l.value === true || l.is_completed === true).map((l: any) => l.date));
                 const completedDays = completedDates.size;
                 const totalDays = 7;
 
@@ -619,7 +637,7 @@ export default function AnalyticsPage() {
 
                 {/* Core Metrics Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-4">
-                    <h2 className="text-xl font-semibold text-white">Core metrics</h2>
+                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Core metrics</h2>
                     {loading ? (
                         <div className="grid grid-cols-2 gap-3">
                             {[1, 2, 3, 4, 5, 6].map(i => (
@@ -755,7 +773,7 @@ export default function AnalyticsPage() {
 
                 {/* Week Comparison Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
-                    <h2 className="text-xl font-semibold text-white">Week comparison</h2>
+                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Week comparison</h2>
                     {comparative ? (
                         <>
                             <div className="grid grid-cols-2 gap-3">
@@ -794,7 +812,7 @@ export default function AnalyticsPage() {
                 {/* Habit Trend Prototypes Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-4">
                     <div className="space-y-1">
-                        <h2 className="text-xl font-semibold text-white">Habit trend prototypes</h2>
+                        <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Habit trend prototypes</h2>
                         <p className="text-xs text-white/70">
                             Compare streak momentum for any habit. We&apos;ll use these prototypes to decide how to evolve the Streaks dashboard.
                         </p>
@@ -811,6 +829,7 @@ export default function AnalyticsPage() {
                                         onChange={(e) => setSelectedHabitId(e.target.value)}
                                         className="w-full appearance-none rounded-2xl border border-white/10 bg-[#1a1b2e] px-3 py-2.5 pr-8 text-white text-sm focus:border-white/40 focus:outline-none"
                                     >
+                                        <option value="all">All habits</option>
                                         {habits.map(h => {
                                             const emojiMatch = h.title?.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
                                             const icon = emojiMatch ? emojiMatch[0] : '';
@@ -935,7 +954,7 @@ export default function AnalyticsPage() {
 
                 {/* Habit Correlations Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
-                    <h2 className="text-xl font-semibold text-white">Habit correlations</h2>
+                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Habit correlations</h2>
                     <AICorrelationInsights />
                     {correlations && correlations.length > 0 ? (
                         <div className="space-y-1.5">
@@ -970,7 +989,7 @@ export default function AnalyticsPage() {
 
                 {/* Advanced Insights Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
-                    <h2 className="text-xl font-semibold text-white">Advanced insights</h2>
+                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Advanced insights</h2>
                     <div className="grid grid-cols-2 gap-2">
                         {/* Weak windows */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">

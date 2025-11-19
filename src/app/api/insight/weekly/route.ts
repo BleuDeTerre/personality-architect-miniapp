@@ -11,12 +11,14 @@ function isoWeekToRange(week: string) {
     const jan4Day = (jan4.getUTCDay() || 7);
     const week1Mon = new Date(jan4);
     week1Mon.setUTCDate(jan4.getUTCDate() - (jan4Day - 1));
-    const start = new Date(week1Mon);
-    start.setUTCDate(week1Mon.getUTCDate() + (w - 1) * 7);
-    const end = new Date(start);
-    end.setUTCDate(start.getUTCDate() + 6);
+    const isoMonday = new Date(week1Mon);
+    isoMonday.setUTCDate(week1Mon.getUTCDate() + (w - 1) * 7);
+    const sundayStart = new Date(isoMonday);
+    sundayStart.setUTCDate(isoMonday.getUTCDate() - 1);
+    const end = new Date(sundayStart);
+    end.setUTCDate(sundayStart.getUTCDate() + 6);
     const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    return { start: fmt(start), end: fmt(end) };
+    return { start: fmt(sundayStart), end: fmt(end) };
 }
 
 export async function GET(req: NextRequest) {

@@ -32,6 +32,39 @@ export async function POST(req: NextRequest) {
 
         if (!title) return NextResponse.json({ error: 'title required' }, { status: 400 });
 
+        // Не позволяем создавать дубликаты активных привычек с тем же названием
+        const normalizedTitle = title.toLowerCase().trim();
+        const { data: existingHabits, error: checkError } = await supa
+            .from('habits')
+            .select('id,title,is_active')
+            .eq('user_id', userId)
+            .eq('is_active', true);
+
+        if (checkError) {
+            console.error('[Habits Create] Failed to check duplicates:', checkError);
+            return NextResponse.json({ error: 'Failed to verify duplicates' }, { status: 500 });
+        }
+
+        const duplicate = (existingHabits ?? []).find(
+            (habit: any) => (habit.title?.toLowerCase().trim() || '') === normalizedTitle
+        );
+
+        if (duplicate) {
+            console.warn('[Habits Create] Duplicate habit blocked:', {
+                userId,
+                title,
+                existingId: duplicate.id,
+            });
+            return NextResponse.json(
+                {
+                    error: 'duplicate_habit',
+                    message: `You already track "${title}". Rename the old habit or choose another name.`,
+                    existingHabitId: duplicate.id,
+                },
+                { status: 409 }
+            );
+        }
+
         const { data, error } = await supa
             .from('habits')
             .insert({ user_id: userId, title, target_days_per_week })

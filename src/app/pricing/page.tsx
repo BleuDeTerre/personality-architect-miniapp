@@ -286,53 +286,6 @@ export default function PricingPage() {
                     </div>
                 </section>
 
-                {/* Level & XP Section */}
-                {gamificationStats && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6">
-                        <h2 className="text-xl font-semibold text-white mb-4">Your Level</h2>
-                        <div className="flex items-center justify-between mb-4">
-                            <div>
-                                <div className={`text-2xl font-bold ${levelColor}`}>{levelName}</div>
-                                <div className="text-sm text-white/70">Level {level}</div>
-                            </div>
-                            <div className="text-right">
-                                <div className="text-2xl font-bold text-white">{xp.toLocaleString()}</div>
-                                <div className="text-sm text-white/70">Total XP</div>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-xs text-white/80">
-                                <span>Progress to Level {level + 1}</span>
-                                <span>{progress.toFixed(0)}%</span>
-                            </div>
-                            <div className="h-3 bg-white/20 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] transition-all duration-300"
-                                    style={{ width: `${progress}%` }}
-                                ></div>
-                            </div>
-                            <div className="flex justify-between text-xs text-white/70">
-                                <span>
-                                    {xpRemaining > 0
-                                        ? `${xpRemaining.toLocaleString()} XP remaining`
-                                        : `Ready for level ${level + 1}!`}
-                                </span>
-                                <span>{((level + 1) ** 2 * 100).toLocaleString()} XP total</span>
-                            </div>
-                        </div>
-                    </section>
-                )}
-
-                {/* Share your level */}
-                {levelShareTemplates.length > 0 && (
-                    <div className="mb-6">
-                        <ShareCastComposer
-                            templates={levelShareTemplates}
-                            sectionTitle="Share your level"
-                            prepareHeaders={authHeaders}
-                        />
-                    </div>
-                )}
             </div>
         </MiniAppPage>
     );

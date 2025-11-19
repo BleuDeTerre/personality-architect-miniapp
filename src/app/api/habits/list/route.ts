@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
             .from('habits')
             .select('id,title,target_days_per_week,is_active')
             .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+            .order('title', { ascending: true });
 
         if (error) {
             console.error('[Habits List] Database error:', error);
@@ -37,12 +37,24 @@ export async function GET(req: NextRequest) {
         }
 
         const completedSet = new Set<string>((todayLogs ?? []).map(log => log.habit_id));
-        const response = (data ?? []).map(habit => ({
+        
+        // Убираем дубликаты по ID на уровне API (на случай, если база данных вернула дубликаты)
+        const seenIds = new Set<string>();
+        const uniqueHabits = (data ?? []).filter((habit: any) => {
+            if (!habit.id || seenIds.has(habit.id)) {
+                console.warn('[Habits List] Duplicate habit detected in DB response:', habit.id, habit.title);
+                return false;
+            }
+            seenIds.add(habit.id);
+            return true;
+        });
+        
+        const response = uniqueHabits.map((habit: any) => ({
             ...habit,
             is_completed: completedSet.has(habit.id),
         }));
 
-        console.log(`[Habits List] Found ${response.length} habits for user ${userId}`);
+        console.log(`[Habits List] Found ${response.length} unique habits (out of ${(data ?? []).length} total) for user ${userId}`);
         return NextResponse.json(response);
     } catch {
         return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

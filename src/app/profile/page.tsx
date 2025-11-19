@@ -6,9 +6,10 @@ import { createClient, type PostgrestError } from '@supabase/supabase-js';
 import { useMiniApp } from '@neynar/react';
 import { BADGES } from '@/lib/badges';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
-import { type CastTemplate } from '@/components/share/ShareCastComposer';
+import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import Achievements from '@/components/Achievements';
 import MiniAppPage from '@/components/MiniAppPage';
+import CollapsibleCard from '@/components/CollapsibleCard';
 
 // Supabase client
 const supabase = createClient(
@@ -313,13 +314,13 @@ export default function ProfilePage() {
     // Calculate XP and level - используем totalXP из таблицы xp_events, если доступен
     const xp = gamificationStats?.totalXP ?? (gamificationStats ? calculateXP(gamificationStats) : 0);
     const level = calculateLevel(xp);
-    const _progress = getLevelProgress(xp, level);
+    const progress = getLevelProgress(xp, level);
     const xpGap = xpForNextLevel(level);
     const xpForCurrentLevel = (level ** 2) * 100;
     const xpInCurrentLevel = Math.max(xp - xpForCurrentLevel, 0);
     const xpRemaining = Math.max(xpGap - xpInCurrentLevel, 0);
     const levelName = getLevelName(level);
-    const _levelColor = getLevelColor(level);
+    const levelColor = getLevelColor(level);
 
     const neynarDisplayName =
         neynarProfile?.displayName ??
@@ -330,7 +331,7 @@ export default function ProfilePage() {
         ? (neynarDisplayName.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || 'FC')
         : 'FC';
 
-    const _levelShareTemplates = useMemo<CastTemplate[]>(() => {
+    const levelShareTemplates = useMemo<CastTemplate[]>(() => {
         const templates: CastTemplate[] = [];
         if (gamificationStats) {
             templates.push({
@@ -369,9 +370,9 @@ export default function ProfilePage() {
 
     return (
         <MiniAppPage>
-            <div className="space-y-3">
+            <div>
                 {/* Profile Section */}
-                <section className="space-y-3">
+                <section className="space-y-3 mb-6">
                     <h1 className="text-2xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-4">Profile</h1>
 
                     {neynarLoading ? (
@@ -464,6 +465,56 @@ export default function ProfilePage() {
                         </a>
                     </div>
                 </section>
+
+                {/* Your Level Section */}
+                {gamificationStats && (
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 mb-6">
+                        <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-4">Your Level</h2>
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <div className={`text-2xl font-bold ${levelColor}`}>{levelName}</div>
+                                <div className="text-sm text-white/70">Level {level}</div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-2xl font-bold text-white">{xp.toLocaleString()}</div>
+                                <div className="text-sm text-white/70">Total XP</div>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-xs text-white/80">
+                                <span>Progress to Level {level + 1}</span>
+                                <span>{progress.toFixed(0)}%</span>
+                            </div>
+                            <div className="h-3 bg-white/20 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] transition-all duration-300"
+                                    style={{ width: `${progress}%` }}
+                                ></div>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/70">
+                                <span>
+                                    {xpRemaining > 0
+                                        ? `${xpRemaining.toLocaleString()} XP remaining`
+                                        : `Ready for level ${level + 1}!`}
+                                </span>
+                                <span>{((level + 1) ** 2 * 100).toLocaleString()} XP total</span>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* Share your level */}
+                {levelShareTemplates.length > 0 && (
+                    <div className="mb-6">
+                        <CollapsibleCard title="Share your level" defaultOpen={false}>
+                            <ShareCastComposer
+                                templates={levelShareTemplates}
+                                prepareHeaders={authHeaders}
+                            />
+                        </CollapsibleCard>
+                    </div>
+                )}
+
                 {/* Achievements Section */}
                 <section className="mb-6">
                     <Achievements
@@ -479,7 +530,7 @@ export default function ProfilePage() {
                 </section>
 
                 {/* Export Data */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 relative overflow-hidden">
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 relative overflow-hidden mb-6">
                     {/* Content visible through blur */}
                     <div className="pointer-events-none">
                         <div className="flex items-start justify-between mb-4">

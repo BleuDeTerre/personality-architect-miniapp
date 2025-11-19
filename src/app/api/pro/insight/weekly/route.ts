@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { isoWeekUTC } from '@/lib/time';
 import crypto from 'crypto';
 
 function sha(x: unknown) {
@@ -25,8 +26,8 @@ async function generateWeekly(supa: ReturnType<typeof createUserServerClient>, u
         .lte('date', endDateStr);
 
     // Получаем Wheel данные за неделю (вычисляем ISO неделю из startDate)
-    const d = new Date(startDate);
-    const weekISO = `${d.getFullYear()}-W${String(Math.ceil(d.getDate() / 7)).padStart(2, '0')}`;
+    const d = new Date(`${startDate}T00:00:00Z`);
+    const weekISO = isoWeekUTC(d);
     const { data: wheel } = await supa
         .from('wheel_scores')
         .select('area, score')
@@ -34,13 +35,13 @@ async function generateWeekly(supa: ReturnType<typeof createUserServerClient>, u
         .eq('week', weekISO);
 
     // Агрегируем по дням
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const items = dayNames.map(() => ({ completed: 0, total: 0 }));
 
     const logsByDate = new Map<string, number>();
     (logs ?? []).forEach(l => {
         const dayIdx = new Date(l.date).getDay();
-        const adjustedDay = dayIdx === 0 ? 6 : dayIdx - 1;
+        const adjustedDay = dayIdx;
         if (l.value === true) {
             items[adjustedDay].completed++;
             logsByDate.set(l.date, (logsByDate.get(l.date) || 0) + 1);
