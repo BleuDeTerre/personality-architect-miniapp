@@ -540,6 +540,7 @@ export default function WheelPage() {
                     top: topArea?.area ?? 'Top area',
                     low: weakArea?.area ?? 'Focus area',
                     ws: baseSegments,
+                    week,
                 },
                 targetPath: '/wheel',
             },
@@ -556,6 +557,10 @@ export default function WheelPage() {
                     a: weakArea.area,
                     score: String(weakArea.score),
                     ws: baseSegments,
+                    avg: avg.toFixed(1),
+                    top: topArea?.area ?? weakArea.area,
+                    low: weakArea.area,
+                    week,
                 },
                 targetPath: '/wheel',
             });

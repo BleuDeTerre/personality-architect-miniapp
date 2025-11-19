@@ -86,16 +86,16 @@ export default function QuestBoard({ className }: QuestBoardProps) {
                 text: `🗓️ Completed ${quests.completedDaily}/${quests.totalDaily} daily quests today (+${dailyXp} XP).`,
                 previewParams: {
                     variant: 'quests:daily',
-                    description: `${quests.completedDaily}/${quests.totalDaily} quests complete`,
-                    statLabel: 'Daily quests',
-                    statValue: `${quests.completedDaily}/${quests.totalDaily}`,
-                    tag: 'DAILY RUN',
+                    completed: String(quests.completedDaily),
+                    total: String(quests.totalDaily),
+                    xp: String(dailyXp),
                 },
                 targetPath: '/profile',
             });
         }
         if (quests.weekly?.length) {
             const completed = quests.weekly.filter(q => q.completed).length;
+            const weeklyXp = quests.weekly.filter(q => q.completed).reduce((sum, q) => sum + q.xpReward, 0);
             templates.push({
                 key: 'quests-weekly',
                 label: `Weekly ${completed}/${quests.weekly.length}`,
@@ -104,16 +104,16 @@ export default function QuestBoard({ className }: QuestBoardProps) {
                 text: `📅 Closed ${completed}/${quests.weekly.length} weekly quests so far.`,
                 previewParams: {
                     variant: 'quests:weekly',
-                    description: `${completed}/${quests.weekly.length} weekly quests completed`,
-                    statLabel: 'Weekly quests',
-                    statValue: `${completed}/${quests.weekly.length}`,
-                    tag: 'WEEKLY PUSH',
+                    completed: String(completed),
+                    total: String(quests.weekly.length),
+                    xp: String(weeklyXp),
                 },
                 targetPath: '/profile',
             });
         }
         if (quests.monthly?.length) {
             const completed = quests.monthly.filter(q => q.completed).length;
+            const monthlyXp = quests.monthly.filter(q => q.completed).reduce((sum, q) => sum + q.xpReward, 0);
             templates.push({
                 key: 'quests-monthly',
                 label: `Monthly ${completed}/${quests.monthly.length}`,
@@ -122,10 +122,9 @@ export default function QuestBoard({ className }: QuestBoardProps) {
                 text: `🔥 Working through ${completed}/${quests.monthly.length} monthly quests this cycle.`,
                 previewParams: {
                     variant: 'quests:monthly',
-                    description: `${completed}/${quests.monthly.length} monthly quests complete`,
-                    statLabel: 'Monthly quests',
-                    statValue: `${completed}/${quests.monthly.length}`,
-                    tag: 'MONTHLY ARC',
+                    completed: String(completed),
+                    total: String(quests.monthly.length),
+                    xp: String(monthlyXp),
                 },
                 targetPath: '/profile',
             });

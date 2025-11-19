@@ -490,10 +490,9 @@ export default function GoalsPage() {
             text: `🎯 Working through ${activeGoals.length} active goals and already completed ${completedGoals.length}.`,
             previewParams: {
                 variant: 'goals:summary',
-                description: `${activeGoals.length} active • ${completedGoals.length} completed`,
-                statLabel: 'Active goals',
-                statValue: `${activeGoals.length}`,
-                tag: 'GOAL DASHBOARD',
+                active: String(activeGoals.length),
+                completed: String(completedGoals.length),
+                chips: `ACTIVE ${activeGoals.length}|DONE ${completedGoals.length}`,
             },
             targetPath: '/goals',
         });
@@ -511,10 +510,9 @@ export default function GoalsPage() {
                 text: `✅ Just checked off “${recentCompleted.title}” in Personality Architect!`,
                 previewParams: {
                     variant: 'goals:completed',
-                    description: `Completed: ${recentCompleted.title}`,
-                    statLabel: 'Completed',
-                    statValue: recentCompleted.title,
-                    tag: 'FINISHED',
+                goal: recentCompleted.title,
+                completed: String(completedGoals.length),
+                chips: `JUST FINISHED|${recentCompleted.title}`,
                 },
                 targetPath: '/goals',
             });
@@ -533,10 +531,10 @@ export default function GoalsPage() {
                 text: `🚀 “${nextDeadline.title}” is coming up (${dueLabel}). Keeping the momentum going!`,
                 previewParams: {
                     variant: 'goals:upcoming',
-                    description: daysLeft !== null ? `Due in ${daysLeft} days` : `Due ${dueLabel}`,
-                    statLabel: 'Next deadline',
-                    statValue: daysLeft !== null ? `${daysLeft} days` : dueLabel,
-                    tag: 'NEXT TARGET',
+                goal: nextDeadline.title,
+                due: dueLabel,
+                days: String(daysLeft ?? ''),
+                chips: daysLeft !== null ? `DUE IN ${daysLeft}D` : `DUE ${dueLabel}`,
                 },
                 targetPath: '/goals',
             });
