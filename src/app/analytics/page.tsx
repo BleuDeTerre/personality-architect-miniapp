@@ -477,8 +477,9 @@ export default function AnalyticsPage() {
 
     const shareTemplates = useMemo<CastTemplate[]>(() => {
         const templates: CastTemplate[] = [];
+        const activeGoals = goals.filter(g => g.status === 'active');
+        const completedGoals = goals.filter(g => g.status === 'completed');
 
-        // Current streak
         if (stats.current_streak > 0) {
             templates.push({
                 key: 'current-streak',
@@ -488,16 +489,15 @@ export default function AnalyticsPage() {
                 text: `🔥 ${stats.current_streak} day streak! Building consistency with Personality Architect.`,
                 previewParams: {
                     variant: 'streaks:current',
-                    description: 'Current streak',
-                    statLabel: 'CURRENT STREAK',
-                    statValue: `${stats.current_streak} days`,
-                    tag: 'HABIT STREAK',
+                    current: String(stats.current_streak),
+                    best: String(stats.best_streak ?? stats.current_streak),
+                    next: String(nextStreakBadge?.days ?? 0),
+                    chips: `CURRENT RUN|${stats.current_streak} DAYS`,
                 },
                 targetPath: '/analytics',
             });
         }
 
-        // Best streak
         if (stats.best_streak > 0) {
             templates.push({
                 key: 'best-streak',
@@ -507,16 +507,15 @@ export default function AnalyticsPage() {
                 text: `🏆 Personal best: ${stats.best_streak} day streak! Celebrating consistency milestones.`,
                 previewParams: {
                     variant: 'streaks:best',
-                    description: 'Best streak',
-                    statLabel: 'BEST STREAK',
-                    statValue: `${stats.best_streak} days`,
-                    tag: 'PERSONAL RECORD',
+                    current: String(stats.current_streak ?? 0),
+                    best: String(stats.best_streak),
+                    next: String(nextStreakBadge?.days ?? 0),
+                    chips: `PERSONAL RECORD|${stats.best_streak} DAYS`,
                 },
                 targetPath: '/analytics',
             });
         }
 
-        // Next badge
         if (nextStreakBadge) {
             templates.push({
                 key: 'next-badge',
@@ -525,31 +524,39 @@ export default function AnalyticsPage() {
                 kind: 'streaks',
                 text: `🎯 ${nextStreakBadge.days} days until my next streak badge (${nextStreakBadge.milestone} days). The journey continues!`,
                 previewParams: {
-                    variant: 'streaks:next',
-                    description: `Next badge: ${nextStreakBadge.milestone} days`,
-                    statLabel: 'Next badge',
-                    statValue: `${nextStreakBadge.days} days`,
-                    tag: 'NEXT MILESTONE',
+                    variant: 'streaks:goal',
+                    current: String(stats.current_streak ?? 0),
+                    best: String(stats.best_streak ?? 0),
+                    next: String(nextStreakBadge.days),
+                    chips: `NEXT BADGE|${nextStreakBadge.milestone} DAYS`,
                 },
                 targetPath: '/analytics',
             });
         }
 
         if (comparative) {
+            const thisWeek = comparative.this_week?.completed_total ?? 0;
+            const lastWeek = comparative.last_week?.completed_total ?? 0;
+            const trend =
+                comparative.comparison?.trend ?? (thisWeek > lastWeek ? 'up' : thisWeek < lastWeek ? 'down' : 'flat');
+            const message = comparative.comparison?.message ?? `${thisWeek} vs ${lastWeek}`;
             templates.push({
                 key: 'weekly',
                 label: 'Weekly summary',
                 title: 'Weekly Habit Summary',
                 kind: 'analytics',
-                text: `${comparative.comparison.trend === 'up' ? '📈' : '📊'} Weekly habit summary: ${comparative.comparison.message}. Logged ${comparative.this_week.completed_total} habits.`,
+                text: `${trend === 'up' ? '📈' : trend === 'down' ? '📉' : '📊'} ${message}. ${thisWeek} habits logged this week.`,
                 previewParams: {
                     variant: 'analytics:weekly',
-                    tw: String(comparative.this_week.completed_total),
-                    lw: String(comparative.last_week.completed_total),
+                    tw: String(thisWeek),
+                    lw: String(lastWeek),
+                    trend,
+                    msg: message,
                 },
                 targetPath: '/analytics',
             });
         }
+
         if (facts?.top_habits?.length) {
             const top = facts.top_habits[0];
             templates.push({
@@ -560,17 +567,35 @@ export default function AnalyticsPage() {
                 text: `🔥 ${top.habit} was my most logged habit (${top.count} times).`,
                 previewParams: {
                     variant: 'analytics:top',
-                    n: top.habit,
-                    c: String(top.count),
+                    habit: topHabitTitle ?? top.habit,
+                    count: String(top.count),
+                    emoji: topHabitIcon ?? '',
                 },
                 targetPath: '/analytics',
             });
         }
 
-        // Goal progress
-        const activeGoals = goals.filter(g => g.status === 'active');
+        if (predictive?.length) {
+            const insight = predictive[0];
+            const riskPercent = Math.round((insight.risk_score ?? 0) * 100);
+            templates.push({
+                key: `ai-${insight.habit_id}`,
+                label: `AI Insight: ${insight.habit_title}`,
+                title: 'AI Habit Insight',
+                kind: 'analytics',
+                text: `🤖 ${insight.habit_title} might slip soon — risk ${riskPercent}%.`,
+                previewParams: {
+                    variant: 'analytics:insight',
+                    habit: insight.habit_title,
+                    risk: String(riskPercent),
+                    days: String(insight.days_since_last ?? 0),
+                    summary: `${riskPercent}% risk in ${insight.habit_title}`,
+                },
+                targetPath: '/analytics',
+            });
+        }
+
         if (activeGoals.length > 0) {
-            const completedGoals = goals.filter(g => g.status === 'completed');
             templates.push({
                 key: 'goal-progress',
                 label: 'Goal progress',
@@ -579,20 +604,16 @@ export default function AnalyticsPage() {
                 text: `🎯 Working through ${activeGoals.length} active goals and already completed ${completedGoals.length}.`,
                 previewParams: {
                     variant: 'goals:summary',
-                    description: `${activeGoals.length} active • ${completedGoals.length} completed`,
-                    statLabel: 'Active goals',
-                    statValue: `${activeGoals.length}`,
-                    tag: 'GOAL DASHBOARD',
+                    active: String(activeGoals.length),
+                    completed: String(completedGoals.length),
+                    chips: `ACTIVE ${activeGoals.length}|DONE ${completedGoals.length}`,
                 },
                 targetPath: '/analytics',
             });
         }
 
-        // Wheel shift
         if (wheelTrends && wheelTrends.length > 0) {
-            const topShift = wheelTrends
-                .filter(t => t.delta4 > 0)
-                .sort((a, b) => b.delta4 - a.delta4)[0];
+            const topShift = wheelTrends.filter(t => t.delta4 > 0).sort((a, b) => b.delta4 - a.delta4)[0];
             if (topShift) {
                 templates.push({
                     key: `wheel-shift-${topShift.area}`,
@@ -602,7 +623,7 @@ export default function AnalyticsPage() {
                     text: `🎯 ${topShift.area} improved by ${topShift.delta4 > 0 ? '+' : ''}${topShift.delta4.toFixed(1)} points. Building momentum!`,
                     previewParams: {
                         variant: 'wheel:shift',
-                        a: topShift.area,
+                        area: topShift.area,
                         delta: topShift.delta4 > 0 ? `+${topShift.delta4.toFixed(1)}` : topShift.delta4.toFixed(1),
                         current: topShift.last.toFixed(1),
                     },
@@ -611,8 +632,32 @@ export default function AnalyticsPage() {
             }
         }
 
+        if (weeklyCapsules.length > 0) {
+            const capsule = weeklyCapsules[0];
+            const startStr = capsule.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const endStr = capsule.weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            templates.push({
+                key: `capsule-${startStr}`,
+                label: `Capsule ${startStr}`,
+                title: 'Weekly Capsule',
+                kind: 'analytics',
+                text: `📦 Week ${startStr}–${endStr}: ${capsule.completedDays}/${capsule.totalDays} days complete, longest run ${capsule.longestRun}d.`,
+                previewParams: {
+                    variant: 'analytics:capsule',
+                    week: `${startStr} – ${endStr}`,
+                    completed: String(capsule.completedDays),
+                    total: String(capsule.totalDays),
+                    longest: String(capsule.longestRun),
+                    focus: topHabitTitle ?? 'Focus habit',
+                    icon: topHabitIcon ?? '',
+                    streak: String(stats.current_streak ?? 0),
+                },
+                targetPath: '/analytics',
+            });
+        }
+
         return templates;
-    }, [stats, nextStreakBadge, comparative, facts, goals, wheelTrends]);
+    }, [stats, nextStreakBadge, comparative, facts, predictive, goals, wheelTrends, weeklyCapsules, topHabitTitle, topHabitIcon]);
 
     return (
         <MiniAppPage>

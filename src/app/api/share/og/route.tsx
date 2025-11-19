@@ -385,6 +385,222 @@ function renderLevelCard(params: URLSearchParams): RenderResult {
     };
 }
 
+function renderAnalyticsInsight(params: URLSearchParams): RenderResult {
+    const habit = getString(params, 'habit', 'Key habit');
+    const summary = getString(params, 'summary', getString(params, 'msg', 'AI insight'));
+    const risk = getNumber(params, 'risk', 0);
+    const days = getNumber(params, 'days', 0);
+
+    return {
+        node: baseCard(
+            <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 44, fontWeight: 700 }}>
+                    <span>🤖</span>
+                    AI Habit Insight
+                </div>
+                <div style={{ fontSize: 32, opacity: 0.9 }}>{summary}</div>
+
+                <div
+                    style={{
+                        marginTop: 28,
+                        padding: '30px 32px',
+                        borderRadius: 28,
+                        background: 'rgba(15,23,42,0.5)',
+                        border: '1px solid rgba(248,250,252,0.2)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                        fontSize: 28,
+                    }}
+                >
+                    <span style={{ opacity: 0.75 }}>Focus habit</span>
+                    <span style={{ fontSize: 42, fontWeight: 700 }}>{habit}</span>
+                    <span style={{ opacity: 0.75 }}>Days since last log: {days}</span>
+                </div>
+
+                <div style={{ display: 'flex', gap: 24 }}>
+                    {statPill('Risk of break', `${risk}%`)}
+                    {statPill('Action', days > 0 ? 'Log today' : 'Keep going')}
+                </div>
+            </>,
+            ['#051937', '#004d7a'],
+        ),
+    };
+}
+
+function renderAnalyticsWeekly(params: URLSearchParams): RenderResult {
+    const tw = getNumber(params, 'tw', 0);
+    const lw = getNumber(params, 'lw', 0);
+    const trend = getString(params, 'trend', tw >= lw ? 'up' : 'down');
+    const message = getString(params, 'msg', trend === 'up' ? 'Momentum is rising' : 'Holding steady');
+    const diff = tw - lw;
+
+    return {
+        node: baseCard(
+            <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 46, fontWeight: 700 }}>
+                    <span>{trend === 'up' ? '📈' : trend === 'down' ? '📉' : '📊'}</span>
+                    Weekly Habit Summary
+                </div>
+                <div style={{ fontSize: 28, opacity: 0.85 }}>{message}</div>
+
+                <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
+                    <div style={{ flex: 1, textAlign: 'center' }}>
+                        <div style={{ fontSize: 22, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.7 }}>This week</div>
+                        <div style={{ fontSize: 120, fontWeight: 800 }}>{tw}</div>
+                        <div style={{ fontSize: 22, opacity: 0.7 }}>habits logged</div>
+                    </div>
+                    <div style={{ width: 4, height: 160, background: 'rgba(248,250,252,0.2)' }} />
+                    <div style={{ flex: 1, textAlign: 'center' }}>
+                        <div style={{ fontSize: 22, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.7 }}>Last week</div>
+                        <div style={{ fontSize: 74, fontWeight: 700 }}>{lw}</div>
+                    </div>
+                </div>
+
+                <div
+                    style={{
+                        marginTop: 24,
+                        padding: '18px 24px',
+                        borderRadius: 20,
+                        background: 'rgba(15,23,42,0.4)',
+                        border: '1px solid rgba(248,250,252,0.2)',
+                        fontSize: 26,
+                    }}
+                >
+                    Delta: {diff > 0 ? `+${diff}` : diff} habits vs. last week
+                </div>
+            </>,
+            ['#041C32', '#062863'],
+        ),
+    };
+}
+
+function renderAnalyticsTop(params: URLSearchParams): RenderResult {
+    const habit = getString(params, 'habit', getString(params, 'n', 'Top habit'));
+    const count = getNumber(params, 'count', getNumber(params, 'c', 0));
+    const emoji = getString(params, 'emoji', getString(params, 'icon', '🔥'));
+
+    return {
+        node: baseCard(
+            <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 46, fontWeight: 700 }}>
+                    <span>{emoji || '🔥'}</span>
+                    Top Habit Highlight
+                </div>
+
+                <div style={{ fontSize: 32, opacity: 0.85 }}>“{habit}” dominated the week.</div>
+
+                <div
+                    style={{
+                        marginTop: 32,
+                        borderRadius: 30,
+                        padding: '32px 36px',
+                        background: 'rgba(15,23,42,0.45)',
+                        border: '1px solid rgba(248,250,252,0.2)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                    }}
+                >
+                    <div style={{ fontSize: 24, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.75 }}>Logged</div>
+                    <div style={{ fontSize: 120, fontWeight: 800 }}>{count}</div>
+                    <div style={{ fontSize: 28, opacity: 0.75 }}>times</div>
+                </div>
+
+                <div style={{ fontSize: 22, opacity: 0.75 }}>Keep repeating what works — momentum compounds.</div>
+            </>,
+            ['#041A32', '#0F3057'],
+        ),
+    };
+}
+
+function renderAnalyticsCapsule(params: URLSearchParams): RenderResult {
+    const week = getString(params, 'week', 'This week');
+    const completed = getNumber(params, 'completed', 0);
+    const total = getNumber(params, 'total', 7);
+    const longest = getNumber(params, 'longest', 0);
+    const focus = getString(params, 'focus', 'Focus habit');
+    const icon = getString(params, 'icon', '✨');
+    const streak = getNumber(params, 'streak', 0);
+
+    return {
+        node: baseCard(
+            <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 46, fontWeight: 700 }}>
+                        <span>🧾</span>
+                        Weekly Capsule
+                    </div>
+                    <div style={{ fontSize: 24, opacity: 0.75 }}>{week}</div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 28 }}>
+                    {statPill('Completed', `${completed}/${total} days`)}
+                    {statPill('Longest run', `${longest}d`)}
+                    {statPill('Current streak', `${streak}d`)}
+                </div>
+
+                <div
+                    style={{
+                        marginTop: 24,
+                        padding: '28px 32px',
+                        borderRadius: 28,
+                        background: 'rgba(15,23,42,0.5)',
+                        border: '1px solid rgba(248,250,252,0.2)',
+                        fontSize: 30,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 16,
+                    }}
+                >
+                    <span style={{ fontSize: 36 }}>{icon || '🎯'}</span>
+                    Focus habit: <strong>{focus}</strong>
+                </div>
+            </>,
+            ['#10172A', '#4C1D95'],
+        ),
+    };
+}
+
+function renderWheelShift(params: URLSearchParams): RenderResult {
+    const area = getString(params, 'area', getString(params, 'a', 'Area'));
+    const delta = getString(params, 'delta', '+0.0');
+    const current = getString(params, 'current', '0.0');
+
+    return {
+        node: baseCard(
+            <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 46, fontWeight: 700 }}>
+                    <span>🌐</span>
+                    Wheel Shift Insight
+                </div>
+
+                <div style={{ fontSize: 32, opacity: 0.85 }}>{area} moved {delta} pts.</div>
+
+                <div
+                    style={{
+                        marginTop: 30,
+                        padding: '32px',
+                        borderRadius: 30,
+                        background: 'rgba(15,23,42,0.45)',
+                        border: '1px solid rgba(248,250,252,0.2)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                    }}
+                >
+                    <div>
+                        <div style={{ fontSize: 20, textTransform: 'uppercase', opacity: 0.75 }}>Current score</div>
+                        <div style={{ fontSize: 96, fontWeight: 800 }}>{current}</div>
+                    </div>
+                    <div style={{ fontSize: 26, opacity: 0.75 }}>Keep investing in this area to lock the gains.</div>
+                </div>
+            </>,
+            ['#050A30', '#1A0B2E'],
+        ),
+    };
+}
+
 function renderDefaultCard(params: URLSearchParams): RenderResult {
     const title = getString(params, 'title', 'Personality Architect');
     const description = getString(params, 'description', 'Plan. Execute. Evolve.');
@@ -462,6 +678,11 @@ const RENDERERS: Record<string, (params: URLSearchParams) => RenderResult> = {
     'wheel:snapshot': params => renderWheelSnapshot(params),
     'wheel:focus': params => renderWheelSnapshot(params, true),
     'level:up': renderLevelCard,
+    'analytics:insight': renderAnalyticsInsight,
+    'analytics:weekly': renderAnalyticsWeekly,
+    'analytics:top': renderAnalyticsTop,
+    'analytics:capsule': renderAnalyticsCapsule,
+    'wheel:shift': renderWheelShift,
 };
 
 export async function GET(req: NextRequest) {

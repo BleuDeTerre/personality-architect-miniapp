@@ -341,7 +341,7 @@ export default function ProfilePage() {
                 kind: 'level',
                 text: `⚡️ Reached ${levelName} (Level ${level}) with ${xp.toLocaleString()} XP in Personality Architect!`,
                 previewParams: {
-                    preset: 'level:up',
+                    variant: 'level:up',
                     lvl: String(level),
                     xp: String(xp),
                     gap: String(Math.max(xpRemaining, 0)),
