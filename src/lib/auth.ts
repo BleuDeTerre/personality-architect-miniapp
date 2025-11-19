@@ -2,6 +2,7 @@
 // Валидируем только реальный Bearer-токен. Никаких DEV-заглушек.
 
 import { createClient } from '@supabase/supabase-js';
+import { createServiceClient } from './supabase';
 
 export type UserAuth = { id: string; token: string };
 
@@ -64,6 +65,33 @@ export function createUserServerClient(accessToken: string) {
  * Заглушка платежа оставлена, но в проде замени на безопасный RPC
  * (security definer + проверка auth.uid()).
  */
-export async function chargeProCredit(_userId: string, _opts: { reason: string }) {
-    return; // TODO: вызвать безопасный RPC consume_credit(...)
+export async function chargeProCredit(userId: string, opts: { reason: string }) {
+    const reason = opts?.reason?.trim();
+    if (!userId) {
+        throw new Error('user_required');
+    }
+    if (!reason) {
+        throw new Error('reason_required');
+    }
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        console.error('[chargeProCredit] Missing SUPABASE_SERVICE_ROLE_KEY');
+        throw new Error('server_misconfigured');
+    }
+
+    const admin = createServiceClient();
+    const { data, error } = await admin.rpc('consume_credit', {
+        p_user_id: userId,
+        p_period: reason,
+    });
+
+    if (error) {
+        console.error('[chargeProCredit] consume_credit failed', error);
+        throw new Error('credit_charge_failed');
+    }
+
+    if (!data) {
+        throw new Error('not_enough_credits');
+    }
+
+    return true;
 }
