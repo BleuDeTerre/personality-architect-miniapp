@@ -2,7 +2,6 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { recoverMessageAddress } from 'viem';
 
 // ... твой существующий код выше (buyer, fetchWithPay, postPaidJSON) — НЕ трогаем
 
@@ -19,40 +18,14 @@ function xErr(status: number, error: string, extra: Record<string, any> = {}) {
 }
 
 /** Заглушка верификации подписи. В проде — замени реальной проверкой. */
-async function verifyX402Signature(payload: string, signature: string): Promise<boolean> {
-    if (DISABLE_X402_VERIFY) return true;
-    if (!FACILITATOR_PUBKEY) return false;
-    if (!payload || !signature) return false;
-
-    const normalizedSignature = normalizeSignature(signature);
-    if (!normalizedSignature) {
-        return false;
-    }
-
-    try {
-        const recovered = await recoverMessageAddress({
-            message: payload,
-            signature: normalizedSignature,
-        });
-        return recovered.toLowerCase() === FACILITATOR_PUBKEY.toLowerCase();
-    } catch (error) {
-        console.error('[x402] Failed to verify signature', error);
-        return false;
-    }
-}
-
-function normalizeSignature(signature: string): `0x${string}` | null {
-    if (!signature) return null;
-    if (signature.startsWith('0x') && signature.length > 4) {
-        return signature as `0x${string}`;
-    }
-    try {
-        const hex = Buffer.from(signature, 'base64').toString('hex');
-        if (!hex) return null;
-        return `0x${hex}` as `0x${string}`;
-    } catch {
-        return null;
-    }
+async function verifyX402Signature(_payload: string, _signature: string): Promise<boolean> {
+    // TODO: тут должна быть реальная криптопроверка подписи `signature` над `payload`
+    // с использованием FACILITATOR_PUBKEY.
+    // Временное поведение:
+    if (DISABLE_X402_VERIFY) return true;          // на стейдже можно выключить проверку
+    if (!FACILITATOR_PUBKEY) return false;         // в проде без ключа — считаем невалидным
+    // Если подключишь реальную проверку — верни true/false по результату.
+    return false;
 }
 
 /**

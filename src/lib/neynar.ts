@@ -91,18 +91,35 @@ export async function publishCast(
     }
 
     try {
+        console.log('[Neynar] Publishing cast:', {
+            textLength: text.length,
+            embedsCount: embeds?.length || 0,
+            embeds: embeds,
+        });
+        
         const result = await neynarClient.publishCast({
             signerUuid,
             text,
             embeds: embeds || [],
         });
+        
+        console.log('[Neynar] Cast published successfully:', {
+            hash: result.cast.hash,
+            text: result.cast.text,
+        });
+        
         return result.cast.hash;
     } catch (error: any) {
         console.error("[Neynar] Failed to publish cast:", {
             error: error?.message,
             statusCode: error?.statusCode,
+            statusText: error?.statusText,
+            response: error?.response?.data,
+            responseText: error?.response?.data ? JSON.stringify(error.response.data, null, 2) : undefined,
             textLength: text.length,
             embedsCount: embeds?.length || 0,
+            embeds: embeds,
+            signerUuid: signerUuid ? 'provided' : 'missing',
         });
         throw error;
     }

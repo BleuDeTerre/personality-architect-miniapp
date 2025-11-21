@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { SHARE_PREVIEW_VERSION } from "@/lib/sharePreviewVersion";
@@ -14,6 +14,7 @@ export type CastTemplate = {
     kind: string;
     previewParams?: Record<string, string | number | boolean>;
     targetPath?: string;
+    publishMode?: 'auto' | 'confirm';
 };
 
 interface ShareCastComposerProps {
@@ -39,6 +40,8 @@ export default function ShareCastComposer({
     const [selectedKey, setSelectedKey] = useState<string>(() => templates[0]?.key ?? "");
     const [origin, setOrigin] = useState<string>("");
     const [loading, setLoading] = useState(false);
+    const [confirmTemplate, setConfirmTemplate] = useState<CastTemplate | null>(null);
+    const [confirmLoading, setConfirmLoading] = useState(false);
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -54,50 +57,64 @@ export default function ShareCastComposer({
 
     const selected = useMemo(() => templates.find(t => t.key === selectedKey), [templates, selectedKey]);
 
-    const ogImageUrl = useMemo(() => {
-        if (!origin || !selected) return null;
-        const url = new URL(`${origin}/api/share/og`);
-        url.searchParams.set("rev", SHARE_PREVIEW_VERSION);
-        if (selected.previewParams) {
-            Object.entries(selected.previewParams).forEach(([key, value]) => {
-                if (value === undefined || value === null) return;
-                // Support both 'preset' and 'variant' for backward compatibility
-                if (key === 'preset') {
-                    url.searchParams.set("variant", String(value));
-                } else {
-                    url.searchParams.set(key, String(value));
-                }
-            });
-        }
-        return url.toString();
-    }, [origin, selected]);
+    const buildPreviewUrl = useCallback(
+        (template?: CastTemplate | null) => {
+            if (!origin || !template) return null;
+            const url = new URL(`${origin}/api/share/og`);
+            url.searchParams.set("rev", SHARE_PREVIEW_VERSION);
+            if (template.previewParams) {
+                Object.entries(template.previewParams).forEach(([key, value]) => {
+                    if (value === undefined || value === null) return;
+                    if (key === 'preset') {
+                        url.searchParams.set("variant", String(value));
+                    } else {
+                        url.searchParams.set(key, String(value));
+                    }
+                });
+            }
+            return url.toString();
+        },
+        [origin],
+    );
 
-    async function publishCast() {
-        if (!selected) return;
+    const ogImageUrl = useMemo(() => buildPreviewUrl(selected), [buildPreviewUrl, selected]);
+    const confirmPreviewUrl = useMemo(() => buildPreviewUrl(confirmTemplate), [buildPreviewUrl, confirmTemplate]);
+
+    async function publishCast(template: CastTemplate) {
         setLoading(true);
 
         const isInMiniApp = isSDKLoaded && actions?.composeCast;
+        const previewUrl = buildPreviewUrl(template);
+        // Для Farcaster передаем HTML-страницу с OG-тегами (как в рабочей версии)
+        const embedUrl = previewUrl ? previewUrl.replace('/api/share/og', '/api/share/preview') : null;
+
+        console.log('[ShareCastComposer] Publishing cast:', {
+            isInMiniApp,
+            previewUrl,
+            embedUrl,
+            template: {
+                key: template.key,
+                kind: template.kind,
+                previewParams: template.previewParams,
+            },
+        });
 
         try {
             // Пробуем нативный метод, если в Mini App
             if (isInMiniApp && actions.composeCast) {
                 const embeds: string[] = [];
 
-                // Добавляем preview изображение
-                if (ogImageUrl) {
-                    embeds.push(ogImageUrl);
-                }
-
-                // Добавляем target URL, если есть
-                if (selected.targetPath) {
-                    embeds.push(`${origin}${selected.targetPath}`);
+                // Добавляем HTML-страницу с OG-тегами (Farcaster сам загрузит og:image)
+                if (embedUrl) {
+                    embeds.push(embedUrl);
+                    console.log('[ShareCastComposer] Using native composeCast with embed:', embedUrl);
                 }
 
                 const embedsTuple = embeds.length > 0
                     ? (embeds.length === 1 ? [embeds[0]] as [string] : [embeds[0], embeds[1]] as [string, string])
                     : undefined;
                 await actions.composeCast({
-                    text: selected.text,
+                    text: template.text,
                     embeds: embedsTuple,
                 });
 
@@ -112,7 +129,7 @@ export default function ShareCastComposer({
                         body: JSON.stringify({
                             method: 'native_composeCast',
                             success: true,
-                            kind: selected.kind,
+                            kind: template.kind,
                         }),
                     });
                 } catch (logError) {
@@ -135,11 +152,12 @@ export default function ShareCastComposer({
                 method: "POST",
                 headers,
                 body: JSON.stringify({
-                    kind: selected.kind,
-                    title: selected.title,
-                    text: selected.text,
-                    previewParams: selected.previewParams,
-                    targetUrl: selected.targetPath ? `${origin}${selected.targetPath}` : undefined,
+                    kind: template.kind,
+                    title: template.title,
+                    text: template.text,
+                    previewParams: template.previewParams,
+                    embedUrl: embedUrl, // Передаем HTML-страницу с OG-тегами
+                    targetUrl: template.targetPath ? `${origin}${template.targetPath}` : undefined,
                 }),
             });
             const data = (await res.json()) as ShareResponse;
@@ -155,7 +173,7 @@ export default function ShareCastComposer({
                     body: JSON.stringify({
                         method: 'api_publishCast',
                         success: res.ok,
-                        kind: selected.kind,
+                        kind: template.kind,
                         error: res.ok ? undefined : (data.error ?? 'Unknown error'),
                     }),
                 });
@@ -201,6 +219,32 @@ export default function ShareCastComposer({
         }
     }
 
+    function handleShareRequest() {
+        if (!selected) return;
+        const mode = selected.publishMode ?? 'confirm';
+        if (mode === 'confirm') {
+            setConfirmTemplate(selected);
+            return;
+        }
+        void publishCast(selected);
+    }
+
+    async function confirmPublish() {
+        if (!confirmTemplate) return;
+        setConfirmLoading(true);
+        try {
+            await publishCast(confirmTemplate);
+            setConfirmTemplate(null);
+        } finally {
+            setConfirmLoading(false);
+        }
+    }
+
+    function closeConfirm() {
+        if (confirmLoading) return;
+        setConfirmTemplate(null);
+    }
+
     if (templates.length === 0 || !selected) {
         return null;
     }
@@ -239,7 +283,7 @@ export default function ShareCastComposer({
                     {textLength} / {maxLength} characters
                 </span>
                 <button
-                    onClick={publishCast}
+                    onClick={handleShareRequest}
                     disabled={loading}
                     className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-center text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40"
                 >
@@ -260,6 +304,54 @@ export default function ShareCastComposer({
                             className="w-full rounded-xl"
                             unoptimized
                         />
+                    </div>
+                </div>
+            )}
+
+            {confirmTemplate && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+                    <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-[#101123] p-6 space-y-4 shadow-2xl">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <p className="text-sm uppercase tracking-widest text-white/60">Confirm share</p>
+                                <h3 className="text-2xl font-semibold text-white">{confirmTemplate.title}</h3>
+                                <p className="text-white/70 mt-1">{confirmTemplate.text}</p>
+                            </div>
+                            <button
+                                onClick={closeConfirm}
+                                className="text-white/60 hover:text-white"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        {confirmPreviewUrl && (
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3">
+                                <Image
+                                    src={confirmPreviewUrl}
+                                    alt="Confirm preview"
+                                    width={520}
+                                    height={273}
+                                    className="w-full rounded-xl"
+                                    unoptimized
+                                />
+                            </div>
+                        )}
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={closeConfirm}
+                                className="rounded-2xl border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 hover:text-white"
+                                disabled={confirmLoading}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmPublish}
+                                disabled={confirmLoading}
+                                className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-[#8B5CF6]/40 disabled:opacity-60"
+                            >
+                                {confirmLoading ? 'Publishing…' : 'Publish'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

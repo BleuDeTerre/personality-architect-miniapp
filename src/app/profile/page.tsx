@@ -321,6 +321,14 @@ export default function ProfilePage() {
     const xpRemaining = Math.max(xpGap - xpInCurrentLevel, 0);
     const levelName = getLevelName(level);
     const levelColor = getLevelColor(level);
+    const levelAccentHex = useMemo(() => {
+        if (level < 2) return '#94A3B8';
+        if (level < 4) return '#60A5FA';
+        if (level < 6) return '#A78BFA';
+        if (level < 8) return '#F472B6';
+        return '#FACC15';
+    }, [level]);
+    const progressPercent = Math.round(progress);
 
     const neynarDisplayName =
         neynarProfile?.displayName ??
@@ -345,12 +353,16 @@ export default function ProfilePage() {
                     lvl: String(level),
                     xp: String(xp),
                     gap: String(Math.max(xpRemaining, 0)),
+                    name: levelName,
+                    color: levelAccentHex,
+                    badge: `${levelName} tier`,
+                    percent: String(progressPercent),
                 },
                 targetPath: '/profile',
             });
         }
         return templates;
-    }, [gamificationStats, level, levelName, xp, xpRemaining]);
+    }, [gamificationStats, level, levelName, xp, xpRemaining, levelAccentHex, progressPercent]);
 
     // Parse bio into attributes/tags
     const bioAttributes = useMemo(() => {

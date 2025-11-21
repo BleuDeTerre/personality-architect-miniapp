@@ -359,6 +359,27 @@ export default function AnalyticsPage() {
     }, [comparative, habits]);
 
     const activeGoals = useMemo(() => goals.filter(g => g.status === 'active'), [goals]);
+    const completedGoals = useMemo(() => goals.filter(g => g.status === 'completed'), [goals]);
+    const latestCompletedGoal = useMemo(() => {
+        if (!completedGoals.length) return null;
+        return [...completedGoals].sort(
+            (a, b) => new Date(b.due_date ?? b.created_at ?? '').getTime() - new Date(a.due_date ?? a.created_at ?? '').getTime()
+        )[0];
+    }, [completedGoals]);
+    const highlightedGoal = useMemo(() => latestCompletedGoal ?? activeGoals[0] ?? null, [latestCompletedGoal, activeGoals]);
+    const highlightedStatus = useMemo(() => (latestCompletedGoal ? 'Last win' : 'In progress'), [latestCompletedGoal]);
+    const highlightedSummary = useMemo(() => {
+        if (!highlightedGoal) return 'Locking the next milestone';
+        if (highlightedGoal.metric && highlightedGoal.target !== undefined && highlightedGoal.target !== null) {
+            const unit = highlightedGoal.unit ? ` ${highlightedGoal.unit}` : '';
+            return `${highlightedGoal.metric}: ${highlightedGoal.target}${unit}`;
+        }
+        if (highlightedGoal.due_date) {
+            const dueLabel = new Date(highlightedGoal.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            return `Due ${dueLabel}`;
+        }
+        return 'Momentum locked in';
+    }, [highlightedGoal]);
     const goalProgress = useMemo(() => {
         if (activeGoals.length === 0) return null;
         const completedCount = goals.filter(g => g.status === 'completed').length;
@@ -474,43 +495,49 @@ export default function AnalyticsPage() {
         return topHabit.habit.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || topHabit.habit;
     }, [topHabit]);
 
+    const wheelAverageScore = useMemo(() => {
+        if (!wheelTrends || wheelTrends.length === 0) return null;
+        const sum = wheelTrends.reduce((acc, area) => acc + (area.last ?? 0), 0);
+        return Number((sum / wheelTrends.length).toFixed(1));
+    }, [wheelTrends]);
+
+    const wheelTopAreas = useMemo(() => {
+        return wheelTrends.slice().sort((a, b) => (b.last ?? 0) - (a.last ?? 0));
+    }, [wheelTrends]);
+
+    const wheelWeakestArea = useMemo(() => {
+        if (!wheelTrends || wheelTrends.length === 0) return null;
+        return wheelTrends.slice().sort((a, b) => (a.last ?? 0) - (b.last ?? 0))[0];
+    }, [wheelTrends]);
+
+    const wheelSpotlightSegments = useMemo(() => {
+        return wheelTopAreas
+            .slice(0, 6)
+            .map(area => ({ label: area.area, score: area.last }))
+            .filter(seg => !!seg.label && Number.isFinite(seg.score));
+    }, [wheelTopAreas]);
+
 
     const shareTemplates = useMemo<CastTemplate[]>(() => {
         const templates: CastTemplate[] = [];
-        const activeGoals = goals.filter(g => g.status === 'active');
-        const completedGoals = goals.filter(g => g.status === 'completed');
 
-        if (stats.current_streak > 0) {
+        const currentStreak = stats.current_streak ?? 0;
+        const bestStreak = stats.best_streak ?? currentStreak;
+        if (currentStreak > 0 || bestStreak > 0) {
             templates.push({
-                key: 'current-streak',
-                label: `Current streak (${stats.current_streak})`,
-                title: 'Current Streak Progress',
+                key: 'habit-streak',
+                label: `Habit streak (${currentStreak}d)`,
+                title: 'Habit Streak Signal',
                 kind: 'streaks',
-                text: `🔥 ${stats.current_streak} day streak! Building consistency with Personality Architect.`,
+                text: `💜 ${currentStreak} day run, best ${bestStreak} days. ${nextStreakBadge ? `${nextStreakBadge.days}d to ${nextStreakBadge.milestone}.` : 'Badge locked.'}`,
+                publishMode: 'auto',
                 previewParams: {
-                    variant: 'streaks:current',
-                    current: String(stats.current_streak),
-                    best: String(stats.best_streak ?? stats.current_streak),
+                    variant: 'streaks:summary',
+                    current: String(currentStreak),
+                    best: String(bestStreak),
                     next: String(nextStreakBadge?.days ?? 0),
-                    chips: `CURRENT RUN|${stats.current_streak} DAYS`,
-                },
-                targetPath: '/analytics',
-            });
-        }
-
-        if (stats.best_streak > 0) {
-            templates.push({
-                key: 'best-streak',
-                label: `Best streak (${stats.best_streak})`,
-                title: 'Best Streak Record',
-                kind: 'streaks',
-                text: `🏆 Personal best: ${stats.best_streak} day streak! Celebrating consistency milestones.`,
-                previewParams: {
-                    variant: 'streaks:best',
-                    current: String(stats.current_streak ?? 0),
-                    best: String(stats.best_streak),
-                    next: String(nextStreakBadge?.days ?? 0),
-                    chips: `PERSONAL RECORD|${stats.best_streak} DAYS`,
+                    badge: nextStreakBadge ? `${nextStreakBadge.days}d → ${nextStreakBadge.milestone}` : 'Badge unlocked',
+                    chips: `CURRENT ${currentStreak}D|BEST ${bestStreak}D`,
                 },
                 targetPath: '/analytics',
             });
@@ -529,6 +556,27 @@ export default function AnalyticsPage() {
                     best: String(stats.best_streak ?? 0),
                     next: String(nextStreakBadge.days),
                     chips: `NEXT BADGE|${nextStreakBadge.milestone} DAYS`,
+                },
+                targetPath: '/analytics',
+            });
+        }
+
+        if (goals.length > 0) {
+            templates.push({
+                key: 'goal-progress',
+                label: `Goal progress (${activeGoals.length} active)`,
+                title: 'Goal Progress Pulse',
+                kind: 'goals',
+                text: `🎯 ${activeGoals.length} active, ${completedGoals.length} completed — keeping goals in motion.`,
+                publishMode: 'auto',
+                previewParams: {
+                    variant: 'goals:progress',
+                    active: String(activeGoals.length),
+                    completed: String(completedGoals.length),
+                    total: String(goals.length),
+                    goal: highlightedGoal?.title ?? 'Next milestone',
+                    summary: highlightedSummary,
+                    status: highlightedStatus,
                 },
                 targetPath: '/analytics',
             });
@@ -578,6 +626,14 @@ export default function AnalyticsPage() {
         if (predictive?.length) {
             const insight = predictive[0];
             const riskPercent = Math.round((insight.risk_score ?? 0) * 100);
+            const action =
+                riskPercent >= 70 ? 'Immediate reset tonight' :
+                    riskPercent >= 40 ? 'Schedule a focused session' :
+                        'Stay consistent';
+            const summaryText = insight.risk_break
+                ? `${insight.habit_title} is at risk of breaking.`
+                : `${insight.habit_title} trending steady.`;
+            const confidence = riskPercent >= 70 ? 'High' : riskPercent >= 40 ? 'Medium' : 'Baseline';
             templates.push({
                 key: `ai-${insight.habit_id}`,
                 label: `AI Insight: ${insight.habit_title}`,
@@ -589,24 +645,10 @@ export default function AnalyticsPage() {
                     habit: insight.habit_title,
                     risk: String(riskPercent),
                     days: String(insight.days_since_last ?? 0),
-                    summary: `${riskPercent}% risk in ${insight.habit_title}`,
-                },
-                targetPath: '/analytics',
-            });
-        }
-
-        if (activeGoals.length > 0) {
-            templates.push({
-                key: 'goal-progress',
-                label: 'Goal progress',
-                title: 'Goal Progress Summary',
-                kind: 'goals',
-                text: `🎯 Working through ${activeGoals.length} active goals and already completed ${completedGoals.length}.`,
-                previewParams: {
-                    variant: 'goals:summary',
-                    active: String(activeGoals.length),
-                    completed: String(completedGoals.length),
-                    chips: `ACTIVE ${activeGoals.length}|DONE ${completedGoals.length}`,
+                    summary: summaryText,
+                    action,
+                    streak: String(insight.streak_days ?? 0),
+                    confidence,
                 },
                 targetPath: '/analytics',
             });
@@ -630,6 +672,41 @@ export default function AnalyticsPage() {
                     targetPath: '/analytics',
                 });
             }
+
+            if (wheelSpotlightSegments.length > 0 && wheelAverageScore !== null) {
+                const weekLabel = (() => {
+                    const now = new Date();
+                    const start = new Date(now);
+                    start.setDate(now.getDate() - start.getDay());
+                    const end = new Date(start);
+                    end.setDate(start.getDate() + 6);
+                    const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    return `${startStr} – ${endStr}`;
+                })();
+                const segmentsParam = wheelSpotlightSegments
+                    .map(seg => `${encodeURIComponent(seg.label)}:${seg.score.toFixed(1)}`)
+                    .join('|');
+                const topArea = wheelTopAreas[0]?.area ?? 'Top area';
+                const weakArea = wheelWeakestArea?.area ?? wheelTopAreas[wheelTopAreas.length - 1]?.area ?? 'Focus area';
+                templates.push({
+                    key: 'wheel-spotlight',
+                    label: `Wheel spotlight (${wheelAverageScore}/10)`,
+                    title: 'Wheel Spotlight',
+                    kind: 'wheel',
+                    text: `🎡 Avg ${wheelAverageScore}/10 — ${topArea} leads, ${weakArea} needs fuel.`,
+                    previewParams: {
+                        variant: 'wheel:spotlight',
+                        avg: String(wheelAverageScore),
+                        week: weekLabel,
+                        focus: weakArea,
+                        top: topArea,
+                        low: weakArea,
+                        segments: segmentsParam,
+                    },
+                    targetPath: '/analytics',
+                });
+            }
         }
 
         if (weeklyCapsules.length > 0) {
@@ -641,23 +718,41 @@ export default function AnalyticsPage() {
                 label: `Capsule ${startStr}`,
                 title: 'Weekly Capsule',
                 kind: 'analytics',
-                text: `📦 Week ${startStr}–${endStr}: ${capsule.completedDays}/${capsule.totalDays} days complete, longest run ${capsule.longestRun}d.`,
+                text: `📦 Week ${startStr}–${endStr}: ${capsule.completedDays}/${capsule.totalDays} days done, longest run ${capsule.longestRun}d.`,
                 previewParams: {
-                    variant: 'analytics:capsule',
+                    variant: 'capsule:weekly',
                     week: `${startStr} – ${endStr}`,
                     completed: String(capsule.completedDays),
                     total: String(capsule.totalDays),
                     longest: String(capsule.longestRun),
-                    focus: topHabitTitle ?? 'Focus habit',
+                    habit: topHabitTitle ?? 'Focus habit',
                     icon: topHabitIcon ?? '',
                     streak: String(stats.current_streak ?? 0),
+                    wheel: String(wheelAverageScore ?? 0),
+                    wheelTop: wheelTopAreas[0]?.area ?? 'Top area',
+                    wheelLow: wheelWeakestArea?.area ?? 'Focus area',
                 },
                 targetPath: '/analytics',
             });
         }
 
         return templates;
-    }, [stats, nextStreakBadge, comparative, facts, predictive, goals, wheelTrends, weeklyCapsules, topHabitTitle, topHabitIcon]);
+    }, [
+        stats,
+        nextStreakBadge,
+        comparative,
+        facts,
+        predictive,
+        goals,
+        wheelTrends,
+        weeklyCapsules,
+        topHabitTitle,
+        topHabitIcon,
+        wheelAverageScore,
+        wheelTopAreas,
+        wheelSpotlightSegments,
+        wheelWeakestArea,
+    ]);
 
     return (
         <MiniAppPage>

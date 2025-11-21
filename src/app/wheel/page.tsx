@@ -566,7 +566,7 @@ export default function WheelPage() {
             });
         }
         return templates;
-    }, [avg, items, topArea, weakArea]);
+    }, [avg, items, topArea, weakArea, week]);
 
     return (
         <MiniAppPage>

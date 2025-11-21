@@ -482,24 +482,37 @@ export default function GoalsPage() {
         if (!goals.length) return [];
         const templates: CastTemplate[] = [];
 
-        templates.push({
-            key: 'summary',
-            label: `Summary (${activeGoals.length} active)`,
-            title: 'Goal Progress Summary',
-            kind: 'goals',
-            text: `🎯 Working through ${activeGoals.length} active goals and already completed ${completedGoals.length}.`,
-            previewParams: {
-                variant: 'goals:summary',
-                active: String(activeGoals.length),
-                completed: String(completedGoals.length),
-                chips: `ACTIVE ${activeGoals.length}|DONE ${completedGoals.length}`,
-            },
-            targetPath: '/goals',
-        });
-
         const recentCompleted = completedGoals
             .slice()
             .sort((a, b) => new Date(b.due_date ?? b.created_at).getTime() - new Date(a.due_date ?? a.created_at).getTime())[0];
+        const highlightedGoal = recentCompleted ?? activeGoals[0] ?? null;
+        const highlightStatus = recentCompleted ? 'Last win' : 'In progress';
+        const highlightSummary = highlightedGoal
+            ? highlightedGoal.metric && highlightedGoal.target !== null && highlightedGoal.target !== undefined
+                ? `${highlightedGoal.metric}: ${highlightedGoal.target}${highlightedGoal.unit ? ` ${highlightedGoal.unit}` : ''}`
+                : highlightedGoal.due_date
+                    ? `Due ${new Date(highlightedGoal.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                    : 'Momentum locked in'
+            : 'Locking the next milestone';
+
+        templates.push({
+            key: 'summary',
+            label: `Summary (${activeGoals.length} active)`,
+            title: 'Goal Progress Pulse',
+            kind: 'goals',
+            text: `🎯 Working through ${activeGoals.length} active goals and already completed ${completedGoals.length}.`,
+            publishMode: 'auto',
+            previewParams: {
+                variant: 'goals:progress',
+                active: String(activeGoals.length),
+                completed: String(completedGoals.length),
+                total: String(goals.length),
+                goal: highlightedGoal?.title ?? 'Next milestone',
+                summary: highlightSummary,
+                status: highlightStatus,
+            },
+            targetPath: '/goals',
+        });
 
         if (recentCompleted) {
             templates.push({
@@ -510,9 +523,9 @@ export default function GoalsPage() {
                 text: `✅ Just checked off “${recentCompleted.title}” in Personality Architect!`,
                 previewParams: {
                     variant: 'goals:completed',
-                goal: recentCompleted.title,
-                completed: String(completedGoals.length),
-                chips: `JUST FINISHED|${recentCompleted.title}`,
+                    goal: recentCompleted.title,
+                    completed: String(completedGoals.length),
+                    chips: `JUST FINISHED|${recentCompleted.title}`,
                 },
                 targetPath: '/goals',
             });
@@ -531,10 +544,10 @@ export default function GoalsPage() {
                 text: `🚀 “${nextDeadline.title}” is coming up (${dueLabel}). Keeping the momentum going!`,
                 previewParams: {
                     variant: 'goals:upcoming',
-                goal: nextDeadline.title,
-                due: dueLabel,
-                days: String(daysLeft ?? ''),
-                chips: daysLeft !== null ? `DUE IN ${daysLeft}D` : `DUE ${dueLabel}`,
+                    goal: nextDeadline.title,
+                    due: dueLabel,
+                    days: String(daysLeft ?? ''),
+                    chips: daysLeft !== null ? `DUE IN ${daysLeft}D` : `DUE ${dueLabel}`,
                 },
                 targetPath: '/goals',
             });

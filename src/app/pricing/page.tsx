@@ -1,11 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useMiniApp } from '@neynar/react';
 import MiniAppPage from '@/components/MiniAppPage';
-import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
-import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
+import { calculateXP, calculateLevel, xpForNextLevel, getLevelName, type UserStats } from '@/lib/gamification';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -100,11 +99,12 @@ export default function PricingPage() {
     }, [authHeaders]);
 
     const { isSDKLoaded, context } = useMiniApp();
+    const userFid = context?.user?.fid ? Number(context.user.fid) : null;
 
     useEffect(() => {
         (async () => {
-            if (!isSDKLoaded || !context?.user?.fid) return;
-            const fid = Number(context.user.fid);
+            if (!isSDKLoaded || !userFid) return;
+            const fid = userFid;
 
             const { data } = await supabase.auth.getUser();
             if (!data.user) {
@@ -128,7 +128,7 @@ export default function PricingPage() {
                 setGamificationStats(stats);
             }
         })();
-    }, [loadCurrentPlan, authHeaders]);
+    }, [loadCurrentPlan, authHeaders, isSDKLoaded, userFid]);
 
     const handleUpgrade = async (planId: string) => {
         if (planId === 'free') return;
@@ -157,35 +157,11 @@ export default function PricingPage() {
     // Calculate XP and level
     const xp = gamificationStats?.totalXP ?? (gamificationStats ? calculateXP(gamificationStats) : 0);
     const level = calculateLevel(xp);
-    const progress = getLevelProgress(xp, level);
     const xpGap = xpForNextLevel(level);
     const xpForCurrentLevel = (level ** 2) * 100;
     const xpInCurrentLevel = Math.max(xp - xpForCurrentLevel, 0);
     const xpRemaining = Math.max(xpGap - xpInCurrentLevel, 0);
     const levelName = getLevelName(level);
-    const levelColor = getLevelColor(level);
-
-    // Level share templates
-    const levelShareTemplates = useMemo<CastTemplate[]>(() => {
-        const templates: CastTemplate[] = [];
-        if (gamificationStats) {
-            templates.push({
-                key: 'level',
-                label: `Level ${level} ${levelName}`,
-                title: 'Level Up',
-                kind: 'level',
-                text: `⚡️ Reached ${levelName} (Level ${level}) with ${xp.toLocaleString()} XP in Personality Architect!`,
-                previewParams: {
-                    variant: 'level:up',
-                    lvl: String(level),
-                    xp: String(xp),
-                    gap: String(Math.max(xpRemaining, 0)),
-                },
-                targetPath: '/pricing',
-            });
-        }
-        return templates;
-    }, [gamificationStats, level, levelName, xp, xpRemaining]);
 
     return (
         <MiniAppPage>

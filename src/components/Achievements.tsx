@@ -98,7 +98,7 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
         loadAchievements();
     }, [authHeaders]);
 
-    const unlockedCount = achievements.filter(a => a.unlocked).length;
+    const _unlockedCount = achievements.filter(a => a.unlocked).length;
     const questLists = questBuckets
         ? {
             daily: questBuckets.daily,
@@ -257,11 +257,10 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
                                         if (disabled || !elig.eligible || st === 'success') return;
                                         await badgePanel.onMint(badge.slug);
                                     }}
-                                    className={`w-full rounded-2xl px-4 py-2 text-sm font-semibold transition ${
-                                        st === 'success'
+                                    className={`w-full rounded-2xl px-4 py-2 text-sm font-semibold transition ${st === 'success'
                                             ? 'bg-white/10 text-white cursor-default'
                                             : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white hover:opacity-90 disabled:opacity-50'
-                                    }`}
+                                        }`}
                                 >
                                     {badgePanel.busyCode === badge.slug
                                         ? 'Minting…'

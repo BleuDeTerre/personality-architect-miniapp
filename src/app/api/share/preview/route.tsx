@@ -6,6 +6,18 @@ import { SHARE_PREVIEW_VERSION } from '@/lib/sharePreviewVersion';
 
 export const runtime = 'nodejs';
 
+// Обработка CORS preflight запросов
+export async function OPTIONS() {
+    return new NextResponse(null, {
+        status: 204,
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+        },
+    });
+}
+
 function escapeAttr(s: string) {
     return s
         .replace(/&/g, '&amp;')
@@ -299,6 +311,9 @@ export async function GET(req: NextRequest) {
             headers: {
                 'Content-Type': 'text/html; charset=utf-8',
                 'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type',
             },
         });
     } catch (error: any) {

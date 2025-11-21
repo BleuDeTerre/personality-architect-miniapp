@@ -447,37 +447,23 @@ export default function StreaksPage() {
 
     const shareTemplates = useMemo<CastTemplate[]>(() => {
         const templates: CastTemplate[] = [];
-        if (stats.current_streak > 0) {
+        const currentStreak = stats.current_streak ?? 0;
+        const bestStreak = stats.best_streak ?? currentStreak;
+        if (currentStreak > 0 || bestStreak > 0) {
             templates.push({
-                key: 'current',
-                label: `Current streak (${stats.current_streak})`,
-                title: 'Current Streak Progress',
+                key: 'streak-summary',
+                label: `Habit streak (${currentStreak}d)`,
+                title: 'Habit Streak Signal',
                 kind: 'streaks',
-                text: `🔥 Keeping the habit run alive: ${stats.current_streak} days in a row with Personality Architect!`,
+                text: `💜 ${currentStreak} day run, best ${bestStreak} days. ${nextBadgeDays ? `${nextBadgeDays}d to next badge.` : 'Badge unlocked.'}`,
+                publishMode: 'auto',
                 previewParams: {
-                    variant: 'streaks:current',
-                    current: String(stats.current_streak),
-                    best: String(stats.best_streak ?? stats.current_streak),
+                    variant: 'streaks:summary',
+                    current: String(currentStreak),
+                    best: String(bestStreak),
                     next: String(nextBadgeDays ?? 0),
-                    streak: String(stats.current_streak),
-                    chips: `CURRENT RUN|${stats.current_streak} DAYS`,
-                },
-                targetPath: '/streaks',
-            });
-        }
-        if (stats.best_streak > 0) {
-            templates.push({
-                key: 'best',
-                label: `Best streak (${stats.best_streak})`,
-                title: 'Best Streak Highlight',
-                kind: 'streaks',
-                text: `🏆 New record unlocked: ${stats.best_streak} day streak logged inside Personality Architect.`,
-                previewParams: {
-                    variant: 'streaks:best',
-                    current: String(stats.current_streak ?? 0),
-                    best: String(stats.best_streak),
-                    next: String(nextBadgeDays ?? 0),
-                    chips: `PERSONAL RECORD|${stats.best_streak} DAYS`,
+                    badge: nextBadgeDays !== null ? `${nextBadgeDays}d → next badge` : 'Badge unlocked',
+                    chips: `CURRENT ${currentStreak}D|BEST ${bestStreak}D`,
                 },
                 targetPath: '/streaks',
             });

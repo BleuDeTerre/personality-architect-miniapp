@@ -76,59 +76,36 @@ export default function QuestBoard({ className }: QuestBoardProps) {
     const shareTemplates = useMemo<CastTemplate[]>(() => {
         if (!quests) return [];
         const templates: CastTemplate[] = [];
-        if (quests.daily?.length) {
-            const dailyXp = quests.daily.filter(q => q.completed).reduce((sum, q) => sum + q.xpReward, 0);
-            templates.push({
-                key: 'quests-daily',
-                label: `Daily ${quests.completedDaily}/${quests.totalDaily}`,
-                title: 'Daily Quests Summary',
-                kind: 'quests',
-                text: `🗓️ Completed ${quests.completedDaily}/${quests.totalDaily} daily quests today (+${dailyXp} XP).`,
-                previewParams: {
-                    variant: 'quests:daily',
-                    completed: String(quests.completedDaily),
-                    total: String(quests.totalDaily),
-                    xp: String(dailyXp),
-                },
-                targetPath: '/profile',
-            });
-        }
-        if (quests.weekly?.length) {
-            const completed = quests.weekly.filter(q => q.completed).length;
-            const weeklyXp = quests.weekly.filter(q => q.completed).reduce((sum, q) => sum + q.xpReward, 0);
-            templates.push({
-                key: 'quests-weekly',
-                label: `Weekly ${completed}/${quests.weekly.length}`,
-                title: 'Weekly Quest Progress',
-                kind: 'quests',
-                text: `📅 Closed ${completed}/${quests.weekly.length} weekly quests so far.`,
-                previewParams: {
-                    variant: 'quests:weekly',
-                    completed: String(completed),
-                    total: String(quests.weekly.length),
-                    xp: String(weeklyXp),
-                },
-                targetPath: '/profile',
-            });
-        }
-        if (quests.monthly?.length) {
-            const completed = quests.monthly.filter(q => q.completed).length;
-            const monthlyXp = quests.monthly.filter(q => q.completed).reduce((sum, q) => sum + q.xpReward, 0);
-            templates.push({
-                key: 'quests-monthly',
-                label: `Monthly ${completed}/${quests.monthly.length}`,
-                title: 'Monthly Quest Arc',
-                kind: 'quests',
-                text: `🔥 Working through ${completed}/${quests.monthly.length} monthly quests this cycle.`,
-                previewParams: {
-                    variant: 'quests:monthly',
-                    completed: String(completed),
-                    total: String(quests.monthly.length),
-                    xp: String(monthlyXp),
-                },
-                targetPath: '/profile',
-            });
-        }
+        const dailyXp = quests.daily?.filter(q => q.completed).reduce((sum, q) => sum + q.xpReward, 0) ?? 0;
+        const weeklyCompleted = quests.weekly?.filter(q => q.completed).length ?? 0;
+        const weeklyXp = quests.weekly?.filter(q => q.completed).reduce((sum, q) => sum + q.xpReward, 0) ?? 0;
+        const monthlyCompleted = quests.monthly?.filter(q => q.completed).length ?? 0;
+        const monthlyXp = quests.monthly?.filter(q => q.completed).reduce((sum, q) => sum + q.xpReward, 0) ?? 0;
+        const totalXp = dailyXp + weeklyXp + monthlyXp;
+
+        templates.push({
+            key: 'quests-summary',
+            label: `Quests ${quests.completedDaily}/${quests.totalDaily} daily`,
+            title: 'Quest Summary',
+            kind: 'quests',
+            text: `🛡️ Daily ${quests.completedDaily}/${quests.totalDaily}, Weekly ${weeklyCompleted}/${quests.weekly.length}, Monthly ${monthlyCompleted}/${quests.monthly.length}.`,
+            publishMode: 'auto',
+            previewParams: {
+                variant: 'quests:summary',
+                dCompleted: String(quests.completedDaily),
+                dTotal: String(quests.totalDaily),
+                dXp: String(dailyXp),
+                wCompleted: String(weeklyCompleted),
+                wTotal: String(quests.weekly.length),
+                wXp: String(weeklyXp),
+                mCompleted: String(monthlyCompleted),
+                mTotal: String(quests.monthly.length),
+                mXp: String(monthlyXp),
+                xp: String(totalXp),
+            },
+            targetPath: '/profile',
+        });
+
         return templates;
     }, [quests]);
 
@@ -177,7 +154,7 @@ export default function QuestBoard({ className }: QuestBoardProps) {
                                 >
                                     {/* Icon */}
                                     <div className="text-2xl flex-shrink-0">{quest.icon}</div>
-                                    
+
                                     {/* Content */}
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-start justify-between gap-3 mb-2">
@@ -190,25 +167,24 @@ export default function QuestBoard({ className }: QuestBoardProps) {
                                                 <div className="text-green-400 text-xl flex-shrink-0">✓</div>
                                             )}
                                         </div>
-                                        
+
                                         {/* Progress */}
                                         <div className="flex items-center justify-between text-sm text-white mb-2">
                                             <span>{quest.current}/{quest.target}</span>
                                             <span>{Math.round(progress)}%</span>
                                         </div>
-                                        
+
                                         {/* Progress Bar */}
                                         <div className="h-2 rounded-full bg-white/10 overflow-hidden mb-2">
                                             <div
-                                                className={`h-full rounded-full transition-all ${
-                                                    quest.completed 
-                                                        ? 'bg-gradient-to-r from-[#2BD4A4] to-[#14b8a6]' 
-                                                        : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9]'
-                                                }`}
+                                                className={`h-full rounded-full transition-all ${quest.completed
+                                                    ? 'bg-gradient-to-r from-[#2BD4A4] to-[#14b8a6]'
+                                                    : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9]'
+                                                    }`}
                                                 style={{ width: `${Math.min(100, progress)}%` }}
                                             />
                                         </div>
-                                        
+
                                         {/* Reward */}
                                         <div className="text-sm text-[#2BD4A4] font-medium">
                                             Reward: +{quest.xpReward} XP

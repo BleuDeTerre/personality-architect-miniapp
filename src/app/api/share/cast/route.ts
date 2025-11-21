@@ -48,26 +48,35 @@ export async function POST(req: NextRequest) {
     const supa = createUserServerClient(token);
 
     const origin = getOrigin(req);
-    const preview = new URL(embedUrl ?? `${origin}/api/share/preview`);
-    preview.searchParams.set('kind', kind);
-    preview.searchParams.set('title', title);
-    if (month) preview.searchParams.set('month', month);
+    // Передаем URL HTML-страницы с OG-тегами в embeds (как в рабочей версии)
+    const previewPageUrl = embedUrl ?? `${origin}/api/share/preview`;
+    const preview = new URL(previewPageUrl);
+
+    // Добавляем параметры для генерации изображения
+    preview.searchParams.set('rev', String(previewParams.rev ?? process.env.SHARE_PREVIEW_VERSION ?? '1'));
+
+    if (previewParams.variant) {
+        preview.searchParams.set('variant', String(previewParams.variant));
+    }
     Object.entries(previewParams).forEach(([key, value]) => {
-        if (value === undefined || value === null) return;
+        if (value === undefined || value === null || key === 'variant' || key === 'rev') return;
         preview.searchParams.set(key, String(value));
     });
 
     const compose = new URL('https://warpcast.com/~/compose');
     compose.searchParams.set('text', rawText);
     compose.searchParams.append('embeds[]', preview.toString());
-    if (targetUrl) compose.searchParams.append('embeds[]', targetUrl);
 
     try {
+        console.log('[Share Cast] Publishing cast with preview URL:', preview.toString());
+        console.log('[Share Cast] Preview params:', previewParams);
+
         const hash = await publishCast(NEYNAR_SIGNER_UUID, rawText, [
             { url: preview.toString() },
-            ...(targetUrl ? [{ url: targetUrl }] : []),
         ]);
         const castUrl = `https://warpcast.com/~/casts/${hash}`;
+
+        console.log('[Share Cast] Cast published successfully:', { hash, castUrl });
 
         await supa.from('events_log').insert({
             user_id: user.id,
@@ -82,7 +91,19 @@ export async function POST(req: NextRequest) {
             targetUrl,
         });
     } catch (error: any) {
-        console.error('[Share Cast] Failed to publish cast', error);
+        console.error('[Share Cast] Failed to publish cast:', {
+            error: error?.message,
+            statusCode: error?.statusCode,
+            statusText: error?.statusText,
+            response: error?.response?.data,
+            responseText: error?.response?.data ? JSON.stringify(error.response.data) : undefined,
+            previewUrl: preview.toString(),
+            previewUrlLength: preview.toString().length,
+            text: rawText,
+            textLength: rawText.length,
+            embeds: [{ url: preview.toString() }],
+            signerUuid: NEYNAR_SIGNER_UUID ? 'configured' : 'missing',
+        });
         return NextResponse.json({
             error: error?.message ?? 'failed_to_publish',
             fallback: compose.toString(),
