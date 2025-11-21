@@ -110,6 +110,13 @@ export default function ShareCastComposer({
                     console.log('[ShareCastComposer] Using native composeCast with embed:', embedUrl);
                 }
 
+                // Добавляем второй embed с URL приложения для кнопки "Open in app"
+                if (template.targetPath) {
+                    const targetUrl = `${origin}${template.targetPath}`;
+                    embeds.push(targetUrl);
+                    console.log('[ShareCastComposer] Adding target URL for "Open in app":', targetUrl);
+                }
+
                 const embedsTuple = embeds.length > 0
                     ? (embeds.length === 1 ? [embeds[0]] as [string] : [embeds[0], embeds[1]] as [string, string])
                     : undefined;

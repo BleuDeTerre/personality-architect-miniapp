@@ -70,10 +70,19 @@ export async function POST(req: NextRequest) {
     try {
         console.log('[Share Cast] Publishing cast with preview URL:', preview.toString());
         console.log('[Share Cast] Preview params:', previewParams);
+        console.log('[Share Cast] Target URL:', targetUrl);
 
-        const hash = await publishCast(NEYNAR_SIGNER_UUID, rawText, [
+        // Собираем embeds: первый - preview изображения, второй - URL приложения для "Open in app"
+        const embeds: Array<{ url: string }> = [
             { url: preview.toString() },
-        ]);
+        ];
+        
+        // Добавляем второй embed с URL приложения для кнопки "Open in app"
+        if (targetUrl) {
+            embeds.push({ url: targetUrl });
+        }
+
+        const hash = await publishCast(NEYNAR_SIGNER_UUID, rawText, embeds);
         const castUrl = `https://warpcast.com/~/casts/${hash}`;
 
         console.log('[Share Cast] Cast published successfully:', { hash, castUrl });

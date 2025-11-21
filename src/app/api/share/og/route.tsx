@@ -21,6 +21,41 @@ function resolveCard(params: URLSearchParams) {
   const variant = (params.get('variant') ?? params.get('kind') ?? '').toLowerCase();
 
   if (variant.startsWith('goals')) {
+    // goals:progress - основной вариант
+    if (variant === 'goals:progress' || variant === 'goals') {
+      const active = formatNumber(params.get('active'));
+      const completed = formatNumber(params.get('completed'));
+      return {
+        title: 'Goal Progress Summary',
+        subtitle: `${active} active • ${completed} completed`,
+        value: `${active} active`,
+        label: 'ACTIVE GOALS',
+      };
+    }
+    // goals:completed - завершенная цель
+    if (variant === 'goals:completed') {
+      const goal = params.get('goal') || 'Goal';
+      const completed = formatNumber(params.get('completed'));
+      return {
+        title: 'Goal Completed',
+        subtitle: `Completed: ${goal}`,
+        value: `${completed} completed`,
+        label: 'COMPLETED',
+      };
+    }
+    // goals:upcoming - предстоящая цель
+    if (variant === 'goals:upcoming') {
+      const goal = params.get('goal') || 'Goal';
+      const days = params.get('days') || '0';
+      const due = params.get('due') || 'Due';
+      return {
+        title: 'Upcoming Goal',
+        subtitle: `${due}`,
+        value: `${days} days`,
+        label: 'DAYS LEFT',
+      };
+    }
+    // Fallback для других вариантов goals
     const active = formatNumber(params.get('active'));
     const completed = formatNumber(params.get('completed'));
     return {
@@ -70,28 +105,63 @@ function resolveCard(params: URLSearchParams) {
   }
 
   if (variant.startsWith('quests')) {
-    const completed = formatNumber(params.get('completed'));
+    // Для quests:summary используем общее количество выполненных квестов
+    const dCompleted = formatNumber(params.get('dCompleted'));
+    const wCompleted = formatNumber(params.get('wCompleted'));
+    const mCompleted = formatNumber(params.get('mCompleted'));
+    const totalCompleted = dCompleted + wCompleted + mCompleted;
     return {
       title: 'Quest Summary',
-      value: `${completed} completed`,
+      subtitle: `Daily • Weekly • Monthly`,
+      value: `${totalCompleted} completed`,
+      label: 'QUESTS',
     };
   }
 
   if (variant.startsWith('level')) {
-    const level = formatNumber(params.get('level'), 1);
+    // level:up использует lvl вместо level
+    const level = formatNumber(params.get('lvl') || params.get('level'), 1);
+    const xp = formatNumber(params.get('xp'));
+    const gap = formatNumber(params.get('gap'));
+    const name = params.get('name') || 'Level';
     return {
       title: 'Level Up',
+      subtitle: `${name} • ${xp} XP`,
       value: `Level ${level}`,
+      label: 'CURRENT LEVEL',
     };
   }
 
   if (variant.startsWith('analytics')) {
-    if (variant.includes('insight')) {
+    if (variant === 'analytics:insight') {
       const habit = params.get('habit') || 'Habit';
       const days = formatNumber(params.get('days'));
+      const risk = params.get('risk') || '0';
       return {
         title: 'AI Insight',
-        value: `${habit}: ${days} days`,
+        subtitle: `${habit}`,
+        value: `${days} days`,
+        label: 'DAYS SINCE LAST',
+      };
+    }
+    if (variant === 'analytics:top') {
+      const habit = params.get('habit') || 'Habit';
+      const count = formatNumber(params.get('count'));
+      return {
+        title: 'Top Habit Highlight',
+        subtitle: habit,
+        value: `${count} times`,
+        label: 'TOP HABIT',
+      };
+    }
+    if (variant === 'analytics:weekly') {
+      const tw = formatNumber(params.get('tw'));
+      const lw = formatNumber(params.get('lw'));
+      const trend = params.get('trend') || '';
+      return {
+        title: 'Weekly Analytics',
+        subtitle: trend,
+        value: `This: ${tw} • Last: ${lw}`,
       };
     }
     return {
@@ -101,12 +171,26 @@ function resolveCard(params: URLSearchParams) {
   }
 
   if (variant.startsWith('wheel')) {
-    if (variant.includes('spotlight')) {
+    if (variant === 'wheel:spotlight') {
       const avg = params.get('avg') || '0';
-      const focus = params.get('focus') || 'Focus Area';
+      const focus = params.get('focus') || params.get('low') || 'Focus Area';
+      const top = params.get('top') || '';
       return {
         title: 'Wheel Spotlight',
-        value: `Avg: ${avg} • ${focus}`,
+        subtitle: top ? `Top: ${top} • Weak: ${focus}` : `Weak: ${focus}`,
+        value: `Avg: ${avg}`,
+        label: 'AVERAGE SCORE',
+      };
+    }
+    if (variant === 'wheel:shift') {
+      const area = params.get('area') || 'Area';
+      const delta = params.get('delta') || '0';
+      const current = params.get('current') || '0';
+      return {
+        title: 'Wheel Shift',
+        subtitle: area,
+        value: `${delta}`,
+        label: 'CHANGE',
       };
     }
     return {
@@ -265,12 +349,12 @@ export async function GET(req: NextRequest) {
         <div
           style={{
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
-            paddingBottom: 40,
+            justifyContent: 'center',
+            paddingBottom: 60,
             paddingLeft: 80,
             paddingRight: 80,
-            gap: 20,
+            gap: 12,
           }}
         >
           {/* Брендинг с логотипом */}
@@ -326,21 +410,6 @@ export async function GET(req: NextRequest) {
                 Plan. Execute. Evolve.
               </div>
             </div>
-          </div>
-
-          {/* Кнопка "Open in app" */}
-          <div
-            style={{
-              padding: '12px 24px',
-              borderRadius: 8,
-              background: 'rgba(139, 92, 246, 0.2)',
-              border: '1px solid rgba(139, 92, 246, 0.3)',
-              fontSize: 16,
-              fontWeight: '600',
-              color: '#a78bfa',
-            }}
-          >
-            Open in app
           </div>
         </div>
       </div>
