@@ -3,6 +3,68 @@ import { NextRequest } from 'next/server';
 
 export const runtime = 'edge';
 
+// Цветовые схемы для разных типов кастов
+const COLOR_SCHEMES = {
+  // Goals - бирюзовый/зеленый
+  goals: {
+    primary: '#10b981', // Emerald green
+    dark: 'rgba(16, 185, 129, 0.15)', // Темный фон блока
+  },
+  // Streaks - фиолетовый
+  streaks: {
+    primary: '#a78bfa', // Purple
+    dark: 'rgba(167, 139, 250, 0.15)',
+  },
+  // Best Streak - розовый
+  'streaks:best': {
+    primary: '#ec4899', // Pink
+    dark: 'rgba(236, 72, 153, 0.15)',
+  },
+  // Quests - оранжевый
+  quests: {
+    primary: '#f97316', // Orange
+    dark: 'rgba(249, 115, 22, 0.15)',
+  },
+  // Level - золотой/желтый
+  level: {
+    primary: '#eab308', // Yellow
+    dark: 'rgba(234, 179, 8, 0.15)',
+  },
+  // Analytics - синий
+  analytics: {
+    primary: '#3b82f6', // Blue
+    dark: 'rgba(59, 130, 246, 0.15)',
+  },
+  // Wheel - фиолетовый (другой оттенок)
+  wheel: {
+    primary: '#8b5cf6', // Violet
+    dark: 'rgba(139, 92, 246, 0.15)',
+  },
+  // Capsule - голубой
+  capsule: {
+    primary: '#06b6d4', // Cyan
+    dark: 'rgba(6, 182, 212, 0.15)',
+  },
+  // По умолчанию - фиолетовый
+  default: {
+    primary: '#a78bfa',
+    dark: 'rgba(167, 139, 250, 0.15)',
+  },
+};
+
+function getColorScheme(variant: string) {
+  const v = variant.toLowerCase();
+  if (v.startsWith('goals')) return COLOR_SCHEMES.goals;
+  if (v === 'streaks:best') return COLOR_SCHEMES['streaks:best'];
+  if (v.startsWith('streaks')) return COLOR_SCHEMES.streaks;
+  if (v.startsWith('quests')) return COLOR_SCHEMES.quests;
+  if (v.startsWith('level')) return COLOR_SCHEMES.level;
+  if (v.startsWith('analytics')) return COLOR_SCHEMES.analytics;
+  if (v.startsWith('wheel')) return COLOR_SCHEMES.wheel;
+  if (v.startsWith('capsule')) return COLOR_SCHEMES.capsule;
+  return COLOR_SCHEMES.default;
+}
+
 function formatNumber(raw: string | null, fallback = 0): number {
   if (!raw) return fallback;
   const parsed = Number(raw);
@@ -30,6 +92,7 @@ function resolveCard(params: URLSearchParams) {
         subtitle: `${active} active • ${completed} completed`,
         value: `${active} active`,
         label: 'ACTIVE GOALS',
+        icon: '🎯', // Иконка мишени
       };
     }
     // goals:completed - завершенная цель
@@ -41,6 +104,7 @@ function resolveCard(params: URLSearchParams) {
         subtitle: `Completed: ${goal}`,
         value: `${completed} completed`,
         label: 'COMPLETED',
+        icon: '🎯', // Иконка мишени
       };
     }
     // goals:upcoming - предстоящая цель
@@ -53,6 +117,7 @@ function resolveCard(params: URLSearchParams) {
         subtitle: `${due}`,
         value: `${days} days`,
         label: 'DAYS LEFT',
+        icon: '🎯', // Иконка мишени
       };
     }
     // Fallback для других вариантов goals
@@ -63,6 +128,7 @@ function resolveCard(params: URLSearchParams) {
       subtitle: `${active} active • ${completed} completed`,
       value: `${active} active`,
       label: 'ACTIVE GOALS',
+      icon: '🎯', // Иконка мишени
     };
   }
 
@@ -71,6 +137,7 @@ function resolveCard(params: URLSearchParams) {
     return {
       title: 'Next Badge Countdown',
       value: `${next} days`,
+      icon: '🔥', // Иконка пламени
     };
   }
 
@@ -81,6 +148,7 @@ function resolveCard(params: URLSearchParams) {
       value: `${best} days`,
       label: 'PERSONAL BEST',
       colorScheme: 'pink', // Для розового цвета
+      icon: '🏆', // Иконка трофея
     };
   }
 
@@ -92,6 +160,7 @@ function resolveCard(params: URLSearchParams) {
       value: `Current: ${current}d • Best: ${best}d`,
       subtitle: null,
       label: null,
+      icon: '🔥', // Иконка пламени
     };
   }
 
@@ -101,6 +170,7 @@ function resolveCard(params: URLSearchParams) {
       title: 'Current Streak Progress',
       value: `${current} days`,
       label: 'CURRENT STREAK',
+      icon: '🔥', // Иконка пламени
     };
   }
 
@@ -115,6 +185,7 @@ function resolveCard(params: URLSearchParams) {
       subtitle: `Daily • Weekly • Monthly`,
       value: `${totalCompleted} completed`,
       label: 'QUESTS',
+      icon: '⚡', // Иконка молнии
     };
   }
 
@@ -129,6 +200,7 @@ function resolveCard(params: URLSearchParams) {
       subtitle: `${name} • ${xp} XP`,
       value: `Level ${level}`,
       label: 'CURRENT LEVEL',
+      icon: '⭐', // Иконка звезды
     };
   }
 
@@ -142,6 +214,7 @@ function resolveCard(params: URLSearchParams) {
         subtitle: `${habit}`,
         value: `${days} days`,
         label: 'DAYS SINCE LAST',
+        icon: '📊', // Иконка графика
       };
     }
     if (variant === 'analytics:top') {
@@ -152,6 +225,7 @@ function resolveCard(params: URLSearchParams) {
         subtitle: habit,
         value: `${count} times`,
         label: 'TOP HABIT',
+        icon: '📊', // Иконка графика
       };
     }
     if (variant === 'analytics:weekly') {
@@ -162,11 +236,13 @@ function resolveCard(params: URLSearchParams) {
         title: 'Weekly Analytics',
         subtitle: trend,
         value: `This: ${tw} • Last: ${lw}`,
+        icon: '📊', // Иконка графика
       };
     }
     return {
       title: 'AI Insight',
       value: 'Analytics',
+      icon: '📊', // Иконка графика
     };
   }
 
@@ -180,6 +256,7 @@ function resolveCard(params: URLSearchParams) {
         subtitle: top ? `Top: ${top} • Weak: ${focus}` : `Weak: ${focus}`,
         value: `Avg: ${avg}`,
         label: 'AVERAGE SCORE',
+        icon: '🎡', // Иконка колеса
       };
     }
     if (variant === 'wheel:shift') {
@@ -191,11 +268,13 @@ function resolveCard(params: URLSearchParams) {
         subtitle: area,
         value: `${delta}`,
         label: 'CHANGE',
+        icon: '🎡', // Иконка колеса
       };
     }
     return {
       title: 'Wheel Snapshot',
       value: 'Wheel Data',
+      icon: '🎡', // Иконка колеса
     };
   }
 
@@ -205,6 +284,7 @@ function resolveCard(params: URLSearchParams) {
     return {
       title: 'Weekly Capsule',
       value: `${completed}/${total} days`,
+      icon: '📦', // Иконка капсулы
     };
   }
 
@@ -227,9 +307,12 @@ export async function GET(req: NextRequest) {
   }
 
   const card = resolveCard(params);
+  const variant = (params.get('variant') ?? params.get('kind') ?? '').toLowerCase();
+  const colorScheme = getColorScheme(variant);
 
   if (Object.keys(paramsObj).length > 0) {
     console.log('[OG Image] Resolved card:', card);
+    console.log('[OG Image] Color scheme:', { variant, primary: colorScheme.primary });
   }
 
   return new ImageResponse(
@@ -241,15 +324,16 @@ export async function GET(req: NextRequest) {
           display: 'flex',
           flexDirection: 'column',
           background: 'linear-gradient(to bottom, #1e1b4b, #0f172a)',
+          justifyContent: 'space-between',
         }}
       >
-        {/* Заголовок сверху */}
+        {/* Заголовок сверху слева */}
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
+            alignItems: 'flex-start',
+            justifyContent: 'flex-start',
             paddingTop: 60,
             paddingLeft: 80,
             paddingRight: 80,
@@ -257,13 +341,21 @@ export async function GET(req: NextRequest) {
         >
           <div
             style={{
-              fontSize: 48,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              fontSize: 56,
               fontWeight: 'bold',
               color: 'white',
-              textAlign: 'center',
             }}
           >
-            {card.title}
+            {/* Иконка рядом с заголовком */}
+            {(card as any).icon && (
+              <span style={{ fontSize: 56 }}>
+                {(card as any).icon}
+              </span>
+            )}
+            <span>{card.title}</span>
           </div>
           {/* Подзаголовок */}
           {(card as any).subtitle && (
@@ -271,8 +363,7 @@ export async function GET(req: NextRequest) {
               style={{
                 fontSize: 24,
                 color: '#94a3b8',
-                marginTop: 16,
-                textAlign: 'center',
+                marginTop: 12,
               }}
             >
               {(card as any).subtitle}
@@ -280,52 +371,48 @@ export async function GET(req: NextRequest) {
           )}
         </div>
 
-        {/* Основной блок с данными по центру */}
+        {/* Основной блок с данными слева под заголовком */}
         <div
           style={{
             flex: 1,
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            alignItems: 'flex-start',
+            justifyContent: 'flex-start',
             paddingLeft: 80,
             paddingRight: 80,
+            paddingTop: 24,
           }}
         >
           {(card as any).label ? (
-            // Блок с фоном и меткой (как "ACTIVE GOALS" или "CURRENT STREAK")
+            // Блок с фоном и меткой (темный фон, цветные данные) - растянут вправо, закруглен
             <div
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                padding: 40,
-                borderRadius: 16,
-                background: (card as any).colorScheme === 'pink'
-                  ? 'rgba(236, 72, 153, 0.1)'
-                  : 'rgba(139, 92, 246, 0.1)',
-                border: (card as any).colorScheme === 'pink'
-                  ? '1px solid rgba(236, 72, 153, 0.2)'
-                  : '1px solid rgba(139, 92, 246, 0.2)',
+                padding: 32,
+                paddingRight: 120,
+                borderRadius: 24,
+                width: '100%',
+                background: colorScheme.dark,
               }}
             >
               <div
                 style={{
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: 'bold',
                   color: '#94a3b8',
                   textTransform: 'uppercase',
-                  letterSpacing: 2,
-                  marginBottom: 16,
+                  letterSpacing: 1.5,
+                  marginBottom: 12,
                 }}
               >
                 {(card as any).label}
               </div>
               <div
                 style={{
-                  fontSize: 80,
+                  fontSize: 72,
                   fontWeight: 'bold',
-                  color: (card as any).colorScheme === 'pink'
-                    ? '#ec4899'
-                    : '#a78bfa',
+                  color: colorScheme.primary,
                 }}
               >
                 {card.value}
@@ -335,9 +422,9 @@ export async function GET(req: NextRequest) {
             // Просто текст (для случаев без метки)
             <div
               style={{
-                fontSize: 72,
+                fontSize: 64,
                 fontWeight: 'bold',
-                color: '#a78bfa',
+                color: colorScheme.primary,
               }}
             >
               {card.value}
@@ -350,8 +437,8 @@ export async function GET(req: NextRequest) {
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            paddingBottom: 60,
+            justifyContent: 'flex-start',
+            paddingBottom: 50,
             paddingLeft: 80,
             paddingRight: 80,
             gap: 12,
@@ -365,14 +452,12 @@ export async function GET(req: NextRequest) {
               gap: 12,
             }}
           >
-            {/* Логотип P */}
+            {/* Логотип P - цвет эмблемы = цвет данных */}
             <div
               style={{
                 width: 40,
                 height: 40,
-                background: (card as any).colorScheme === 'pink'
-                  ? '#ec4899'
-                  : '#8B5CF6',
+                background: colorScheme.primary,
                 borderRadius: 8,
                 display: 'flex',
                 alignItems: 'center',
