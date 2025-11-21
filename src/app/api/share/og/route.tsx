@@ -9,46 +9,55 @@ const COLOR_SCHEMES = {
   goals: {
     primary: '#10b981', // Emerald green
     dark: 'rgba(16, 185, 129, 0.15)', // Темный фон блока
+    background: 'linear-gradient(to bottom, #064e3b, #0f172a)', // Темно-зеленый градиент
   },
   // Streaks - фиолетовый
   streaks: {
     primary: '#a78bfa', // Purple
     dark: 'rgba(167, 139, 250, 0.15)',
+    background: 'linear-gradient(to bottom, #3b0764, #0f172a)', // Темно-фиолетовый градиент
   },
   // Best Streak - розовый
   'streaks:best': {
     primary: '#ec4899', // Pink
     dark: 'rgba(236, 72, 153, 0.15)',
+    background: 'linear-gradient(to bottom, #831843, #0f172a)', // Темно-розовый градиент
   },
   // Quests - оранжевый
   quests: {
     primary: '#f97316', // Orange
     dark: 'rgba(249, 115, 22, 0.15)',
+    background: 'linear-gradient(to bottom, #7c2d12, #0f172a)', // Темно-оранжевый градиент
   },
   // Level - золотой/желтый
   level: {
     primary: '#eab308', // Yellow
     dark: 'rgba(234, 179, 8, 0.15)',
+    background: 'linear-gradient(to bottom, #713f12, #0f172a)', // Темно-желтый/золотой градиент
   },
   // Analytics - синий
   analytics: {
     primary: '#3b82f6', // Blue
     dark: 'rgba(59, 130, 246, 0.15)',
+    background: 'linear-gradient(to bottom, #1e3a8a, #0f172a)', // Темно-синий градиент
   },
   // Wheel - фиолетовый (другой оттенок)
   wheel: {
     primary: '#8b5cf6', // Violet
     dark: 'rgba(139, 92, 246, 0.15)',
+    background: 'linear-gradient(to bottom, #4c1d95, #0f172a)', // Темно-фиолетовый градиент
   },
   // Capsule - голубой
   capsule: {
     primary: '#06b6d4', // Cyan
     dark: 'rgba(6, 182, 212, 0.15)',
+    background: 'linear-gradient(to bottom, #164e63, #0f172a)', // Темно-голубой градиент
   },
   // По умолчанию - фиолетовый
   default: {
     primary: '#a78bfa',
     dark: 'rgba(167, 139, 250, 0.15)',
+    background: 'linear-gradient(to bottom, #1e1b4b, #0f172a)', // Темно-фиолетовый градиент (старый)
   },
 };
 
@@ -159,7 +168,7 @@ function resolveCard(params: URLSearchParams) {
       title: 'Habit Streak',
       value: `Current: ${current}d • Best: ${best}d`,
       subtitle: null,
-      label: null,
+      label: 'CURRENT STREAK', // Добавляем label чтобы использовался цветной блок
       icon: '🔥', // Иконка пламени
     };
   }
@@ -300,20 +309,19 @@ function resolveCard(params: URLSearchParams) {
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
 
-  // Логируем параметры для отладки
-  const paramsObj = Object.fromEntries(params.entries());
-  if (Object.keys(paramsObj).length > 0) {
-    console.log('[OG Image] Request params:', paramsObj);
-  }
-
   const card = resolveCard(params);
-  const variant = (params.get('variant') ?? params.get('kind') ?? '').toLowerCase();
-  const colorScheme = getColorScheme(variant);
 
-  if (Object.keys(paramsObj).length > 0) {
-    console.log('[OG Image] Resolved card:', card);
-    console.log('[OG Image] Color scheme:', { variant, primary: colorScheme.primary });
-  }
+  // Определяем variant - сначала из параметров
+  const variant = (params.get('variant') || params.get('preset') || params.get('kind') || '').toLowerCase().trim();
+  const finalVariant = variant || 'default';
+  
+  // Получаем цветовую схему
+  const colorScheme = getColorScheme(finalVariant);
+
+  // Извлекаем цвета в константы для использования в JSX (Edge runtime)
+  const PRIMARY_COLOR = colorScheme.primary;
+  const DARK_BACKGROUND = colorScheme.dark;
+  const BACKGROUND_GRADIENT = colorScheme.background;
 
   return new ImageResponse(
     (
@@ -323,7 +331,7 @@ export async function GET(req: NextRequest) {
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          background: 'linear-gradient(to bottom, #1e1b4b, #0f172a)',
+          background: BACKGROUND_GRADIENT,
           justifyContent: 'space-between',
         }}
       >
@@ -393,7 +401,7 @@ export async function GET(req: NextRequest) {
                 paddingRight: 120,
                 borderRadius: 24,
                 width: '100%',
-                background: colorScheme.dark,
+                background: DARK_BACKGROUND,
               }}
             >
               <div
@@ -412,7 +420,7 @@ export async function GET(req: NextRequest) {
                 style={{
                   fontSize: 72,
                   fontWeight: 'bold',
-                  color: colorScheme.primary,
+                  color: PRIMARY_COLOR,
                 }}
               >
                 {card.value}
@@ -424,7 +432,7 @@ export async function GET(req: NextRequest) {
               style={{
                 fontSize: 64,
                 fontWeight: 'bold',
-                color: colorScheme.primary,
+                color: PRIMARY_COLOR,
               }}
             >
               {card.value}
@@ -457,7 +465,7 @@ export async function GET(req: NextRequest) {
               style={{
                 width: 40,
                 height: 40,
-                background: colorScheme.primary,
+                background: PRIMARY_COLOR,
                 borderRadius: 8,
                 display: 'flex',
                 alignItems: 'center',
@@ -504,7 +512,7 @@ export async function GET(req: NextRequest) {
       height: 630,
       headers: {
         'Content-Type': 'image/png',
-        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+        'Cache-Control': 'public, max-age=0, s-maxage=0, must-revalidate',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
       },

@@ -1,2 +1,2 @@
-export const SHARE_PREVIEW_VERSION = '2025-01-21-new-style-v4';
+export const SHARE_PREVIEW_VERSION = '2025-01-21-color-schemes-v3-debug';
 

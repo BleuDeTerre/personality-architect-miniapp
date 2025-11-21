@@ -310,7 +310,7 @@ export async function GET(req: NextRequest) {
         return new NextResponse(html, {
             headers: {
                 'Content-Type': 'text/html; charset=utf-8',
-                'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+                'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'GET, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type',
