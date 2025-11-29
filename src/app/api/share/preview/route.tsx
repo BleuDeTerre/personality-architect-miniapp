@@ -223,10 +223,16 @@ export async function GET(req: NextRequest) {
             imageUrl.searchParams.set('variant', variant);
         }
 
+        // Передаем kind в OG генератор для правильного определения цвета
+        // Это важно, чтобы касты из Analytics всегда использовали цвет Analytics
+        if (kind && !imageUrl.searchParams.has('kind')) {
+            imageUrl.searchParams.set('kind', kind);
+        }
+
         // Передаем ВСЕ параметры в OG генератор (кроме старых которые уже обработаны)
         searchParams.forEach((value, key) => {
             // Пропускаем только старые параметры, которые мы уже конвертировали
-            if (key === 'kind') return;
+            // НО НЕ пропускаем kind - он нужен для определения цвета!
             if (key === 'statLabel') return;
             if (key === 'statValue' && kind === 'goals') return; // Для goals мы уже извлекли active/completed
             if (key === 'description' && kind === 'goals') return; // Для goals мы уже извлекли active/completed
@@ -234,7 +240,7 @@ export async function GET(req: NextRequest) {
             if (key === 'remaining' && kind === 'streaks') return;
             if (key === 'streak' && kind === 'streaks') return;
 
-            // Все остальное передаем: variant, active, completed, current, best, next, chips, goal, title и т.д.
+            // Все остальное передаем: kind, variant, active, completed, current, best, next, chips, goal, title и т.д.
             imageUrl.searchParams.set(key, value);
         });
 

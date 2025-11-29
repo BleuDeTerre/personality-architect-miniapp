@@ -528,7 +528,7 @@ export default function AnalyticsPage() {
                 key: 'habit-streak',
                 label: `Habit streak (${currentStreak}d)`,
                 title: 'Habit Streak Signal',
-                kind: 'streaks',
+                kind: 'analytics', // Все касты из Analytics используют kind='analytics' для единого цвета
                 text: `💜 ${currentStreak} day run, best ${bestStreak} days. ${nextStreakBadge ? `${nextStreakBadge.days}d to ${nextStreakBadge.milestone}.` : 'Badge locked.'}`,
                 publishMode: 'auto',
                 previewParams: {
@@ -548,7 +548,7 @@ export default function AnalyticsPage() {
                 key: 'next-badge',
                 label: `Next badge (${nextStreakBadge.days} days)`,
                 title: 'Next Badge Progress',
-                kind: 'streaks',
+                kind: 'analytics', // Все касты из Analytics используют kind='analytics' для единого цвета
                 text: `🎯 ${nextStreakBadge.days} days until my next streak badge (${nextStreakBadge.milestone} days). The journey continues!`,
                 previewParams: {
                     variant: 'streaks:goal',
@@ -566,7 +566,7 @@ export default function AnalyticsPage() {
                 key: 'goal-progress',
                 label: `Goal progress (${activeGoals.length} active)`,
                 title: 'Goal Progress Pulse',
-                kind: 'goals',
+                kind: 'analytics', // Все касты из Analytics используют kind='analytics' для единого цвета
                 text: `🎯 ${activeGoals.length} active, ${completedGoals.length} completed — keeping goals in motion.`,
                 publishMode: 'auto',
                 previewParams: {
@@ -661,7 +661,7 @@ export default function AnalyticsPage() {
                     key: `wheel-shift-${topShift.area}`,
                     label: `Wheel shift: ${topShift.area}`,
                     title: 'Wheel of Life Shift',
-                    kind: 'wheel',
+                    kind: 'analytics', // Все касты из Analytics используют kind='analytics' для единого цвета
                     text: `🎯 ${topShift.area} improved by ${topShift.delta4 > 0 ? '+' : ''}${topShift.delta4.toFixed(1)} points. Building momentum!`,
                     previewParams: {
                         variant: 'wheel:shift',
@@ -693,7 +693,7 @@ export default function AnalyticsPage() {
                     key: 'wheel-spotlight',
                     label: `Wheel spotlight (${wheelAverageScore}/10)`,
                     title: 'Wheel Spotlight',
-                    kind: 'wheel',
+                    kind: 'analytics', // Все касты из Analytics используют kind='analytics' для единого цвета
                     text: `🎡 Avg ${wheelAverageScore}/10 — ${topArea} leads, ${weakArea} needs fuel.`,
                     previewParams: {
                         variant: 'wheel:spotlight',

@@ -61,8 +61,24 @@ const COLOR_SCHEMES = {
   },
 };
 
-function getColorScheme(variant: string) {
+function getColorScheme(variant: string, kind?: string) {
   const v = variant.toLowerCase();
+  const k = kind?.toLowerCase() || '';
+
+  // ПРИОРИТЕТ 1: Используем kind для определения цвета раздела
+  // Это гарантирует, что все касты из одного раздела имеют одинаковый цвет
+  if (k === 'goals') return COLOR_SCHEMES.goals;
+  if (k === 'streaks') {
+    // Для streaks:best используем розовый цвет
+    if (v === 'streaks:best') return COLOR_SCHEMES['streaks:best'];
+    return COLOR_SCHEMES.streaks;
+  }
+  if (k === 'quests') return COLOR_SCHEMES.quests;
+  if (k === 'level') return COLOR_SCHEMES.level;
+  if (k === 'analytics') return COLOR_SCHEMES.analytics;
+  if (k === 'wheel') return COLOR_SCHEMES.wheel;
+
+  // ПРИОРИТЕТ 2: Если kind не указан, определяем по variant
   if (v.startsWith('goals')) return COLOR_SCHEMES.goals;
   if (v === 'streaks:best') return COLOR_SCHEMES['streaks:best'];
   if (v.startsWith('streaks')) return COLOR_SCHEMES.streaks;
@@ -70,7 +86,8 @@ function getColorScheme(variant: string) {
   if (v.startsWith('level')) return COLOR_SCHEMES.level;
   if (v.startsWith('analytics')) return COLOR_SCHEMES.analytics;
   if (v.startsWith('wheel')) return COLOR_SCHEMES.wheel;
-  if (v.startsWith('capsule')) return COLOR_SCHEMES.capsule;
+  if (v.startsWith('capsule')) return COLOR_SCHEMES.analytics; // Capsule тоже синий (это часть Analytics)
+
   return COLOR_SCHEMES.default;
 }
 
@@ -280,6 +297,29 @@ function resolveCard(params: URLSearchParams) {
         icon: '🎡', // Иконка колеса
       };
     }
+    if (variant === 'wheel:focus') {
+      const area = params.get('a') || params.get('area') || 'Area';
+      const score = params.get('score') || '0';
+      return {
+        title: 'Focus Area',
+        subtitle: area,
+        value: `${score}/10`,
+        label: 'FOCUS AREA',
+        icon: '🎡', // Иконка колеса
+      };
+    }
+    if (variant === 'wheel:snapshot') {
+      const avg = params.get('avg') || '0';
+      const top = params.get('top') || 'Top area';
+      const low = params.get('low') || 'Focus area';
+      return {
+        title: 'Wheel of Life Snapshot',
+        subtitle: `${top} strongest • ${low} needs attention`,
+        value: `Avg: ${avg}/10`,
+        label: 'AVERAGE SCORE',
+        icon: '🎡', // Иконка колеса
+      };
+    }
     return {
       title: 'Wheel Snapshot',
       value: 'Wheel Data',
@@ -314,9 +354,12 @@ export async function GET(req: NextRequest) {
   // Определяем variant - сначала из параметров
   const variant = (params.get('variant') || params.get('preset') || params.get('kind') || '').toLowerCase().trim();
   const finalVariant = variant || 'default';
-  
-  // Получаем цветовую схему
-  const colorScheme = getColorScheme(finalVariant);
+
+  // Получаем kind для правильного определения цвета (важно для Analytics)
+  const kind = params.get('kind') || '';
+
+  // Получаем цветовую схему (передаем kind для приоритета цвета по разделу)
+  const colorScheme = getColorScheme(finalVariant, kind);
 
   // Извлекаем цвета в константы для использования в JSX (Edge runtime)
   const PRIMARY_COLOR = colorScheme.primary;
