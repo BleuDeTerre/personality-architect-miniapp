@@ -2,6 +2,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { paymentMiddleware } from 'x402-next';
+import { isFarcasterBot, hasCastParams, generateCastOgHtml, escapeAttr } from '@/lib/shareOgHtml';
 
 // ---- цены (строки формата $X.XX) ----
 const X402_PRICING: Record<string, { price: string; config?: Record<string, any> }> = {
@@ -89,7 +90,148 @@ export default async function middleware(req: NextRequest) {
     return setSecurityHeaders(NextResponse.next({ request: { headers: sanitizeHeaders(req) } }));
   }
 
+  // Проверяем запросы к страницам приложения от ботов Farcaster
+  // Список страниц, которые могут быть использованы в кастах (включая корневой путь)
+  const castPages = ['/analytics', '/goals', '/habits', '/streaks', '/wheel', '/profile', '/quests', '/'];
+  const isCastPage = castPages.some(page => path === page || path.startsWith(page + '/'));
+
+  // Для корневого пути возвращаем OG HTML для всех запросов (для распознавания Mini App embed)
+  // Farcaster проверяет URL, поэтому важно, чтобы embed всегда был доступен
+  if (path === '/') {
+    const userAgent = req.headers.get('user-agent');
+    const origin = req.nextUrl.origin;
+
+    // Логируем для отладки
+    console.log('[Middleware] Root path request:', { userAgent, path });
+
+    // Возвращаем OG HTML для всех запросов к корневому пути
+    // (Farcaster Embed Tool может использовать любой User-Agent)
+    try {
+      const appHomeUrl = process.env.NEXT_PUBLIC_APP_HOME_URL ?? origin;
+      const ogImageUrl = process.env.NEXT_PUBLIC_APP_OG_IMAGE_URL ?? `${origin}/share/image/miniapp-og.png`;
+      const iconUrl = process.env.NEXT_PUBLIC_APP_ICON_URL ?? `${origin}/miniapp/icon.png`;
+      const splashImageUrl = process.env.NEXT_PUBLIC_APP_SPLASH_IMAGE_URL ?? `${origin}/miniapp/splash.png`;
+      const splashBgColor = process.env.NEXT_PUBLIC_APP_SPLASH_BG ?? '#7C5CFC';
+      const appName = process.env.NEXT_PUBLIC_APP_NAME ?? 'Personality Architect';
+
+      // Создаем JSON для fc:miniapp согласно спецификации
+      // button.title: max 32 characters
+      const buttonTitle = appName.length > 32 ? appName.substring(0, 32) : appName;
+
+      const miniappEmbed = {
+        version: "1",
+        imageUrl: ogImageUrl,
+        button: {
+          title: buttonTitle,
+          action: {
+            type: "launch_frame",
+            name: appName,
+            url: appHomeUrl,
+            splashImageUrl: splashImageUrl,
+            splashBackgroundColor: splashBgColor,
+          },
+        },
+      };
+      const miniappEmbedJson = JSON.stringify(miniappEmbed);
+      // Экранируем JSON для HTML атрибута: заменяем только &, <, > и одинарные кавычки (так как используем одинарные для атрибута)
+      const escapedJson = miniappEmbedJson
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/'/g, '&#39;');
+
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personality Architect</title>
+    
+    <!-- Open Graph / Facebook / Farcaster -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="${escapeAttr(appHomeUrl)}">
+    <meta property="og:title" content="Personality Architect">
+    <meta property="og:description" content="Build better habits, track your progress, achieve your goals">
+    <meta property="og:image" content="${escapeAttr(ogImageUrl)}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:site_name" content="Personality Architect">
+    
+    <!-- Farcaster Mini App Embed -->
+    <meta name="fc:miniapp" content='${escapedJson}' />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="${escapeAttr(appHomeUrl)}">
+    <meta name="twitter:title" content="Personality Architect">
+    <meta name="twitter:description" content="Build better habits, track your progress, achieve your goals">
+    <meta name="twitter:image" content="${escapeAttr(ogImageUrl)}">
+</head>
+<body>
+    <h1>Personality Architect</h1>
+    <p>Build better habits, track your progress, achieve your goals</p>
+</body>
+</html>`;
+
+      return new NextResponse(html, {
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+        },
+      });
+    } catch (error: any) {
+      console.error('[Middleware] Error generating OG HTML for root path:', error);
+      // В случае ошибки продолжаем обычную обработку
+    }
+  }
+
+  if (isCastPage) {
+    const userAgent = req.headers.get('user-agent');
+    const params = req.nextUrl.searchParams;
+
+    // Если это бот Farcaster и есть параметры каста - возвращаем OG HTML
+    // (корневой путь уже обработан выше)
+    if (isFarcasterBot(userAgent) && hasCastParams(params) && path !== '/') {
+      const origin = req.nextUrl.origin;
+      const targetUrl = req.url; // Полный URL страницы
+
+      try {
+        // Для страниц с параметрами каста - используем generateCastOgHtml
+        const html = generateCastOgHtml(origin, targetUrl, params);
+        return new NextResponse(html, {
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+          },
+        });
+      } catch (error: any) {
+        console.error('[Middleware] Error generating OG HTML:', error);
+        // В случае ошибки просто продолжаем обычную обработку
+      }
+    }
+  }
+
   return NextResponse.next({ request: { headers: sanitizeHeaders(req) } });
 }
 
-export const config = { matcher: ['/api/:path*'] };
+export const config = {
+  matcher: [
+    '/api/:path*',
+    '/',
+    '/analytics/:path*',
+    '/goals/:path*',
+    '/habits/:path*',
+    '/streaks/:path*',
+    '/wheel/:path*',
+    '/profile/:path*',
+    '/quests/:path*',
+    '/analytics',
+    '/goals',
+    '/habits',
+    '/streaks',
+    '/wheel',
+    '/profile',
+    '/quests',
+  ]
+};

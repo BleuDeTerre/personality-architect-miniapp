@@ -44,6 +44,22 @@ export const metadata: Metadata = {
     images: ["/share/image/miniapp-og.png"],
   },
   keywords: ["habits", "productivity", "personal development", "habit tracker", "streaks", "goals", "farcaster"],
+  other: {
+    "fc:miniapp": JSON.stringify({
+      version: "1",
+      imageUrl: "https://personality-architect-miniapp.vercel.app/share/image/miniapp-og.png",
+      button: {
+        title: "Personality Architect",
+        action: {
+          type: "launch_frame",
+          name: "Personality Architect",
+          url: "https://personality-architect-miniapp.vercel.app",
+          splashImageUrl: "https://personality-architect-miniapp.vercel.app/miniapp/splash.png",
+          splashBackgroundColor: "#7C5CFC",
+        },
+      },
+    }),
+  },
 };
 
 export const viewport: Viewport = {

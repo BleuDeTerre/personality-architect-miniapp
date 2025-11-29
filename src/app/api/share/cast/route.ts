@@ -77,15 +77,16 @@ export async function POST(req: NextRequest) {
         console.log('[Share Cast] Preview params:', previewParams);
         console.log('[Share Cast] Target URL:', targetUrl);
 
-        // Собираем embeds: первый - preview изображения, второй - URL приложения для "Open in app"
+        // Передаем targetPath в preview URL, чтобы он попал в OG-теги
+        if (targetUrl) {
+            const targetPath = new URL(targetUrl).pathname;
+            preview.searchParams.set('targetPath', targetPath);
+        }
+
+        // Используем только preview URL - он содержит OG-теги с изображением
         const embeds: Array<{ url: string }> = [
             { url: preview.toString() },
         ];
-
-        // Добавляем второй embed с URL приложения для кнопки "Open in app"
-        if (targetUrl) {
-            embeds.push({ url: targetUrl });
-        }
 
         const hash = await publishCast(NEYNAR_SIGNER_UUID, rawText, embeds);
         const castUrl = `https://warpcast.com/~/casts/${hash}`;
