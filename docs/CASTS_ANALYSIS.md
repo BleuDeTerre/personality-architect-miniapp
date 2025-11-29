@@ -13,6 +13,36 @@
 
 ---
 
+## 0. РАЗДЕЛ: HABITS (Привычки) - `/habits`
+
+### 0.1. Top Streak (Топ стрик)
+- **Variant**: `streaks:current`
+- **Kind**: `habits`
+- **Когда создается**: Если есть хотя бы одна привычка со стриком > 0 (берется привычка с максимальным стриком)
+- **Параметры**:
+  - `statLabel` - "Current streak"
+  - `statValue` - количество дней стрика
+  - `description` - название привычки
+  - `tag` - "HABIT STREAK"
+- **Текст каста**: `"🔥 {habitTitle} streak: {streak} days in a row! Building consistency with Personality Architect."`
+- **Цветовая схема**: Розовый/Коралловый (`#f472b6`)
+- **Иконка OG-изображения**: 🔥
+
+### 0.2. Habits Summary (Сводка по привычкам)
+- **Variant**: `goals:summary`
+- **Kind**: `habits`
+- **Когда создается**: Если есть хотя бы одна привычка
+- **Параметры**:
+  - `statLabel` - "Total habits"
+  - `statValue` - общее количество привычек
+  - `description` - "{count} habits tracked"
+  - `tag` - "HABIT TRACKER"
+- **Текст каста**: `"✅ Tracking {habits.length} habit(s) in Personality Architect. {completedCount > 0 ? completedCount + ' completed today!' : 'Building consistency day by day.'}"`
+- **Цветовая схема**: Розовый/Коралловый (`#f472b6`)
+- **Иконка OG-изображения**: ✅
+
+---
+
 ## 1. РАЗДЕЛ: GOALS (Цели) - `/goals`
 
 ### 1.1. Summary (Сводка по целям)
@@ -285,33 +315,37 @@
 
 ### Цветовые схемы:
 
-1. **Goals** - Светло-зеленый/Бирюзовый (`#10b981`) 
+1. **Habits** - Розовый/Коралловый (`#f472b6`)
+   - Все касты из раздела `/habits`
+   - Варианты: `streaks:current`, `goals:summary`
+
+2. **Goals** - Светло-зеленый/Бирюзовый (`#10b981`) 
    - Все касты из раздела `/goals`
    - Варианты: `goals:progress`, `goals:completed`, `goals:upcoming`
 
-2. **Streaks** - Фиолетовый (`#a78bfa`)
+3. **Streaks** - Красный/Розово-красный (`#f87171`)
    - Все касты из раздела `/streaks`
    - Варианты: `streaks:summary`, `streaks:goal`
    - **Исключение**: `streaks:best` использует розовый (`#ec4899`)
 
-3. **Quests** - Оранжевый (`#f97316`)
+4. **Quests** - Оранжевый (`#f97316`)
    - Все касты из раздела Quest Board (в `/profile`)
    - Вариант: `quests:summary`
 
-4. **Level** - Золотой/Желтый (`#eab308`)
+5. **Level** - Золотой/Желтый (`#eab308`)
    - Все касты из раздела `/profile` (уровень)
    - Вариант: `level:up`
 
-5. **Analytics** - Синий (`#3b82f6`)
+6. **Analytics** - Синий (`#3b82f6`)
    - **ВСЕ** касты из раздела `/analytics`
    - Независимо от типа данных (streaks, goals, wheel, capsule) - все синие
    - Варианты: `analytics:weekly`, `analytics:top`, `analytics:insight`, `streaks:summary`, `streaks:goal`, `goals:progress`, `wheel:shift`, `wheel:spotlight`, `capsule:weekly`
 
-6. **Wheel** - Фиолетовый (`#8b5cf6`) - другой оттенок фиолетового
+7. **Wheel** - Фиолетовый (`#8b5cf6`) - другой оттенок фиолетового
    - Все касты из раздела `/wheel`
    - Варианты: `wheel:snapshot`, `wheel:focus`
 
-7. **Default** - Фиолетовый (`#a78bfa`)
+8. **Default** - Фиолетовый (`#a78bfa`)
    - Используется только если не удалось определить раздел
 
 **Принцип единства**: Если каст создается в разделе Analytics, он ВСЕГДА использует синий цвет, независимо от того, показывает ли он streaks, goals или wheel данные.

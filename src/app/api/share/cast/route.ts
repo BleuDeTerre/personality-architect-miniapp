@@ -55,11 +55,16 @@ export async function POST(req: NextRequest) {
     // Добавляем параметры для генерации изображения
     preview.searchParams.set('rev', String(previewParams.rev ?? process.env.SHARE_PREVIEW_VERSION ?? '1'));
 
+    // Единая схема: передаем kind для всех категорий (для правильного определения цвета)
+    if (kind) {
+        preview.searchParams.set('kind', kind);
+    }
+
     if (previewParams.variant) {
         preview.searchParams.set('variant', String(previewParams.variant));
     }
     Object.entries(previewParams).forEach(([key, value]) => {
-        if (value === undefined || value === null || key === 'variant' || key === 'rev') return;
+        if (value === undefined || value === null || key === 'variant' || key === 'rev' || key === 'kind') return;
         preview.searchParams.set(key, String(value));
     });
 
@@ -76,7 +81,7 @@ export async function POST(req: NextRequest) {
         const embeds: Array<{ url: string }> = [
             { url: preview.toString() },
         ];
-        
+
         // Добавляем второй embed с URL приложения для кнопки "Open in app"
         if (targetUrl) {
             embeds.push({ url: targetUrl });

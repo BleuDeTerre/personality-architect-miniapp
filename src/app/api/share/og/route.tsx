@@ -11,16 +11,22 @@ const COLOR_SCHEMES = {
     dark: 'rgba(16, 185, 129, 0.15)', // Темный фон блока
     background: 'linear-gradient(to bottom, #064e3b, #0f172a)', // Темно-зеленый градиент
   },
-  // Streaks - фиолетовый
+  // Streaks - красный/розово-красный
   streaks: {
-    primary: '#a78bfa', // Purple
-    dark: 'rgba(167, 139, 250, 0.15)',
-    background: 'linear-gradient(to bottom, #3b0764, #0f172a)', // Темно-фиолетовый градиент
+    primary: '#f87171', // Red/Coral Red
+    dark: 'rgba(248, 113, 113, 0.15)',
+    background: 'linear-gradient(to bottom, #7f1d1d, #0f172a)', // Темно-красный градиент
   },
   // Best Streak - розовый
   'streaks:best': {
     primary: '#ec4899', // Pink
     dark: 'rgba(236, 72, 153, 0.15)',
+    background: 'linear-gradient(to bottom, #831843, #0f172a)', // Темно-розовый градиент
+  },
+  // Habits - розовый/коралловый
+  habits: {
+    primary: '#f472b6', // Pink/Coral
+    dark: 'rgba(244, 114, 182, 0.15)',
     background: 'linear-gradient(to bottom, #831843, #0f172a)', // Темно-розовый градиент
   },
   // Quests - оранжевый
@@ -55,9 +61,9 @@ const COLOR_SCHEMES = {
   },
   // По умолчанию - фиолетовый
   default: {
-    primary: '#a78bfa',
-    dark: 'rgba(167, 139, 250, 0.15)',
-    background: 'linear-gradient(to bottom, #1e1b4b, #0f172a)', // Темно-фиолетовый градиент (старый)
+    primary: '#8b5cf6',
+    dark: 'rgba(139, 92, 246, 0.15)',
+    background: 'linear-gradient(to bottom, #1e1b4b, #0f172a)', // Темно-фиолетовый градиент
   },
 };
 
@@ -68,6 +74,7 @@ function getColorScheme(variant: string, kind?: string) {
   // ПРИОРИТЕТ 1: Используем kind для определения цвета раздела
   // Это гарантирует, что все касты из одного раздела имеют одинаковый цвет
   if (k === 'goals') return COLOR_SCHEMES.goals;
+  if (k === 'habits') return COLOR_SCHEMES.habits; // Habits использует розовый/коралловый цвет
   if (k === 'streaks') {
     // Для streaks:best используем розовый цвет
     if (v === 'streaks:best') return COLOR_SCHEMES['streaks:best'];

@@ -62,11 +62,20 @@ export default function ShareCastComposer({
             if (!origin || !template) return null;
             const url = new URL(`${origin}/api/share/og`);
             url.searchParams.set("rev", SHARE_PREVIEW_VERSION);
+            
+            // Единая схема: передаем kind для всех категорий (для правильного определения цвета)
+            if (template.kind) {
+                url.searchParams.set("kind", template.kind);
+            }
+            
             if (template.previewParams) {
                 Object.entries(template.previewParams).forEach(([key, value]) => {
                     if (value === undefined || value === null) return;
                     if (key === 'preset') {
                         url.searchParams.set("variant", String(value));
+                    } else if (key === 'kind') {
+                        // Если kind есть в previewParams, перезаписываем (но обычно он в template.kind)
+                        url.searchParams.set("kind", String(value));
                     } else {
                         url.searchParams.set(key, String(value));
                     }
