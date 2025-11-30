@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     // Единая схема: передаем kind для всех категорий (для правильного определения цвета)
     if (kind) {
-        preview.searchParams.set('kind', kind);
+    preview.searchParams.set('kind', kind);
     }
 
     if (previewParams.variant) {

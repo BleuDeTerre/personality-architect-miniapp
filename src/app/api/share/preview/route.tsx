@@ -240,7 +240,8 @@ export async function GET(req: NextRequest) {
             if (key === 'remaining' && kind === 'streaks') return;
             if (key === 'streak' && kind === 'streaks') return;
 
-            // Все остальное передаем: kind, variant, active, completed, current, best, next, chips, goal, title и т.д.
+            // Все остальное передаем: kind, variant, active, completed, current, best, next, chips, goal, title, scores и т.д.
+            // ВАЖНО: scores должен передаваться для wheel:snapshot!
             imageUrl.searchParams.set(key, value);
         });
 

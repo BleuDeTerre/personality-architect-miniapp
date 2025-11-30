@@ -60,8 +60,8 @@ export default function ShareCastComposer({
     const buildPreviewUrl = useCallback(
         (template?: CastTemplate | null) => {
             if (!origin || !template) return null;
-            const url = new URL(`${origin}/api/share/og`);
-            url.searchParams.set("rev", SHARE_PREVIEW_VERSION);
+        const url = new URL(`${origin}/api/share/og`);
+        url.searchParams.set("rev", SHARE_PREVIEW_VERSION);
 
             // Единая схема: передаем kind для всех категорий (для правильного определения цвета)
             if (template.kind) {
@@ -70,18 +70,18 @@ export default function ShareCastComposer({
 
             if (template.previewParams) {
                 Object.entries(template.previewParams).forEach(([key, value]) => {
-                    if (value === undefined || value === null) return;
-                    if (key === 'preset') {
-                        url.searchParams.set("variant", String(value));
+                if (value === undefined || value === null) return;
+                if (key === 'preset') {
+                    url.searchParams.set("variant", String(value));
                     } else if (key === 'kind') {
                         // Если kind есть в previewParams, перезаписываем (но обычно он в template.kind)
                         url.searchParams.set("kind", String(value));
-                    } else {
-                        url.searchParams.set(key, String(value));
-                    }
-                });
-            }
-            return url.toString();
+                } else {
+                    url.searchParams.set(key, String(value));
+                }
+            });
+        }
+        return url.toString();
         },
         [origin],
     );
@@ -104,7 +104,7 @@ export default function ShareCastComposer({
                 kind: template.kind,
                 previewParams: template.previewParams,
             },
-        });
+                });
 
         try {
             // ВСЕГДА используем серверный API для публикации кастов через Managed Signer

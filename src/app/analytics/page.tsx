@@ -891,66 +891,8 @@ export default function AnalyticsPage() {
     const shareTemplates = useMemo<CastTemplate[]>(() => {
         const templates: CastTemplate[] = [];
 
-        const currentStreak = stats.current_streak ?? 0;
-        const bestStreak = stats.best_streak ?? currentStreak;
-        if (currentStreak > 0 || bestStreak > 0) {
-            templates.push({
-                key: 'habit-streak',
-                label: `Habit streak (${currentStreak}d)`,
-                title: 'Habit Streak Signal',
-                kind: 'analytics', // Все касты из Analytics используют kind='analytics' для единого цвета
-                text: `💜 ${currentStreak} day run, best ${bestStreak} days. ${nextStreakBadge ? `${nextStreakBadge.days}d to ${nextStreakBadge.milestone}.` : 'Badge locked.'}`,
-                publishMode: 'auto',
-                previewParams: {
-                    variant: 'streaks:summary',
-                    current: String(currentStreak),
-                    best: String(bestStreak),
-                    next: String(nextStreakBadge?.days ?? 0),
-                    badge: nextStreakBadge ? `${nextStreakBadge.days}d → ${nextStreakBadge.milestone}` : 'Badge unlocked',
-                    chips: `CURRENT ${currentStreak}D|BEST ${bestStreak}D`,
-                },
-                targetPath: '/analytics',
-            });
-        }
-
-        if (nextStreakBadge) {
-            templates.push({
-                key: 'next-badge',
-                label: `Next badge (${nextStreakBadge.days} days)`,
-                title: 'Next Badge Progress',
-                kind: 'analytics', // Все касты из Analytics используют kind='analytics' для единого цвета
-                text: `🎯 ${nextStreakBadge.days} days until my next streak badge (${nextStreakBadge.milestone} days). The journey continues!`,
-                previewParams: {
-                    variant: 'streaks:goal',
-                    current: String(stats.current_streak ?? 0),
-                    best: String(stats.best_streak ?? 0),
-                    next: String(nextStreakBadge.days),
-                    chips: `NEXT BADGE|${nextStreakBadge.milestone} DAYS`,
-                },
-                targetPath: '/analytics',
-            });
-        }
-
-        if (goals.length > 0) {
-            templates.push({
-                key: 'goal-progress',
-                label: `Goal progress (${activeGoals.length} active)`,
-                title: 'Goal Progress Pulse',
-                kind: 'analytics', // Все касты из Analytics используют kind='analytics' для единого цвета
-                text: `🎯 ${activeGoals.length} active, ${completedGoals.length} completed — keeping goals in motion.`,
-                publishMode: 'auto',
-                previewParams: {
-                    variant: 'goals:progress',
-                    active: String(activeGoals.length),
-                    completed: String(completedGoals.length),
-                    total: String(goals.length),
-                    goal: highlightedGoal?.title ?? 'Next milestone',
-                    summary: highlightedSummary,
-                    status: highlightedStatus,
-                },
-                targetPath: '/analytics',
-            });
-        }
+        // Убраны касты про стрики (перенесены в Streaks)
+        // Убран каст goal-progress (дубль Goals)
 
         if (comparative) {
             const thisWeek = comparative.this_week?.completed_total ?? 0;
@@ -1024,58 +966,7 @@ export default function AnalyticsPage() {
             });
         }
 
-        if (wheelTrends && wheelTrends.length > 0) {
-            const topShift = wheelTrends.filter(t => t.delta4 > 0).sort((a, b) => b.delta4 - a.delta4)[0];
-            if (topShift) {
-                templates.push({
-                    key: `wheel-shift-${topShift.area}`,
-                    label: `Wheel shift: ${topShift.area}`,
-                    title: 'Wheel of Life Shift',
-                    kind: 'analytics', // Все касты из Analytics используют kind='analytics' для единого цвета
-                    text: `🎯 ${topShift.area} improved by ${topShift.delta4 > 0 ? '+' : ''}${topShift.delta4.toFixed(1)} points. Building momentum!`,
-                    previewParams: {
-                        variant: 'wheel:shift',
-                        area: topShift.area,
-                        delta: topShift.delta4 > 0 ? `+${topShift.delta4.toFixed(1)}` : topShift.delta4.toFixed(1),
-                        current: topShift.last.toFixed(1),
-                    },
-                    targetPath: '/analytics',
-                });
-            }
-
-            if (wheelSpotlightSegments.length > 0 && wheelAverageScore !== null) {
-                const weekLabel = (() => {
-                    const now = new Date();
-                    const start = new Date(now);
-                    start.setDate(now.getDate() - start.getDay());
-                    const end = new Date(start);
-                    end.setDate(start.getDate() + 6);
-                    const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                    const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                    return `${startStr} – ${endStr}`;
-                })();
-                // Удаляем segments и week из URL - они не используются для генерации изображения
-                // Это значительно сокращает длину URL и предотвращает ошибки
-                const topArea = wheelTopAreas[0]?.area ?? 'Top area';
-                const weakArea = wheelWeakestArea?.area ?? wheelTopAreas[wheelTopAreas.length - 1]?.area ?? 'Focus area';
-                templates.push({
-                    key: 'wheel-spotlight',
-                    label: `Wheel spotlight (${wheelAverageScore}/10)`,
-                    title: 'Wheel Spotlight',
-                    kind: 'analytics', // Все касты из Analytics используют kind='analytics' для единого цвета
-                    text: `🎡 Avg ${wheelAverageScore}/10 — ${topArea} leads, ${weakArea} needs fuel.`,
-                    previewParams: {
-                        variant: 'wheel:spotlight',
-                        avg: String(wheelAverageScore),
-                        focus: weakArea,
-                        top: topArea,
-                        low: weakArea,
-                        // Удаляем segments и week - они не используются для генерации изображения
-                    },
-                    targetPath: '/analytics',
-                });
-            }
-        }
+        // Убраны wheel касты (перенесены в Wheel)
 
         if (weeklyCapsules.length > 0) {
             const capsule = weeklyCapsules[0];
@@ -1106,19 +997,15 @@ export default function AnalyticsPage() {
 
         return templates;
     }, [
-        stats,
-        nextStreakBadge,
         comparative,
         facts,
         predictive,
-        goals,
-        wheelTrends,
         weeklyCapsules,
         topHabitTitle,
         topHabitIcon,
+        stats,
         wheelAverageScore,
         wheelTopAreas,
-        wheelSpotlightSegments,
         wheelWeakestArea,
     ]);
 

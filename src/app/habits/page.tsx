@@ -777,10 +777,8 @@ export default function HabitsPage() {
                 text: `🔥 ${topHabit.title} streak: ${topHabit.streak} days in a row! Building consistency with Personality Architect.`,
                 previewParams: {
                     variant: 'streaks:current',
+                    current: String(topHabit.streak),
                     description: `${habitTitle} streak`,
-                    statLabel: 'Current streak',
-                    statValue: `${topHabit.streak} days`,
-                    tag: 'HABIT STREAK',
                 },
                 targetPath: '/habits',
             });

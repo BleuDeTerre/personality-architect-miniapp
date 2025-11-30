@@ -68,6 +68,14 @@ function formatAreaName(areaName: string): string {
     return areaName;
 }
 
+// Функция для кодирования Wheel scores в короткую строку (0-10 → '0'-'9', 10 → 'A')
+function encodeWheelScores(scores: number[]): string {
+    return scores.map(score => {
+        const clamped = Math.max(0, Math.min(10, Math.round(score)));
+        return clamped === 10 ? 'A' : String(clamped);
+    }).join('');
+}
+
 // Используем централизованный клиент из lib/supabase с правильными настройками
 
 export default function WheelPage() {
@@ -597,11 +605,31 @@ export default function WheelPage() {
         }
     }
 
+    // Вычисляем данные для wheel кастов
+    const wheelTopShift = useMemo(() => {
+        if (!trends || trends.length === 0) return null;
+        return trends.filter(t => t.delta4 > 0).sort((a, b) => b.delta4 - a.delta4)[0] || null;
+    }, [trends]);
+
+    const wheelTopAreas = useMemo(() => {
+        return trends.slice().sort((a, b) => (b.last ?? 0) - (a.last ?? 0));
+    }, [trends]);
+
+    const wheelWeakestArea = useMemo(() => {
+        if (!trends || trends.length === 0) return null;
+        return trends.slice().sort((a, b) => (a.last ?? 0) - (b.last ?? 0))[0] || null;
+    }, [trends]);
+
     const shareTemplates = useMemo<CastTemplate[]>(() => {
         if (!items.length) return [];
-        // Убираем baseSegments из URL - он не используется для генерации изображения
-        // Это значительно сокращает длину URL и предотвращает ошибки
-        const templates: Array<{ key: string; label: string; title: string; kind: string; text: string; previewParams: Record<string, string>; targetPath: string }> = [
+        // Кодируем все 10 значений в одну короткую строку для компактного URL
+        const scores = AREA_ORDER.map(areaName => {
+            const item = items.find(i => i.area === areaName);
+            return item?.score ?? 0;
+        });
+        const encodedScores = encodeWheelScores(scores);
+        
+        const templates: CastTemplate[] = [
             {
                 key: 'wheel-snapshot',
                 label: `Snapshot (${avg.toFixed(1)}/10)`,
@@ -613,11 +641,12 @@ export default function WheelPage() {
                     avg: avg.toFixed(1),
                     top: topArea?.area ?? 'Top area',
                     low: weakArea?.area ?? 'Focus area',
-                    // Удаляем ws и week - они не используются для генерации изображения
+                    scores: encodedScores, // Закодированные значения всех 10 областей
                 },
                 targetPath: '/wheel',
             },
         ];
+        
         if (weakArea && weakArea.score < 8) {
             templates.push({
                 key: `focus-${weakArea.area}`,
@@ -632,13 +661,52 @@ export default function WheelPage() {
                     avg: avg.toFixed(1),
                     top: topArea?.area ?? weakArea.area,
                     low: weakArea.area,
-                    // Удаляем ws и week - они не используются для генерации изображения
                 },
                 targetPath: '/wheel',
             });
         }
+
+        // Wheel shift - если есть положительные изменения
+        if (wheelTopShift) {
+            templates.push({
+                key: `wheel-shift-${wheelTopShift.area}`,
+                label: `Wheel shift: ${wheelTopShift.area}`,
+                title: 'Wheel of Life Shift',
+                kind: 'wheel',
+                text: `🎯 ${wheelTopShift.area} improved by +${wheelTopShift.delta4.toFixed(1)} points. Building momentum!`,
+                previewParams: {
+                    variant: 'wheel:shift',
+                    area: wheelTopShift.area,
+                    delta: wheelTopShift.delta4 > 0 ? `+${wheelTopShift.delta4.toFixed(1)}` : wheelTopShift.delta4.toFixed(1),
+                    current: wheelTopShift.last.toFixed(1),
+                },
+                targetPath: '/wheel',
+            });
+        }
+
+        // Wheel spotlight - если есть данные trends
+        if (trends.length > 0 && avg > 0) {
+            const topAreaName = wheelTopAreas[0]?.area ?? topArea?.area ?? 'Top area';
+            const weakAreaName = wheelWeakestArea?.area ?? weakArea?.area ?? 'Focus area';
+            templates.push({
+                key: 'wheel-spotlight',
+                label: `Wheel spotlight (${avg.toFixed(1)}/10)`,
+                title: 'Wheel Spotlight',
+                kind: 'wheel',
+                text: `🎡 Avg ${avg.toFixed(1)}/10 — ${topAreaName} leads, ${weakAreaName} needs fuel.`,
+                previewParams: {
+                    variant: 'wheel:spotlight',
+                    avg: avg.toFixed(1),
+                    focus: weakAreaName,
+                    top: topAreaName,
+                    low: weakAreaName,
+                },
+                targetPath: '/wheel',
+            });
+        }
+        
         return templates;
-    }, [avg, items, topArea, weakArea]);
+    }, [avg, items, topArea, weakArea, trends, wheelTopShift, wheelTopAreas, wheelWeakestArea]);
 
     return (
         <MiniAppPage>

@@ -445,15 +445,17 @@ export default function StreaksPage() {
         return next ? next - streak : null;
     }, [stats.current_streak]);
 
+    // Касты для шаринга
     const shareTemplates = useMemo<CastTemplate[]>(() => {
         const templates: CastTemplate[] = [];
         const currentStreak = stats.current_streak ?? 0;
         const bestStreak = stats.best_streak ?? currentStreak;
+        
         if (currentStreak > 0 || bestStreak > 0) {
             templates.push({
                 key: 'streak-summary',
                 label: `Habit streak (${currentStreak}d)`,
-                title: 'Habit Streak Signal',
+                title: 'Habit Streak',
                 kind: 'streaks',
                 text: `💜 ${currentStreak} day run, best ${bestStreak} days. ${nextBadgeDays ? `${nextBadgeDays}d to next badge.` : 'Badge unlocked.'}`,
                 publishMode: 'auto',
@@ -468,9 +470,10 @@ export default function StreaksPage() {
                 targetPath: '/streaks',
             });
         }
+        
         if (nextBadgeDays !== null) {
             templates.push({
-                key: 'goal',
+                key: 'next-badge',
                 label: `Next badge (${nextBadgeDays}d)`,
                 title: 'Next Streak Badge',
                 kind: 'streaks',
@@ -485,6 +488,7 @@ export default function StreaksPage() {
                 targetPath: '/streaks',
             });
         }
+        
         return templates;
     }, [nextBadgeDays, stats.best_streak, stats.current_streak]);
 
@@ -501,10 +505,7 @@ export default function StreaksPage() {
 
                 {/* Share Section */}
                 {shareTemplates.length > 0 && (
-                    <CollapsibleCard
-                        title="Share your streak"
-                        subtitle={nextBadgeDays !== null ? `Next badge in ${nextBadgeDays}d` : undefined}
-                    >
+                    <CollapsibleCard title="Share your streak">
                         <ShareCastComposer
                             templates={shareTemplates}
                             sectionTitle={undefined}
