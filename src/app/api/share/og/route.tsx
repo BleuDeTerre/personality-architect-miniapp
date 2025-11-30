@@ -373,10 +373,10 @@ export async function GET(req: NextRequest) {
   const DARK_BACKGROUND = colorScheme.dark;
   const BACKGROUND_GRADIENT = colorScheme.background;
 
-  return new ImageResponse(
-    (
-      <div
-        style={{
+    return new ImageResponse(
+        (
+            <div
+                style={{
           width: '100%',
           height: '100%',
           display: 'flex',
@@ -388,15 +388,15 @@ export async function GET(req: NextRequest) {
         {/* Заголовок сверху слева */}
         <div
           style={{
-            display: 'flex',
-            flexDirection: 'column',
+                    display: 'flex',
+                    flexDirection: 'column',
             alignItems: 'flex-start',
             justifyContent: 'flex-start',
             paddingTop: 60,
             paddingLeft: 80,
             paddingRight: 80,
-          }}
-        >
+                }}
+            >
           <div
             style={{
               display: 'flex',
@@ -425,9 +425,9 @@ export async function GET(req: NextRequest) {
               }}
             >
               {(card as any).subtitle}
-            </div>
+                </div>
           )}
-        </div>
+                </div>
 
         {/* Основной блок с данными слева под заголовком */}
         <div
@@ -455,19 +455,19 @@ export async function GET(req: NextRequest) {
               }}
             >
               <div
-                style={{
+                                style={{
                   fontSize: 14,
                   fontWeight: 'bold',
                   color: '#94a3b8',
-                  textTransform: 'uppercase',
+                                    textTransform: 'uppercase',
                   letterSpacing: 1.5,
                   marginBottom: 12,
-                }}
-              >
+                                }}
+                            >
                 {(card as any).label}
-              </div>
-              <div
-                style={{
+                    </div>
+                    <div
+                        style={{
                   fontSize: 72,
                   fontWeight: 'bold',
                   color: PRIMARY_COLOR,
@@ -475,20 +475,20 @@ export async function GET(req: NextRequest) {
               >
                 {card.value}
               </div>
-            </div>
+                    </div>
           ) : (
             // Просто текст (для случаев без метки)
-            <div
-              style={{
+                            <div
+                                style={{
                 fontSize: 64,
                 fontWeight: 'bold',
                 color: PRIMARY_COLOR,
-              }}
-            >
+                                }}
+                            >
               {card.value}
-            </div>
-          )}
-        </div>
+                            </div>
+                        )}
+                    </div>
 
         {/* Футер внизу */}
         <div
@@ -553,10 +553,10 @@ export async function GET(req: NextRequest) {
                 Plan. Execute. Evolve.
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-    ),
+                    </div>
+                </div>
+            </div>
+        ),
     {
       width: 1200,
       height: 630,
@@ -567,5 +567,5 @@ export async function GET(req: NextRequest) {
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
       },
     },
-  );
+    );
 }

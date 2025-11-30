@@ -253,10 +253,16 @@ export async function GET(req: NextRequest) {
         const description = escapeAttr(buildDescription(searchParams));
         const previewUrl = url.toString();
 
+        // Получаем target URL для кнопки "Open in app"
+        const targetPath = searchParams.get('targetPath');
+        const appHomeUrl = process.env.NEXT_PUBLIC_APP_HOME_URL ?? origin;
+        const targetUrl = targetPath ? `${appHomeUrl}${targetPath}` : appHomeUrl;
+
         // Логируем для отладки
         console.log('[Preview] Generated URLs:', {
             previewUrl: previewUrl,
             imageUrl: imageUrl.toString(),
+            targetUrl: targetUrl,
             title,
             description,
             params: Object.fromEntries(searchParams.entries()),
@@ -264,6 +270,7 @@ export async function GET(req: NextRequest) {
         });
 
         // HTML-страница с OG-тегами
+        // Используем URL мини-приложения в og:url для автоматической кнопки "Open in app"
         const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -273,7 +280,7 @@ export async function GET(req: NextRequest) {
     
     <!-- Open Graph / Facebook / Farcaster -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="${escapeAttr(previewUrl)}">
+    <meta property="og:url" content="${escapeAttr(targetUrl)}">
     <meta property="og:title" content="${title}">
     <meta property="og:description" content="${description}">
     <meta property="og:image" content="${imageUrl.toString()}">
@@ -282,9 +289,16 @@ export async function GET(req: NextRequest) {
     <meta property="og:image:type" content="image/png">
     <meta property="og:site_name" content="Personality Architect">
     
+    <!-- Farcaster Frame для кнопки "Open in app" -->
+    <meta property="fc:frame" content="vNext" />
+    <meta property="fc:frame:image" content="${imageUrl.toString()}" />
+    <meta property="fc:frame:button:1" content="Open in app" />
+    <meta property="fc:frame:button:1:action" content="visit" />
+    <meta property="fc:frame:button:1:target" content="${escapeAttr(targetUrl)}" />
+    
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="${escapeAttr(previewUrl)}">
+    <meta name="twitter:url" content="${escapeAttr(targetUrl)}">
     <meta name="twitter:title" content="${title}">
     <meta name="twitter:description" content="${description}">
     <meta name="twitter:image" content="${imageUrl.toString()}">

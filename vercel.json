@@ -4,6 +4,12 @@
       "path": "/api/notifications/cron",
       "schedule": "0 20 * * *"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/.well-known/farcaster.json",
+      "destination": "https://api.farcaster.xyz/miniapps/hosted-manifest/019a5e2d-7b16-37b2-e663-f3612f30c5b9",
+      "statusCode": 307
+    }
   ]
 }
-

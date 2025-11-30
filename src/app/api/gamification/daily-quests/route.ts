@@ -189,11 +189,11 @@ export async function GET(req: NextRequest) {
 
         const morningLogs = logsTodayResult.hasTimestamps
             ? logsToday.filter(log => {
-                if (!log.created_at) return false;
-                const logDate = new Date(log.created_at);
-                if (!(logDate >= dayStart && logDate < dayEnd)) return false;
-                const localDate = new Date(logDate.getTime() - timezoneOffsetMs);
-                return localDate.getHours() < 10;
+            if (!log.created_at) return false;
+            const logDate = new Date(log.created_at);
+            if (!(logDate >= dayStart && logDate < dayEnd)) return false;
+            const localDate = new Date(logDate.getTime() - timezoneOffsetMs);
+            return localDate.getHours() < 10;
             }).length
             : 0;
 

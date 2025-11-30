@@ -8,18 +8,19 @@ type NavItem = {
     href: string;
     label: string;
     icon: string;
+    color: string; // Цвет категории для подсветки
 };
 
 const NAV_ITEMS: NavItem[] = [
-    { href: "/", label: "Home", icon: "🏠" },
-    { href: "/habits", label: "Habits", icon: "✅" },
-    { href: "/wheel", label: "Wheel", icon: "🎡" },
-    { href: "/goals", label: "Goals", icon: "🎯" },
-    { href: "/streaks", label: "Streaks", icon: "🔥" },
-    { href: "/analytics", label: "Analytics", icon: "📊" },
-    { href: "/leaderboard", label: "Leaders", icon: "🏅" },
-    { href: "/chat", label: "AI Coach", icon: "🤖" },
-    { href: "/profile", label: "Profile", icon: "👤" },
+    { href: "/", label: "Home", icon: "🏠", color: "#8b5cf6" }, // Фиолетовый по умолчанию
+    { href: "/habits", label: "Habits", icon: "✅", color: "#f472b6" }, // Розовый/Коралловый
+    { href: "/wheel", label: "Wheel", icon: "🎡", color: "#8b5cf6" }, // Фиолетовый
+    { href: "/goals", label: "Goals", icon: "🎯", color: "#10b981" }, // Зеленый
+    { href: "/streaks", label: "Streaks", icon: "🔥", color: "#f87171" }, // Красный
+    { href: "/analytics", label: "Analytics", icon: "📊", color: "#3b82f6" }, // Синий
+    { href: "/leaderboard", label: "Leaders", icon: "🏅", color: "#8b5cf6" }, // Фиолетовый
+    { href: "/chat", label: "AI Coach", icon: "🤖", color: "#8b5cf6" }, // Фиолетовый
+    { href: "/profile", label: "Profile", icon: "👤", color: "#8b5cf6" }, // Фиолетовый
 ];
 
 interface MiniAppTabBarProps {
@@ -79,7 +80,7 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
                 .join(" ")
                 .trim()}
         >
-            <nav className="flex items-center gap-1.5 px-3 py-1.5 min-w-max">
+            <nav className="flex items-center gap-1.5 px-3 py-1 min-w-max">
                 {NAV_ITEMS.map((item, index) => {
                     const isActive = index === activeIndex;
                     return (
@@ -89,15 +90,32 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
                             ref={isActive ? activeLinkRef : null}
                             onClick={handleLinkClick}
                             className={[
-                                "flex flex-col items-center gap-1 rounded-lg px-3 py-1.5 text-xs transition-all whitespace-nowrap",
+                                "flex flex-col items-center gap-1 rounded-lg px-3 py-1 text-xs transition-all whitespace-nowrap",
                                 "flex-shrink-0 w-20",
                                 isActive
-                                    ? "bg-white/10 text-white"
+                                    ? "text-white"
                                     : "text-white/70 hover:text-white hover:bg-white/5",
                             ].join(" ")}
+                            style={isActive ? {
+                                backgroundColor: `${item.color}20`, // 20% прозрачности для фона
+                            } : undefined}
                         >
-                            <span className="text-lg leading-none">{item.icon}</span>
-                            <span className="font-medium">{item.label}</span>
+                            <span
+                                className="text-lg leading-none"
+                                style={isActive ? {
+                                    filter: `drop-shadow(0 0 8px ${item.color}60)`, // Свечение вокруг иконки
+                                } : undefined}
+                            >
+                                {item.icon}
+                            </span>
+                            <span
+                                className="font-medium"
+                                style={isActive ? {
+                                    color: item.color, // Цвет текста активной категории
+                                } : undefined}
+                            >
+                                {item.label}
+                            </span>
                         </Link>
                     );
                 })}

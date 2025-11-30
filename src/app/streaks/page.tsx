@@ -618,14 +618,14 @@ export default function StreaksPage() {
                                         });
 
                                         return uniqueForSelector.map((habit) => {
-                                            const displayText = habit.icon && habit.title
-                                                ? `${habit.icon} ${habit.title}`
-                                                : habit.title || 'Untitled';
-                                            return (
-                                                <option key={habit.id} value={habit.id}>
-                                                    {displayText}
-                                                </option>
-                                            );
+                                        const displayText = habit.icon && habit.title
+                                            ? `${habit.icon} ${habit.title}`
+                                            : habit.title || 'Untitled';
+                                        return (
+                                            <option key={habit.id} value={habit.id}>
+                                                {displayText}
+                                            </option>
+                                        );
                                         });
                                     })()}
                                 </select>
@@ -717,35 +717,35 @@ export default function StreaksPage() {
                         }
 
                         return (
-                            <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-3">
                                 {uniqueForRender.map((habit) => (
-                                    <div
-                                        key={habit.id}
-                                        className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col gap-2 min-h-[140px]"
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            {habit.icon && <span className="text-xl">{habit.icon}</span>}
-                                            <h3 className="text-base font-semibold text-white leading-tight">{habit.title}</h3>
-                                        </div>
-                                        <div className="text-xs text-white/70 space-y-0.5 leading-tight">
-                                            <div>Current streak: {habit.current_streak}d</div>
-                                            <div>Best {habit.best_streak}d</div>
-                                        </div>
-                                        <div className="text-xs text-white/70 leading-tight">
-                                            {habit.completedDays} / 7 days completed
-                                        </div>
-                                        <div className="flex gap-1 mt-auto">
-                                            {[...habit.weekProgress].reverse().map((completed, idx) => (
-                                                <div
-                                                    key={`${habit.id}-dot-${idx}`}
-                                                    className={`h-2.5 w-2.5 rounded flex-shrink-0 ${completed ? 'bg-[#2BD4A4]' : 'bg-white/10'
-                                                        }`}
-                                                />
-                                            ))}
-                                        </div>
+                                <div
+                                    key={habit.id}
+                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col gap-2 min-h-[140px]"
+                                >
+                                    <div className="flex items-center gap-1.5">
+                                        {habit.icon && <span className="text-xl">{habit.icon}</span>}
+                                        <h3 className="text-base font-semibold text-white leading-tight">{habit.title}</h3>
                                     </div>
-                                ))}
-                            </div>
+                                    <div className="text-xs text-white/70 space-y-0.5 leading-tight">
+                                        <div>Current streak: {habit.current_streak}d</div>
+                                        <div>Best {habit.best_streak}d</div>
+                                    </div>
+                                    <div className="text-xs text-white/70 leading-tight">
+                                        {habit.completedDays} / 7 days completed
+                                    </div>
+                                    <div className="flex gap-1 mt-auto">
+                                            {[...habit.weekProgress].reverse().map((completed, idx) => (
+                                            <div
+                                                    key={`${habit.id}-dot-${idx}`}
+                                                className={`h-2.5 w-2.5 rounded flex-shrink-0 ${completed ? 'bg-[#2BD4A4]' : 'bg-white/10'
+                                                    }`}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                         );
                     })()}
                 </section>

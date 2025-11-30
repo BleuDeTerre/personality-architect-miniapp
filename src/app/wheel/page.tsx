@@ -59,6 +59,14 @@ function clamp010(n: number) {
     return Math.max(0, Math.min(10, x));
 }
 
+// Форматирование названия области для компактного отображения в таблице
+function formatAreaName(areaName: string): string {
+    if (areaName === 'Personal Growth') {
+        return 'Pers. Growth';
+    }
+    return areaName;
+}
+
 // Используем централизованный клиент из lib/supabase с правильными настройками
 
 export default function WheelPage() {
@@ -523,10 +531,8 @@ export default function WheelPage() {
 
     const shareTemplates = useMemo<CastTemplate[]>(() => {
         if (!items.length) return [];
-        const baseSegments = items
-            .slice(0, 8)
-            .map(it => `${encodeURIComponent(it.area)}:${it.score}:`)
-            .join('|');
+        // Убираем baseSegments из URL - он не используется для генерации изображения
+        // Это значительно сокращает длину URL и предотвращает ошибки
         const templates: Array<{ key: string; label: string; title: string; kind: string; text: string; previewParams: Record<string, string>; targetPath: string }> = [
             {
                 key: 'wheel-snapshot',
@@ -539,8 +545,7 @@ export default function WheelPage() {
                     avg: avg.toFixed(1),
                     top: topArea?.area ?? 'Top area',
                     low: weakArea?.area ?? 'Focus area',
-                    ws: baseSegments,
-                    week,
+                    // Удаляем ws и week - они не используются для генерации изображения
                 },
                 targetPath: '/wheel',
             },
@@ -556,17 +561,16 @@ export default function WheelPage() {
                     variant: 'wheel:focus',
                     a: weakArea.area,
                     score: String(weakArea.score),
-                    ws: baseSegments,
                     avg: avg.toFixed(1),
                     top: topArea?.area ?? weakArea.area,
                     low: weakArea.area,
-                    week,
+                    // Удаляем ws и week - они не используются для генерации изображения
                 },
                 targetPath: '/wheel',
             });
         }
         return templates;
-    }, [avg, items, topArea, weakArea, week]);
+    }, [avg, items, topArea, weakArea]);
 
     return (
         <MiniAppPage>
@@ -925,32 +929,32 @@ export default function WheelPage() {
                         <table className="min-w-full border-collapse text-sm text-white/80">
                             <thead className="bg-white/10 text-white/70">
                                 <tr>
-                                    <th className="px-2 py-1.5 text-left">Area</th>
-                                    <th className="px-2 py-1.5 text-right">Last</th>
-                                    <th className="px-2 py-1.5 text-right">Avg 4w</th>
-                                    <th className="px-2 py-1.5 text-right">Avg 12w</th>
-                                    <th className="px-2 py-1.5 text-right">Δ 4w</th>
-                                    <th className="px-2 py-1.5 text-right">Δ 12w</th>
+                                    <th className="px-2 py-1 text-left">Area</th>
+                                    <th className="px-2 py-1 text-right">Last</th>
+                                    <th className="px-2 py-1 text-right">Avg 4w</th>
+                                    <th className="px-2 py-1 text-right">Avg 12w</th>
+                                    <th className="px-2 py-1 text-right">Δ 4w</th>
+                                    <th className="px-2 py-1 text-right">Δ 12w</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {trends.map((area) => (
                                     <tr key={area.area} className="border-t border-white/5">
-                                        <td className="px-2 py-1.5">{area.area}</td>
-                                        <td className="px-2 py-1.5 text-right">{area.last?.toFixed?.(1) ?? area.last}</td>
-                                        <td className="px-2 py-1.5 text-right">{area.avg4?.toFixed?.(1) ?? area.avg4}</td>
-                                        <td className="px-2 py-1.5 text-right">{area.avg12?.toFixed?.(1) ?? area.avg12}</td>
-                                        <td className={`px-2 py-1.5 text-right ${area.delta4 < 0 ? 'text-red-400' : area.delta4 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
+                                        <td className="px-2 py-1">{formatAreaName(area.area)}</td>
+                                        <td className="px-2 py-1 text-right">{area.last?.toFixed?.(1) ?? area.last}</td>
+                                        <td className="px-2 py-1 text-right">{area.avg4?.toFixed?.(1) ?? area.avg4}</td>
+                                        <td className="px-2 py-1 text-right">{area.avg12?.toFixed?.(1) ?? area.avg12}</td>
+                                        <td className={`px-2 py-1 text-right ${area.delta4 < 0 ? 'text-red-400' : area.delta4 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
                                             {area.delta4?.toFixed?.(1) ?? area.delta4}
                                         </td>
-                                        <td className={`px-2 py-1.5 text-right ${area.delta12 < 0 ? 'text-red-400' : area.delta12 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
+                                        <td className={`px-2 py-1 text-right ${area.delta12 < 0 ? 'text-red-400' : area.delta12 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
                                             {area.delta12?.toFixed?.(1) ?? area.delta12}
                                         </td>
                                     </tr>
                                 ))}
                                 {!trends.length && (
                                     <tr>
-                                        <td colSpan={6} className="px-2 py-1.5 text-center text-white/50">
+                                        <td colSpan={6} className="px-2 py-1 text-center text-white/50">
                                             No trend data yet.
                                         </td>
                                     </tr>

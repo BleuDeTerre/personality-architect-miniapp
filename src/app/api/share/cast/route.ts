@@ -48,9 +48,9 @@ export async function POST(req: NextRequest) {
     const supa = createUserServerClient(token);
 
     const origin = getOrigin(req);
-    // Передаем URL HTML-страницы с OG-тегами в embeds (как в рабочей версии)
+    // Используем preview URL для отображения изображения
     const previewPageUrl = embedUrl ?? `${origin}/api/share/preview`;
-    const preview = new URL(previewPageUrl);
+    let preview = new URL(previewPageUrl);
 
     // Добавляем параметры для генерации изображения
     preview.searchParams.set('rev', String(previewParams.rev ?? process.env.SHARE_PREVIEW_VERSION ?? '1'));
@@ -68,22 +68,79 @@ export async function POST(req: NextRequest) {
         preview.searchParams.set(key, String(value));
     });
 
+    // Передаем targetPath в preview URL, чтобы он попал в OG-теги
+    if (targetUrl) {
+        const targetPath = new URL(targetUrl).pathname;
+        preview.searchParams.set('targetPath', targetPath);
+    }
+
     const compose = new URL('https://warpcast.com/~/compose');
     compose.searchParams.set('text', rawText);
     compose.searchParams.append('embeds[]', preview.toString());
 
     try {
-        console.log('[Share Cast] Publishing cast with preview URL:', preview.toString());
+        const previewUrlString = preview.toString();
+        const previewUrlLength = previewUrlString.length;
+        
+        console.log('[Share Cast] Publishing cast with preview URL:', previewUrlString);
         console.log('[Share Cast] Preview params:', previewParams);
         console.log('[Share Cast] Target URL:', targetUrl);
+        console.log('[Share Cast] Preview URL length:', previewUrlLength, 'characters');
 
-        // Передаем targetPath в preview URL, чтобы он попал в OG-теги
-        if (targetUrl) {
-            const targetPath = new URL(targetUrl).pathname;
-            preview.searchParams.set('targetPath', targetPath);
+        // HTTP стандарт ограничивает URL длиной 2048 символов, но многие серверы имеют более строгие ограничения
+        // Farcaster/Neynar может иметь ограничение ~2000 символов для embed URLs
+        const MAX_URL_LENGTH = 2000;
+        if (previewUrlLength > MAX_URL_LENGTH) {
+            console.error('[Share Cast] Preview URL is too long:', {
+                length: previewUrlLength,
+                maxLength: MAX_URL_LENGTH,
+                url: previewUrlString.substring(0, 200) + '...',
+                previewParams,
+            });
+            
+            // Попытка оптимизировать URL - удаляем длинные параметры
+            // Для Wheel кастов можно убрать ws параметр, если он слишком длинный
+            if (previewParams.ws && typeof previewParams.ws === 'string' && previewParams.ws.length > 500) {
+                console.warn('[Share Cast] Removing long ws parameter to reduce URL length');
+                const optimizedPreview = new URL(previewPageUrl);
+                optimizedPreview.searchParams.set('rev', String(previewParams.rev ?? process.env.SHARE_PREVIEW_VERSION ?? '1'));
+                if (kind) optimizedPreview.searchParams.set('kind', kind);
+                if (previewParams.variant) optimizedPreview.searchParams.set('variant', String(previewParams.variant));
+                
+                // Добавляем только короткие параметры
+                Object.entries(previewParams).forEach(([key, value]) => {
+                    if (value === undefined || value === null || key === 'variant' || key === 'rev' || key === 'kind' || key === 'ws') return;
+                    const valueStr = String(value);
+                    // Пропускаем параметры длиннее 100 символов
+                    if (valueStr.length > 100) {
+                        console.warn(`[Share Cast] Skipping long parameter ${key} (${valueStr.length} chars)`);
+                        return;
+                    }
+                    optimizedPreview.searchParams.set(key, valueStr);
+                });
+                
+                if (targetUrl) {
+                    const targetPath = new URL(targetUrl).pathname;
+                    optimizedPreview.searchParams.set('targetPath', targetPath);
+                }
+                
+                preview = optimizedPreview;
+                console.log('[Share Cast] Optimized preview URL length:', preview.toString().length);
+            }
+            
+            // Если URL все еще слишком длинный, возвращаем ошибку
+            if (preview.toString().length > MAX_URL_LENGTH) {
+                return NextResponse.json({
+                    error: 'url_too_long',
+                    message: `Preview URL is too long (${preview.toString().length} chars, max ${MAX_URL_LENGTH}). Please reduce the number of parameters.`,
+                    urlLength: preview.toString().length,
+                    fallback: compose.toString(),
+                }, { status: 400 });
+            }
         }
 
         // Используем только preview URL - он содержит OG-теги с изображением
+        // og:url указывает на URL мини-приложения, Farcaster должен автоматически показать кнопку "Open in app"
         const embeds: Array<{ url: string }> = [
             { url: preview.toString() },
         ];

@@ -31,7 +31,7 @@ export default function AchievementAnimation({ achievement, onComplete }: Achiev
             <div className="relative z-10 text-center animate-scale-in max-w-md mx-auto px-4">
                 <div className="text-8xl mb-4 animate-bounce">{achievement.icon}</div>
                 <div className="text-sm uppercase tracking-wider text-[#AAB1C2] mb-2 animate-slide-up">
-                    Достижение разблокировано!
+                    ACHIEVEMENT UNLOCKED!
                 </div>
                 <h2 className={`text-3xl font-bold mb-2 ${rarityColor} animate-slide-up-delay`}>
                     {achievement.title}

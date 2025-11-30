@@ -684,9 +684,8 @@ export default function AnalyticsPage() {
                     const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                     return `${startStr} – ${endStr}`;
                 })();
-                const segmentsParam = wheelSpotlightSegments
-                    .map(seg => `${encodeURIComponent(seg.label)}:${seg.score.toFixed(1)}`)
-                    .join('|');
+                // Удаляем segments и week из URL - они не используются для генерации изображения
+                // Это значительно сокращает длину URL и предотвращает ошибки
                 const topArea = wheelTopAreas[0]?.area ?? 'Top area';
                 const weakArea = wheelWeakestArea?.area ?? wheelTopAreas[wheelTopAreas.length - 1]?.area ?? 'Focus area';
                 templates.push({
@@ -698,11 +697,10 @@ export default function AnalyticsPage() {
                     previewParams: {
                         variant: 'wheel:spotlight',
                         avg: String(wheelAverageScore),
-                        week: weekLabel,
                         focus: weakArea,
                         top: topArea,
                         low: weakArea,
-                        segments: segmentsParam,
+                        // Удаляем segments и week - они не используются для генерации изображения
                     },
                     targetPath: '/analytics',
                 });

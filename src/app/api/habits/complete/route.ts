@@ -114,14 +114,14 @@ export async function POST(req: NextRequest) {
                         user_id: userId,
                         event_type: 'level_up',
                         xp_amount: 0,
-                        description: `Повышение уровня! ${levelName} (Level ${newLevel})`,
+                        description: `Level Up! ${levelName} (Level ${newLevel})`,
                         metadata: { level: newLevel, level_name: levelName },
                     });
 
                 xpEvents.push({
                     type: 'level_up',
                     xp: 0,
-                    description: `Повышение уровня! ${levelName} (Level ${newLevel})`,
+                    description: `Level Up! ${levelName} (Level ${newLevel})`,
                     metadata: { level: newLevel, level_name: levelName },
                 });
             }
@@ -196,7 +196,7 @@ export async function POST(req: NextRequest) {
                                 user_id: userId,
                                 event_type: 'achievement',
                                 xp_amount: achievement.xpReward,
-                                description: `Достижение разблокировано: ${achievement.title}`,
+                                description: `Achievement unlocked: ${achievement.title}`,
                                 metadata: {
                                     achievement_id: achievement.id,
                                     achievement_title: achievement.title,

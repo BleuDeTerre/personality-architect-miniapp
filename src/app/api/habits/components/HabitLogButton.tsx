@@ -49,7 +49,7 @@ export default function HabitLogButton({ habitId, date }: { habitId: string; dat
                 }
             }
         } catch {
-            toast.error('Не удалось отметить выполнение');
+            toast.error('Failed to mark as complete');
         } finally {
             setLoading(false);
         }

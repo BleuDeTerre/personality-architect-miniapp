@@ -62,12 +62,12 @@ export default function ShareCastComposer({
             if (!origin || !template) return null;
             const url = new URL(`${origin}/api/share/og`);
             url.searchParams.set("rev", SHARE_PREVIEW_VERSION);
-            
+
             // Единая схема: передаем kind для всех категорий (для правильного определения цвета)
             if (template.kind) {
                 url.searchParams.set("kind", template.kind);
             }
-            
+
             if (template.previewParams) {
                 Object.entries(template.previewParams).forEach(([key, value]) => {
                     if (value === undefined || value === null) return;
@@ -92,13 +92,11 @@ export default function ShareCastComposer({
     async function publishCast(template: CastTemplate) {
         setLoading(true);
 
-        const isInMiniApp = isSDKLoaded && actions?.composeCast;
         const previewUrl = buildPreviewUrl(template);
-        // Для Farcaster передаем HTML-страницу с OG-тегами (как в рабочей версии)
+        // Для Farcaster передаем HTML-страницу с OG-тегами
         const embedUrl = previewUrl ? previewUrl.replace('/api/share/og', '/api/share/preview') : null;
 
-        console.log('[ShareCastComposer] Publishing cast:', {
-            isInMiniApp,
+        console.log('[ShareCastComposer] Publishing cast via API:', {
             previewUrl,
             embedUrl,
             template: {
@@ -109,57 +107,10 @@ export default function ShareCastComposer({
         });
 
         try {
-            // Пробуем нативный метод, если в Mini App
-            if (isInMiniApp && actions.composeCast) {
-                const embeds: string[] = [];
-
-                // Добавляем HTML-страницу с OG-тегами (Farcaster сам загрузит og:image)
-                if (embedUrl) {
-                    embeds.push(embedUrl);
-                    console.log('[ShareCastComposer] Using native composeCast with embed:', embedUrl);
-                }
-
-                // Добавляем второй embed с URL приложения для кнопки "Open in app"
-                if (template.targetPath) {
-                    const targetUrl = `${origin}${template.targetPath}`;
-                    embeds.push(targetUrl);
-                    console.log('[ShareCastComposer] Adding target URL for "Open in app":', targetUrl);
-                }
-
-                const embedsTuple = embeds.length > 0
-                    ? (embeds.length === 1 ? [embeds[0]] as [string] : [embeds[0], embeds[1]] as [string, string])
-                    : undefined;
-                await actions.composeCast({
-                    text: template.text,
-                    embeds: embedsTuple,
-                });
-
-                // Логируем успешное использование нативного метода
-                try {
-                    await fetch('/api/share/log', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...(prepareHeaders ? await prepareHeaders() : {}),
-                        },
-                        body: JSON.stringify({
-                            method: 'native_composeCast',
-                            success: true,
-                            kind: template.kind,
-                        }),
-                    });
-                } catch (logError) {
-                    console.warn('[ShareCastComposer] Failed to log native share:', logError);
-                }
-
-                toast.success("Composer opened 🎉", {
-                    description: "Edit and publish your cast in the composer.",
-                });
-                setLoading(false);
-                return;
-            }
-
-            // Fallback: используем API метод
+            // ВСЕГДА используем серверный API для публикации кастов через Managed Signer
+            // Это гарантирует правильное списание кредитов Neynar (150 кредитов за каст)
+            // actions.composeCast открывает композер Farcaster, но не использует Managed Signer API,
+            // поэтому кредиты не списываются или списываются минимально
             const headers = {
                 "Content-Type": "application/json",
                 ...(prepareHeaders ? await prepareHeaders() : {}),
@@ -172,7 +123,7 @@ export default function ShareCastComposer({
                     title: template.title,
                     text: template.text,
                     previewParams: template.previewParams,
-                    embedUrl: embedUrl, // Передаем HTML-страницу с OG-тегами
+                    embedUrl: embedUrl,
                     targetUrl: template.targetPath ? `${origin}${template.targetPath}` : undefined,
                 }),
             });
