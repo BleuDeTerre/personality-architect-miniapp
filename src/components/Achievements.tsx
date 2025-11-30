@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ACHIEVEMENTS, getRarityColor } from '@/lib/achievements';
+import { ACHIEVEMENTS } from '@/lib/achievements';
 import type { AchievementCheck } from '@/lib/achievements';
 import { calculateQuestProgress, type Quest } from '@/lib/daily-quests';
 import { BADGES, type Badge } from '@/lib/badges';
@@ -301,7 +301,6 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
                 {isExpanded && (
                     <div className="grid grid-cols-2 gap-3">
                         {achievements.map(check => {
-                            const color = getRarityColor(check.achievement.rarity);
                             return (
                                 <div
                                     key={check.achievement.id}
@@ -331,7 +330,7 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
                                         </div>
                                     )}
                                     {check.unlocked && (
-                                        <div className={`text-xs font-semibold ${color}`}>
+                                        <div className="text-xs font-semibold text-blue-400">
                                             +{check.achievement.xpReward} XP
                                         </div>
                                     )}

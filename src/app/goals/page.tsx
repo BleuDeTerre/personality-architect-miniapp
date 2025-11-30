@@ -34,12 +34,6 @@ export default function GoalsPage() {
     const [loadingGoals, setLoadingGoals] = useState(true);
     const [mutatingGoal, setMutatingGoal] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [searchQuery, setSearchQuery] = useState(() => {
-        if (typeof window !== 'undefined') {
-            return localStorage.getItem('goals_searchQuery') || '';
-        }
-        return '';
-    });
     const [filterStatus, setFilterStatus] = useState<'active' | 'completed'>(() => {
         if (typeof window !== 'undefined') {
             return (localStorage.getItem('goals_filterStatus') as 'active' | 'completed') || 'active';
@@ -248,13 +242,6 @@ export default function GoalsPage() {
             subscription.unsubscribe();
         };
     }, [fetchGoals]);
-
-    // Save filter state to localStorage
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('goals_searchQuery', searchQuery);
-        }
-    }, [searchQuery]);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -471,12 +458,8 @@ export default function GoalsPage() {
     }, [goals]);
 
     const filteredGoals = useMemo(() => {
-        return goals.filter(goal => {
-            const matchesSearch = goal.title.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesFilter = goal.status === filterStatus;
-            return matchesSearch && matchesFilter;
-        });
-    }, [goals, searchQuery, filterStatus]);
+        return goals.filter(goal => goal.status === filterStatus);
+    }, [goals, filterStatus]);
 
     const goalShareTemplates = useMemo<CastTemplate[]>(() => {
         if (!goals.length) return [];
@@ -650,32 +633,8 @@ export default function GoalsPage() {
                     </form>
                 </section>
 
-                {/* Search and Filter */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
-                    {/* Search Bar */}
-                    <div className="relative">
-                        <svg
-                            className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/50"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                            />
-                        </svg>
-                        <input
-                            type="text"
-                            placeholder="Search goals..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] pl-12 pr-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
-                        />
-                    </div>
-
+                {/* Filter */}
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
                     {/* Segmented Control */}
                     <div className="flex gap-2">
                         <button

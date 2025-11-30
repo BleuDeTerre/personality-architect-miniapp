@@ -132,18 +132,6 @@ export default function HabitsPage() {
     const [plan, setPlan] = useState<string>('free');
     const [showTemplates, setShowTemplates] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
-    const [searchQuery, setSearchQuery] = useState(() => {
-        if (typeof window !== 'undefined') {
-            return localStorage.getItem('habits_searchQuery') || '';
-        }
-        return '';
-    });
-    const [filterCompleted, setFilterCompleted] = useState<'all' | 'completed' | 'active'>(() => {
-        if (typeof window !== 'undefined') {
-            return (localStorage.getItem('habits_filterCompleted') as 'all' | 'completed' | 'active') || 'all';
-        }
-        return 'all';
-    });
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const emojiPickerRef = useRef<HTMLDivElement>(null);
     const [removingHabitId, setRemovingHabitId] = useState<string | null>(null);
@@ -436,17 +424,6 @@ export default function HabitsPage() {
     }, [fetchHabits, loadPlan]);
 
     // Save filter state to localStorage
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('habits_searchQuery', searchQuery);
-        }
-    }, [searchQuery]);
-
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('habits_filterCompleted', filterCompleted);
-        }
-    }, [filterCompleted]);
 
     // Close emoji picker when clicking outside
     useEffect(() => {
@@ -779,15 +756,8 @@ export default function HabitsPage() {
     }, [selectedCategory]);
 
     const filteredHabits = useMemo(() => {
-        return habits.filter(h => {
-            const matchesSearch = h.title.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesFilter =
-                filterCompleted === 'all' ||
-                (filterCompleted === 'completed' && h.is_completed) ||
-                (filterCompleted === 'active' && !h.is_completed);
-            return matchesSearch && matchesFilter;
-        });
-    }, [habits, searchQuery, filterCompleted]);
+        return habits;
+    }, [habits]);
 
     const habitShareTemplates = useMemo<CastTemplate[]>(() => {
         const templates: CastTemplate[] = [];
@@ -876,46 +846,46 @@ export default function HabitsPage() {
                     <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
                         <form onSubmit={addHabit} className="flex flex-col gap-3">
                             <div className="grid grid-cols-2 gap-3">
-                            <div className="relative">
-                                <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">EMOJI</label>
-                                <input
-                                    type="text"
-                                    placeholder="EMOJI"
-                                    value={emoji}
-                                    onChange={(e) => setEmoji(e.target.value)}
-                                    onClick={() => setShowEmojiPicker(true)}
-                                    readOnly
-                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
-                                />
-                                {showEmojiPicker && (
-                                    <div ref={emojiPickerRef} className="absolute z-10 mt-2 w-full max-w-[240px] rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 backdrop-blur max-h-48 overflow-y-auto">
-                                        <div className="grid grid-cols-5 gap-1.5">
-                                            {POPULAR_EMOJIS.map((emojiOption, idx) => (
-                                                <button
-                                                    key={`${emojiOption}-${idx}`}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setEmoji(emojiOption);
-                                                        setShowEmojiPicker(false);
-                                                    }}
-                                                    className="rounded-xl p-2 text-xl hover:bg-white/10 transition bg-[#1a1b2e] aspect-square flex items-center justify-center"
-                                                >
-                                                    {emojiOption}
-                                                </button>
-                                            ))}
+                                <div className="relative">
+                                    <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">EMOJI</label>
+                                    <input
+                                        type="text"
+                                        placeholder="EMOJI"
+                                        value={emoji}
+                                        onChange={(e) => setEmoji(e.target.value)}
+                                        onClick={() => setShowEmojiPicker(true)}
+                                        readOnly
+                                        className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                    />
+                                    {showEmojiPicker && (
+                                        <div ref={emojiPickerRef} className="absolute z-10 mt-2 w-full max-w-[240px] rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 backdrop-blur max-h-48 overflow-y-auto">
+                                            <div className="grid grid-cols-5 gap-1.5">
+                                                {POPULAR_EMOJIS.map((emojiOption, idx) => (
+                                                    <button
+                                                        key={`${emojiOption}-${idx}`}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setEmoji(emojiOption);
+                                                            setShowEmojiPicker(false);
+                                                        }}
+                                                        className="rounded-xl p-2 text-xl hover:bg-white/10 transition bg-[#1a1b2e] aspect-square flex items-center justify-center"
+                                                    >
+                                                        {emojiOption}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setEmoji('');
+                                                    setShowEmojiPicker(false);
+                                                }}
+                                                className="mt-2 w-full rounded-xl border border-dashed border-white/20 bg-[#1a1b2e] px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 transition"
+                                            >
+                                                Clear emoji
+                                            </button>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setEmoji('');
-                                                setShowEmojiPicker(false);
-                                            }}
-                                            className="mt-2 w-full rounded-xl border border-dashed border-white/20 bg-[#1a1b2e] px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 transition"
-                                        >
-                                            Clear emoji
-                                        </button>
-                                    </div>
-                                )}
+                                    )}
                                 </div>
                                 <div>
                                     <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">TARGET DAYS PER WEEK</label>
@@ -963,45 +933,6 @@ export default function HabitsPage() {
                             </button>
                         </form>
                     </section>
-
-                    {/* Search and Filter */}
-                    {habits.length > 0 && (
-                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
-                            <div className="flex flex-col gap-2.5">
-                                <div className="relative">
-                                    <svg
-                                        className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                                        />
-                                    </svg>
-                                    <input
-                                        type="text"
-                                        placeholder="Search habits..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] pl-10 pr-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
-                                    />
-                                </div>
-                                <select
-                                    value={filterCompleted}
-                                    onChange={(e) => setFilterCompleted(e.target.value as 'all' | 'completed' | 'active')}
-                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white focus:border-white/40 focus:outline-none appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat pr-10"
-                                >
-                                    <option value="all" className="bg-[#1a1b2e] text-white">All</option>
-                                    <option value="active" className="bg-[#1a1b2e] text-white">Active</option>
-                                    <option value="completed" className="bg-[#1a1b2e] text-white">Completed</option>
-                                </select>
-                            </div>
-                        </section>
-                    )}
 
                     {/* Share Section */}
                     {habitShareTemplates.length > 0 && (

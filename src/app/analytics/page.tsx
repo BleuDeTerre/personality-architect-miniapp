@@ -29,7 +29,296 @@ type Habit = { id: string; title: string; is_active?: boolean };
 type Log = { habit_id: string; date: string; value: boolean; is_completed?: boolean };
 type TrendPoint = { date: string; streak: number };
 
-// Sparkline Chart Component
+// Helper function for date formatting (shared)
+function formatChartDate(dateStr: string) {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// Helper function to calculate chart points (shared)
+function calculateChartPoints(data: TrendPoint[], maxStreak: number, width: number, height: number, padding: number) {
+    const chartWidth = width - padding * 2;
+    const chartHeight = height - padding * 2;
+    const maxValue = Math.max(maxStreak, 1);
+    
+    return data.map((point, idx) => {
+        const x = padding + (data.length > 1 ? (idx / (data.length - 1)) * chartWidth : chartWidth / 2);
+        const bottomY = padding + chartHeight;
+        const y = bottomY - (point.streak / maxValue) * chartHeight;
+        return { x, y, value: point.streak };
+    });
+}
+
+// Вариант 1: Волновая визуализация - очень плавные кривые, мягкие переходы
+function SparklineChartV1({ data, maxStreak }: { data: TrendPoint[]; maxStreak: number }) {
+    const width = 1000;
+    const height = 100;
+    const padding = 10;
+
+    if (data.length === 0 || maxStreak === 0) {
+        return (
+            <div className="flex h-full items-center justify-center text-white/40 text-sm">
+                No data to display
+            </div>
+        );
+    }
+
+    const points = calculateChartPoints(data, maxStreak, width, height, padding);
+
+    // Very smooth wave-like curves
+    const createWavePath = (points: Array<{ x: number; y: number }>) => {
+        if (points.length === 0) return '';
+        if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+        if (points.length === 2) {
+            return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+        }
+
+        let path = `M ${points[0].x} ${points[0].y}`;
+        for (let i = 0; i < points.length - 1; i++) {
+            const current = points[i];
+            const next = points[i + 1];
+            const prev = i > 0 ? points[i - 1] : current;
+            const after = i < points.length - 2 ? points[i + 2] : next;
+
+            // Very smooth control points for wave-like appearance
+            const cp1x = current.x + (next.x - prev.x) * 0.25;
+            const cp1y = current.y + (next.y - prev.y) * 0.25;
+            const cp2x = next.x - (after.x - current.x) * 0.25;
+            const cp2y = next.y - (after.y - current.y) * 0.25;
+
+            path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${next.x} ${next.y}`;
+        }
+        return path;
+    };
+
+    const wavePath = createWavePath(points);
+    const bottomY = padding + (height - padding * 2);
+    const areaPath = wavePath + 
+        ` L ${points[points.length - 1].x} ${bottomY}` + 
+        ` L ${points[0].x} ${bottomY} Z`;
+
+    const labelDates = [
+        data[0]?.date,
+        data[Math.floor(data.length / 2)]?.date,
+        data[data.length - 1]?.date,
+    ].filter(Boolean);
+
+    return (
+        <div className="w-full h-full relative">
+            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full" preserveAspectRatio="none">
+                <defs>
+                    <linearGradient id="waveGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.4" />
+                        <stop offset="50%" stopColor="#A78BFA" stopOpacity="0.2" />
+                        <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.05" />
+                    </linearGradient>
+                </defs>
+                <path d={areaPath} fill="url(#waveGradient)" />
+                <path
+                    d={wavePath}
+                    fill="none"
+                    stroke="#A78BFA"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+            </svg>
+            <div className="absolute bottom-0 left-0 right-0 flex justify-between px-2 text-xs text-white/60">
+                {labelDates.map((date, idx) => (
+                    <span key={idx}>{date ? formatChartDate(date) : ''}</span>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// Вариант 2: Пост-минимализм - чисто, тонкая линия, акценты только на пиках
+function SparklineChartV2({ data, maxStreak }: { data: TrendPoint[]; maxStreak: number }) {
+    const width = 1000;
+    const height = 100;
+    const padding = 10;
+
+    if (data.length === 0 || maxStreak === 0) {
+        return (
+            <div className="flex h-full items-center justify-center text-white/40 text-sm">
+                No data to display
+            </div>
+        );
+    }
+
+    const points = calculateChartPoints(data, maxStreak, width, height, padding);
+
+    // Simple smooth path
+    const createMinimalPath = (points: Array<{ x: number; y: number }>) => {
+        if (points.length === 0) return '';
+        if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+        
+        let path = `M ${points[0].x} ${points[0].y}`;
+        for (let i = 1; i < points.length; i++) {
+            path += ` L ${points[i].x} ${points[i].y}`;
+        }
+        return path;
+    };
+
+    const linePath = createMinimalPath(points);
+
+    // Find peak points
+    const peakPoints = points.filter((point, idx) => {
+        if (idx === 0 || idx === points.length - 1) return false;
+        return point.value > 0 && 
+               point.value >= points[idx - 1].value && 
+               point.value >= points[idx + 1].value &&
+               point.value === maxStreak;
+    });
+
+    const labelDates = [
+        data[0]?.date,
+        data[Math.floor(data.length / 2)]?.date,
+        data[data.length - 1]?.date,
+    ].filter(Boolean);
+
+    return (
+        <div className="w-full h-full relative">
+            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full" preserveAspectRatio="none">
+                {/* Subtle baseline */}
+                <line
+                    x1={padding}
+                    y1={padding + (height - padding * 2)}
+                    x2={width - padding}
+                    y2={padding + (height - padding * 2)}
+                    stroke="rgba(255,255,255,0.05)"
+                    strokeWidth="1"
+                />
+                {/* Thin line */}
+                <path
+                    d={linePath}
+                    fill="none"
+                    stroke="#8B5CF6"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0.6"
+                />
+                {/* Peak highlights */}
+                {peakPoints.map((point, idx) => (
+                    <circle
+                        key={`peak-${idx}`}
+                        cx={point.x}
+                        cy={point.y}
+                        r="4"
+                        fill="#8B5CF6"
+                        stroke="#ffffff"
+                        strokeWidth="2"
+                    />
+                ))}
+            </svg>
+            <div className="absolute bottom-0 left-0 right-0 flex justify-between px-2 text-xs text-white/60">
+                {labelDates.map((date, idx) => (
+                    <span key={idx}>{date ? formatChartDate(date) : ''}</span>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// Вариант 3: Геймифицированный - зоны активности, яркие акценты
+function SparklineChartV3({ data, maxStreak }: { data: TrendPoint[]; maxStreak: number }) {
+    const width = 1000;
+    const height = 100;
+    const padding = 10;
+
+    if (data.length === 0 || maxStreak === 0) {
+        return (
+            <div className="flex h-full items-center justify-center text-white/40 text-sm">
+                No data to display
+            </div>
+        );
+    }
+
+    const points = calculateChartPoints(data, maxStreak, width, height, padding);
+
+    // Smooth curve with zones
+    const createGamifiedPath = (points: Array<{ x: number; y: number }>) => {
+        if (points.length === 0) return '';
+        if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+        if (points.length === 2) {
+            return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+        }
+
+        let path = `M ${points[0].x} ${points[0].y}`;
+        for (let i = 0; i < points.length - 1; i++) {
+            const prev = i > 0 ? points[i - 1] : points[i];
+            const current = points[i];
+            const next = points[i + 1];
+            const afterNext = i < points.length - 2 ? points[i + 2] : next;
+
+            const dx1 = (next.x - prev.x) * 0.2;
+            const dy1 = (next.y - prev.y) * 0.2;
+            const dx2 = (afterNext.x - current.x) * 0.2;
+            const dy2 = (afterNext.y - current.y) * 0.2;
+
+            const cp1x = current.x + dx1;
+            const cp1y = current.y + dy1;
+            const cp2x = next.x - dx2;
+            const cp2y = next.y - dy2;
+
+            path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${next.x} ${next.y}`;
+        }
+        return path;
+    };
+
+    const smoothPath = createGamifiedPath(points);
+    const chartHeight = height - padding * 2;
+    const bottomY = padding + chartHeight;
+    const areaPath = smoothPath + 
+        ` L ${points[points.length - 1].x} ${bottomY}` + 
+        ` L ${points[0].x} ${bottomY} Z`;
+
+    // Zone thresholds
+    const lowZone = padding + chartHeight * 0.7;
+    const midZone = padding + chartHeight * 0.4;
+
+    const labelDates = [
+        data[0]?.date,
+        data[Math.floor(data.length / 2)]?.date,
+        data[data.length - 1]?.date,
+    ].filter(Boolean);
+
+    return (
+        <div className="w-full h-full relative">
+            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full" preserveAspectRatio="none">
+                <defs>
+                    <linearGradient id="zoneGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#22C55E" stopOpacity="0.2" />
+                        <stop offset="50%" stopColor="#8B5CF6" stopOpacity="0.15" />
+                        <stop offset="100%" stopColor="#F59E0B" stopOpacity="0.1" />
+                    </linearGradient>
+                </defs>
+                {/* Zone dividers */}
+                <line x1={padding} y1={lowZone} x2={width - padding} y2={lowZone} stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="2,2" />
+                <line x1={padding} y1={midZone} x2={width - padding} y2={midZone} stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="2,2" />
+                {/* Area fill */}
+                <path d={areaPath} fill="url(#zoneGradient)" />
+                {/* Bold line with gradient */}
+                <path
+                    d={smoothPath}
+                    fill="none"
+                    stroke="#8B5CF6"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+            </svg>
+            <div className="absolute bottom-0 left-0 right-0 flex justify-between px-2 text-xs text-white/60">
+                {labelDates.map((date, idx) => (
+                    <span key={idx}>{date ? formatChartDate(date) : ''}</span>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// Sparkline Chart Component with smooth curves and gradient fill (original - keeping for now)
 function SparklineChart({ data, maxStreak }: { data: TrendPoint[]; maxStreak: number }) {
     const width = 1000;
     const height = 100;
@@ -50,8 +339,50 @@ function SparklineChart({ data, maxStreak }: { data: TrendPoint[]; maxStreak: nu
     const points = data.map((point, idx) => {
         const x = padding + (data.length > 1 ? (idx / (data.length - 1)) * chartWidth : chartWidth / 2);
         const y = padding + chartHeight - (point.streak / maxValue) * chartHeight;
-        return `${x},${y}`;
-    }).join(' ');
+        return { x, y, value: point.streak };
+    });
+
+    // Helper function to create smooth curve using cubic Bezier with better interpolation
+    const createSmoothPath = (points: Array<{ x: number; y: number }>) => {
+        if (points.length === 0) return '';
+        if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+        if (points.length === 2) {
+            return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+        }
+
+        let path = `M ${points[0].x} ${points[0].y}`;
+
+        // Use smoother interpolation for better curves
+        for (let i = 0; i < points.length - 1; i++) {
+            const prev = i > 0 ? points[i - 1] : points[i];
+            const current = points[i];
+            const next = points[i + 1];
+            const afterNext = i < points.length - 2 ? points[i + 2] : next;
+
+            // Calculate smooth control points using neighboring points
+            const dx1 = (next.x - prev.x) * 0.2;
+            const dy1 = (next.y - prev.y) * 0.2;
+            const dx2 = (afterNext.x - current.x) * 0.2;
+            const dy2 = (afterNext.y - current.y) * 0.2;
+
+            const cp1x = current.x + dx1;
+            const cp1y = current.y + dy1;
+            const cp2x = next.x - dx2;
+            const cp2y = next.y - dy2;
+
+            path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${next.x} ${next.y}`;
+        }
+
+        return path;
+    };
+
+    // Create smooth path
+    const smoothPath = createSmoothPath(points);
+
+    // Create area path (for gradient fill)
+    const areaPath = smoothPath + 
+        ` L ${points[points.length - 1].x} ${padding + chartHeight}` + 
+        ` L ${points[0].x} ${padding + chartHeight} Z`;
 
     // Find dates for labels (first, middle, last)
     const labelDates = [
@@ -65,6 +396,15 @@ function SparklineChart({ data, maxStreak }: { data: TrendPoint[]; maxStreak: nu
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
 
+    // Find peak points for highlighting
+    const peakPoints = points.filter((point, idx) => {
+        if (idx === 0 || idx === points.length - 1) return false;
+        return point.value > 0 && 
+               point.value >= points[idx - 1].value && 
+               point.value >= points[idx + 1].value &&
+               point.value === maxStreak;
+    });
+
     return (
         <div className="w-full h-full relative">
             <svg
@@ -72,18 +412,48 @@ function SparklineChart({ data, maxStreak }: { data: TrendPoint[]; maxStreak: nu
                 className="w-full h-full"
                 preserveAspectRatio="none"
             >
-                {/* Background */}
-                <rect width={width} height={height} fill="transparent" />
+                {/* Gradient definitions */}
+                <defs>
+                    <linearGradient id="sparklineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.3" />
+                        <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.05" />
+                    </linearGradient>
+                    <linearGradient id="sparklineLineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#A78BFA" />
+                        <stop offset="50%" stopColor="#8B5CF6" />
+                        <stop offset="100%" stopColor="#7C3AED" />
+                    </linearGradient>
+                </defs>
 
-                {/* Line */}
-                <polyline
-                    points={points}
+                {/* Area fill (gradient under line) */}
+                <path
+                    d={areaPath}
+                    fill="url(#sparklineGradient)"
+                />
+
+                {/* Smooth line */}
+                <path
+                    d={smoothPath}
                     fill="none"
-                    stroke="#8B5CF6"
-                    strokeWidth="2"
+                    stroke="url(#sparklineLineGradient)"
+                    strokeWidth="2.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                 />
+
+                {/* Highlight peak points (subtle) */}
+                {peakPoints.map((point, idx) => (
+                    <circle
+                        key={`peak-${idx}`}
+                        cx={point.x}
+                        cy={point.y}
+                        r="2.5"
+                        fill="#A78BFA"
+                        stroke="#ffffff"
+                        strokeWidth="1"
+                        opacity="0.8"
+                    />
+                ))}
             </svg>
 
             {/* Date labels */}
@@ -996,14 +1366,36 @@ export default function AnalyticsPage() {
                                 </div>
                             ) : habitTrendData.length > 0 ? (
                                 <div className="space-y-3">
-                                    {/* Sparkline streak trend */}
+                                    {/* Вариант 1: Волновая визуализация */}
                                     <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2.5">
                                         <div>
-                                            <h3 className="text-sm font-semibold text-white">Sparkline streak trend (last 90 days)</h3>
+                                            <h3 className="text-sm font-semibold text-white">Вариант 1: Волновая визуализация</h3>
                                             <p className="text-xs text-white/70">Max streak: {maxStreak} day{maxStreak !== 1 ? 's' : ''}</p>
                                         </div>
                                         <div className="relative h-32 w-full">
-                                            <SparklineChart data={habitTrendData} maxStreak={maxStreak} />
+                                            <SparklineChartV1 data={habitTrendData} maxStreak={maxStreak} />
+                                        </div>
+                                    </div>
+
+                                    {/* Вариант 2: Пост-минимализм */}
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2.5">
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-white">Вариант 2: Пост-минимализм</h3>
+                                            <p className="text-xs text-white/70">Max streak: {maxStreak} day{maxStreak !== 1 ? 's' : ''}</p>
+                                        </div>
+                                        <div className="relative h-32 w-full">
+                                            <SparklineChartV2 data={habitTrendData} maxStreak={maxStreak} />
+                                        </div>
+                                    </div>
+
+                                    {/* Вариант 3: Геймифицированный */}
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2.5">
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-white">Вариант 3: Геймифицированный</h3>
+                                            <p className="text-xs text-white/70">Max streak: {maxStreak} day{maxStreak !== 1 ? 's' : ''}</p>
+                                        </div>
+                                        <div className="relative h-32 w-full">
+                                            <SparklineChartV3 data={habitTrendData} maxStreak={maxStreak} />
                                         </div>
                                     </div>
 
@@ -1045,9 +1437,9 @@ export default function AnalyticsPage() {
                                                     return (
                                                         <div
                                                             key={idx}
-                                                            className={`rounded-3xl border ${borderColor} ${bgColor} px-2.5 py-5 flex flex-col items-center text-center gap-1.5 shadow-[0_0_25px_rgba(0,0,0,0.25)] min-w-[100px] min-h-[140px] snap-start`}
+                                                            className={`rounded-3xl border ${borderColor} ${bgColor} px-2.5 py-3 flex flex-col items-center text-center gap-1 shadow-[0_0_25px_rgba(0,0,0,0.25)] min-w-[100px] min-h-[110px] snap-start`}
                                                         >
-                                                            <div className={`text-2xl font-semibold ${textColor}`}>
+                                                            <div className={`text-xl font-semibold ${textColor}`}>
                                                                 {capsule.completedDays}/{capsule.totalDays}
                                                             </div>
                                                             <div className={`text-xs ${textColor}`}>
@@ -1078,7 +1470,7 @@ export default function AnalyticsPage() {
 
                 {/* AI Facts Section */}
                 {facts && facts.facts && facts.facts.length > 0 && (
-                    <CollapsibleCard title="AI facts" defaultOpen={false}>
+                    <CollapsibleCard title="🤖 AI facts" defaultOpen={false}>
                         <div className="space-y-2">
                             {facts.facts.map((fact, idx) => (
                                 <div key={idx} className="flex items-start gap-2.5">

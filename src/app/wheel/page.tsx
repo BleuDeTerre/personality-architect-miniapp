@@ -16,6 +16,7 @@ import MiniAppPage from '@/components/MiniAppPage';
 import AIWheelInsights from '@/components/AIWheelInsights';
 import CollapsibleCard from '@/components/CollapsibleCard';
 import WeekPicker from '@/components/WeekPicker';
+import { toast } from 'sonner';
 
 type Item = { area: string; score: number };
 
@@ -40,7 +41,7 @@ const AREAS = [
     { name: 'Joy & Leisure', icon: '🎉', color: '#ec4899' },
     { name: 'Social', icon: '👥', color: '#c084fc' },
     { name: 'Finances', icon: '💰', color: '#fbbf24' },
-    { name: 'Environment', icon: '🏠', color: '#14b8a6' },
+    { name: 'Environment', icon: '🏠', color: '#06b6d4' },
 ];
 
 const AREA_ORDER = ['Inner State', 'Spirituality', 'Career', 'Relationships', 'Health', 'Personal Growth', 'Joy & Leisure', 'Social', 'Finances', 'Environment'];
@@ -80,6 +81,8 @@ export default function WheelPage() {
     const [editingValues, setEditingValues] = useState(false);
     const [editItems, setEditItems] = useState<Item[]>([]);
     const [canRenderChart, setCanRenderChart] = useState(false);
+    const [coachAdvice, setCoachAdvice] = useState<string | null>(null);
+    const [coachLoading, setCoachLoading] = useState(false);
 
     const currentWeekRef = useRef<string>(week);
 
@@ -163,6 +166,71 @@ export default function WheelPage() {
             setTrendsLoading(false);
         }
     }, [authHeaders]);
+
+    const getCoachAdvice = useCallback(async () => {
+        setCoachLoading(true);
+        setCoachAdvice(null); // Очищаем предыдущий совет
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                toast.error('Authentication required', {
+                    description: 'Please refresh the page and try again.',
+                });
+                return;
+            }
+
+            const r = await fetch('/api/insight/coach', {
+                cache: 'no-store',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${session.access_token}`,
+                }
+            });
+
+            if (!r.ok) {
+                const errorData = await r.json().catch(() => ({}));
+                const errorMessage = errorData.error || errorData.message || `HTTP ${r.status}`;
+                console.error('[WheelPage] Coach API error:', r.status, errorMessage);
+                
+                if (r.status === 401) {
+                    toast.error('Authentication failed', {
+                        description: 'Please refresh the page and try again.',
+                    });
+                } else {
+                    toast.error('Failed to get coach advice', {
+                        description: errorMessage,
+                    });
+                }
+                return;
+            }
+
+            const j = await r.json();
+            if (j.error) {
+                console.error('[WheelPage] Error in coach response:', j.error);
+                toast.error('Failed to get coach advice', {
+                    description: j.error,
+                });
+                return;
+            }
+
+            const adviceText = j.advice || '';
+            if (!adviceText.trim()) {
+                toast.error('No advice received', {
+                    description: 'Please try again later.',
+                });
+                return;
+            }
+
+            setCoachAdvice(adviceText);
+        } catch (error: any) {
+            console.error('[WheelPage] Unexpected coach error:', error);
+            toast.error('Unexpected error', {
+                description: error?.message || 'Please try again later.',
+            });
+        } finally {
+            setCoachLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
         currentWeekRef.current = week;
@@ -909,52 +977,51 @@ export default function WheelPage() {
                     </CollapsibleCard>
                 )}
 
-                <CollapsibleCard title="AI & Coach" defaultOpen={false}>
-                    <div className="space-y-3">
-                        <AIWheelInsights />
-                        <button
-                            onClick={loadTrends}
-                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
-                            disabled={trendsLoading}
-                        >
-                            {trendsLoading ? 'Updating…' : 'Refresh trends'}
-                        </button>
-                        <CoachBlock />
-                    </div>
-                </CollapsibleCard>
+                <div className="space-y-3">
+                    <AIWheelInsights />
+                    <button
+                        onClick={getCoachAdvice}
+                        className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-white font-semibold transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40 flex items-center gap-2 justify-center"
+                        disabled={coachLoading}
+                    >
+                        <span>🤖</span>
+                        <span>{coachLoading ? 'Analyzing…' : 'Get Coach Advice'}</span>
+                    </button>
+                    <CoachBlock advice={coachAdvice} />
+                </div>
 
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-2">
                     <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Trends</h2>
-                    <div className="overflow-x-auto rounded-2xl border border-white/10">
-                        <table className="min-w-full border-collapse text-sm text-white/80">
+                    <div className="rounded-2xl border border-white/10 overflow-hidden">
+                        <table className="w-full border-collapse text-xs text-white/80">
                             <thead className="bg-white/10 text-white/70">
                                 <tr>
-                                    <th className="px-2 py-1 text-left">Area</th>
-                                    <th className="px-2 py-1 text-right">Last</th>
-                                    <th className="px-2 py-1 text-right">Avg 4w</th>
-                                    <th className="px-2 py-1 text-right">Avg 12w</th>
-                                    <th className="px-2 py-1 text-right">Δ 4w</th>
-                                    <th className="px-2 py-1 text-right">Δ 12w</th>
+                                    <th className="px-1.5 py-1 text-left">Area</th>
+                                    <th className="px-1.5 py-1 text-right">Last</th>
+                                    <th className="px-1.5 py-1 text-right">4w</th>
+                                    <th className="px-1.5 py-1 text-right">12w</th>
+                                    <th className="px-1.5 py-1 text-right">Δ4w</th>
+                                    <th className="px-1.5 py-1 text-right">Δ12w</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {trends.map((area) => (
                                     <tr key={area.area} className="border-t border-white/5">
-                                        <td className="px-2 py-1">{formatAreaName(area.area)}</td>
-                                        <td className="px-2 py-1 text-right">{area.last?.toFixed?.(1) ?? area.last}</td>
-                                        <td className="px-2 py-1 text-right">{area.avg4?.toFixed?.(1) ?? area.avg4}</td>
-                                        <td className="px-2 py-1 text-right">{area.avg12?.toFixed?.(1) ?? area.avg12}</td>
-                                        <td className={`px-2 py-1 text-right ${area.delta4 < 0 ? 'text-red-400' : area.delta4 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
+                                        <td className="px-1.5 py-1">{formatAreaName(area.area)}</td>
+                                        <td className="px-1.5 py-1 text-right">{area.last?.toFixed?.(1) ?? area.last}</td>
+                                        <td className="px-1.5 py-1 text-right">{area.avg4?.toFixed?.(1) ?? area.avg4}</td>
+                                        <td className="px-1.5 py-1 text-right">{area.avg12?.toFixed?.(1) ?? area.avg12}</td>
+                                        <td className={`px-1.5 py-1 text-right ${area.delta4 < 0 ? 'text-red-400' : area.delta4 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
                                             {area.delta4?.toFixed?.(1) ?? area.delta4}
                                         </td>
-                                        <td className={`px-2 py-1 text-right ${area.delta12 < 0 ? 'text-red-400' : area.delta12 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
+                                        <td className={`px-1.5 py-1 text-right ${area.delta12 < 0 ? 'text-red-400' : area.delta12 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
                                             {area.delta12?.toFixed?.(1) ?? area.delta12}
                                         </td>
                                     </tr>
                                 ))}
                                 {!trends.length && (
                                     <tr>
-                                        <td colSpan={6} className="px-2 py-1 text-center text-white/50">
+                                        <td colSpan={6} className="px-1.5 py-1 text-center text-white/50">
                                             No trend data yet.
                                         </td>
                                     </tr>
