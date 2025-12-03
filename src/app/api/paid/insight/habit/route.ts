@@ -37,7 +37,8 @@ async function withTimeout<T>(p: Promise<T>, ms: number, fallback: () => T): Pro
 
 export async function POST(req: NextRequest) {
     try {
-        await requireX402(req, 'insight_habit');
+        const block = await requireX402(req, 'insight_habit');
+        if (block) return block;
 
         const { token } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);

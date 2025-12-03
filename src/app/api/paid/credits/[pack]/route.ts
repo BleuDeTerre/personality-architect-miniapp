@@ -21,7 +21,7 @@ export async function POST(req: Request, ctx: any) {
     if (!pack) return NextResponse.json({ error: 'unknown_pack' }, { status: 400 });
 
     // 1) Проверка оплаты x402
-    const block = requireX402(req as unknown as NextRequest, `credits_${pack}`);
+    const block = await requireX402(req as unknown as NextRequest, `credits_${pack}`);
     if (block) return block;
 
     // 2) Авторизация пользователя
