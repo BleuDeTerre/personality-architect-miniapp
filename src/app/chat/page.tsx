@@ -265,11 +265,11 @@ export default function ChatPage() {
                         }}
                         placeholder="Ask me anything about your habits..."
                         className="flex-1 rounded-2xl border border-white/10 bg-[#1a1b2e] text-white px-4 py-3 placeholder:text-white/40 focus:border-white/40 focus:outline-none disabled:opacity-50"
-                        disabled={loading || (userPlan === 'free' && dailyLimit && dailyLimit.used >= dailyLimit.limit)}
+                        disabled={Boolean(loading || (userPlan === 'free' && dailyLimit !== null && dailyLimit.used >= dailyLimit.limit))}
                     />
                     <button
                         onClick={sendMessage}
-                        disabled={loading || !input.trim() || (userPlan === 'free' && dailyLimit && dailyLimit.used >= dailyLimit.limit)}
+                        disabled={Boolean(loading || !input.trim() || (userPlan === 'free' && dailyLimit !== null && dailyLimit.used >= dailyLimit.limit))}
                         className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white px-6 py-3 font-semibold transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#8B5CF6]/40"
                     >
                         Send
