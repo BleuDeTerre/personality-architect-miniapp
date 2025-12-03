@@ -26,13 +26,18 @@ export async function GET(req: NextRequest) {
 
         const supa = createUserServerClient(token);
 
-        // Получаем тренды Wheel
-        const { data: trends, error: trendErr } = await supa.rpc('get_wheel_trend', {});
-        if (trendErr) {
-            console.error('[Coach API] Error fetching wheel trends:', trendErr);
-            return NextResponse.json({ error: 'failed_to_fetch_trends', message: trendErr.message }, { status: 500 });
+        // Получаем тренды Wheel напрямую из таблицы wheel_scores (как в /api/wheel/trends), без RPC
+        const { data: wheelRows, error: wheelErr } = await supa
+            .from('wheel_scores')
+            .select('area, score, week')
+            .eq('user_id', userId)
+            .order('week', { ascending: true });
+        if (wheelErr) {
+            console.error('[Coach API] Error fetching wheel trends:', wheelErr);
+            return NextResponse.json({ error: 'failed_to_fetch_trends', message: wheelErr.message }, { status: 500 });
         }
-        console.log('[Coach API] Wheel trends fetched:', trends?.length || 0, 'items');
+        const trends = wheelRows ?? [];
+        console.log('[Coach API] Wheel trends fetched:', trends.length, 'items');
 
         // Получаем активные цели
         const { data: goals, error: goalsErr } = await supa.rpc('get_goals_active', {});

@@ -16,12 +16,17 @@ export async function GET(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        // Получаем тренды Wheel of Life
-        const { data: trends, error: trendsErr } = await supa.rpc('get_wheel_trend', {});
+        // Получаем тренды Wheel of Life напрямую из таблицы wheel_scores (как в /api/wheel/trends)
+        const { data: wheelRows, error: trendsErr } = await supa
+            .from('wheel_scores')
+            .select('area, score, week')
+            .eq('user_id', userId)
+            .order('week', { ascending: true });
         if (trendsErr) {
             return NextResponse.json({ error: 'failed_to_fetch_trends', details: trendsErr.message }, { status: 500 });
         }
 
+        const trends = wheelRows ?? [];
         if (!trends || trends.length === 0) {
             return NextResponse.json({ insights: [] });
         }

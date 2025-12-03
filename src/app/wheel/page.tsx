@@ -10,7 +10,6 @@ import {
     ResponsiveContainer,
 } from 'recharts';
 import { useMiniApp } from '@neynar/react';
-import CoachBlock from '@/components/CoachBlock';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import AIWheelInsights from '@/components/AIWheelInsights';
@@ -89,8 +88,7 @@ export default function WheelPage() {
     const [editingValues, setEditingValues] = useState(false);
     const [editItems, setEditItems] = useState<Item[]>([]);
     const [canRenderChart, setCanRenderChart] = useState(false);
-    const [coachAdvice, setCoachAdvice] = useState<string | null>(null);
-    const [coachLoading, setCoachLoading] = useState(false);
+    const [showCoachInsights, setShowCoachInsights] = useState(false);
 
     const currentWeekRef = useRef<string>(week);
 
@@ -174,71 +172,6 @@ export default function WheelPage() {
             setTrendsLoading(false);
         }
     }, [authHeaders]);
-
-    const getCoachAdvice = useCallback(async () => {
-        setCoachLoading(true);
-        setCoachAdvice(null); // Очищаем предыдущий совет
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.access_token) {
-                toast.error('Authentication required', {
-                    description: 'Please refresh the page and try again.',
-                });
-                return;
-            }
-
-            const r = await fetch('/api/insight/coach', {
-                cache: 'no-store',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${session.access_token}`,
-                }
-            });
-
-            if (!r.ok) {
-                const errorData = await r.json().catch(() => ({}));
-                const errorMessage = errorData.error || errorData.message || `HTTP ${r.status}`;
-                console.error('[WheelPage] Coach API error:', r.status, errorMessage);
-                
-                if (r.status === 401) {
-                    toast.error('Authentication failed', {
-                        description: 'Please refresh the page and try again.',
-                    });
-                } else {
-                    toast.error('Failed to get coach advice', {
-                        description: errorMessage,
-                    });
-                }
-                return;
-            }
-
-            const j = await r.json();
-            if (j.error) {
-                console.error('[WheelPage] Error in coach response:', j.error);
-                toast.error('Failed to get coach advice', {
-                    description: j.error,
-                });
-                return;
-            }
-
-            const adviceText = j.advice || '';
-            if (!adviceText.trim()) {
-                toast.error('No advice received', {
-                    description: 'Please try again later.',
-                });
-                return;
-            }
-
-            setCoachAdvice(adviceText);
-        } catch (error: any) {
-            console.error('[WheelPage] Unexpected coach error:', error);
-            toast.error('Unexpected error', {
-                description: error?.message || 'Please try again later.',
-            });
-        } finally {
-            setCoachLoading(false);
-        }
-    }, []);
 
     useEffect(() => {
         currentWeekRef.current = week;
@@ -1046,16 +979,14 @@ export default function WheelPage() {
                 )}
 
                 <div className="space-y-3">
-                    <AIWheelInsights />
                     <button
-                        onClick={getCoachAdvice}
+                        onClick={() => setShowCoachInsights(true)}
                         className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-white font-semibold transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40 flex items-center gap-2 justify-center"
-                        disabled={coachLoading}
                     >
                         <span>🤖</span>
-                        <span>{coachLoading ? 'Analyzing…' : 'Get Coach Advice'}</span>
+                        <span>Get Coach Advice</span>
                     </button>
-                    <CoachBlock advice={coachAdvice} />
+                    {showCoachInsights && <AIWheelInsights />}
                 </div>
 
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-2">

@@ -675,31 +675,31 @@ export default function StreaksPage() {
                     {/* Statistics Cards 3 in a row */}
                     <div className="grid grid-cols-3 gap-3 mb-6">
                         {/* CURRENT STREAK */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col">
                             <div className="text-[10px] uppercase tracking-wide text-white/60 mb-1.5">CURRENT STREAK</div>
-                            <div className="text-3xl font-bold text-[#2BD4A4] mb-0.5">{selectedHabit?.current_streak || 0}</div>
-                            <div className="text-[11px] text-white/60 leading-tight">days in a row</div>
+                            <div className="text-3xl font-bold text-[#2BD4A4] mb-0.5 leading-none">{selectedHabit?.current_streak || 0}</div>
+                            <div className="text-[11px] text-white/60 leading-tight mt-auto">days in a row</div>
                         </div>
 
                         {/* BEST STREAK */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col">
                             <div className="text-[10px] uppercase tracking-wide text-white/60 mb-1.5">BEST STREAK</div>
-                            <div className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-0.5">
+                            <div className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-0.5 leading-none">
                                 {selectedHabit?.best_streak || 0}
                             </div>
-                            <div className="text-[11px] text-white/60 leading-tight">personal record</div>
+                            <div className="text-[11px] text-white/60 leading-tight mt-auto">personal record</div>
                         </div>
 
                         {/* LAST ACTIVITY */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col">
                             <div className="text-[10px] uppercase tracking-wide text-white/60 mb-1.5">LAST ACTIVITY</div>
-                            <div className="text-base font-bold text-white mb-0.5">
+                            <div className="text-3xl font-bold text-white mb-0.5 leading-none">
                                 {selectedHabitLastActivity
                                     ? new Date(selectedHabitLastActivity).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                                     : '—'
                                 }
                             </div>
-                            <div className="text-[11px] text-white/60 leading-tight">most recent check-in</div>
+                            <div className="text-[11px] text-white/60 leading-tight mt-auto">most recent check-in</div>
                         </div>
                     </div>
                 </section>

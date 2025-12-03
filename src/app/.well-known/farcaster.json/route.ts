@@ -43,6 +43,12 @@ export async function GET() {
                 tags: ['habits', 'productivity'],
                 tagline: 'Personalized habit analytics',
                 ogImageUrl: process.env.NEXT_PUBLIC_APP_OG_IMAGE_URL ?? `${origin}/share/image/miniapp-og.png`,
+                heroImageUrl: process.env.NEXT_PUBLIC_APP_HERO_IMAGE_URL ?? `${origin}/share/image/hero.png`,
+                screenshotUrls: [
+                    `${origin}/share/image/screenshot-home.png`,
+                    `${origin}/share/image/screenshot-wheel.png`,
+                    `${origin}/share/image/screenshot-analytics.png`,
+                ],
             },
         };
 

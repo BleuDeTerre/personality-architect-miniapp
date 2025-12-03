@@ -103,7 +103,7 @@ const WEEKLY_POOL: QuestDefinition[] = [
         id: 'wheel_weekend_share',
         icon: '🎡',
         title: 'Wheel spotlight',
-        description: () => 'Share your Wheel on Saturday or Sunday',
+        description: () => 'Share your Wheel this week',
         target: () => 1,
         current: stats => Math.min(1, stats.wheelWeekendShares),
         xp: () => 80,

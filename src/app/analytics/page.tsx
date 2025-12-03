@@ -40,12 +40,15 @@ function calculateChartPoints(data: TrendPoint[], maxStreak: number, width: numb
     const chartWidth = width - padding * 2;
     const chartHeight = height - padding * 2;
     const maxValue = Math.max(maxStreak, 1);
-    
+    const bottomY = padding + chartHeight;
+
     return data.map((point, idx) => {
         const x = padding + (data.length > 1 ? (idx / (data.length - 1)) * chartWidth : chartWidth / 2);
-        const bottomY = padding + chartHeight;
-        const y = bottomY - (point.streak / maxValue) * chartHeight;
-        return { x, y, value: point.streak };
+        const safeStreak = Math.max(0, point.streak);
+        const calculatedY = bottomY - (safeStreak / maxValue) * chartHeight;
+        // Ограничиваем снизу: y не должен быть больше bottomY (в SVG меньшее Y = выше)
+        const y = Math.min(calculatedY, bottomY);
+        return { x, y, value: safeStreak };
     });
 }
 
@@ -55,7 +58,7 @@ function SparklineChartV1({ data, maxStreak }: { data: TrendPoint[]; maxStreak: 
     const height = 100;
     const padding = 10;
 
-    if (data.length === 0 || maxStreak === 0) {
+    if (data.length === 0) {
         return (
             <div className="flex h-full items-center justify-center text-white/40 text-sm">
                 No data to display
@@ -65,7 +68,7 @@ function SparklineChartV1({ data, maxStreak }: { data: TrendPoint[]; maxStreak: 
 
     const points = calculateChartPoints(data, maxStreak, width, height, padding);
 
-    // Very smooth wave-like curves
+    // Более плавные кривые с ограничением снизу
     const createWavePath = (points: Array<{ x: number; y: number }>) => {
         if (points.length === 0) return '';
         if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
@@ -73,6 +76,7 @@ function SparklineChartV1({ data, maxStreak }: { data: TrendPoint[]; maxStreak: 
             return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
         }
 
+        const bottomY = padding + (height - padding * 2);
         let path = `M ${points[0].x} ${points[0].y}`;
         for (let i = 0; i < points.length - 1; i++) {
             const current = points[i];
@@ -80,11 +84,15 @@ function SparklineChartV1({ data, maxStreak }: { data: TrendPoint[]; maxStreak: 
             const prev = i > 0 ? points[i - 1] : current;
             const after = i < points.length - 2 ? points[i + 2] : next;
 
-            // Very smooth control points for wave-like appearance
-            const cp1x = current.x + (next.x - prev.x) * 0.25;
-            const cp1y = current.y + (next.y - prev.y) * 0.25;
-            const cp2x = next.x - (after.x - current.x) * 0.25;
-            const cp2y = next.y - (after.y - current.y) * 0.25;
+            // Более прямые контрольные точки для более ровного графика (меньший коэффициент)
+            const cp1x = current.x + (next.x - prev.x) * 0.1;
+            let cp1y = current.y + (next.y - prev.y) * 0.1;
+            const cp2x = next.x - (after.x - current.x) * 0.1;
+            let cp2y = next.y - (after.y - current.y) * 0.1;
+
+            // Ограничиваем контрольные точки снизу базовой линией
+            cp1y = Math.min(cp1y, bottomY);
+            cp2y = Math.min(cp2y, bottomY);
 
             path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${next.x} ${next.y}`;
         }
@@ -93,8 +101,8 @@ function SparklineChartV1({ data, maxStreak }: { data: TrendPoint[]; maxStreak: 
 
     const wavePath = createWavePath(points);
     const bottomY = padding + (height - padding * 2);
-    const areaPath = wavePath + 
-        ` L ${points[points.length - 1].x} ${bottomY}` + 
+    const areaPath = wavePath +
+        ` L ${points[points.length - 1].x} ${bottomY}` +
         ` L ${points[0].x} ${bottomY} Z`;
 
     const labelDates = [
@@ -152,7 +160,7 @@ function SparklineChartV2({ data, maxStreak }: { data: TrendPoint[]; maxStreak: 
     const createMinimalPath = (points: Array<{ x: number; y: number }>) => {
         if (points.length === 0) return '';
         if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
-        
+
         let path = `M ${points[0].x} ${points[0].y}`;
         for (let i = 1; i < points.length; i++) {
             path += ` L ${points[i].x} ${points[i].y}`;
@@ -165,10 +173,10 @@ function SparklineChartV2({ data, maxStreak }: { data: TrendPoint[]; maxStreak: 
     // Find peak points
     const peakPoints = points.filter((point, idx) => {
         if (idx === 0 || idx === points.length - 1) return false;
-        return point.value > 0 && 
-               point.value >= points[idx - 1].value && 
-               point.value >= points[idx + 1].value &&
-               point.value === maxStreak;
+        return point.value > 0 &&
+            point.value >= points[idx - 1].value &&
+            point.value >= points[idx + 1].value &&
+            point.value === maxStreak;
     });
 
     const labelDates = [
@@ -270,8 +278,8 @@ function SparklineChartV3({ data, maxStreak }: { data: TrendPoint[]; maxStreak: 
     const smoothPath = createGamifiedPath(points);
     const chartHeight = height - padding * 2;
     const bottomY = padding + chartHeight;
-    const areaPath = smoothPath + 
-        ` L ${points[points.length - 1].x} ${bottomY}` + 
+    const areaPath = smoothPath +
+        ` L ${points[points.length - 1].x} ${bottomY}` +
         ` L ${points[0].x} ${bottomY} Z`;
 
     // Zone thresholds
@@ -380,8 +388,8 @@ function SparklineChart({ data, maxStreak }: { data: TrendPoint[]; maxStreak: nu
     const smoothPath = createSmoothPath(points);
 
     // Create area path (for gradient fill)
-    const areaPath = smoothPath + 
-        ` L ${points[points.length - 1].x} ${padding + chartHeight}` + 
+    const areaPath = smoothPath +
+        ` L ${points[points.length - 1].x} ${padding + chartHeight}` +
         ` L ${points[0].x} ${padding + chartHeight} Z`;
 
     // Find dates for labels (first, middle, last)
@@ -399,10 +407,10 @@ function SparklineChart({ data, maxStreak }: { data: TrendPoint[]; maxStreak: nu
     // Find peak points for highlighting
     const peakPoints = points.filter((point, idx) => {
         if (idx === 0 || idx === points.length - 1) return false;
-        return point.value > 0 && 
-               point.value >= points[idx - 1].value && 
-               point.value >= points[idx + 1].value &&
-               point.value === maxStreak;
+        return point.value > 0 &&
+            point.value >= points[idx - 1].value &&
+            point.value >= points[idx + 1].value &&
+            point.value === maxStreak;
     });
 
     return (
@@ -1253,39 +1261,21 @@ export default function AnalyticsPage() {
                                 </div>
                             ) : habitTrendData.length > 0 ? (
                                 <div className="space-y-3">
-                                    {/* Вариант 1: Волновая визуализация */}
+                                    {/* Wave sparkline — last 30 days */}
                                     <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2.5">
                                         <div>
-                                            <h3 className="text-sm font-semibold text-white">Вариант 1: Волновая визуализация</h3>
-                                            <p className="text-xs text-white/70">Max streak: {maxStreak} day{maxStreak !== 1 ? 's' : ''}</p>
+                                            <h3 className="text-sm font-semibold text-white">Wave sparkline</h3>
+                                            <p className="text-xs text-white/70">
+                                                Last 30 days • Max streak: {maxStreak} day{maxStreak !== 1 ? 's' : ''}
+                                            </p>
                                         </div>
                                         <div className="relative h-32 w-full">
-                                            <SparklineChartV1 data={habitTrendData} maxStreak={maxStreak} />
+                                            <SparklineChartV1
+                                                data={habitTrendData.slice(Math.max(0, habitTrendData.length - 30))}
+                                                maxStreak={maxStreak}
+                                            />
                                         </div>
                                     </div>
-
-                                    {/* Вариант 2: Пост-минимализм */}
-                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2.5">
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-white">Вариант 2: Пост-минимализм</h3>
-                                            <p className="text-xs text-white/70">Max streak: {maxStreak} day{maxStreak !== 1 ? 's' : ''}</p>
-                                        </div>
-                                        <div className="relative h-32 w-full">
-                                            <SparklineChartV2 data={habitTrendData} maxStreak={maxStreak} />
-                                        </div>
-                                    </div>
-
-                                    {/* Вариант 3: Геймифицированный */}
-                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2.5">
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-white">Вариант 3: Геймифицированный</h3>
-                                            <p className="text-xs text-white/70">Max streak: {maxStreak} day{maxStreak !== 1 ? 's' : ''}</p>
-                                        </div>
-                                        <div className="relative h-32 w-full">
-                                            <SparklineChartV3 data={habitTrendData} maxStreak={maxStreak} />
-                                        </div>
-                                    </div>
-
                                     {/* Weekly capsule timeline */}
                                     <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2.5">
                                         <div className="space-y-1">

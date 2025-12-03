@@ -377,7 +377,7 @@ function resolveCard(params: URLSearchParams) {
         value: `Avg: ${avg}`,
         label: 'AVERAGE SCORE',
         icon: '🎡',
-      };
+};
     }
     if (variant === 'wheel:shift') {
       const area = params.get('area') || 'Area';
@@ -474,10 +474,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return new ImageResponse(
-    (
-      <div
-        style={{
+    return new ImageResponse(
+        (
+            <div
+                style={{
           width: '100%',
           height: '100%',
           display: 'flex',
@@ -627,18 +627,18 @@ export async function GET(req: NextRequest) {
                   </div>
                 </div>
               ) : null}
-            </div>
+                </div>
           ) : (
-            <div
-              style={{
+                            <div
+                                style={{
                 fontSize: 64,
                 fontWeight: 'bold',
                 color: PRIMARY_COLOR,
-              }}
-            >
+                                }}
+                            >
               {card.value}
-            </div>
-          )}
+                    </div>
+                )}
         </div>
 
         {/* Футер внизу */}
@@ -676,12 +676,12 @@ export async function GET(req: NextRequest) {
             >
               P
             </div>
-            <div
-              style={{
+                    <div
+                        style={{
                 display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
+                            flexDirection: 'column',
+                        }}
+                    >
               <div
                 style={{
                   fontSize: 20,
@@ -690,20 +690,20 @@ export async function GET(req: NextRequest) {
                 }}
               >
                 Personality Architect
-              </div>
-              <div
-                style={{
+                    </div>
+                            <div
+                                style={{
                   fontSize: 14,
                   color: '#94a3b8',
-                }}
-              >
+                                }}
+                            >
                 Plan. Execute. Evolve.
-              </div>
+                            </div>
+                    </div>
+                    </div>
+                </div>
             </div>
-          </div>
-        </div>
-      </div>
-    ),
+        ),
     {
       width: 1200,
       height: 630,
@@ -714,5 +714,5 @@ export async function GET(req: NextRequest) {
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
       },
     },
-  );
+    );
 }
