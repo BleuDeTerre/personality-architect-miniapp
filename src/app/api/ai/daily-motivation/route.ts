@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { DAILY_MOTIVATION_PROMPT } from '@/lib/aiPrompts';
 
 export async function GET(req: NextRequest) {
     try {
@@ -240,7 +241,7 @@ export async function GET(req: NextRequest) {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a motivational habit coach. Generate a personalized daily message (2-3 sentences max) in English. Be specific about their actual progress, mention specific habits or achievements when relevant. Be positive, actionable, and authentic. Use emojis sparingly (1-2 max).',
+                    content: DAILY_MOTIVATION_PROMPT,
                 },
                 {
                     role: 'user',

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { HABIT_DIFFICULTY_PROMPT } from '@/lib/aiPrompts';
 
 export async function POST(req: NextRequest) {
     try {
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a habit optimization coach. Analyze habit difficulty and suggest adjustments. Be practical and specific. Respond in English, 2-3 sentences max.',
+                    content: HABIT_DIFFICULTY_PROMPT,
                 },
                 {
                     role: 'user',

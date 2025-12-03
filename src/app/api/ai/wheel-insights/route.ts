@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { WHEEL_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
 
 export async function GET(req: NextRequest) {
     try {
@@ -44,27 +45,57 @@ export async function GET(req: NextRequest) {
         const openai = openaiClient();
         const model = pickModel({ deep: false });
 
+        // Подготавливаем данные для анализа
+        const trendsCount = trends.length;
+        const areasWithData = new Set(trends.map(t => t.area)).size;
+        const hasEnoughData = trendsCount >= 4 && areasWithData >= 3; // Минимум для осмысленного анализа
+
         const chat = await openai.chat.completions.create({
             model,
-            temperature: 0.6,
+            temperature: 0.7,
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a life balance analyst. Analyze Wheel of Life changes and connect them to habits. Provide 3-4 specific insights with actionable recommendations. Respond in English as JSON: { insights: [{ area: string, change: string, connection: string, recommendation: string }] }',
+                    content: WHEEL_INSIGHTS_PROMPT,
                 },
                 {
                     role: 'user',
                     content: [
+                        `Analyze Wheel of Life trends and provide personalized insights.`,
+                        ``,
+                        `Data context:`,
+                        `- Total trend points: ${trendsCount}`,
+                        `- Areas tracked: ${areasWithData}`,
+                        `- Has enough data: ${hasEnoughData ? 'Yes' : 'No (provide fewer, more focused insights)'}`,
+                        ``,
                         `Wheel of Life trends (last 7/30 days):`,
                         JSON.stringify(trends, null, 2),
-                        `User's active habits: ${habitsList}`,
                         ``,
-                        `Analyze:`,
-                        `1. Which areas improved/declined`,
-                        `2. How habits might be connected to changes`,
-                        `3. Specific recommendations for each area`,
+                        `Active habits: ${habitsList}`,
                         ``,
-                        `Return JSON only.`,
+                        `YOUR TASK:`,
+                        `1. Identify 2-4 areas with the most significant changes (improvements or declines)`,
+                        `2. For each area, write:`,
+                        `   - "change": Brief description of what changed (e.g., "Declined from 6 to 2" or "Improved from 4 to 7")`,
+                        `   - "connection": How their habits relate to this change (1-2 sentences, use "your" habits)`,
+                        `   - "recommendation": Specific action they can take this week (1-2 sentences, use "you")`,
+                        ``,
+                        `IF DATA IS LIMITED:`,
+                        `- Focus on the areas with clearest trends`,
+                        `- If trends are unclear, acknowledge it briefly in "connection" field`,
+                        `- Still provide at least one actionable recommendation`,
+                        ``,
+                        `EXAMPLES:`,
+                        `Good change: "Your Career score declined from 6 to 2"`,
+                        `Good connection: "Your daily planning habits are good for productivity, but they may not align with your career goals."`,
+                        `Good recommendation: "Set specific career goals this week and schedule one networking activity, like reaching out to a colleague or attending an online event."`,
+                        ``,
+                        `BAD (avoid):`,
+                        `- "The user has been..." (use "You've been...")`,
+                        `- Vague philosophy like "Life is a journey of balance"`,
+                        `- Long paragraphs - keep it brief and practical`,
+                        ``,
+                        `OUTPUT: Return ONLY valid JSON with no additional text.`,
                     ].join('\n'),
                 },
             ],

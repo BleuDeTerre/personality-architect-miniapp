@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { CORRELATION_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
 
 export async function GET(req: NextRequest) {
     try {
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
                     messages: [
                         {
                             role: 'system',
-                            content: 'You are a habit correlation analyst. Explain why habits might be correlated and suggest how to use this connection. Be concise (2-3 sentences). Respond in English as JSON: { explanation: string, suggestion: string }',
+                            content: CORRELATION_INSIGHTS_PROMPT,
                         },
                         {
                             role: 'user',

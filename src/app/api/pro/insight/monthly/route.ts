@@ -6,6 +6,7 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { monthBoundsUTC, loadMonthlyRows, rollupMonthly } from '@/lib/insightMonthly';
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { MONTHLY_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
 
 export async function GET(req: NextRequest) {
     try {
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
             model,
             temperature: 0.2,
             messages: [
-                { role: 'system', content: 'You are a habit analyst. Be concise and practical. Output in English.' },
+                { role: 'system', content: MONTHLY_INSIGHTS_PROMPT },
                 {
                     role: 'user',
                     content: [

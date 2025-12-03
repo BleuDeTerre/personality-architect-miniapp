@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { GOAL_REVIEW_PROMPT } from '@/lib/aiPrompts';
 
 export async function GET(req: NextRequest) {
     try {
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
                     messages: [
                         {
                             role: 'system',
-                            content: 'You are a goal progress reviewer. Assess if goals are on track and provide recommendations. Be practical and motivating. Respond in English as JSON: { assessment: string, recommendation: string }',
+                            content: GOAL_REVIEW_PROMPT,
                         },
                         {
                             role: 'user',

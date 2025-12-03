@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { SOCIAL_MOTIVATION_PROMPT } from '@/lib/aiPrompts';
 
 export async function POST(req: NextRequest) {
     try {
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a social media coach. Generate engaging, authentic cast text for sharing achievements. Be celebratory but humble. Include relevant emojis (2-3 max). Keep it under 280 characters. Respond in English.',
+                    content: SOCIAL_MOTIVATION_PROMPT,
                 },
                 {
                     role: 'user',

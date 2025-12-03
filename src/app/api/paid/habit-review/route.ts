@@ -1,4 +1,5 @@
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { HABIT_REVIEW_PROMPT } from '@/lib/aiPrompts';
 // src/app/api/paid/habit-review/route.ts
 export const runtime = 'nodejs';
 
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
             model,
             temperature: 0.2,
             messages: [
-                { role: 'system', content: 'You are a habit coach. Be encouraging and specific. Output in English.' },
+                { role: 'system', content: HABIT_REVIEW_PROMPT },
                 {
                     role: 'user',
                     content: [

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { ANALYTICS_FACTS_PROMPT } from '@/lib/aiPrompts';
 import { getCachedAnalytics, setCachedAnalytics } from '@/lib/analytics-cache';
 
 export async function GET(req: NextRequest) {
@@ -123,7 +124,7 @@ export async function GET(req: NextRequest) {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a habit analyst. Extract 3-5 specific, interesting facts from the data. Be concise and factual. Output in English as a JSON object with "facts" as an array of strings.'
+                    content: ANALYTICS_FACTS_PROMPT
                 },
                 {
                     role: 'user',

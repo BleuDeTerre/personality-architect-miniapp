@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { PREDICTIVE_ALERTS_PROMPT } from '@/lib/aiPrompts';
 
 export async function GET(req: NextRequest) {
     try {
@@ -94,7 +95,7 @@ export async function GET(req: NextRequest) {
                         messages: [
                             {
                                 role: 'system',
-                                content: 'You are a predictive habit coach. Generate a short, friendly warning message (1-2 sentences) when a user might miss a habit. Be encouraging, not judgmental. Respond in English.',
+                                content: PREDICTIVE_ALERTS_PROMPT,
                             },
                             {
                                 role: 'user',

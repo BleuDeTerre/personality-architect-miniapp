@@ -6,6 +6,7 @@ import { withX402 } from '@/lib/x402Client';
 import { requireUserFromReq, createUserServerClient } from '@/lib/auth';
 import { monthBoundsUTC, loadMonthlyRows, rollupMonthly } from '@/lib/insightMonthly';
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { MONTHLY_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
 
 async function buildInsight(
     supa: ReturnType<typeof createUserServerClient>,
@@ -23,7 +24,7 @@ async function buildInsight(
         model,
         temperature: 0.2,
         messages: [
-            { role: 'system', content: 'You are a habit analyst. Be concise and practical. Output in English.' },
+            { role: 'system', content: MONTHLY_INSIGHTS_PROMPT },
             {
                 role: 'user',
                 content: [

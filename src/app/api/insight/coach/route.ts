@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { COACH_ADVICE_PROMPT } from '@/lib/aiPrompts';
 
 export async function GET(req: NextRequest) {
     try {
@@ -68,8 +69,7 @@ export async function GET(req: NextRequest) {
         const model = pickModel({ deep });
         console.log('[Coach API] Using model:', model, 'deep:', deep);
 
-        const sys =
-            'You are a habits and well-being coach. Respond concisely in English. Provide 3–5 concrete suggestions for improvements and tiny steps for this week.';
+        const sys = COACH_ADVICE_PROMPT;
         const userMsg = [
             'WHEEL TRENDS (last 7/30 days):',
             JSON.stringify(trends ?? []),

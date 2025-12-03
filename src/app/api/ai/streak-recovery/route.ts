@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { STREAK_RECOVERY_PROMPT } from '@/lib/aiPrompts';
 
 export async function GET(req: NextRequest) {
     try {
@@ -81,7 +82,7 @@ export async function GET(req: NextRequest) {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a supportive habit recovery coach. When a user loses their streak, provide encouragement, analyze why it might have happened, and suggest a recovery plan. Be empathetic but motivating. Respond in English, 3-4 sentences max.',
+                    content: STREAK_RECOVERY_PROMPT,
                 },
                 {
                     role: 'user',

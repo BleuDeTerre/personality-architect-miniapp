@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { HABIT_SUGGESTIONS_PROMPT } from '@/lib/aiPrompts';
 
 export async function GET(req: NextRequest) {
     try {
@@ -82,7 +83,7 @@ export async function GET(req: NextRequest) {
                         messages: [
                             {
                                 role: 'system',
-                                content: 'You are a habit optimization coach. Suggest optimal timing and habit combinations. Be concise (1-2 sentences). Respond in English.',
+                                content: HABIT_SUGGESTIONS_PROMPT,
                             },
                             {
                                 role: 'user',

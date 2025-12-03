@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { WEEKLY_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
 
 // Sunday-based week start (UTC)
 function weekStartISO(d = new Date()) {
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
             model,
             temperature: 0.2,
             messages: [
-                { role: 'system', content: 'You are a habit analyst. Be concise and practical. Output in English.' },
+                { role: 'system', content: WEEKLY_INSIGHTS_PROMPT },
                 {
                     role: 'user',
                     content: [

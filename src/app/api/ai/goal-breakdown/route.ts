@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
+import { GOAL_BREAKDOWN_PROMPT } from '@/lib/aiPrompts';
 
 export async function POST(req: NextRequest) {
     try {
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a goal planning assistant. Break down goals into actionable steps with milestones. Output as JSON with structure: { steps: [{ title: string, description: string, estimatedDays: number }], milestones: [{ title: string, targetDate: string }] }. Respond in English.',
+                    content: GOAL_BREAKDOWN_PROMPT,
                 },
                 {
                     role: 'user',

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { isoWeekUTC } from '@/lib/time';
+import { WEEKLY_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
 import crypto from 'crypto';
 
 function sha(x: unknown) {
@@ -66,7 +67,7 @@ async function generateWeekly(supa: ReturnType<typeof createUserServerClient>, u
         model,
         temperature: 0.2,
         messages: [
-            { role: 'system', content: 'You are a habit and well-being analyst. Be encouraging and specific. Output in English.' },
+            { role: 'system', content: WEEKLY_INSIGHTS_PROMPT },
             {
                 role: 'user',
                 content: [
