@@ -4,6 +4,7 @@ import "./globals.css";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import ClientToaster from "@/components/ClientToaster";
 import NeynarProvider from "@/components/NeynarProvider";
+import { escapeAttr } from "@/lib/shareOgHtml";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,7 +46,9 @@ export const metadata: Metadata = {
   },
   keywords: ["habits", "productivity", "personal development", "habit tracker", "streaks", "goals", "farcaster"],
   other: {
-    "fc:miniapp": JSON.stringify({
+    // Используем escapeAttr для безопасного экранирования JSON перед вставкой в HTML атрибут
+    // Это предотвращает XSS через двойные кавычки в JSON
+    "fc:miniapp": escapeAttr(JSON.stringify({
       version: "1",
       imageUrl: "https://personality-architect-miniapp.vercel.app/share/image/miniapp-og.png",
       button: {
@@ -58,7 +61,7 @@ export const metadata: Metadata = {
           splashBackgroundColor: "#7C5CFC",
         },
       },
-    }),
+    })),
   },
 };
 
