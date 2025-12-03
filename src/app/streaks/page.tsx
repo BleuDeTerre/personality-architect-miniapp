@@ -39,7 +39,7 @@ export default function StreaksPage() {
     const [_habits, setHabits] = useState<Habit[]>([]);
     const [habitsWithStats, setHabitsWithStats] = useState<HabitWithStats[]>([]);
     const [weekStats, setWeekStats] = useState<WeekStats[]>([]);
-    const [_logs, setLogs] = useState<Log[]>([]);
+    const [logs, setLogs] = useState<Log[]>([]);
     const [stats, setStats] = useState<Stats>({ current_streak: 0, best_streak: 0, last_completed: null });
     const [loading, setLoading] = useState(false);
     const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
@@ -445,6 +445,36 @@ export default function StreaksPage() {
         return next ? next - streak : null;
     }, [stats.current_streak]);
 
+    // Выбираем привычку для блока Habit spotlight
+    const selectedHabit = useMemo(() => {
+        if (!habitsWithStats.length) return null;
+        if (selectedHabitId) {
+            const found = habitsWithStats.find(h => h.id === selectedHabitId);
+            if (found) return found;
+        }
+        // По умолчанию — первая привычка
+        return habitsWithStats[0];
+    }, [habitsWithStats, selectedHabitId]);
+
+    // Последняя активность по выбранной привычке
+    const selectedHabitLastActivity = useMemo(() => {
+        if (!selectedHabit || !logs.length) return null;
+        const habitLogs = logs.filter(l => l.habit_id === selectedHabit.id && isLogCompleted(l));
+        if (!habitLogs.length) return null;
+        const sortedDates = habitLogs
+            .map(l => l.date?.slice(0, 10))
+            .filter(Boolean)
+            .sort() as string[];
+        return sortedDates[sortedDates.length - 1] ?? null;
+    }, [logs, selectedHabit, isLogCompleted]);
+
+    // Если привычка не выбрана, автоматически выбираем первую доступную
+    useEffect(() => {
+        if (!selectedHabitId && habitsWithStats.length > 0) {
+            setSelectedHabitId(habitsWithStats[0].id);
+        }
+    }, [selectedHabitId, habitsWithStats]);
+
     // Касты для шаринга
     const shareTemplates = useMemo<CastTemplate[]>(() => {
         const templates: CastTemplate[] = [];
@@ -642,39 +672,34 @@ export default function StreaksPage() {
                         </div>
                     </div>
 
-                    {/* Statistics Cards 2x2 Grid */}
-                    <div className="grid grid-cols-2 gap-4 mb-6">
+                    {/* Statistics Cards 3 in a row */}
+                    <div className="grid grid-cols-3 gap-3 mb-6">
                         {/* CURRENT STREAK */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
-                            <div className="text-xs uppercase tracking-wide text-white/60 mb-2">CURRENT STREAK</div>
-                            <div className="text-4xl font-bold text-[#2BD4A4] mb-1">{stats.current_streak || 0}</div>
-                            <div className="text-xs text-white/60">days in a row</div>
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3">
+                            <div className="text-[10px] uppercase tracking-wide text-white/60 mb-1.5">CURRENT STREAK</div>
+                            <div className="text-3xl font-bold text-[#2BD4A4] mb-0.5">{selectedHabit?.current_streak || 0}</div>
+                            <div className="text-[11px] text-white/60 leading-tight">days in a row</div>
                         </div>
 
                         {/* BEST STREAK */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
-                            <div className="text-xs uppercase tracking-wide text-white/60 mb-2">BEST STREAK</div>
-                            <div className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{stats.best_streak || 0}</div>
-                            <div className="text-xs text-white/60">personal record</div>
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3">
+                            <div className="text-[10px] uppercase tracking-wide text-white/60 mb-1.5">BEST STREAK</div>
+                            <div className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-0.5">
+                                {selectedHabit?.best_streak || 0}
+                            </div>
+                            <div className="text-[11px] text-white/60 leading-tight">personal record</div>
                         </div>
 
                         {/* LAST ACTIVITY */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
-                            <div className="text-xs uppercase tracking-wide text-white/60 mb-2">LAST ACTIVITY</div>
-                            <div className="text-2xl font-bold text-white mb-1">
-                                {stats.last_completed
-                                    ? new Date(stats.last_completed).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3">
+                            <div className="text-[10px] uppercase tracking-wide text-white/60 mb-1.5">LAST ACTIVITY</div>
+                            <div className="text-base font-bold text-white mb-0.5">
+                                {selectedHabitLastActivity
+                                    ? new Date(selectedHabitLastActivity).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                                     : '—'
                                 }
                             </div>
-                            <div className="text-xs text-white/60">most recent check-in</div>
-                        </div>
-
-                        {/* PREFERRED TIME */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
-                            <div className="text-xs uppercase tracking-wide text-white/60 mb-2">PREFERRED TIME</div>
-                            <div className="text-2xl font-bold text-white mb-1">—</div>
-                            <div className="text-xs text-white/60">when you usually complete it</div>
+                            <div className="text-[11px] text-white/60 leading-tight">most recent check-in</div>
                         </div>
                     </div>
                 </section>

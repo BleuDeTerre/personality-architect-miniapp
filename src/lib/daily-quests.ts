@@ -166,6 +166,16 @@ const MONTHLY_POOL: QuestDefinition[] = [
         xp: () => 140,
     },
     {
+        id: 'wheel_momentum_4weeks',
+        icon: '📈',
+        title: 'Wheel momentum',
+        description: () => 'Keep your Wheel growing over 4 weeks — update it at least once each week',
+        target: () => 4,
+        current: stats => Math.min(4, stats.wheelUpdatesMonth),
+        xp: () => 220,
+        eligible: stats => stats.wheelUpdatesMonth > 0,
+    },
+    {
         id: 'social_series',
         icon: '📡',
         title: 'Share your journey',
