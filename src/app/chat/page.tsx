@@ -21,6 +21,8 @@ export default function ChatPage() {
     const [loading, setLoading] = useState(false);
     const [_ctx, setCtx] = useState<any>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [dailyLimit, setDailyLimit] = useState<{ limit: number; used: number } | null>(null);
+    const [userPlan, setUserPlan] = useState<string>('free');
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -49,6 +51,45 @@ export default function ChatPage() {
                 const { access_token } = await res.json();
                 if (access_token) {
                     await supabase.auth.setSession({ access_token, refresh_token: '' });
+                }
+            }
+
+            // Загружаем план пользователя и счетчик запросов
+            if (data.user) {
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const hdrs = {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${session?.access_token ?? ''}`,
+                    };
+                    
+                    // Загружаем план
+                    const planRes = await fetch('/api/plan', { headers: hdrs });
+                    if (planRes.ok) {
+                        const planData = await planRes.json();
+                        setUserPlan(planData.plan || 'free');
+                        
+                        // Для Free - загружаем счетчик запросов
+                        if (planData.plan === 'free') {
+                            const today = new Date().toISOString().slice(0, 10);
+                            const dayStart = new Date(`${today}T00:00:00Z`);
+                            const dayEnd = new Date(`${today}T23:59:59Z`);
+                            
+                            const { data: requests } = await supabase
+                                .from('events_log')
+                                .select('id')
+                                .eq('user_id', data.user.id)
+                                .eq('name', 'ai_chat_request')
+                                .gte('created_at', dayStart.toISOString())
+                                .lt('created_at', dayEnd.toISOString());
+                            
+                            if (requests) {
+                                setDailyLimit({ limit: 5, used: requests.length });
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to load plan:', e);
                 }
             }
         })();
@@ -80,14 +121,37 @@ export default function ChatPage() {
             const res = await fetch('/api/chat/message', {
                 method: 'POST',
                 headers: hdrs,
-                body: JSON.stringify({ message: userMsg.content }),
+                body: JSON.stringify({
+                    message: userMsg.content,
+                    history: messages.map(m => ({ role: m.role, content: m.content }))
+                }),
             });
 
+            const data = await res.json();
+
             if (!res.ok) {
+                // Обработка лимита запросов (429)
+                if (res.status === 429 && data.error === 'daily_limit_reached') {
+                    const errorMsg: Message = {
+                        role: 'assistant',
+                        content: `${data.message}\n\nUpgrade to Pro for unlimited AI Chat access!`,
+                        timestamp: new Date(),
+                    };
+                    setMessages(prev => [...prev, errorMsg]);
+                    setDailyLimit({ limit: data.limit, used: data.used });
+                    return;
+                }
                 throw new Error(`HTTP ${res.status}`);
             }
 
-            const { response } = await res.json();
+            const { response, plan, dailyLimit: limitInfo, used } = data;
+            
+            // Сохраняем информацию о плане и лимите
+            if (plan) setUserPlan(plan);
+            if (limitInfo && used !== undefined) {
+                setDailyLimit({ limit: limitInfo, used });
+            }
+
             const assistantMsg: Message = {
                 role: 'assistant',
                 content: response,
@@ -113,8 +177,31 @@ export default function ChatPage() {
             <div className="flex flex-col h-full space-y-4">
                 {/* Header Card */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5">
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">AI Coach Chat</h1>
-                    <p className="text-sm text-white/80">Ask about your habits, goals, or progress. Your coach is here 24/7.</p>
+                    <div className="flex items-start justify-between mb-1.5">
+                        <div className="flex-1">
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">AI Coach Chat</h1>
+                            <p className="text-sm text-white/80">Ask about your habits, goals, or progress. Your coach is here 24/7.</p>
+                        </div>
+                        {userPlan === 'free' && dailyLimit && (
+                            <div className="ml-4 text-right">
+                                <div className="text-xs text-white/70 mb-1">Daily requests</div>
+                                <div className="text-sm font-semibold text-white">
+                                    {dailyLimit.used}/{dailyLimit.limit}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    {userPlan === 'free' && dailyLimit && dailyLimit.used >= dailyLimit.limit && (
+                        <div className="mt-3 p-3 rounded-2xl bg-gradient-to-r from-[#8B5CF6]/20 to-[#6D28D9]/20 border border-[#8B5CF6]/30">
+                            <p className="text-xs text-white/90 mb-2">You've reached your daily limit!</p>
+                            <a 
+                                href="/pricing" 
+                                className="inline-block text-xs font-semibold text-[#a183f9] hover:text-[#8a5df5] transition"
+                            >
+                                Upgrade to Pro for unlimited access →
+                            </a>
+                        </div>
+                    )}
                 </section>
 
                 {/* Chat Area */}
@@ -178,11 +265,11 @@ export default function ChatPage() {
                         }}
                         placeholder="Ask me anything about your habits..."
                         className="flex-1 rounded-2xl border border-white/10 bg-[#1a1b2e] text-white px-4 py-3 placeholder:text-white/40 focus:border-white/40 focus:outline-none disabled:opacity-50"
-                        disabled={loading}
+                        disabled={loading || (userPlan === 'free' && dailyLimit && dailyLimit.used >= dailyLimit.limit)}
                     />
                     <button
                         onClick={sendMessage}
-                        disabled={loading || !input.trim()}
+                        disabled={loading || !input.trim() || (userPlan === 'free' && dailyLimit && dailyLimit.used >= dailyLimit.limit)}
                         className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white px-6 py-3 font-semibold transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#8B5CF6]/40"
                     >
                         Send
