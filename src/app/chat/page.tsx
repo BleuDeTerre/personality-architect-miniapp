@@ -4,6 +4,8 @@ import { useMiniApp } from '@neynar/react';
 import { createClient } from '@supabase/supabase-js';
 import MiniAppPage from '@/components/MiniAppPage';
 import { fetchJson } from '@/lib/http';
+import { checkAndShowAILimitWarning, showAILimitReachedModal, type AILimitInfo } from '@/lib/aiLimitWarnings';
+import AILimitReachedModal from '@/components/AILimitReachedModal';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,8 +24,8 @@ export default function ChatPage() {
     const [loading, setLoading] = useState(false);
     const [_ctx, setCtx] = useState<any>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const [dailyLimit, setDailyLimit] = useState<{ limit: number; used: number } | null>(null);
     const [userPlan, setUserPlan] = useState<string>('free');
+    const [showLimitModal, setShowLimitModal] = useState(false);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -55,7 +57,7 @@ export default function ChatPage() {
                 }
             }
 
-            // Загружаем план пользователя и счетчик запросов
+            // Загружаем план пользователя
             if (data.user) {
                 try {
                     const { data: { session } } = await supabase.auth.getSession();
@@ -68,26 +70,8 @@ export default function ChatPage() {
                     const planRes = await fetch('/api/plan', { headers: hdrs });
                     if (planRes.ok) {
                         const planData = await planRes.json();
-                        setUserPlan(planData.plan || 'free');
-                        
-                        // Для Free - загружаем счетчик запросов
-                        if (planData.plan === 'free') {
-                            const today = new Date().toISOString().slice(0, 10);
-                            const dayStart = new Date(`${today}T00:00:00Z`);
-                            const dayEnd = new Date(`${today}T23:59:59Z`);
-                            
-                            const { data: requests } = await supabase
-                                .from('events_log')
-                                .select('id')
-                                .eq('user_id', data.user.id)
-                                .eq('name', 'ai_chat_request')
-                                .gte('created_at', dayStart.toISOString())
-                                .lt('created_at', dayEnd.toISOString());
-                            
-                            if (requests) {
-                                setDailyLimit({ limit: 5, used: requests.length });
-                            }
-                        }
+                        const plan = planData.plan || 'free';
+                        setUserPlan(plan);
                     }
                 } catch (e) {
                     console.warn('Failed to load plan:', e);
@@ -119,7 +103,15 @@ export default function ChatPage() {
 
         try {
             const hdrs = await authHeaders();
-            const data = await fetchJson<{ response: string; plan?: string; dailyLimit?: number; used?: number; error?: string; message?: string; limit?: number }>('/api/chat/message', {
+            const data = await fetchJson<{ 
+                response: string; 
+                plan?: string; 
+                aiLimit?: { used: number; limit: number; remaining: number };
+                error?: string; 
+                message?: string; 
+                limit?: number;
+                used?: number;
+            }>('/api/chat/message', {
                 method: 'POST',
                 headers: hdrs,
                 body: JSON.stringify({
@@ -133,27 +125,41 @@ export default function ChatPage() {
             if (data.error) {
                 // Обработка лимита запросов (429)
                 if (data.error === 'daily_limit_reached') {
+                    const limitInfo: AILimitInfo = {
+                        used: data.used || 0,
+                        limit: data.limit || (userPlan === 'free' ? 5 : 20),
+                        remaining: 0,
+                        plan: userPlan as 'free' | 'pro' | 'premium',
+                    };
+                    showAILimitReachedModal(limitInfo);
+                    setShowLimitModal(true);
+                    
                     const errorMsg: Message = {
                         role: 'assistant',
-                        content: `${data.message || 'You have reached your daily limit'}\n\nUpgrade to Pro for unlimited AI Chat access!`,
+                        content: `${data.message || 'You have reached your daily AI request limit'}\n\n${userPlan === 'free' ? 'Upgrade to Pro for 20 AI requests per day!' : 'Please try again tomorrow.'}`,
                         timestamp: new Date(),
                     };
                     setMessages(prev => [...prev, errorMsg]);
-                    if (data.limit && data.used) {
-                        setDailyLimit({ limit: data.limit, used: data.used });
-                    }
                     setLoading(false);
                     return;
                 }
                 throw new Error(data.error);
             }
 
-            const { response, plan, dailyLimit: limitInfo, used } = data;
+            const { response, plan, aiLimit } = data;
             
-            // Сохраняем информацию о плане и лимите
+            // Сохраняем информацию о плане
             if (plan) setUserPlan(plan);
-            if (limitInfo && used !== undefined) {
-                setDailyLimit({ limit: limitInfo, used });
+            
+            // Показываем предупреждения о лимите
+            if (aiLimit) {
+                const limitInfo: AILimitInfo = {
+                    used: aiLimit.used,
+                    limit: aiLimit.limit,
+                    remaining: aiLimit.remaining,
+                    plan: userPlan as 'free' | 'pro' | 'premium',
+                };
+                checkAndShowAILimitWarning(limitInfo);
             }
 
             const assistantMsg: Message = {
@@ -199,26 +205,7 @@ export default function ChatPage() {
                             <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">AI Coach Chat</h1>
                             <p className="text-sm text-white/80">Ask about your habits, goals, or progress. Your coach is here 24/7.</p>
                         </div>
-                        {userPlan === 'free' && dailyLimit && (
-                            <div className="ml-4 text-right">
-                                <div className="text-xs text-white/70 mb-1">Daily requests</div>
-                                <div className="text-sm font-semibold text-white">
-                                    {dailyLimit.used}/{dailyLimit.limit}
-                                </div>
-                            </div>
-                        )}
                     </div>
-                    {userPlan === 'free' && dailyLimit && dailyLimit.used >= dailyLimit.limit && (
-                        <div className="mt-3 p-3 rounded-2xl bg-gradient-to-r from-[#8B5CF6]/20 to-[#6D28D9]/20 border border-[#8B5CF6]/30">
-                            <p className="text-xs text-white/90 mb-2">You've reached your daily limit!</p>
-                            <a 
-                                href="/pricing" 
-                                className="inline-block text-xs font-semibold text-[#a183f9] hover:text-[#8a5df5] transition"
-                            >
-                                Upgrade to Pro for unlimited access →
-                            </a>
-                        </div>
-                    )}
                 </section>
 
                 {/* Chat Area */}
@@ -282,17 +269,26 @@ export default function ChatPage() {
                         }}
                         placeholder="Ask me anything about your habits..."
                         className="flex-1 rounded-2xl border border-white/10 bg-[#1a1b2e] text-white px-4 py-3 placeholder:text-white/40 focus:border-white/40 focus:outline-none disabled:opacity-50"
-                        disabled={Boolean(loading || (userPlan === 'free' && dailyLimit !== null && dailyLimit.used >= dailyLimit.limit))}
+                        disabled={loading}
                     />
                     <button
                         onClick={sendMessage}
-                        disabled={Boolean(loading || !input.trim() || (userPlan === 'free' && dailyLimit !== null && dailyLimit.used >= dailyLimit.limit))}
+                        disabled={loading || !input.trim()}
                         className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white px-6 py-3 font-semibold transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#8B5CF6]/40"
                     >
                         Send
                     </button>
                 </div>
             </div>
+            
+            {/* Limit Reached Modal */}
+            {showLimitModal && (
+                <AILimitReachedModal
+                    limit={userPlan === 'free' ? 5 : 20}
+                    plan={userPlan as 'free' | 'pro' | 'premium'}
+                    onClose={() => setShowLimitModal(false)}
+                />
+            )}
         </MiniAppPage>
     );
 }

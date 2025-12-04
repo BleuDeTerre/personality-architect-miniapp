@@ -6,6 +6,7 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
 import { HABIT_DIFFICULTY_PROMPT } from '@/lib/aiPrompts';
+import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function POST(req: NextRequest) {
     try {
@@ -61,6 +62,28 @@ export async function POST(req: NextRequest) {
         });
         const currentStreak = (streakData as number) || 0;
 
+        // Получаем план пользователя для проверки лимита
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as UserPlan;
+
+        // Проверяем лимит перед генерацией рекомендации
+        const limitCheck = await checkAILimit(supa, userId, userPlan);
+        if (!limitCheck.allowed) {
+            return NextResponse.json(
+                {
+                    error: 'daily_limit_reached',
+                    message: limitCheck.error || 'You have reached your daily AI request limit.',
+                    limit: limitCheck.limit,
+                    used: limitCheck.used,
+                },
+                { status: 429 }
+            );
+        }
+
         // Генерируем рекомендацию через AI
         const openai = openaiClient();
         const model = pickModel({ deep: false });
@@ -99,6 +122,13 @@ export async function POST(req: NextRequest) {
             // Слишком легко - можно увеличить
             recommendedTarget = Math.min(7, Math.ceil(targetDays * 1.3));
         }
+
+        // Логируем AI запрос в фоне
+        (async () => {
+            await logAIRequest(supa, userId, userPlan, 'ai/habit-difficulty', {
+                habit_id: habitId,
+            });
+        })();
 
         return NextResponse.json({
             suggestion,

@@ -6,6 +6,7 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
 import { DAILY_MOTIVATION_PROMPT } from '@/lib/aiPrompts';
+import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function GET(req: NextRequest) {
     try {
@@ -24,6 +25,14 @@ export async function GET(req: NextRequest) {
         const dayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
         const dayEnd = new Date(dayStart.getTime() + 86400000);
 
+        // Получаем план пользователя для проверки лимита
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as UserPlan;
+
         // Проверяем кеш в events_log (одно сообщение в сутки)
         try {
             const { data: cached } = await supa
@@ -41,6 +50,17 @@ export async function GET(req: NextRequest) {
             }
         } catch (cacheError) {
             console.warn('[AI Daily Motivation] Cache lookup failed:', cacheError);
+        }
+
+        // Если кэша нет - проверяем лимит перед генерацией нового сообщения
+        const limitCheck = await checkAILimit(supa, userId, userPlan);
+        if (!limitCheck.allowed) {
+            // Возвращаем fallback сообщение вместо ошибки (чтобы не ломать UI)
+            return NextResponse.json({
+                message: 'Start your day with intention. Every small step counts! 💪',
+                cached: false,
+                limitReached: true,
+            });
         }
 
         // Получаем данные за последние 7 дней для динамических инсайтов
@@ -268,6 +288,11 @@ export async function GET(req: NextRequest) {
         });
 
         const message = chat.choices[0]?.message?.content || 'Start your day with intention. Every small step counts! 💪';
+
+        // Логируем AI запрос в фоне
+        (async () => {
+            await logAIRequest(supa, userId, userPlan, 'ai/daily-motivation');
+        })();
 
         // Сохраняем в events_log как кеш
         try {

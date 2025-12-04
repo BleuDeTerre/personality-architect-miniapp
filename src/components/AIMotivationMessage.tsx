@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchJson } from '@/lib/http';
+import { getCachedData, setCachedData, CACHE_TTL } from '@/lib/clientCache';
 
 const FALLBACK_MESSAGES = [
     'Start your day with intention. Every small step counts! 💪',
@@ -10,11 +11,16 @@ const FALLBACK_MESSAGES = [
     'Progress, not perfection. Celebrate every small win today! 🎯',
 ];
 
-const STORAGE_KEY = 'ai_motivation_message';
+const CACHE_KEY = 'ai_motivation_message';
 
 export default function AIMotivationMessage() {
-    const [message, setMessage] = useState<string | null>(null);
-    const [loading, setLoading] = useState(true);
+    // Initialize from cache if available
+    const cachedMessage = typeof window !== 'undefined' 
+        ? getCachedData<{ message: string }>(CACHE_KEY)?.message || null
+        : null;
+    
+    const [message, setMessage] = useState<string | null>(cachedMessage);
+    const [loading, setLoading] = useState(!cachedMessage);
     const [isOpen, setIsOpen] = useState(false);
     const lastFetchRef = useRef(0);
 
@@ -27,9 +33,7 @@ export default function AIMotivationMessage() {
     }, []);
 
     const persistMessage = useCallback((text: string) => {
-        if (typeof window === 'undefined') return;
-        const today = new Date().toISOString().slice(0, 10);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: today, message: text }));
+        setCachedData(CACHE_KEY, { message: text }, CACHE_TTL.DAILY);
     }, []);
 
     const loadMotivation = useCallback(async (force = false) => {
@@ -51,21 +55,14 @@ export default function AIMotivationMessage() {
                 return;
             }
 
-            const today = new Date().toISOString().slice(0, 10);
-            if (!force && typeof window !== 'undefined') {
-                const cachedRaw = localStorage.getItem(STORAGE_KEY);
-                if (cachedRaw) {
-                    try {
-                        const cached = JSON.parse(cachedRaw);
-                        if (cached?.date === today && cached?.message) {
-                            setMessage(cached.message);
-                            setLoading(false);
-                            lastFetchRef.current = now;
-                            return;
-                        }
-                    } catch (err) {
-                        console.warn('[AI Motivation] Failed to parse cached message', err);
-                    }
+            // Check cache first (24 hour TTL)
+            if (!force) {
+                const cached = getCachedData<{ message: string }>(CACHE_KEY);
+                if (cached?.message) {
+                    setMessage(cached.message);
+                    setLoading(false);
+                    lastFetchRef.current = now;
+                    return;
                 }
             }
 

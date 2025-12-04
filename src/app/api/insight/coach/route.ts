@@ -6,6 +6,7 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
 import { COACH_ADVICE_PROMPT } from '@/lib/aiPrompts';
+import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function GET(req: NextRequest) {
     try {
@@ -63,6 +64,28 @@ export async function GET(req: NextRequest) {
         }
         console.log('[Coach API] Weekly summary fetched:', ws?.length ? 'yes' : 'no');
 
+        // Получаем план пользователя для проверки лимита
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as UserPlan;
+
+        // Проверяем лимит перед генерацией совета
+        const limitCheck = await checkAILimit(supa, userId, userPlan);
+        if (!limitCheck.allowed) {
+            return NextResponse.json(
+                {
+                    error: 'daily_limit_reached',
+                    message: limitCheck.error || 'You have reached your daily AI request limit.',
+                    limit: limitCheck.limit,
+                    used: limitCheck.used,
+                },
+                { status: 429 }
+            );
+        }
+
         const sp = new URL(req.url).searchParams;
         const deep = sp.get('deep') === '1';
         const openai = openaiClient();
@@ -94,7 +117,22 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'empty_response', message: 'No advice generated. Please try again.' }, { status: 500 });
         }
 
-        return NextResponse.json({ advice });
+        // Логируем AI запрос в фоне
+        (async () => {
+            await logAIRequest(supa, userId, userPlan, 'insight/coach', {
+                deep,
+            });
+        })();
+
+        return NextResponse.json({
+            advice,
+            aiLimit: {
+                used: limitCheck.used + 1, // +1 потому что мы только что залогировали
+                limit: limitCheck.limit,
+                remaining: Math.max(0, limitCheck.remaining - 1),
+            },
+            plan: userPlan,
+        });
     } catch (e: any) {
         console.error('[Coach API] Unexpected error:', e);
         const status = e?.status || e?.statusCode || 500;

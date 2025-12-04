@@ -6,6 +6,7 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
 import { GOAL_BREAKDOWN_PROMPT } from '@/lib/aiPrompts';
+import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function POST(req: NextRequest) {
     try {
@@ -24,6 +25,28 @@ export async function POST(req: NextRequest) {
 
         if (!goalTitle) {
             return NextResponse.json({ error: 'goal_title_required' }, { status: 400 });
+        }
+
+        // Получаем план пользователя для проверки лимита
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as UserPlan;
+
+        // Проверяем лимит перед генерацией плана
+        const limitCheck = await checkAILimit(supa, userId, userPlan);
+        if (!limitCheck.allowed) {
+            return NextResponse.json(
+                {
+                    error: 'daily_limit_reached',
+                    message: limitCheck.error || 'You have reached your daily AI request limit.',
+                    limit: limitCheck.limit,
+                    used: limitCheck.used,
+                },
+                { status: 429 }
+            );
         }
 
         // Получаем существующие привычки пользователя для контекста
@@ -68,6 +91,13 @@ export async function POST(req: NextRequest) {
         });
 
         const result = JSON.parse(chat.choices[0]?.message?.content || '{}');
+
+        // Логируем AI запрос в фоне
+        (async () => {
+            await logAIRequest(supa, userId, userPlan, 'ai/goal-breakdown', {
+                goal_title: goalTitle,
+            });
+        })();
 
         return NextResponse.json({
             steps: result.steps || [],

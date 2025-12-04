@@ -6,6 +6,7 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
 import { PREDICTIVE_ALERTS_PROMPT } from '@/lib/aiPrompts';
+import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function GET(req: NextRequest) {
     try {
@@ -16,6 +17,21 @@ export async function GET(req: NextRequest) {
 
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
+
+        // Получаем план пользователя для проверки лимита
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as UserPlan;
+
+        // Проверяем лимит перед генерацией алертов
+        const limitCheck = await checkAILimit(supa, userId, userPlan);
+        if (!limitCheck.allowed) {
+            // Возвращаем пустой массив вместо ошибки (чтобы не ломать UI)
+            return NextResponse.json({ alerts: [] });
+        }
 
         const today = new Date();
         const dayOfWeek = today.getDay();
@@ -84,6 +100,20 @@ export async function GET(req: NextRequest) {
 
             // Если риск высокий (обычно выполняли в этот день, но еще не выполнили)
             if (riskScore > 0.6 && todayCount > 0) {
+                // Проверяем лимит перед каждым AI запросом (может быть несколько алертов)
+                const currentLimitCheck = await checkAILimit(supa, userId, userPlan);
+                if (!currentLimitCheck.allowed) {
+                    // Если лимит достигнут - используем fallback для оставшихся привычек
+                    alerts.push({
+                        habitId: habit.id,
+                        habitTitle: habit.title,
+                        riskScore: Math.round(riskScore * 100),
+                        message: `You usually complete ${habit.title} on ${dayName}s. Don't forget it today!`,
+                        suggestion: `Consider setting a reminder for ${dayName}s`,
+                    });
+                    continue;
+                }
+
                 // Генерируем предупреждение через AI
                 const openai = openaiClient();
                 const model = pickModel({ deep: false });
@@ -117,6 +147,13 @@ export async function GET(req: NextRequest) {
                         message,
                         suggestion: `Consider setting a reminder for ${dayName}s`,
                     });
+
+                    // Логируем AI запрос в фоне
+                    (async () => {
+                        await logAIRequest(supa, userId, userPlan, 'ai/predictive-alerts', {
+                            habit_id: habit.id,
+                        });
+                    })();
                 } catch (_aiError) {
                     // Fallback
                     alerts.push({

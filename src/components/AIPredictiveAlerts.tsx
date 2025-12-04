@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { AlertCircle } from 'lucide-react';
 import { fetchJson } from '@/lib/http';
+import { getCachedData, setCachedData, CACHE_TTL } from '@/lib/clientCache';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,9 +19,16 @@ type Alert = {
     suggestion: string;
 };
 
+const CACHE_KEY = 'ai_predictive_alerts';
+
 export default function AIPredictiveAlerts() {
-    const [alerts, setAlerts] = useState<Alert[]>([]);
-    const [loading, setLoading] = useState(true);
+    // Initialize from cache if available
+    const cachedAlerts = typeof window !== 'undefined' 
+        ? getCachedData<{ alerts: Alert[] }>(CACHE_KEY)?.alerts || []
+        : [];
+    
+    const [alerts, setAlerts] = useState<Alert[]>(cachedAlerts);
+    const [loading, setLoading] = useState(!cachedAlerts.length);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -31,8 +39,18 @@ export default function AIPredictiveAlerts() {
     }, []);
 
     useEffect(() => {
-        async function loadAlerts() {
+        async function loadAlerts(force = false) {
             try {
+                // Check cache first (1 hour TTL)
+                if (!force) {
+                    const cached = getCachedData<{ alerts: Alert[] }>(CACHE_KEY);
+                    if (cached?.alerts) {
+                        setAlerts(cached.alerts);
+                        setLoading(false);
+                        return;
+                    }
+                }
+
                 setLoading(true);
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session?.access_token) {
@@ -46,30 +64,45 @@ export default function AIPredictiveAlerts() {
                         headers,
                         timeoutMs: 10000, // 10 секунд таймаут
                     });
-                    setAlerts(data.alerts || []);
+                    const alertsData = data.alerts || [];
+                    setAlerts(alertsData);
+                    
+                    // Cache the result for 1 hour
+                    setCachedData(CACHE_KEY, { alerts: alertsData }, CACHE_TTL.HOURLY);
                 } catch (e: any) {
-                    // Если ошибка или таймаут - просто не показываем алерты
+                    // Если ошибка или таймаут - используем кэшированные данные как fallback
                     console.warn('[AI Predictive Alerts] Request failed or timed out:', e?.name || e?.message);
-                    setAlerts([]);
+                    const cached = getCachedData<{ alerts: Alert[] }>(CACHE_KEY);
+                    if (cached?.alerts) {
+                        setAlerts(cached.alerts);
+                    } else {
+                        setAlerts([]);
+                    }
                 }
             } catch (e) {
                 console.error('[AI Predictive Alerts] Failed to load:', e);
-                setAlerts([]);
+                // Try cached data as fallback
+                const cached = getCachedData<{ alerts: Alert[] }>(CACHE_KEY);
+                if (cached?.alerts) {
+                    setAlerts(cached.alerts);
+                } else {
+                    setAlerts([]);
+                }
             } finally {
                 setLoading(false);
             }
         }
-        loadAlerts();
+        loadAlerts(false);
 
         // Слушаем изменения сессии
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             if (session?.access_token) {
-                loadAlerts();
+                loadAlerts(true); // Force reload on auth change
             }
         });
 
-        // Обновляем каждые 30 минут
-        const interval = setInterval(loadAlerts, 30 * 60 * 1000);
+        // Проверяем обновления каждые 10 минут (кэш 1 час, но проверяем чаще)
+        const interval = setInterval(() => loadAlerts(false), 10 * 60 * 1000);
         return () => {
             subscription.unsubscribe();
             clearInterval(interval);

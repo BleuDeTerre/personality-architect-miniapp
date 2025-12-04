@@ -6,6 +6,7 @@ import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
 import { ANALYTICS_FACTS_PROMPT } from '@/lib/aiPrompts';
 import { getCachedAnalytics, setCachedAnalytics } from '@/lib/analytics-cache';
+import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function GET(req: NextRequest) {
     try {
@@ -17,10 +18,30 @@ export async function GET(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
+        // Получаем план пользователя для проверки лимита
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as UserPlan;
+
         // Проверяем кеш
         const cached = await getCachedAnalytics<{ facts: string[]; top_habits: any[]; day_stats: any[] }>(supa, userId, 'facts');
         if (cached) {
             return NextResponse.json(cached);
+        }
+
+        // Если кэша нет - проверяем лимит перед генерацией фактов
+        const limitCheck = await checkAILimit(supa, userId, userPlan);
+        if (!limitCheck.allowed) {
+            // Возвращаем пустые факты вместо ошибки (чтобы не ломать UI)
+            return NextResponse.json({
+                facts: [],
+                top_habits: [],
+                day_stats: [],
+                limitReached: true,
+            });
         }
 
         // Получаем данные за последние 90 дней
@@ -155,6 +176,11 @@ export async function GET(req: NextRequest) {
         const facts = Array.isArray(aiResult.facts) ? aiResult.facts : [];
 
         console.log('[Analytics Facts] Generated facts:', facts.length);
+
+        // Логируем AI запрос в фоне
+        (async () => {
+            await logAIRequest(supa, userId, userPlan, 'analytics/facts');
+        })();
 
         const result = { facts, top_habits: topHabits, day_stats: daysStats };
 

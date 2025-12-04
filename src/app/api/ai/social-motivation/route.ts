@@ -6,6 +6,7 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
 import { SOCIAL_MOTIVATION_PROMPT } from '@/lib/aiPrompts';
+import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function POST(req: NextRequest) {
     try {
@@ -23,6 +24,28 @@ export async function POST(req: NextRequest) {
 
         if (!milestone) {
             return NextResponse.json({ error: 'milestone_required' }, { status: 400 });
+        }
+
+        // Получаем план пользователя для проверки лимита
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as UserPlan;
+
+        // Проверяем лимит перед генерацией текста
+        const limitCheck = await checkAILimit(supa, userId, userPlan);
+        if (!limitCheck.allowed) {
+            return NextResponse.json(
+                {
+                    error: 'daily_limit_reached',
+                    message: limitCheck.error || 'You have reached your daily AI request limit.',
+                    limit: limitCheck.limit,
+                    used: limitCheck.used,
+                },
+                { status: 429 }
+            );
         }
 
         // Получаем данные пользователя для контекста
@@ -61,6 +84,13 @@ export async function POST(req: NextRequest) {
         });
 
         const castText = chat.choices[0]?.message?.content || `🎉 ${milestone}! Building better habits one day at a time.`;
+
+        // Логируем AI запрос в фоне
+        (async () => {
+            await logAIRequest(supa, userId, userPlan, 'ai/social-motivation', {
+                milestone,
+            });
+        })();
 
         return NextResponse.json({
             castText: castText.slice(0, 280), // Ограничиваем длину

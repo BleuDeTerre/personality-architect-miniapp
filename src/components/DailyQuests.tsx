@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { calculateQuestProgress, type Quest } from '@/lib/daily-quests';
+import { getCachedData, setCachedData, CACHE_TTL } from '@/lib/clientCache';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -67,9 +68,16 @@ function QuestList({ quests }: { quests: Quest[] }) {
     );
 }
 
+const CACHE_KEY = 'daily_quests';
+
 export default function DailyQuests() {
-    const [buckets, setBuckets] = useState<QuestBuckets | null>(null);
-    const [loading, setLoading] = useState(true);
+    // Initialize from cache if available
+    const cachedBuckets = typeof window !== 'undefined' 
+        ? getCachedData<QuestBuckets>(CACHE_KEY)
+        : null;
+    
+    const [buckets, setBuckets] = useState<QuestBuckets | null>(cachedBuckets);
+    const [loading, setLoading] = useState(!cachedBuckets);
     const tzOffsetRef = useRef<number>(typeof window !== 'undefined' ? new Date().getTimezoneOffset() : 0);
 
     useEffect(() => {
@@ -87,8 +95,18 @@ export default function DailyQuests() {
         };
     }, []);
 
-    const loadQuests = useCallback(async () => {
+    const loadQuests = useCallback(async (force = false) => {
         try {
+            // Check cache first (1 hour TTL)
+            if (!force) {
+                const cached = getCachedData<QuestBuckets>(CACHE_KEY);
+                if (cached) {
+                    setBuckets(cached);
+                    setLoading(false);
+                    return;
+                }
+            }
+
             setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
             if (!session?.access_token) {
@@ -100,15 +118,25 @@ export default function DailyQuests() {
             const res = await fetch('/api/gamification/daily-quests', { headers, cache: 'no-store' });
             if (!res.ok) throw new Error('failed_to_load');
             const data = await res.json();
-            setBuckets({
+            const bucketsData: QuestBuckets = {
                 daily: data.daily ?? [],
                 weekly: data.weekly ?? [],
                 completedDaily: data.completedDaily ?? 0,
                 totalDaily: data.totalDaily ?? (data.daily?.length ?? 0),
-            });
+            };
+            setBuckets(bucketsData);
+            
+            // Cache the result for 1 hour
+            setCachedData(CACHE_KEY, bucketsData, CACHE_TTL.HOURLY);
         } catch (e) {
             console.error('[DailyQuests] Failed to load quests:', e);
-            setBuckets(null);
+            // Try to use cached data as fallback
+            const cached = getCachedData<QuestBuckets>(CACHE_KEY);
+            if (cached) {
+                setBuckets(cached);
+            } else {
+                setBuckets(null);
+            }
         } finally {
             setLoading(false);
         }
@@ -118,10 +146,11 @@ export default function DailyQuests() {
         loadQuests();
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             if (session?.access_token) {
-                loadQuests();
+                loadQuests(true); // Force reload on auth change
             }
         });
-        const interval = setInterval(loadQuests, 60_000);
+        // Check for updates every 5 minutes (cache is 1 hour, so we just refresh periodically)
+        const interval = setInterval(() => loadQuests(false), 5 * 60_000);
         return () => {
             subscription.unsubscribe();
             clearInterval(interval);

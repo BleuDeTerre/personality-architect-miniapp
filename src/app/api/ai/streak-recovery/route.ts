@@ -6,6 +6,7 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
 import { STREAK_RECOVERY_PROMPT } from '@/lib/aiPrompts';
+import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function GET(req: NextRequest) {
     try {
@@ -44,6 +45,26 @@ export async function GET(req: NextRequest) {
         // Если streak не сломан, возвращаем null
         if (!streakJustBroke && currentStreak > 0) {
             return NextResponse.json({ message: null, needsRecovery: false });
+        }
+
+        // Получаем план пользователя для проверки лимита
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as UserPlan;
+
+        // Проверяем лимит перед генерацией сообщения восстановления
+        const limitCheck = await checkAILimit(supa, userId, userPlan);
+        if (!limitCheck.allowed) {
+            // Возвращаем fallback сообщение вместо ошибки
+            return NextResponse.json({
+                message: 'Streaks are about progress, not perfection. Every day is a new chance to start again! 💪',
+                needsRecovery: true,
+                bestStreak,
+                currentStreak,
+            });
         }
 
         // Анализируем паттерны пропусков
@@ -100,6 +121,14 @@ export async function GET(req: NextRequest) {
         });
 
         const message = chat.choices[0]?.message?.content || 'Streaks are about progress, not perfection. Every day is a new chance to start again! 💪';
+
+        // Логируем AI запрос в фоне
+        (async () => {
+            await logAIRequest(supa, userId, userPlan, 'ai/streak-recovery', {
+                best_streak: bestStreak,
+                current_streak: currentStreak,
+            });
+        })();
 
         return NextResponse.json({
             message,

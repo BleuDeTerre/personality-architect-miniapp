@@ -6,6 +6,7 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
 import { HABIT_SUGGESTIONS_PROMPT } from '@/lib/aiPrompts';
+import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function GET(req: NextRequest) {
     try {
@@ -16,6 +17,14 @@ export async function GET(req: NextRequest) {
 
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
+
+        // Получаем план пользователя для проверки лимита
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as UserPlan;
 
         // Получаем все активные привычки
         const { data: habits } = await supa
@@ -72,6 +81,19 @@ export async function GET(req: NextRequest) {
                 const avgHour = times.reduce((a, b) => a + b, 0) / times.length;
                 const optimalTime = `${Math.floor(avgHour)}:${Math.floor((avgHour % 1) * 60).toString().padStart(2, '0')}`;
 
+                // Проверяем лимит перед каждым AI запросом (может быть несколько привычек)
+                const currentLimitCheck = await checkAILimit(supa, userId, userPlan);
+                if (!currentLimitCheck.allowed) {
+                    // Если лимит достигнут - используем fallback для оставшихся привычек
+                    suggestions.push({
+                        habitId: habit.id,
+                        habitTitle: habit.title,
+                        optimalTime,
+                        suggestion: `You usually complete this around ${optimalTime}. Consider setting a reminder.`,
+                    });
+                    continue;
+                }
+
                 // Генерируем предложение через AI
                 const openai = openaiClient();
                 const model = pickModel({ deep: false });
@@ -103,6 +125,13 @@ export async function GET(req: NextRequest) {
                         optimalTime,
                         suggestion,
                     });
+
+                    // Логируем AI запрос в фоне
+                    (async () => {
+                        await logAIRequest(supa, userId, userPlan, 'ai/habit-suggestions', {
+                            habit_id: habit.id,
+                        });
+                    })();
                 } catch (_aiError) {
                     // Fallback
                     suggestions.push({

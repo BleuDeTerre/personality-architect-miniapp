@@ -6,6 +6,7 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
 import { WHEEL_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
+import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function GET(req: NextRequest) {
     try {
@@ -16,6 +17,20 @@ export async function GET(req: NextRequest) {
 
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
+
+        // Получаем план пользователя для проверки лимита
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as UserPlan;
+
+        // Проверяем лимит перед генерацией инсайтов
+        const limitCheck = await checkAILimit(supa, userId, userPlan);
+        if (!limitCheck.allowed) {
+            return NextResponse.json({ insights: [] });
+        }
 
         // Получаем тренды Wheel of Life напрямую из таблицы wheel_scores (как в /api/wheel/trends)
         const { data: wheelRows, error: trendsErr } = await supa
@@ -104,8 +119,19 @@ export async function GET(req: NextRequest) {
 
         const result = JSON.parse(chat.choices[0]?.message?.content || '{}');
 
+        // Логируем AI запрос в фоне
+        (async () => {
+            await logAIRequest(supa, userId, userPlan, 'ai/wheel-insights');
+        })();
+
         return NextResponse.json({
             insights: result.insights || [],
+            aiLimit: {
+                used: limitCheck.used + 1, // +1 потому что мы только что залогировали
+                limit: limitCheck.limit,
+                remaining: Math.max(0, limitCheck.remaining - 1),
+            },
+            plan: userPlan,
         });
     } catch (error: any) {
         console.error('[AI Wheel Insights] Error:', error);

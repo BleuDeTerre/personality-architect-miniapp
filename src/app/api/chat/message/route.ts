@@ -6,6 +6,7 @@ import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
 import { buildChatPrompt } from '@/lib/aiPrompts';
 import { calculateLevel, xpForNextLevel } from '@/lib/gamification';
+import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 // Утилита для таймаута промисов
 // Принимает любой thenable (PromiseLike), чтобы работать с PostgrestFilterBuilder Supabase
@@ -55,39 +56,23 @@ export async function POST(req: NextRequest) {
             .eq('user_id', userId)
             .maybeSingle();
 
-        const userPlan = planData?.plan ?? 'free';
+        const userPlan = (planData?.plan ?? 'free') as UserPlan;
         const isPro = ['pro', 'premium'].includes(userPlan);
-        const FREE_DAILY_LIMIT = 5; // 5 запросов в день для Free пользователей
 
-        // Для Free пользователей - проверка лимита запросов в день
-        let dailyRequestsCount = 0;
-        if (!isPro) {
-            const today = new Date().toISOString().slice(0, 10);
-            const dayStart = new Date(`${today}T00:00:00Z`);
-            const dayEnd = new Date(`${today}T23:59:59Z`);
-
-            const { data: dailyRequests } = await supa
-                .from('events_log')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('name', 'ai_chat_request')
-                .gte('created_at', dayStart.toISOString())
-                .lt('created_at', dayEnd.toISOString());
-
-            dailyRequestsCount = dailyRequests?.length || 0;
-
-            if (dailyRequestsCount >= FREE_DAILY_LIMIT) {
-                return NextResponse.json(
-                    {
-                        error: 'daily_limit_reached',
-                        message: `You have reached your daily limit of ${FREE_DAILY_LIMIT} AI Chat requests. Upgrade to Pro for unlimited access!`,
-                        limit: FREE_DAILY_LIMIT,
-                        used: dailyRequestsCount,
-                        upgradeUrl: '/pricing',
-                    },
-                    { status: 429 }
-                );
-            }
+        // Проверка общего лимита AI запросов (для всех функций)
+        const limitCheck = await checkAILimit(supa, userId, userPlan);
+        if (!limitCheck.allowed) {
+            return NextResponse.json(
+                {
+                    error: 'daily_limit_reached',
+                    message: limitCheck.error || `You have reached your daily limit of ${limitCheck.limit} AI requests. ${isPro ? 'Please try again tomorrow.' : 'Upgrade to Pro for 20 requests per day!'}`,
+                    limit: limitCheck.limit,
+                    used: limitCheck.used,
+                    remaining: limitCheck.remaining,
+                    upgradeUrl: '/pricing',
+                },
+                { status: 429 }
+            );
         }
 
         // Получаем контекст пользователя для персональных ответов
@@ -602,28 +587,19 @@ export async function POST(req: NextRequest) {
         const responseData = {
             response,
             plan: userPlan,
-            ...(!isPro && {
-                dailyLimit: FREE_DAILY_LIMIT,
-                // Подсчитываем использованные запросы включая текущий
-                used: dailyRequestsCount + 1,
-            }),
+            aiLimit: {
+                used: limitCheck.used + 1, // +1 потому что мы еще не залогировали этот запрос
+                limit: limitCheck.limit,
+                remaining: Math.max(0, limitCheck.remaining - 1),
+            },
         };
 
-        // Логируем запрос для Free пользователей в фоне (не блокируем ответ)
-        if (!isPro) {
-            // Не ждем логирования - выполняем в фоне без блокировки ответа
-            (async () => {
-                try {
-                    await supa.from('events_log').insert({
-                        user_id: userId,
-                        name: 'ai_chat_request',
-                        props: { plan: 'free', message_length: userMessage.length },
-                    });
-                } catch (logError: any) {
-                    console.warn('[AI Chat] Failed to log request:', logError);
-                }
-            })();
-        }
+        // Логируем AI запрос в фоне (не блокируем ответ)
+        (async () => {
+            await logAIRequest(supa, userId, userPlan, 'chat/message', {
+                message_length: userMessage.length,
+            });
+        })();
 
         return NextResponse.json(responseData);
     } catch (e: any) {

@@ -1,14 +1,36 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMiniApp } from '@neynar/react';
 import { supabase } from '@/lib/supabase';
-import DailyQuests from '@/components/DailyQuests';
 import MiniAppPage from '@/components/MiniAppPage';
-import AIMotivationMessage from '@/components/AIMotivationMessage';
-import AIPredictiveAlerts from '@/components/AIPredictiveAlerts';
 import AddMiniAppModal from '@/components/AddMiniAppModal';
 import WalletSelectionModal from '@/components/WalletSelectionModal';
+
+// Lazy load heavy components to improve initial page load
+const AIMotivationMessage = dynamic(() => import('@/components/AIMotivationMessage'), {
+  ssr: false,
+  loading: () => (
+    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 animate-pulse">
+      <div className="h-16 w-full rounded bg-white/10" />
+    </div>
+  ),
+});
+
+const AIPredictiveAlerts = dynamic(() => import('@/components/AIPredictiveAlerts'), {
+  ssr: false,
+  loading: () => null, // Don't show loading skeleton if no alerts
+});
+
+const DailyQuests = dynamic(() => import('@/components/DailyQuests'), {
+  ssr: false,
+  loading: () => (
+    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 animate-pulse">
+      <div className="h-48 w-full rounded bg-white/10" />
+    </section>
+  ),
+});
 
 const NAVIGATION = [
   { href: '/habits', label: 'Habits', icon: '✅', desc: 'Track your daily habits' },

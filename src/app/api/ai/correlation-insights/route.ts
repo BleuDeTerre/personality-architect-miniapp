@@ -3,8 +3,10 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
+import { createUserServerClient } from '@/lib/supabase';
 import { openaiClient, pickModel } from '@/lib/aiModel';
 import { CORRELATION_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
+import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function GET(req: NextRequest) {
     try {
@@ -13,7 +15,16 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
         }
 
-        await requireUserFromReq(req);
+        const { id: userId } = await requireUserFromReq(req);
+        const supa = createUserServerClient(token);
+
+        // Получаем план пользователя для проверки лимита
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as UserPlan;
 
         // Получаем корреляции
         const headers = {
@@ -43,6 +54,20 @@ export async function GET(req: NextRequest) {
 
         // Обрабатываем топ-3 корреляции
         for (const corr of correlations.slice(0, 3)) {
+            // Проверяем лимит перед каждым AI запросом (может быть несколько корреляций)
+            const currentLimitCheck = await checkAILimit(supa, userId, userPlan);
+            if (!currentLimitCheck.allowed) {
+                // Если лимит достигнут - используем fallback для оставшихся корреляций
+                insights.push({
+                    habitA: corr.habit_a,
+                    habitB: corr.habit_b,
+                    correlation: corr.correlation,
+                    explanation: 'These habits are often completed together.',
+                    suggestion: 'Try doing them together to build momentum.',
+                });
+                continue;
+            }
+
             try {
                 const chat = await openai.chat.completions.create({
                     model,
@@ -73,6 +98,14 @@ export async function GET(req: NextRequest) {
                     explanation: result.explanation || 'These habits are often completed together.',
                     suggestion: result.suggestion || 'Try doing them together to build momentum.',
                 });
+
+                // Логируем AI запрос в фоне
+                (async () => {
+                    await logAIRequest(supa, userId, userPlan, 'ai/correlation-insights', {
+                        habit_a: corr.habit_a,
+                        habit_b: corr.habit_b,
+                    });
+                })();
             } catch (_aiError) {
                 // Fallback
                 insights.push({
