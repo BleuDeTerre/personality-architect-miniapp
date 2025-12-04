@@ -9,6 +9,7 @@ import AchievementAnimation from '@/components/AchievementAnimation';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import CollapsibleCard from '@/components/CollapsibleCard';
+import { getRandomVariant, topStreakHabitTexts, habitsSummaryTexts } from '@/lib/castTextVariants';
 
 // Используем централизованный клиент из lib/supabase с правильными настройками
 
@@ -774,7 +775,7 @@ export default function HabitsPage() {
                 label: `Top streak: ${habitTitle} (${topHabit.streak}d)`,
                 title: 'Habit Streak Highlight',
                 kind: 'habits',
-                text: `🔥 ${topHabit.title} streak: ${topHabit.streak} days in a row! Building consistency with Personality Architect.`,
+                text: getRandomVariant(topStreakHabitTexts(topHabit.title, topHabit.streak)),
                 previewParams: {
                     variant: 'streaks:current',
                     current: String(topHabit.streak),
@@ -792,7 +793,7 @@ export default function HabitsPage() {
                 label: `Summary (${habits.length} habits)`,
                 title: 'Habits Summary',
                 kind: 'habits',
-                text: `✅ Tracking ${habits.length} habit${habits.length === 1 ? '' : 's'} in Personality Architect. ${completedCount > 0 ? `${completedCount} completed today!` : 'Building consistency day by day.'}`,
+                text: getRandomVariant(habitsSummaryTexts(habits.length, completedCount)),
                 previewParams: {
                     variant: 'goals:summary',
                     description: `${habits.length} habits tracked`,

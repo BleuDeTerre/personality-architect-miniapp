@@ -10,6 +10,7 @@ import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCa
 import Achievements from '@/components/Achievements';
 import MiniAppPage from '@/components/MiniAppPage';
 import CollapsibleCard from '@/components/CollapsibleCard';
+import { getRandomVariant, levelUpTexts } from '@/lib/castTextVariants';
 
 // Supabase client
 const supabase = createClient(
@@ -347,7 +348,7 @@ export default function ProfilePage() {
                 label: `Level ${level} ${levelName}`,
                 title: 'Level Up',
                 kind: 'level',
-                text: `⚡️ Reached ${levelName} (Level ${level}) with ${xp.toLocaleString()} XP in Personality Architect!`,
+                text: getRandomVariant(levelUpTexts(levelName, level, xp)),
                 previewParams: {
                     variant: 'level:up',
                     lvl: String(level),

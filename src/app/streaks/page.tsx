@@ -7,6 +7,7 @@ import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCa
 import MiniAppPage from '@/components/MiniAppPage';
 import AIStreakRecovery from '@/components/AIStreakRecovery';
 import CollapsibleCard from '@/components/CollapsibleCard';
+import { getRandomVariant, habitStreakTexts, nextBadgeTexts } from '@/lib/castTextVariants';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -487,8 +488,7 @@ export default function StreaksPage() {
                 label: `Habit streak (${currentStreak}d)`,
                 title: 'Habit Streak',
                 kind: 'streaks',
-                text: `💜 ${currentStreak} day run, best ${bestStreak} days. ${nextBadgeDays ? `${nextBadgeDays}d to next badge.` : 'Badge unlocked.'}`,
-                publishMode: 'auto',
+                text: getRandomVariant(habitStreakTexts(currentStreak, bestStreak, nextBadgeDays)),
                 previewParams: {
                     variant: 'streaks:summary',
                     current: String(currentStreak),
@@ -507,7 +507,7 @@ export default function StreaksPage() {
                 label: `Next badge (${nextBadgeDays}d)`,
                 title: 'Next Streak Badge',
                 kind: 'streaks',
-                text: `🎯 ${nextBadgeDays} day${nextBadgeDays === 1 ? '' : 's'} until the next streak badge. Hold me accountable!`,
+                text: getRandomVariant(nextBadgeTexts(nextBadgeDays)),
                 previewParams: {
                     variant: 'streaks:goal',
                     current: String(stats.current_streak ?? 0),

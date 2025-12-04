@@ -7,6 +7,7 @@ import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCa
 import MiniAppPage from '@/components/MiniAppPage';
 import AICorrelationInsights from '@/components/AICorrelationInsights';
 import CollapsibleCard from '@/components/CollapsibleCard';
+import { getRandomVariant, weeklySummaryTexts, topHabitTexts, aiInsightTexts, weeklyCapsuleTexts } from '@/lib/castTextVariants';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -913,7 +914,7 @@ export default function AnalyticsPage() {
                 label: 'Weekly summary',
                 title: 'Weekly Habit Summary',
                 kind: 'analytics',
-                text: `${trend === 'up' ? '📈' : trend === 'down' ? '📉' : '📊'} ${message}. ${thisWeek} habits logged this week.`,
+                text: getRandomVariant(weeklySummaryTexts(trend, thisWeek, message)),
                 previewParams: {
                     variant: 'analytics:weekly',
                     tw: String(thisWeek),
@@ -932,7 +933,7 @@ export default function AnalyticsPage() {
                 label: `Top habit: ${top.habit}`,
                 title: 'Top Habit Highlight',
                 kind: 'analytics',
-                text: `🔥 ${top.habit} was my most logged habit (${top.count} times).`,
+                text: getRandomVariant(topHabitTexts(top.habit, top.count)),
                 previewParams: {
                     variant: 'analytics:top',
                     habit: topHabitTitle ?? top.habit,
@@ -959,7 +960,7 @@ export default function AnalyticsPage() {
                 label: `AI Insight: ${insight.habit_title}`,
                 title: 'AI Habit Insight',
                 kind: 'analytics',
-                text: `🤖 ${insight.habit_title} might slip soon — risk ${riskPercent}%.`,
+                text: getRandomVariant(aiInsightTexts(insight.habit_title, riskPercent)),
                 previewParams: {
                     variant: 'analytics:insight',
                     habit: insight.habit_title,
@@ -985,7 +986,7 @@ export default function AnalyticsPage() {
                 label: `Capsule ${startStr}`,
                 title: 'Weekly Capsule',
                 kind: 'analytics',
-                text: `📦 Week ${startStr}–${endStr}: ${capsule.completedDays}/${capsule.totalDays} days done, longest run ${capsule.longestRun}d.`,
+                text: getRandomVariant(weeklyCapsuleTexts(startStr, endStr, capsule.completedDays, capsule.totalDays, capsule.longestRun)),
                 previewParams: {
                     variant: 'capsule:weekly',
                     week: `${startStr} – ${endStr}`,

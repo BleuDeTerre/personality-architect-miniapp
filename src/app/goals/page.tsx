@@ -9,6 +9,7 @@ import CollapsibleCard from '@/components/CollapsibleCard';
 import AIGoalBreakdown from '@/components/AIGoalBreakdown';
 import AIGoalReview from '@/components/AIGoalReview';
 import DatePicker from '@/components/DatePicker';
+import { getRandomVariant, goalProgressTexts, goalCompletedTexts, upcomingGoalTexts } from '@/lib/castTextVariants';
 
 // Используем централизованный клиент из lib/supabase с правильными настройками
 
@@ -483,8 +484,7 @@ export default function GoalsPage() {
             label: `Summary (${activeGoals.length} active)`,
             title: 'Goal Progress Pulse',
             kind: 'goals',
-            text: `🎯 Working through ${activeGoals.length} active goals and already completed ${completedGoals.length}.`,
-            publishMode: 'auto',
+            text: getRandomVariant(goalProgressTexts(activeGoals.length, completedGoals.length)),
             previewParams: {
                 variant: 'goals:progress',
                 active: String(activeGoals.length),
@@ -503,7 +503,7 @@ export default function GoalsPage() {
                 label: `Completed: ${recentCompleted.title}`,
                 title: 'Goal Completed',
                 kind: 'goals',
-                text: `✅ Just checked off “${recentCompleted.title}” in Personality Architect!`,
+                text: getRandomVariant(goalCompletedTexts(recentCompleted.title)),
                 previewParams: {
                     variant: 'goals:completed',
                     goal: recentCompleted.title,
@@ -524,7 +524,7 @@ export default function GoalsPage() {
                 label: `Next: ${nextDeadline.title}`,
                 title: 'Upcoming Goal',
                 kind: 'goals',
-                text: `🚀 “${nextDeadline.title}” is coming up (${dueLabel}). Keeping the momentum going!`,
+                text: getRandomVariant(upcomingGoalTexts(nextDeadline.title, dueLabel)),
                 previewParams: {
                     variant: 'goals:upcoming',
                     goal: nextDeadline.title,

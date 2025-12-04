@@ -16,6 +16,7 @@ import AIWheelInsights from '@/components/AIWheelInsights';
 import CollapsibleCard from '@/components/CollapsibleCard';
 import WeekPicker from '@/components/WeekPicker';
 import { toast } from 'sonner';
+import { getRandomVariant, wheelSnapshotTexts, focusAreaTexts, wheelShiftTexts, wheelSpotlightTexts } from '@/lib/castTextVariants';
 
 type Item = { area: string; score: number };
 
@@ -568,7 +569,7 @@ export default function WheelPage() {
                 label: `Snapshot (${avg.toFixed(1)}/10)`,
                 title: 'Wheel of Life Snapshot',
                 kind: 'wheel',
-                text: `🧭 Weekly balance ${avg.toFixed(1)}/10. ${topArea?.area ?? 'Top area'} feels strongest, ${weakArea?.area ?? 'Focus area'} needs attention.`,
+                text: getRandomVariant(wheelSnapshotTexts(avg, topArea?.area ?? 'Top area', weakArea?.area ?? 'Focus area')),
                 previewParams: {
                     variant: 'wheel:snapshot',
                     avg: avg.toFixed(1),
@@ -586,7 +587,7 @@ export default function WheelPage() {
                 label: `Focus: ${weakArea.area}`,
                 title: 'Focus Area',
                 kind: 'wheel',
-                text: `🎯 Doubling down on ${weakArea.area} (${weakArea.score}/10) this week.`,
+                text: getRandomVariant(focusAreaTexts(weakArea.area, weakArea.score)),
                 previewParams: {
                     variant: 'wheel:focus',
                     a: weakArea.area,
@@ -606,7 +607,7 @@ export default function WheelPage() {
                 label: `Wheel shift: ${wheelTopShift.area}`,
                 title: 'Wheel of Life Shift',
                 kind: 'wheel',
-                text: `🎯 ${wheelTopShift.area} improved by +${wheelTopShift.delta4.toFixed(1)} points. Building momentum!`,
+                text: getRandomVariant(wheelShiftTexts(wheelTopShift.area, wheelTopShift.delta4)),
                 previewParams: {
                     variant: 'wheel:shift',
                     area: wheelTopShift.area,
@@ -626,7 +627,7 @@ export default function WheelPage() {
                 label: `Wheel spotlight (${avg.toFixed(1)}/10)`,
                 title: 'Wheel Spotlight',
                 kind: 'wheel',
-                text: `🎡 Avg ${avg.toFixed(1)}/10 — ${topAreaName} leads, ${weakAreaName} needs fuel.`,
+                text: getRandomVariant(wheelSpotlightTexts(avg, topAreaName, weakAreaName)),
                 previewParams: {
                     variant: 'wheel:spotlight',
                     avg: avg.toFixed(1),
