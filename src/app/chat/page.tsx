@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useMiniApp } from '@neynar/react';
 import { createClient } from '@supabase/supabase-js';
 import MiniAppPage from '@/components/MiniAppPage';
+import { fetchJson } from '@/lib/http';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -118,30 +119,33 @@ export default function ChatPage() {
 
         try {
             const hdrs = await authHeaders();
-            const res = await fetch('/api/chat/message', {
+            const data = await fetchJson<{ response: string; plan?: string; dailyLimit?: number; used?: number; error?: string; message?: string; limit?: number }>('/api/chat/message', {
                 method: 'POST',
                 headers: hdrs,
                 body: JSON.stringify({
                     message: userMsg.content,
                     history: messages.map(m => ({ role: m.role, content: m.content }))
                 }),
+                timeoutMs: 60000, // 60 секунд таймаут для AI запросов
             });
 
-            const data = await res.json();
-
-            if (!res.ok) {
+            // Обработка ошибок (fetchJson уже обработал HTTP статусы)
+            if (data.error) {
                 // Обработка лимита запросов (429)
-                if (res.status === 429 && data.error === 'daily_limit_reached') {
+                if (data.error === 'daily_limit_reached') {
                     const errorMsg: Message = {
                         role: 'assistant',
-                        content: `${data.message}\n\nUpgrade to Pro for unlimited AI Chat access!`,
+                        content: `${data.message || 'You have reached your daily limit'}\n\nUpgrade to Pro for unlimited AI Chat access!`,
                         timestamp: new Date(),
                     };
                     setMessages(prev => [...prev, errorMsg]);
-                    setDailyLimit({ limit: data.limit, used: data.used });
+                    if (data.limit && data.used) {
+                        setDailyLimit({ limit: data.limit, used: data.used });
+                    }
+                    setLoading(false);
                     return;
                 }
-                throw new Error(`HTTP ${res.status}`);
+                throw new Error(data.error);
             }
 
             const { response, plan, dailyLimit: limitInfo, used } = data;
@@ -159,11 +163,24 @@ export default function ChatPage() {
             };
 
             setMessages(prev => [...prev, assistantMsg]);
-        } catch (e) {
+        } catch (e: any) {
             console.error('Failed to send message:', e);
+            let errorMessage = 'Sorry, I encountered an error. Please try again.';
+            
+            // Обработка таймаута
+            if (e?.name === 'AbortError' || e?.code === 'TIMEOUT') {
+                errorMessage = 'Request timed out. The AI is taking too long to respond. Please try again.';
+            } else if (e?.code === 402) {
+                errorMessage = 'Payment required. Please upgrade to Pro for AI Chat access.';
+            } else if (e?.code === 429) {
+                errorMessage = 'You have reached your daily limit. Upgrade to Pro for unlimited access!';
+            } else if (e?.message) {
+                errorMessage = `Error: ${e.message}`;
+            }
+            
             const errorMsg: Message = {
                 role: 'assistant',
-                content: 'Sorry, I encountered an error. Please try again.',
+                content: errorMessage,
                 timestamp: new Date(),
             };
             setMessages(prev => [...prev, errorMsg]);

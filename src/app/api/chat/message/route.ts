@@ -7,6 +7,33 @@ import { openaiClient, pickModel } from '@/lib/aiModel';
 import { buildChatPrompt } from '@/lib/aiPrompts';
 import { calculateLevel, xpForNextLevel } from '@/lib/gamification';
 
+// Утилита для таймаута промисов
+// Принимает любой thenable (PromiseLike), чтобы работать с PostgrestFilterBuilder Supabase
+async function withTimeout<T>(p: PromiseLike<T>, ms: number, fallback: () => T): Promise<T> {
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(fallback()), ms);
+    });
+    try {
+        const result = await Promise.race([p, timeout]);
+        if (timer) clearTimeout(timer);
+        return result;
+    } catch (error) {
+        if (timer) clearTimeout(timer);
+        return fallback();
+    }
+}
+
+// Утилита для безопасного выполнения промиса с обработкой ошибок
+async function safePromise<T>(p: Promise<T>, fallback: T, errorContext: string): Promise<T> {
+    try {
+        return await p;
+    } catch (error: any) {
+        console.warn(`[AI Chat] ${errorContext}:`, error?.message || error);
+        return fallback;
+    }
+}
+
 export async function POST(req: NextRequest) {
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
@@ -96,40 +123,119 @@ export async function POST(req: NextRequest) {
         const lastWeekStart = addDaysISO(thisWeekStart, -7);
         const lastWeekEnd = addDaysISO(thisWeekStart, -1);
 
-        // Для Free - ограниченные запросы, для Pro - полные
-        const [habits, goals, recentLogs, logsWithTimeRes, allLogs90d, logsLast30d, logsPrevious30d, logsThisWeekRes, logsLastWeekRes, wheelResult, wheelScores90d, weeklySummaries, streakStatsRes, xpRes, questEventsRes, achievementEventsRes] = await Promise.all([
+        // === БАЗОВЫЕ ЗАПРОСЫ (критически важные для быстрого ответа) ===
+        // Выполняются параллельно, но с обработкой ошибок
+        const basicRequests = await Promise.allSettled([
             supa.from('habits').select('id, title, target_days_per_week, category').eq('user_id', userId).eq('is_active', true),
             supa.from('goals').select('id, title, metric, target, unit, due_date, status, progress').eq('user_id', userId).eq('status', 'active'),
             supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).order('date', { ascending: false }).limit(10),
-            // Логи с временем для анализа паттернов (только для Pro)
-            isPro ? supa.from('habit_logs').select('habit_id, created_at, value').eq('user_id', userId).eq('value', true).gte('date', last30DaysStartStr).order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
-            // Все логи за период (90 дней для Pro, 7 для Free)
-            supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).eq('value', true).gte('date', periodStartStr),
-            // Логи за последние 30 дней (только для Pro)
-            isPro ? supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).eq('value', true).gte('date', last30DaysStartStr) : Promise.resolve({ data: [], error: null }),
-            // Логи за предыдущие 30 дней (только для Pro)
-            isPro ? supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).eq('value', true).gte('date', previous30DaysStartStr).lt('date', last30DaysStartStr) : Promise.resolve({ data: [], error: null }),
-            // Логи за эту неделю (с понедельника)
-            supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).eq('value', true).gte('date', thisWeekStart),
-            // Логи за прошлую неделю (только для Pro)
-            isPro ? supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).eq('value', true).gte('date', lastWeekStart).lte('date', lastWeekEnd) : Promise.resolve({ data: [], error: null }),
-            supa.rpc('get_wheel_trend', {}),
-            // Wheel scores за период (90 дней для Pro, 7 для Free)
-            supa.from('wheel_scores').select('day, area, score').eq('user_id', userId).gte('day', periodStartStr).order('day', { ascending: false }),
-            // Weekly summaries (только для Pro)
-            isPro ? supa.from('weekly_summaries').select('iso_week, summary').eq('user_id', userId).order('iso_week', { ascending: false }).limit(12) : Promise.resolve({ data: [], error: null }),
-            // Streak информация
             supa.rpc('get_habit_streak', { p_user: userId }),
-            // Level/XP информация
             supa.rpc('get_user_total_xp', { p_user_id: userId }).single(),
-            // Недавно завершенные квесты (за последние 7 дней)
-            supa.from('events_log').select('name, created_at').eq('user_id', userId).in('name', ['daily_quest_completed', 'weekly_quest_completed', 'monthly_quest_completed']).gte('created_at', addDaysISO(today, -7)).order('created_at', { ascending: false }).limit(5),
-            // Недавние достижения (за последние 30 дней)
-            supa.from('xp_events').select('event_type, metadata, created_at').eq('user_id', userId).eq('event_type', 'achievement').gte('created_at', addDaysISO(today, -30)).order('created_at', { ascending: false }).limit(5),
         ]);
 
-        // Извлекаем данные из wheelResult, игнорируем ошибки
-        const wheelTrends = wheelResult.error ? null : wheelResult.data;
+        // Извлекаем результаты базовых запросов с fallback значениями
+        const habits = basicRequests[0].status === 'fulfilled' ? basicRequests[0].value : { data: [], error: null };
+        const goals = basicRequests[1].status === 'fulfilled' ? basicRequests[1].value : { data: [], error: null };
+        const recentLogs = basicRequests[2].status === 'fulfilled' ? basicRequests[2].value : { data: [], error: null };
+        const streakStatsRes = basicRequests[3].status === 'fulfilled' ? basicRequests[3].value : { data: [], error: null };
+        const xpRes = basicRequests[4].status === 'fulfilled' ? basicRequests[4].value : { data: 0, error: null };
+
+        // === РАСШИРЕННЫЕ ЗАПРОСЫ (необязательные, с таймаутами) ===
+        // Выполняются параллельно с базовыми, но не блокируют ответ
+        const extendedRequestsPromise = Promise.allSettled([
+            // Wheel scores за период
+            withTimeout<any>(
+                supa.from('wheel_scores').select('day, area, score').eq('user_id', userId).gte('day', periodStartStr).order('day', { ascending: false }),
+                3000,
+                () => ({ data: [], error: null })
+            ),
+            // Логи за эту неделю
+            withTimeout<any>(
+                supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).eq('value', true).gte('date', thisWeekStart),
+                3000,
+                () => ({ data: [], error: null })
+            ),
+            // Квесты (последние 7 дней)
+            withTimeout<any>(
+                supa.from('events_log').select('name, created_at').eq('user_id', userId).in('name', ['daily_quest_completed', 'weekly_quest_completed', 'monthly_quest_completed']).gte('created_at', addDaysISO(today, -7)).order('created_at', { ascending: false }).limit(5),
+                2000,
+                () => ({ data: [], error: null })
+            ),
+            // Достижения (последние 30 дней)
+            withTimeout<any>(
+                supa.from('xp_events').select('event_type, metadata, created_at').eq('user_id', userId).eq('event_type', 'achievement').gte('created_at', addDaysISO(today, -30)).order('created_at', { ascending: false }).limit(5),
+                2000,
+                () => ({ data: [], error: null })
+            ),
+            // Для Pro - дополнительные расширенные данные (выполняются параллельно, но не блокируют)
+            ...(isPro ? [
+                // Все логи за период (90 дней)
+                withTimeout<any>(
+                    supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).eq('value', true).gte('date', periodStartStr),
+                    5000,
+                    () => ({ data: [], error: null })
+                ),
+                // Логи за последние 30 дней
+                withTimeout<any>(
+                    supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).eq('value', true).gte('date', last30DaysStartStr),
+                    3000,
+                    () => ({ data: [], error: null })
+                ),
+                // Логи за предыдущие 30 дней
+                withTimeout<any>(
+                    supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).eq('value', true).gte('date', previous30DaysStartStr).lt('date', last30DaysStartStr),
+                    3000,
+                    () => ({ data: [], error: null })
+                ),
+                // Логи за прошлую неделю
+                withTimeout<any>(
+                    supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).eq('value', true).gte('date', lastWeekStart).lte('date', lastWeekEnd),
+                    3000,
+                    () => ({ data: [], error: null })
+                ),
+                // Weekly summaries
+                withTimeout<any>(
+                    supa.from('weekly_summaries').select('iso_week, summary').eq('user_id', userId).order('iso_week', { ascending: false }).limit(12),
+                    3000,
+                    () => ({ data: [], error: null })
+                ),
+                // Логи с временем для анализа паттернов
+                withTimeout<any>(
+                    supa.from('habit_logs').select('habit_id, created_at, value').eq('user_id', userId).eq('value', true).gte('date', last30DaysStartStr).order('created_at', { ascending: false }),
+                    4000,
+                    () => ({ data: [], error: null })
+                ),
+            ] : []),
+        ]).catch(() => []); // Если все расширенные запросы упадут - продолжаем без них
+
+        // Дожидаемся расширенных запросов (с максимальным таймаутом 5 секунд)
+        const extendedRequests = await withTimeout(
+            extendedRequestsPromise,
+            5000,
+            () => []
+        );
+
+        // Извлекаем результаты расширенных запросов с fallback значениями
+        // Индексы: 0=wheelScores, 1=logsThisWeek, 2=questEvents, 3=achievementEvents, [+Pro данные]
+        const wheelScores90d = extendedRequests[0]?.status === 'fulfilled' ? extendedRequests[0].value : { data: [], error: null };
+        const logsThisWeekRes = extendedRequests[1]?.status === 'fulfilled' ? extendedRequests[1].value : { data: [], error: null };
+        const questEventsRes = extendedRequests[2]?.status === 'fulfilled' ? extendedRequests[2].value : { data: [], error: null };
+        const achievementEventsRes = extendedRequests[3]?.status === 'fulfilled' ? extendedRequests[3].value : { data: [], error: null };
+
+        // Pro данные (если isPro)
+        const allLogs90d = isPro && extendedRequests[4]?.status === 'fulfilled' ? extendedRequests[4].value : { data: [], error: null };
+        const logsLast30d = isPro && extendedRequests[5]?.status === 'fulfilled' ? extendedRequests[5].value : { data: [], error: null };
+        const logsPrevious30d = isPro && extendedRequests[6]?.status === 'fulfilled' ? extendedRequests[6].value : { data: [], error: null };
+        const logsLastWeekRes = isPro && extendedRequests[7]?.status === 'fulfilled' ? extendedRequests[7].value : { data: [], error: null };
+        const weeklySummaries = isPro && extendedRequests[8]?.status === 'fulfilled' ? extendedRequests[8].value : { data: [], error: null };
+        const logsWithTimeRes = isPro && extendedRequests[9]?.status === 'fulfilled' ? extendedRequests[9].value : { data: [], error: null };
+
+        // Формируем wheelTrends из wheelScores90d для совместимости
+        const wheelTrends = wheelScores90d?.data ? wheelScores90d.data.map((w: any) => ({
+            area: w.area,
+            score: Number(w.score) || 0,
+            day: w.day,
+        })) : [];
 
         // Streak информация
         const streakData = Array.isArray(streakStatsRes.data) ? streakStatsRes.data[0] : null;
@@ -151,13 +257,14 @@ export async function POST(req: NextRequest) {
         const recentQuestEvents = questEventsRes.data || [];
         const recentAchievements = achievementEventsRes.data || [];
 
-        // Извлекаем данные из ответов (нужно сделать это до использования)
+        // Извлекаем данные из ответов
         const logs90dData = Array.isArray(allLogs90d?.data) ? allLogs90d.data : [];
         const logs30dData = Array.isArray(logsLast30d?.data) ? logsLast30d.data : [];
+        const logsThisWeek = Array.isArray(logsThisWeekRes?.data) ? logsThisWeekRes.data : [];
 
         // Рассчитываем completion rate для каждой привычки
-        // Для Free - за последние 7 дней, для Pro - за последние 30 дней
-        const periodForStats = isPro ? logs30dData : logs90dData; // Для Free используем данные за период (7 дней)
+        // Для Free - используем данные за эту неделю, для Pro - за последние 30 дней
+        const periodForStats = isPro ? logs30dData : logsThisWeek; // Для Free используем данные за эту неделю
         const weeksForTarget = isPro ? 4 : 1; // Для Free - 1 неделя, для Pro - 4 недели
 
         const habitsWithStats = (habits.data || []).map((habit: any) => {
@@ -299,57 +406,78 @@ export async function POST(req: NextRequest) {
             topCorrelations.splice(3); // Топ 3
         }
 
-        // Вычисляем статистику для сравнения
+        // Вычисляем статистику для сравнения (только для Pro)
         const logs90d = logs90dData;
-        const logs30d = logs30dData;
-        const logsPrev30d = Array.isArray(logsPrevious30d?.data) ? logsPrevious30d.data : [];
-        const logsThisWeek = Array.isArray(logsThisWeekRes?.data) ? logsThisWeekRes.data : [];
-        const logsLastWeek = Array.isArray(logsLastWeekRes?.data) ? logsLastWeekRes.data : [];
+        // Явно указываем тип any[], чтобы TypeScript не выводил тип never[]
+        const logs30d: any[] = logs30dData;
+        const logsPrev30d: any[] = Array.isArray(logsPrevious30d?.data) ? logsPrevious30d.data : [];
+        const logsLastWeek: any[] = Array.isArray(logsLastWeekRes?.data) ? logsLastWeekRes.data : [];
 
-        // Статистика за последние 30 дней
-        const completedLast30d = logs30d.length;
-        const activeDaysLast30d = new Set(logs30d.map(l => l.date)).size;
-        const avgPerDayLast30d = activeDaysLast30d > 0 ? (completedLast30d / activeDaysLast30d).toFixed(1) : '0';
+        // Статистика за последние 30 дней (только для Pro)
+        let completedLast30d = 0;
+        let activeDaysLast30d = 0;
+        let avgPerDayLast30d = '0';
+        if (isPro) {
+            completedLast30d = logs30d.length;
+            activeDaysLast30d = new Set(logs30d.map(l => l.date)).size;
+            avgPerDayLast30d = activeDaysLast30d > 0 ? (completedLast30d / activeDaysLast30d).toFixed(1) : '0';
+        }
 
-        // Статистика за предыдущие 30 дней
-        const completedPrev30d = logsPrev30d.length;
-        const activeDaysPrev30d = new Set(logsPrev30d.map(l => l.date)).size;
-        const avgPerDayPrev30d = activeDaysPrev30d > 0 ? (completedPrev30d / activeDaysPrev30d).toFixed(1) : '0';
+        // Статистика за предыдущие 30 дней (только для Pro)
+        let completedPrev30d = 0;
+        let activeDaysPrev30d = 0;
+        let avgPerDayPrev30d = '0';
+        if (isPro) {
+            completedPrev30d = logsPrev30d.length;
+            activeDaysPrev30d = new Set(logsPrev30d.map(l => l.date)).size;
+            avgPerDayPrev30d = activeDaysPrev30d > 0 ? (completedPrev30d / activeDaysPrev30d).toFixed(1) : '0';
+        }
 
-        // Изменение в процентах (30 дней)
-        const changePercent = completedPrev30d > 0
+        // Изменение в процентах (30 дней, только для Pro)
+        const changePercent = isPro && completedPrev30d > 0
             ? Number(((completedLast30d - completedPrev30d) / completedPrev30d * 100).toFixed(1))
-            : completedLast30d > 0 ? 100 : 0;
+            : isPro && completedLast30d > 0 ? 100 : 0;
 
         // Статистика за эту неделю
         const completedThisWeek = logsThisWeek.length;
-        const activeDaysThisWeek = new Set(logsThisWeek.map(l => l.date)).size;
+        const activeDaysThisWeek = new Set(logsThisWeek.map((l: any) => l.date)).size;
         const avgPerDayThisWeek = activeDaysThisWeek > 0 ? (completedThisWeek / activeDaysThisWeek).toFixed(1) : '0';
 
-        // Статистика за прошлую неделю
-        const completedLastWeek = logsLastWeek.length;
-        const activeDaysLastWeek = new Set(logsLastWeek.map(l => l.date)).size;
-        const avgPerDayLastWeek = activeDaysLastWeek > 0 ? (completedLastWeek / activeDaysLastWeek).toFixed(1) : '0';
+        // Статистика за прошлую неделю (только для Pro)
+        let completedLastWeek = 0;
+        let activeDaysLastWeek = 0;
+        let avgPerDayLastWeek = '0';
+        if (isPro) {
+            completedLastWeek = logsLastWeek.length;
+            activeDaysLastWeek = new Set(logsLastWeek.map((l: any) => l.date)).size;
+            avgPerDayLastWeek = activeDaysLastWeek > 0 ? (completedLastWeek / activeDaysLastWeek).toFixed(1) : '0';
+        }
 
-        // Изменение в процентах (недели)
-        const weekChangePercent = completedLastWeek > 0
+        // Изменение в процентах (недели, только для Pro)
+        const weekChangePercent = isPro && completedLastWeek > 0
             ? Number(((completedThisWeek - completedLastWeek) / completedLastWeek * 100).toFixed(1))
-            : completedThisWeek > 0 ? 100 : 0;
+            : isPro && completedThisWeek > 0 ? 100 : 0;
 
-        // Wheel сравнение: средний score сейчас vs 30 дней назад
-        const wheelScores = wheelScores90d.data || [];
-        const recentWheelScores = wheelScores.filter((w: any) => w.day >= last30DaysStartStr).map((w: any) => Number(w.score) || 0);
-        const previousWheelScores = wheelScores.filter((w: any) => w.day >= previous30DaysStartStr && w.day < last30DaysStartStr).map((w: any) => Number(w.score) || 0);
+        // Wheel сравнение: средний score сейчас vs 30 дней назад (только для Pro)
+        const wheelScores = Array.isArray(wheelScores90d?.data) ? wheelScores90d.data : [];
+        let avgWheelRecent = 0;
+        let avgWheelPrevious = 0;
+        let wheelChange = 0;
+        
+        if (isPro && wheelScores.length > 0) {
+            const recentWheelScores = wheelScores.filter((w: any) => w.day >= last30DaysStartStr).map((w: any) => Number(w.score) || 0);
+            const previousWheelScores = wheelScores.filter((w: any) => w.day >= previous30DaysStartStr && w.day < last30DaysStartStr).map((w: any) => Number(w.score) || 0);
 
-        const avgWheelRecent = recentWheelScores.length > 0
-            ? Number((recentWheelScores.reduce((a: number, b: number) => a + b, 0) / recentWheelScores.length).toFixed(1))
-            : 0;
-        const avgWheelPrevious = previousWheelScores.length > 0
-            ? Number((previousWheelScores.reduce((a: number, b: number) => a + b, 0) / previousWheelScores.length).toFixed(1))
-            : 0;
-        const wheelChange = avgWheelPrevious > 0
-            ? Number(((avgWheelRecent - avgWheelPrevious) / avgWheelPrevious * 100).toFixed(1))
-            : avgWheelRecent > 0 ? 100 : 0;
+            avgWheelRecent = recentWheelScores.length > 0
+                ? Number((recentWheelScores.reduce((a: number, b: number) => a + b, 0) / recentWheelScores.length).toFixed(1))
+                : 0;
+            avgWheelPrevious = previousWheelScores.length > 0
+                ? Number((previousWheelScores.reduce((a: number, b: number) => a + b, 0) / previousWheelScores.length).toFixed(1))
+                : 0;
+            wheelChange = avgWheelPrevious > 0
+                ? Number(((avgWheelRecent - avgWheelPrevious) / avgWheelPrevious * 100).toFixed(1))
+                : avgWheelRecent > 0 ? 100 : 0;
+        }
 
         // Формируем контекст для AI (ограниченный для Free, полный для Pro)
         const context = {
@@ -470,21 +598,8 @@ export async function POST(req: NextRequest) {
 
         const response = chat.choices[0]?.message?.content || 'I apologize, but I could not generate a response. Please try again.';
 
-        // Логируем запрос для Free пользователей (для подсчета лимита)
-        if (!isPro) {
-            try {
-                await supa.from('events_log').insert({
-                    user_id: userId,
-                    name: 'ai_chat_request',
-                    props: { plan: 'free', message_length: userMessage.length },
-                });
-            } catch (logError) {
-                console.warn('[AI Chat] Failed to log request:', logError);
-                // Не блокируем ответ из-за ошибки логирования
-            }
-        }
-
-        return NextResponse.json({
+        // Отправляем ответ пользователю сразу
+        const responseData = {
             response,
             plan: userPlan,
             ...(!isPro && {
@@ -492,7 +607,25 @@ export async function POST(req: NextRequest) {
                 // Подсчитываем использованные запросы включая текущий
                 used: dailyRequestsCount + 1,
             }),
-        });
+        };
+
+        // Логируем запрос для Free пользователей в фоне (не блокируем ответ)
+        if (!isPro) {
+            // Не ждем логирования - выполняем в фоне без блокировки ответа
+            (async () => {
+                try {
+                    await supa.from('events_log').insert({
+                        user_id: userId,
+                        name: 'ai_chat_request',
+                        props: { plan: 'free', message_length: userMessage.length },
+                    });
+                } catch (logError: any) {
+                    console.warn('[AI Chat] Failed to log request:', logError);
+                }
+            })();
+        }
+
+        return NextResponse.json(responseData);
     } catch (e: any) {
         console.error('Chat error:', e);
         return NextResponse.json({ error: 'failed_to_generate_response', detail: e?.message }, { status: 500 });
