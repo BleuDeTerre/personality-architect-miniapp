@@ -3,8 +3,13 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 // ---- утилиты ----
-function setSecurityHeaders(res: NextResponse) {
-  res.headers.set('X-Frame-Options', 'DENY');
+function setSecurityHeaders(res: NextResponse, path: string) {
+  // ВАЖНО: X-Frame-Options: DENY ломает Farcaster Mini App,
+  // потому что miniapp открывается во <iframe> на домене farcaster.
+  // Поэтому этот заголовок отключаем для HTML-страниц и оставляем
+  // только более мягкие заголовки безопасности.
+
+  // res.headers.set('X-Frame-Options', 'DENY'); // отключено, чтобы разрешить встраивание mini app
   res.headers.set('X-Content-Type-Options', 'nosniff');
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
@@ -42,7 +47,7 @@ export default async function middleware(req: NextRequest) {
   // Это блокирует все платежи. Реальная проверка подписи - в ROADMAP #1 приоритет
 
   // Применяем security headers ко всем запросам
-  return setSecurityHeaders(NextResponse.next({ request: { headers: sanitizeHeaders(req) } }));
+  return setSecurityHeaders(NextResponse.next({ request: { headers: sanitizeHeaders(req) } }), path);
 }
 
 export const config = {

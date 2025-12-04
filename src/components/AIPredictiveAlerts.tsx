@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { AlertCircle } from 'lucide-react';
+import { fetchJson } from '@/lib/http';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,13 +41,20 @@ export default function AIPredictiveAlerts() {
                     return;
                 }
                 const headers = await authHeaders();
-                const res = await fetch('/api/ai/predictive-alerts', { headers });
-                if (res.ok) {
-                    const data = await res.json();
+                try {
+                    const data = await fetchJson<{ alerts?: Alert[] }>('/api/ai/predictive-alerts', { 
+                        headers,
+                        timeoutMs: 10000, // 10 секунд таймаут
+                    });
                     setAlerts(data.alerts || []);
+                } catch (e: any) {
+                    // Если ошибка или таймаут - просто не показываем алерты
+                    console.warn('[AI Predictive Alerts] Request failed or timed out:', e?.name || e?.message);
+                    setAlerts([]);
                 }
             } catch (e) {
                 console.error('[AI Predictive Alerts] Failed to load:', e);
+                setAlerts([]);
             } finally {
                 setLoading(false);
             }

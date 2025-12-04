@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { fetchJson } from '@/lib/http';
 
 const FALLBACK_MESSAGES = [
     'Start your day with intention. Every small step counts! 💪',
@@ -69,13 +70,18 @@ export default function AIMotivationMessage() {
             }
 
             const headers = await authHeaders();
-            const res = await fetch('/api/ai/daily-motivation', { headers, cache: 'no-store' });
-            if (res.ok) {
-                const data = await res.json();
+            try {
+                const data = await fetchJson<{ message?: string; cached?: boolean }>('/api/ai/daily-motivation', { 
+                    headers, 
+                    cache: 'no-store',
+                    timeoutMs: 10000, // 10 секунд таймаут
+                });
                 const newMessage = data.message || FALLBACK_MESSAGES[0];
                 setMessage(newMessage);
                 persistMessage(newMessage);
-            } else {
+            } catch (e: any) {
+                // Если ошибка или таймаут - используем fallback
+                console.warn('[AI Motivation] Request failed or timed out:', e?.name || e?.message);
                 const fallback = FALLBACK_MESSAGES[Math.floor(Math.random() * FALLBACK_MESSAGES.length)];
                 setMessage(fallback);
                 persistMessage(fallback);
