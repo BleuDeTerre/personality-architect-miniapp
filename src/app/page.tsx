@@ -148,16 +148,6 @@ export default function DashboardPage() {
     })();
   }, [isSDKLoaded, context]);
 
-  if (!isSDKLoaded) {
-    return (
-      <MiniAppPage className="pt-1.5">
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-white/70">Загрузка...</div>
-        </div>
-      </MiniAppPage>
-    );
-  }
-
   return (
     <MiniAppPage className="pt-1.5">
       <section className="space-y-2.5">
