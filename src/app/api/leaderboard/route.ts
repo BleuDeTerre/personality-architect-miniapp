@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { parsePaginationParams, getPaginationMeta } from '@/lib/pagination';
 
 type LeaderboardEntry = {
     user_id: string;
@@ -31,6 +32,10 @@ export async function GET(req: NextRequest) {
 
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
+
+        const { searchParams } = new URL(req.url);
+        const pagination = parsePaginationParams(searchParams);
+        const usePagination = searchParams.has('page') || searchParams.has('limit');
 
         const { data: users } = await supa.from('users').select('id, fid');
 
@@ -67,7 +72,18 @@ export async function GET(req: NextRequest) {
             return b.total_logs - a.total_logs;
         });
 
-        const topEntries = sorted.slice(0, 50);
+        // Подсчет общего количества (только если используется пагинация)
+        const total = sorted.length;
+        
+        // Применяем пагинацию или ограничение до 50 (для обратной совместимости)
+        let topEntries: LeaderboardEntry[];
+        if (usePagination) {
+            const offset = (pagination.page - 1) * pagination.limit;
+            topEntries = sorted.slice(offset, offset + pagination.limit);
+        } else {
+            // Обратная совместимость: без пагинации возвращаем топ-50
+            topEntries = sorted.slice(0, 50);
+        }
 
         let profilesMap: Record<string, NeynarProfile> = {};
         if (topEntries.length > 0) {
@@ -99,7 +115,26 @@ export async function GET(req: NextRequest) {
             neynar_profile: profilesMap[entry.user_id] ?? null,
         }));
 
-        return NextResponse.json({ entries: enriched, viewer: userId });
+        // Если используется пагинация - возвращаем с метаданными
+        if (usePagination) {
+            const meta = getPaginationMeta(total, pagination.page, pagination.limit);
+            const response = NextResponse.json({
+                entries: enriched,
+                viewer: userId,
+                ...meta,
+            });
+            // Server-side cache: лидерборд одинаков для всех, кэшируем на 5 минут
+            response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+            return response;
+        }
+
+        // Обратная совместимость: без пагинации возвращаем как раньше
+        const response = NextResponse.json({ entries: enriched, viewer: userId });
+        
+        // Server-side cache: лидерборд одинаков для всех, кэшируем на 5 минут
+        response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+        
+        return response;
     } catch (e: any) {
         console.error('Leaderboard error:', e);
         return NextResponse.json({ error: 'failed_to_fetch_leaderboard', detail: e?.message }, { status: 500 });

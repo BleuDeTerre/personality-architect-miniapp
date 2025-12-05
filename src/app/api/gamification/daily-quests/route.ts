@@ -260,7 +260,7 @@ export async function GET(req: NextRequest) {
         const weekly = generateWeeklyQuests(stats);
         const monthly = generateMonthlyQuests(stats);
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             daily,
             weekly,
             monthly,
@@ -268,6 +268,12 @@ export async function GET(req: NextRequest) {
             completedDaily: daily.filter(q => q.completed).length,
             totalDaily: daily.length,
         });
+        
+        // Server-side cache: квесты персональные, но структура одинакова для всех в один день
+        // Кэшируем на 1 час (квесты обновляются раз в день)
+        response.headers.set('Cache-Control', 'private, max-age=3600, stale-while-revalidate=86400');
+        
+        return response;
     } catch (e: any) {
         console.error('[Daily quests] error', e);
         return NextResponse.json({ error: e?.message || 'unauthorized' }, { status: 401 });

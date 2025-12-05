@@ -18,7 +18,10 @@ export async function GET(req: NextRequest) {
         // Проверяем кеш
         const cached = await getCachedAnalytics<{ insights: any[] }>(supa, userId, 'predictive');
         if (cached) {
-            return NextResponse.json(cached);
+            const response = NextResponse.json(cached);
+            // Edge cache: дополнительное кэширование поверх БД кэша (1 час)
+            response.headers.set('Cache-Control', 'private, max-age=3600, stale-while-revalidate=7200');
+            return response;
         }
 
         // Получаем все активные привычки
@@ -125,7 +128,10 @@ export async function GET(req: NextRequest) {
         // Сохраняем в кеш
         await setCachedAnalytics(supa, userId, 'predictive', result);
 
-        return NextResponse.json(result);
+        const response = NextResponse.json(result);
+        // Edge cache: дополнительное кэширование поверх БД кэша (1 час)
+        response.headers.set('Cache-Control', 'private, max-age=3600, stale-while-revalidate=7200');
+        return response;
     } catch (error: any) {
         console.error('[Analytics Predictive] Unexpected error:', error);
         return NextResponse.json(

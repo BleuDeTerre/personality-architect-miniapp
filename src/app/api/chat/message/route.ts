@@ -266,9 +266,13 @@ export async function POST(req: NextRequest) {
             };
         });
 
-        // Группируем привычки по категориям
+        // Оптимизация: ограничиваем до топ-10 привычек по completion rate (или все, если меньше 10)
+        const sortedHabits = [...habitsWithStats].sort((a, b) => b.completionRate - a.completionRate);
+        const topHabits = sortedHabits.slice(0, 10);
+
+        // Группируем привычки по категориям (только для топ-10)
         const habitsByCategory: Record<string, string[]> = {};
-        habitsWithStats.forEach((h: any) => {
+        topHabits.forEach((h: any) => {
             const category = h.category || 'Uncategorized';
             if (!habitsByCategory[category]) {
                 habitsByCategory[category] = [];
@@ -277,7 +281,7 @@ export async function POST(req: NextRequest) {
         });
 
         // Подготавливаем детали целей
-        const goalsWithDetails = (goals.data || []).map((goal: any) => {
+        const allGoalsWithDetails = (goals.data || []).map((goal: any) => {
             let progressPercent = 0;
             if (goal.target && goal.target > 0) {
                 // Если есть progress поле, используем его, иначе пытаемся вычислить
@@ -300,6 +304,18 @@ export async function POST(req: NextRequest) {
                 progressPercent: progressPercent,
             };
         });
+
+        // Оптимизация: ограничиваем до топ-10 целей по приоритету (ближайшие дедлайны или прогресс)
+        const sortedGoals = [...allGoalsWithDetails].sort((a, b) => {
+            // Приоритет: ближайшие дедлайны или высокий прогресс
+            if (a.daysUntilDue !== null && b.daysUntilDue !== null) {
+                return a.daysUntilDue - b.daysUntilDue;
+            }
+            if (a.daysUntilDue !== null) return -1;
+            if (b.daysUntilDue !== null) return 1;
+            return (b.progressPercent || 0) - (a.progressPercent || 0);
+        });
+        const goalsWithDetails = sortedGoals.slice(0, 10);
 
         // Анализируем паттерны времени выполнения (только для Pro)
         const logsWithTime = Array.isArray(logsWithTimeRes?.data) ? logsWithTimeRes.data : [];
@@ -466,11 +482,11 @@ export async function POST(req: NextRequest) {
 
         // Формируем контекст для AI (ограниченный для Free, полный для Pro)
         const context = {
-            habits: habits.data?.map(h => h.title) || [],
-            habitsWithStats: habitsWithStats,
+            habits: topHabits.map(h => h.title) || [],
+            habitsWithStats: topHabits, // Используем только топ-10
             habitsByCategory: habitsByCategory,
-            activeGoals: goals.data?.map(g => g.title) || [],
-            goalsWithDetails: goalsWithDetails,
+            activeGoals: goalsWithDetails.map(g => g.title) || [],
+            goalsWithDetails: goalsWithDetails, // Уже ограничено до топ-10
             recentActivity: recentLogs.data?.filter(l => l.value === true).length || 0,
             wheelTrends: wheelTrends || [],
             weeklySummary: (weeklySummaries.data && weeklySummaries.data.length > 0) ? (weeklySummaries.data[0] as any)?.summary || null : null,

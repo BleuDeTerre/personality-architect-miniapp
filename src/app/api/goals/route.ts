@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { parsePaginationParams, getPaginationMeta } from '@/lib/pagination';
 
 export async function GET(req: NextRequest) {
     try {
@@ -12,11 +13,38 @@ export async function GET(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        const { data, error } = await supa
+        const { searchParams } = new URL(req.url);
+        const pagination = parsePaginationParams(searchParams);
+        const usePagination = searchParams.has('page') || searchParams.has('limit');
+
+        // Подсчет общего количества (только если используется пагинация)
+        let total = 0;
+        if (usePagination) {
+            const { count, error: countError } = await supa
+                .from('goals')
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', userId);
+            
+            if (countError) {
+                console.error('[Goals GET] Count error:', countError);
+            } else {
+                total = typeof count === 'number' ? count : 0;
+            }
+        }
+
+        // Запрос данных
+        let query = supa
             .from('goals')
             .select('id, title, metric, target, unit, due_date, status, created_at')
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
+        
+        if (usePagination) {
+            const offset = (pagination.page - 1) * pagination.limit;
+            query = query.range(offset, offset + pagination.limit - 1);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
             console.error('[Goals GET] Database error:', error);
@@ -24,6 +52,17 @@ export async function GET(req: NextRequest) {
         }
 
         console.log(`[Goals GET] Found ${data?.length || 0} goals for user ${userId}`);
+
+        // Если используется пагинация - возвращаем с метаданными
+        if (usePagination) {
+            const meta = getPaginationMeta(total, pagination.page, pagination.limit);
+            return NextResponse.json({
+                items: data ?? [],
+                ...meta,
+            });
+        }
+
+        // Обратная совместимость: без пагинации возвращаем просто items
         return NextResponse.json({ items: data ?? [] });
     } catch (error: any) {
         console.error('[Goals GET] Unexpected error:', error);

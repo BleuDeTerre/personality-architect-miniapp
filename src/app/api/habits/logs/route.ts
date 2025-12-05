@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { parsePaginationParams, getPaginationMeta, type PaginationResult } from '@/lib/pagination';
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,37 +18,88 @@ export async function GET(req: NextRequest) {
     const fromDate = (searchParams.get('from') || '').slice(0, 10);
     const toDate = (searchParams.get('to') || '').slice(0, 10);
     const habitId = searchParams.get('habit_id');
+    
+    // Пагинация: по умолчанию без пагинации (для обратной совместимости)
+    // Если параметров пагинации нет - возвращаем все данные
+    const pagination = parsePaginationParams(searchParams);
+    const usePagination = searchParams.has('page') || searchParams.has('limit');
 
-    let query = supa
-      .from('habit_logs')
-      .select('id, habit_id, date, value, is_completed')
-      .eq('user_id', userId);
-
-    if (date) {
-      query = query.eq('date', date);
-    } else if (fromDate && toDate) {
-      query = query.gte('date', fromDate).lte('date', toDate);
-    } else {
+    if (!date && (!fromDate || !toDate)) {
       return NextResponse.json({ error: 'date_or_range_required' }, { status: 400 });
     }
 
-    if (habitId) {
-      query = query.eq('habit_id', habitId);
+    // Подсчет общего количества (только если используется пагинация)
+    let total = 0;
+    if (usePagination) {
+      let countQuery = supa
+        .from('habit_logs')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      
+      if (date) {
+        countQuery = countQuery.eq('date', date);
+      } else if (fromDate && toDate) {
+        countQuery = countQuery.gte('date', fromDate).lte('date', toDate);
+      }
+      if (habitId) {
+        countQuery = countQuery.eq('habit_id', habitId);
+      }
+      
+      const { count, error: countError } = await countQuery;
+      
+      if (countError) {
+        console.error('[Habits Logs] Count error:', countError);
+      } else {
+        total = typeof count === 'number' ? count : 0;
+      }
     }
 
-    // Сортируем по дате (по убыванию - сначала новые записи)
-    const { data, error } = await query.order('date', { ascending: false });
+    // Запрос данных
+    let dataQuery = supa
+      .from('habit_logs')
+      .select('id, habit_id, date, value, is_completed')
+      .eq('user_id', userId);
+    
+    if (date) {
+      dataQuery = dataQuery.eq('date', date);
+    } else if (fromDate && toDate) {
+      dataQuery = dataQuery.gte('date', fromDate).lte('date', toDate);
+    }
+    if (habitId) {
+      dataQuery = dataQuery.eq('habit_id', habitId);
+    }
+    
+    dataQuery = dataQuery.order('date', { ascending: false });
+    
+    if (usePagination) {
+      const offset = (pagination.page - 1) * pagination.limit;
+      dataQuery = dataQuery.range(offset, offset + pagination.limit - 1);
+    }
+
+    const { data, error } = await dataQuery;
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    
     // Нормализуем данные: считаем выполненным, если value === true ИЛИ is_completed === true
-    const normalized = (data ?? []).map(log => {
+    const normalized = (data ?? []).map((log: any) => {
       const isCompleted = log.value === true || log.is_completed === true;
       return {
         ...log,
         value: isCompleted,
-        is_completed: isCompleted, // Также устанавливаем is_completed для консистентности
+        is_completed: isCompleted,
       };
     });
+
+    // Если используется пагинация - возвращаем с метаданными
+    if (usePagination) {
+      const meta = getPaginationMeta(total, pagination.page, pagination.limit);
+      return NextResponse.json({
+        items: normalized,
+        ...meta,
+      });
+    }
+
+    // Обратная совместимость: без пагинации возвращаем просто items
     return NextResponse.json({ items: normalized });
   } catch {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

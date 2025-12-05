@@ -29,7 +29,10 @@ export async function GET(req: NextRequest) {
         // Проверяем кеш
         const cached = await getCachedAnalytics<{ facts: string[]; top_habits: any[]; day_stats: any[] }>(supa, userId, 'facts');
         if (cached) {
-            return NextResponse.json(cached);
+            const response = NextResponse.json(cached);
+            // Edge cache: дополнительное кэширование поверх БД кэша (1 час)
+            response.headers.set('Cache-Control', 'private, max-age=3600, stale-while-revalidate=7200');
+            return response;
         }
 
         // Если кэша нет - проверяем лимит перед генерацией фактов
@@ -187,7 +190,10 @@ export async function GET(req: NextRequest) {
         // Сохраняем в кеш
         await setCachedAnalytics(supa, userId, 'facts', result);
 
-        return NextResponse.json(result);
+        const response = NextResponse.json(result);
+        // Edge cache: дополнительное кэширование поверх БД кэша (1 час)
+        response.headers.set('Cache-Control', 'private, max-age=3600, stale-while-revalidate=7200');
+        return response;
     } catch (error: any) {
         console.error('[Analytics Facts] Unexpected error:', error);
         // Return empty facts instead of error to prevent UI breakage

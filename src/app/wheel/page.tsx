@@ -781,6 +781,16 @@ export default function WheelPage() {
                     </section>
                 )}
 
+                {/* Share Section */}
+                {shareTemplates.length > 0 && (
+                    <CollapsibleCard title="Share your wheel">
+                        <ShareCastComposer
+                            templates={shareTemplates}
+                            prepareHeaders={authHeaders}
+                        />
+                    </CollapsibleCard>
+                )}
+
                 {/* Radar Chart and Category Grid */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-6">
                     {/* Radar Chart - First */}
@@ -968,16 +978,6 @@ export default function WheelPage() {
                         })}
                     </div>
                 </section>
-
-                {/* Share Section */}
-                {shareTemplates.length > 0 && (
-                    <CollapsibleCard title="Share your wheel">
-                        <ShareCastComposer
-                            templates={shareTemplates}
-                            prepareHeaders={authHeaders}
-                        />
-                    </CollapsibleCard>
-                )}
 
                 <div className="space-y-3">
                     <button
