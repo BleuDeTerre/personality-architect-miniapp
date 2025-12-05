@@ -26,9 +26,16 @@ export async function GET(req: NextRequest) {
         const bestStreak = stats.best_streak || 0;
         const lastCompleted = stats.last_completed;
 
-        // Проверяем, был ли недавно потерян streak
-        const today = new Date().toISOString().slice(0, 10);
-        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        // Проверяем, был ли недавно потерян streak - using client local date
+        const { getClientLocalDate } = await import('@/lib/time');
+        const today = getClientLocalDate(req);
+        const tzOffsetMinutesRaw = Number(req.headers.get('x-timezone-offset') ?? '0');
+        const timezoneOffsetMinutes = Number.isFinite(tzOffsetMinutesRaw) ? tzOffsetMinutesRaw : 0;
+        const timezoneOffsetMs = timezoneOffsetMinutes * 60 * 1000;
+        const clientNow = new Date(Date.now() - timezoneOffsetMs);
+        const yesterdayDate = new Date(clientNow);
+        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        const yesterday = `${yesterdayDate.getFullYear()}-${String(yesterdayDate.getMonth() + 1).padStart(2, '0')}-${String(yesterdayDate.getDate()).padStart(2, '0')}`;
 
         const { data: recentLogs } = await supa
             .from('habit_logs')

@@ -12,6 +12,15 @@ export async function GET(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
+        // Get timezone offset from client (same as daily quests)
+        const tzOffsetMinutesRaw = Number(req.headers.get('x-timezone-offset') ?? '0');
+        const timezoneOffsetMinutes = Number.isFinite(tzOffsetMinutesRaw) ? tzOffsetMinutesRaw : 0;
+        const timezoneOffsetMs = timezoneOffsetMinutes * 60 * 1000;
+
+        // Calculate today's date in client's timezone
+        const clientNow = new Date(Date.now() - timezoneOffsetMs);
+        const today = clientNow.toISOString().slice(0, 10);
+
         const { data, error } = await supa
             .from('habits')
             .select('id,title,target_days_per_week,is_active,category')
@@ -22,8 +31,6 @@ export async function GET(req: NextRequest) {
             console.error('[Habits List] Database error:', error);
             return NextResponse.json({ error: error.message }, { status: 400 });
         }
-
-        const today = new Date().toISOString().slice(0, 10);
         // Учитываем и value и is_completed для консистентности
         const { data: todayLogs, error: logsError } = await supa
             .from('habit_logs')

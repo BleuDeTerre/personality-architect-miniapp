@@ -75,8 +75,9 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Получаем контекст пользователя для персональных ответов
-        const today = new Date().toISOString().slice(0, 10);
+        // Получаем контекст пользователя для персональных ответов - using client local date
+        const { getClientLocalDate } = await import('@/lib/time');
+        const today = getClientLocalDate(req);
 
         // Для Free - только 7 дней данных, для Pro/Premium - полный контекст (90 дней)
         const daysToFetch = isPro ? 90 : 7;

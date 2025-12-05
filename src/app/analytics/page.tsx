@@ -24,7 +24,7 @@ type Comparative = {
 type Facts = { facts: string[]; top_habits: Array<{ habit: string; count: number }>; day_stats: Array<{ day: string; count: number }> };
 
 type Goal = { id: string; title: string; metric?: string; target?: number; unit?: string; due_date?: string; status: string; created_at?: string };
-type WheelTrend = { area: string; last: number; avg4: number; avg12: number; delta4: number; delta12: number };
+type WheelTrend = { area: string; last: number; avg4: number; delta4: number };
 type Stats = { current_streak: number; best_streak: number; last_completed: string | null };
 type Habit = { id: string; title: string; is_active?: boolean; target_days_per_week?: number; category?: string | null };
 type Log = { habit_id: string; date: string; value: boolean; is_completed?: boolean };
@@ -497,12 +497,15 @@ export default function AnalyticsPage() {
     }>>([]);
     const [loadingTrend, setLoadingTrend] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState<'core' | 'advanced'>('core');
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
+        const tzOffset = typeof window !== 'undefined' ? new Date().getTimezoneOffset() : 0;
         return {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session?.access_token ?? ''}`,
+            'X-Timezone-Offset': String(tzOffset),
         };
     }, []);
 
@@ -513,11 +516,12 @@ export default function AnalyticsPage() {
         try {
             const hdrs = await authHeaders();
 
-            // Calculate date range for logs (last 7 days for time analysis)
-            const today = new Date().toISOString().slice(0, 10);
-            const sevenDaysAgo = new Date();
+            // Calculate date range for logs (last 7 days for time analysis) - using local date
+            const now = new Date();
+            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            const sevenDaysAgo = new Date(now);
             sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-            const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
+            const sevenDaysAgoStr = `${sevenDaysAgo.getFullYear()}-${String(sevenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysAgo.getDate()).padStart(2, '0')}`;
 
             const [corrRes, predRes, compRes, factsRes, goalsRes, wheelRes, statsRes, habitsRes, logsRes] = await Promise.all([
                 fetch('/api/analytics/correlations', { headers: hdrs }).then(r => r.json()).catch(() => ({ correlations: [] })),
@@ -572,11 +576,12 @@ export default function AnalyticsPage() {
             const hdrs = await authHeaders();
             console.log('[Analytics] Starting fetchHabitTrend for:', habitId);
 
-            // Get logs for last 90 days
-            const endDate = new Date().toISOString().slice(0, 10);
-            const startDate = new Date();
+            // Get logs for last 90 days - using local date
+            const now = new Date();
+            const endDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            const startDate = new Date(now);
             startDate.setDate(startDate.getDate() - 90);
-            const startDateStr = startDate.toISOString().slice(0, 10);
+            const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
 
             // Загружаем логи в зависимости от выбора
             const isAll = habitId === 'all';
@@ -611,7 +616,10 @@ export default function AnalyticsPage() {
             for (let i = 89; i >= 0; i--) {
                 const d = new Date();
                 d.setDate(d.getDate() - i);
-                dates.push(d.toISOString().slice(0, 10));
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                dates.push(`${year}-${month}-${day}`);
             }
 
             // Calculate current streak at each point in time
@@ -638,7 +646,7 @@ export default function AnalyticsPage() {
             setHabitTrendData(trendData);
             setMaxStreak(maxStreakValue);
 
-            // Calculate weekly capsules (last 8 weeks, Sunday-Saturday)
+            // Calculate weekly capsules (last 8 weeks, Sunday-Saturday) - using local date
             const today = new Date();
             const currentDay = today.getDay(); // 0 = Sunday
             const currentWeekStart = new Date(today);
@@ -654,8 +662,14 @@ export default function AnalyticsPage() {
                 weekEnd.setDate(weekStart.getDate() + 6);
                 weekEnd.setHours(23, 59, 59, 999);
 
-                const weekStartStr = weekStart.toISOString().slice(0, 10);
-                const weekEndStr = weekEnd.toISOString().slice(0, 10);
+                const weekStartYear = weekStart.getFullYear();
+                const weekStartMonth = String(weekStart.getMonth() + 1).padStart(2, '0');
+                const weekStartDay = String(weekStart.getDate()).padStart(2, '0');
+                const weekStartStr = `${weekStartYear}-${weekStartMonth}-${weekStartDay}`;
+                const weekEndYear = weekEnd.getFullYear();
+                const weekEndMonth = String(weekEnd.getMonth() + 1).padStart(2, '0');
+                const weekEndDay = String(weekEnd.getDate()).padStart(2, '0');
+                const weekEndStr = `${weekEndYear}-${weekEndMonth}-${weekEndDay}`;
 
                 // Get logs for this week
                 // Если выбрана конкретная привычка, используем логи только для неё, иначе - все логи
@@ -676,8 +690,15 @@ export default function AnalyticsPage() {
                     let currentRun = 1;
                     longestRun = 1;
                     for (let j = 1; j < sortedDates.length; j++) {
-                        const prevDate = new Date(sortedDates[j - 1]);
-                        const currDate = new Date(sortedDates[j]);
+                        // Парсим даты из строк YYYY-MM-DD как локальные даты (не UTC)
+                        const prevDateStr = sortedDates[j - 1].slice(0, 10);
+                        const [prevYear, prevMonth, prevDay] = prevDateStr.split('-').map(Number);
+                        const prevDate = new Date(prevYear, prevMonth - 1, prevDay);
+                        
+                        const currDateStr = sortedDates[j].slice(0, 10);
+                        const [currYear, currMonth, currDay] = currDateStr.split('-').map(Number);
+                        const currDate = new Date(currYear, currMonth - 1, currDay);
+                        
                         const daysDiff = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
                         if (daysDiff === 1) {
                             currentRun++;
@@ -873,7 +894,7 @@ export default function AnalyticsPage() {
         return 'Momentum locked in';
     }, [highlightedGoal]);
     const goalProgress = useMemo(() => {
-        if (activeGoals.length === 0) return null;
+        if (goals.length === 0) return null;
         const completedCount = goals.filter(g => g.status === 'completed').length;
 
         // Calculate progress based on actual metric progress, not just time
@@ -993,20 +1014,26 @@ export default function AnalyticsPage() {
                 count,
                 percentage: (count / total) * 100
             }))
+            .filter(item => item.category !== 'Uncategorized') // Filter out uncategorized from display
             .sort((a, b) => b.count - a.count)
             .slice(0, 5); // Top 5 categories
 
         // Calculate balance score (0-100, higher = more balanced)
         // Using Gini coefficient approach (inverted)
         const percentages = distribution.map(d => d.percentage);
+        if (percentages.length === 0) return null;
+        
         const sorted = [...percentages].sort((a, b) => a - b);
+        const sum = sorted.reduce((a, b) => a + b, 0);
+        if (sum === 0 || sorted.length === 0) return null;
+        
         let gini = 0;
         for (let i = 0; i < sorted.length; i++) {
             for (let j = 0; j < sorted.length; j++) {
                 gini += Math.abs(sorted[i] - sorted[j]);
             }
         }
-        gini = gini / (2 * sorted.length * sorted.reduce((a, b) => a + b, 0));
+        gini = gini / (2 * sorted.length * sum);
         const balanceScore = Math.round((1 - gini) * 100);
 
         return {
@@ -1399,32 +1426,64 @@ export default function AnalyticsPage() {
                     </CollapsibleCard>
                 )}
 
-                {/* Core Metrics Section */}
+                {/* Metrics Section with Tabs */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-4">
-                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Core metrics</h2>
-                    {loading ? (
-                        <div className="grid grid-cols-2 gap-3">
-                            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                                <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse space-y-2">
-                                    <div className="h-6 bg-white/10 rounded w-32"></div>
-                                    <div className="h-6 bg-white/10 rounded w-20"></div>
-                                    <div className="h-4 bg-white/10 rounded w-full"></div>
+                    {/* Tabs */}
+                    <div className="flex gap-2 border-b border-white/10">
+                        <button
+                            onClick={() => setActiveTab('core')}
+                            className={`px-4 py-2 text-lg font-semibold transition-colors ${
+                                activeTab === 'core'
+                                    ? 'text-[#8B5CF6] border-b-2 border-[#8B5CF6]'
+                                    : 'text-white/60 hover:text-white/80'
+                            }`}
+                        >
+                            Core
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('advanced')}
+                            className={`px-4 py-2 text-lg font-semibold transition-colors ${
+                                activeTab === 'advanced'
+                                    ? 'text-[#8B5CF6] border-b-2 border-[#8B5CF6]'
+                                    : 'text-white/60 hover:text-white/80'
+                            }`}
+                        >
+                            Advanced
+                        </button>
+                    </div>
+
+                    {/* Core Metrics */}
+                    {activeTab === 'core' && (
+                        <>
+                            {loading ? (
+                                <div className="grid grid-cols-2 gap-3">
+                                    {[1, 2, 3, 4, 5, 6].map(i => (
+                                        <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse space-y-2">
+                                            <div className="h-6 bg-white/10 rounded w-32"></div>
+                                            <div className="h-6 bg-white/10 rounded w-20"></div>
+                                            <div className="h-4 bg-white/10 rounded w-full"></div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-2 gap-3">
+                            ) : (
+                                <div className="grid grid-cols-2 gap-3">
                             {/* Completion rate */}
                             <div className={`rounded-2xl border p-4 space-y-2 ${completionRate !== null && completionRate.value !== undefined
-                                ? completionRate.value >= 70 ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
-                                    : completionRate.value >= 50 ? 'border-yellow-400/50 bg-yellow-400/5'
-                                        : 'border-red-400/50 bg-red-400/5'
+                                ? completionRate.trend === 'up' && completionRate.value >= 50
+                                    ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                    : completionRate.trend === 'up' && completionRate.value < 50
+                                        ? 'border-yellow-400/50 bg-yellow-400/5'
+                                        : completionRate.value >= 70
+                                            ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                            : completionRate.value >= 50
+                                                ? 'border-yellow-400/50 bg-yellow-400/5'
+                                                : 'border-red-400/50 bg-red-400/5'
                                 : 'border-white/10 bg-[#1a1b2e]'
                                 }`}>
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-base font-semibold text-white">Completion rate</h3>
                                     {completionRate !== null && completionRate.change !== 0 && (
-                                        <span className={`text-xs font-semibold ${completionRate.trend === 'up' ? 'text-[#22C55E]'
+                                        <span className={`text-xs font-semibold ml-2 ${completionRate.trend === 'up' ? 'text-[#22C55E]'
                                             : completionRate.trend === 'down' ? 'text-red-400'
                                                 : 'text-white/60'
                                             }`}>
@@ -1455,14 +1514,13 @@ export default function AnalyticsPage() {
                                 {goalProgress ? (
                                     <>
                                         <div className="space-y-1">
-                                            <p className="text-base font-semibold text-[#8B5CF6] inline-flex items-center gap-1">
-                                                {goalProgress.active}/{goalProgress.total} goals
-                                                <span className="h-1.5 w-1.5 rounded-full bg-[#8B5CF6]"></span>
+                                            <p className="text-base font-semibold text-[#8B5CF6]">
+                                                {goalProgress.completed}/{goalProgress.total} goals
                                             </p>
                                             <p className="text-sm font-semibold text-[#8B5CF6]">{goalProgress.avg}% avg</p>
                                         </div>
                                         <p className="text-xs text-white/70 leading-snug" title="Progress calculated based on actual metric values when available, otherwise time-based">
-                                            How close active goals are to completion. Tracks velocity toward targets.
+                                            {goalProgress.completed}/{goalProgress.total} goals — number of completed goals out of total. {goalProgress.avg}% avg — average completion percentage of all active goals. Shows how close your goals are to completion.
                                         </p>
                                     </>
                                 ) : (
@@ -1470,29 +1528,30 @@ export default function AnalyticsPage() {
                                 )}
                             </div>
 
-                            {/* Wheel delta */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
-                                <h3 className="text-base font-semibold text-white">Wheel delta</h3>
-                                {topWheelDeltas.length > 0 ? (
-                                    <>
-                                        <div className="space-y-1">
-                                            <p className="text-sm text-white/70 leading-snug">
-                                                {topWheelDeltas.map((item, idx) => (
-                                                    <span key={idx}>
-                                                        <span className="text-emerald-300">↑</span>{' '}
-                                                        <span className="text-[#8B5CF6] font-semibold">{item.area}</span>{' '}
-                                                        <span className="text-[#8B5CF6] font-semibold">{item.score.toFixed(1)}</span>
-                                                        {idx < topWheelDeltas.length - 1 && ', '}
-                                                    </span>
-                                                ))}
+                            {/* Weekly momentum */}
+                            <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${weeklyMomentum
+                                ? weeklyMomentum.isPositive
+                                    ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                    : 'border-red-400/50 bg-red-400/5'
+                                : 'border-white/10 bg-[#1a1b2e]'
+                                }`}>
+                                <h3 className="text-base font-semibold text-white">Weekly momentum</h3>
+                                {weeklyMomentum ? (
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-lg ${weeklyMomentum.isPositive ? 'text-emerald-300' : 'text-red-400'}`}>
+                                                {weeklyMomentum.isPositive ? '↑' : '↓'}
+                                            </span>
+                                            <p className="text-sm text-white/70">
+                                                {weeklyMomentum.isPositive ? '+' : '-'}{weeklyMomentum.percentChange.toFixed(0)}% vs last week
                                             </p>
                                         </div>
-                                        <p className="text-xs text-white/70 leading-snug" title="Shows top 3 Wheel of Life areas with positive change over 4 weeks">
-                                            Change in Wheel of Life areas over time. Connects behavior to perceived balance.
-                                        </p>
-                                    </>
+                                        {weeklyMomentum.message && (
+                                            <p className="text-xs text-white/50">{weeklyMomentum.message}</p>
+                                        )}
+                                    </div>
                                 ) : (
-                                    <p className="text-xs text-white/60">No wheel data yet</p>
+                                    <p className="text-sm text-white/60">No data yet</p>
                                 )}
                             </div>
 
@@ -1513,51 +1572,7 @@ export default function AnalyticsPage() {
                                 </div>
                             )}
 
-                            {/* Streaks */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
-                                <h3 className="text-base font-semibold text-white">Streaks</h3>
-                                <div className="space-y-1">
-                                    <p className="text-sm text-white/70">
-                                        <span className="text-[#8B5CF6] font-semibold">Current:</span> {stats.current_streak}d
-                                    </p>
-                                    <p className="text-sm text-white/70">
-                                        <span className="text-[#8B5CF6] font-semibold">Best:</span> {stats.best_streak}d
-                                    </p>
-                                </div>
-                                <p className="text-xs text-white/70 leading-snug" title="Current streak shows consecutive days with at least one completed habit">
-                                    Current and best streaks across your habits — the quickest way to see momentum.
-                                </p>
-                            </div>
-
-                            {/* Focus areas */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
-                                <h3 className="text-base font-semibold text-white">Focus areas</h3>
-                                {topHabit && topHabitIcon && topHabitTitle ? (
-                                    <>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-2xl">{topHabitIcon}</span>
-                                            <div className="flex-1">
-                                                <p className="text-base font-semibold text-[#8B5CF6]">{topHabitTitle}</p>
-                                                {topHabit.category && (
-                                                    <p className="text-xs text-white/60">{topHabit.category}</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {topHabit.percentage !== undefined && (
-                                            <p className="text-sm text-[#8B5CF6] font-semibold">
-                                                {topHabit.percentage}% of total activity
-                                            </p>
-                                        )}
-                                        <p className="text-xs text-white/70 leading-snug" title="Top habit by number of completed logs">
-                                            Top habit categories you invest time in. Highlights where energy is going.
-                                        </p>
-                                    </>
-                                ) : (
-                                    <p className="text-xs text-white/60">No data yet</p>
-                                )}
-                            </div>
-
-                            {/* Average completion time */}
+                            {/* Peak activity */}
                             <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
                                 <h3 className="text-base font-semibold text-white">Peak activity</h3>
                                 {mostActiveDay ? (
@@ -1591,16 +1606,16 @@ export default function AnalyticsPage() {
                                     </div>
                                     <div className="space-y-1.5">
                                         {categoryBalance.distribution.slice(0, 3).map((item, idx) => (
-                                            <div key={idx} className="flex items-center justify-between">
-                                                <span className="text-sm text-white/80">{item.category}</span>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="h-1.5 w-16 bg-white/10 rounded-full overflow-hidden">
+                                            <div key={idx} className="flex items-center justify-between gap-2">
+                                                <span className="text-sm text-white/80 flex-shrink-0 min-w-0 truncate">{item.category}</span>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <div className="h-1.5 w-16 bg-white/10 rounded-full overflow-hidden flex-shrink-0">
                                                         <div
                                                             className="h-full bg-[#8B5CF6] rounded-full"
-                                                            style={{ width: `${item.percentage}%` }}
+                                                            style={{ width: `${Math.min(100, item.percentage)}%` }}
                                                         />
                                                     </div>
-                                                    <span className="text-sm text-[#8B5CF6] font-medium w-10 text-right">{item.percentage.toFixed(0)}%</span>
+                                                    <span className="text-sm text-[#8B5CF6] font-medium w-10 text-right flex-shrink-0">{item.percentage.toFixed(0)}%</span>
                                                 </div>
                                             </div>
                                         ))}
@@ -1610,9 +1625,212 @@ export default function AnalyticsPage() {
                                     </p>
                                 </div>
                             )}
-                        </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {/* Advanced Metrics */}
+                    {activeTab === 'advanced' && (
+                        <>
+                            {loading ? (
+                                <div className="grid grid-cols-2 gap-3">
+                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                                        <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse space-y-2">
+                                            <div className="h-6 bg-white/10 rounded w-32"></div>
+                                            <div className="h-6 bg-white/10 rounded w-20"></div>
+                                            <div className="h-4 bg-white/10 rounded w-full"></div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-3">
+                                    {/* Streaks */}
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
+                                        <h3 className="text-base font-semibold text-white">Streaks</h3>
+                                        <div className="space-y-1">
+                                            <p className="text-sm text-white/70">
+                                                <span className="text-[#8B5CF6] font-semibold">Current:</span> {stats.current_streak}d
+                                            </p>
+                                            <p className="text-sm text-white/70">
+                                                <span className="text-[#8B5CF6] font-semibold">Best:</span> {stats.best_streak}d
+                                            </p>
+                                        </div>
+                                        <p className="text-xs text-white/70 leading-snug" title="Current streak shows consecutive days with at least one completed habit">
+                                            Current and best streaks across your habits — the quickest way to see momentum.
+                                        </p>
+                                    </div>
+
+                                    {/* Energy peaks */}
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-base font-semibold text-white">Energy peaks</h3>
+                                            <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
+                                        </div>
+                                        {energyPeaks ? (
+                                            <p className="text-sm text-white/70">{energyPeaks.day} is your strongest day ({energyPeaks.count} check-ins)</p>
+                                        ) : (
+                                            <p className="text-sm text-white/60">No data yet</p>
+                                        )}
+                                    </div>
+
+                                    {/* Weak windows */}
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-base font-semibold text-white">Weak windows</h3>
+                                            <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
+                                        </div>
+                                        {weakWindows ? (
+                                            <p className="text-sm text-white/70">{weakWindows.day}: {weakWindows.count} check-ins</p>
+                                        ) : (
+                                            <p className="text-sm text-white/60">No data yet</p>
+                                        )}
+                                    </div>
+
+                                    {/* Wheel impact */}
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-base font-semibold text-white">Wheel impact</h3>
+                                            <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
+                                        </div>
+                                        {wheelImpact ? (
+                                            <div className="flex flex-col gap-1 text-sm text-white/70">
+                                                {wheelImpact.top && (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-emerald-300">↑</span>
+                                                        <span>{wheelImpact.top.area} {wheelImpact.top.delta > 0 ? '+' : ''}{wheelImpact.top.delta.toFixed(1)}</span>
+                                                    </div>
+                                                )}
+                                                {wheelImpact.bottom && (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-red-400">↓</span>
+                                                        <span>{wheelImpact.bottom.area} {wheelImpact.bottom.delta.toFixed(1)}</span>
+                                                    </div>
+                                                )}
+                                                {!wheelImpact.top && !wheelImpact.bottom && (
+                                                    <p className="text-white/60">No wheel data yet</p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-white/60">No wheel data yet</p>
+                                        )}
+                                    </div>
+
+                                    {/* Fatigue alerts */}
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-base font-semibold text-white">Fatigue alerts</h3>
+                                            <span className={`text-xs font-semibold uppercase ${fatigueAlerts.hasData
+                                                ? (fatigueAlerts.riskLevel === 'high' ? 'text-red-400' : fatigueAlerts.riskLevel === 'medium' ? 'text-yellow-400' : 'text-green-400')
+                                                : 'text-orange-400'
+                                                }`}>
+                                                {fatigueAlerts.hasData ? 'LIVE' : 'NEED DATA'}
+                                            </span>
+                                        </div>
+                                        {fatigueAlerts.hasData ? (
+                                            fatigueAlerts.message ? (
+                                                <div className="flex flex-col gap-1.5">
+                                                    <p className="text-sm text-white/70">{fatigueAlerts.message}</p>
+                                                    {fatigueAlerts.suggestions && fatigueAlerts.suggestions.length > 0 && (
+                                                        <ul className="text-xs text-white/60 list-disc list-inside space-y-0.5">
+                                                            {fatigueAlerts.suggestions.map((s, idx) => (
+                                                                <li key={idx}>{s}</li>
+                                                            ))}
+                                                        </ul>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-white/70">All good! No fatigue detected.</p>
+                                            )
+                                        ) : (
+                                            <p className="text-sm text-white/70">Track more streaks to surface fatigue alerts.</p>
+                                        )}
+                                    </div>
+
+                                    {/* Goal forecast */}
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-base font-semibold text-white">Goal forecast</h3>
+                                            <span className={`text-xs font-semibold uppercase ${goals.filter(g => g.due_date).length > 0 ? 'text-green-400' : 'text-orange-400'}`}>
+                                                {goals.filter(g => g.due_date).length > 0 ? 'LIVE' : 'NEED DATA'}
+                                            </span>
+                                        </div>
+                                        {goals.filter(g => g.due_date).length > 0 ? (
+                                            <p className="text-sm text-white/70">Forecasting completion for {goals.filter(g => g.due_date && g.status === 'active').length} goals with due dates.</p>
+                                        ) : (
+                                            <p className="text-sm text-white/70">Set due dates to forecast goal completion.</p>
+                                        )}
+                                    </div>
+
+                                    {/* Habit recommendations */}
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-base font-semibold text-white">Habit Recommend</h3>
+                                            <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
+                                        </div>
+                                        {habitRecommendationsWithTemplates ? (
+                                            <div className="flex flex-col gap-1.5">
+                                                <p className="text-sm text-white/70">
+                                                    {habitRecommendationsWithTemplates.area} (down {Math.abs(habitRecommendationsWithTemplates.delta).toFixed(1)})
+                                                </p>
+                                                {habitRecommendationsWithTemplates.templates.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {habitRecommendationsWithTemplates.templates.map((t, idx) => (
+                                                            <span key={idx} className="text-xs text-white/60 flex items-center gap-1">
+                                                                <span>{t.icon}</span>
+                                                                <span>{t.title}</span>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-xs text-white/50">All recommended habits already added</p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-white/60">All areas are improving</p>
+                                        )}
+                                    </div>
+
+                                    {/* Recovery suggestions */}
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-base font-semibold text-white">Recovery suggestions</h3>
+                                            <span className={`text-xs font-semibold uppercase ${recoverySuggestions ? 'text-green-400' : 'text-orange-400'}`}>
+                                                {recoverySuggestions ? 'LIVE' : 'NEED DATA'}
+                                            </span>
+                                        </div>
+                                        {recoverySuggestions ? (
+                                            <div className="flex flex-col gap-1">
+                                                <p className="text-sm text-white/70">{recoverySuggestions.count} streak{recoverySuggestions.count === 1 ? '' : 's'} broken</p>
+                                                <ul className="text-xs text-white/60 list-disc list-inside space-y-0.5">
+                                                    {recoverySuggestions.suggestions.map((s, idx) => (
+                                                        <li key={idx}>{s}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-white/60">No recovery needed</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
                 </section>
+
+                {/* AI Facts Section */}
+                {facts && facts.facts && facts.facts.length > 0 && (
+                    <CollapsibleCard title="🤖 AI facts" defaultOpen={false}>
+                        <div className="space-y-2">
+                            {facts.facts.map((fact, idx) => (
+                                <div key={idx} className="flex items-start gap-2.5">
+                                    <span className="text-[#7DD3FC] mt-0.5 text-base">•</span>
+                                    <p className="text-sm text-white flex-1 leading-snug">{fact}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </CollapsibleCard>
+                )}
 
                 {/* Week Comparison Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
@@ -1785,20 +2003,6 @@ export default function AnalyticsPage() {
                     )}
                 </section>
 
-                {/* AI Facts Section */}
-                {facts && facts.facts && facts.facts.length > 0 && (
-                    <CollapsibleCard title="🤖 AI facts" defaultOpen={false}>
-                        <div className="space-y-2">
-                            {facts.facts.map((fact, idx) => (
-                                <div key={idx} className="flex items-start gap-2.5">
-                                    <span className="text-[#7DD3FC] mt-0.5 text-base">•</span>
-                                    <p className="text-sm text-white flex-1 leading-snug">{fact}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </CollapsibleCard>
-                )}
-
                 {/* Habit Correlations Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
                     <div className="flex items-start justify-between gap-2">
@@ -1883,198 +2087,6 @@ export default function AnalyticsPage() {
                         <p className="text-xs text-white/60">No significant correlations yet. Complete more habits together to see patterns.</p>
                     )}
                 </section>
-
-
-                {/* Advanced Insights Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
-                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Advanced insights</h2>
-                    <div className="grid grid-cols-2 gap-2">
-                        {/* Weak windows */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-white">Weak windows</h3>
-                                <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
-                            </div>
-                            {weakWindows ? (
-                                <p className="text-sm text-white/70">{weakWindows.day}: {weakWindows.count} check-ins</p>
-                            ) : (
-                                <p className="text-sm text-white/60">No data yet</p>
-                            )}
-                        </div>
-
-                        {/* Energy peaks */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-white">Energy peaks</h3>
-                                <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
-                            </div>
-                            {energyPeaks ? (
-                                <p className="text-sm text-white/70">{energyPeaks.day} is your strongest day ({energyPeaks.count} check-ins)</p>
-                            ) : (
-                                <p className="text-sm text-white/60">No data yet</p>
-                            )}
-                        </div>
-
-                        {/* Weekly momentum */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-white">Weekly momentum</h3>
-                                <span className={`text-xs font-semibold uppercase ${weeklyMomentum ? 'text-green-400' : 'text-orange-400'}`}>
-                                    {weeklyMomentum ? 'LIVE' : 'NEED DATA'}
-                                </span>
-                            </div>
-                            {weeklyMomentum ? (
-                                <div className="flex flex-col gap-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className={`text-lg ${weeklyMomentum.isPositive ? 'text-emerald-300' : 'text-red-400'}`}>
-                                            {weeklyMomentum.isPositive ? '↑' : '↓'}
-                                        </span>
-                                        <p className="text-sm text-white/70">
-                                            {weeklyMomentum.isPositive ? '+' : '-'}{weeklyMomentum.percentChange.toFixed(0)}% vs last week
-                                        </p>
-                                    </div>
-                                    {weeklyMomentum.message && (
-                                        <p className="text-xs text-white/50">{weeklyMomentum.message}</p>
-                                    )}
-                                </div>
-                            ) : (
-                                <p className="text-sm text-white/60">No data yet</p>
-                            )}
-                        </div>
-
-                        {/* Wheel impact */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-white">Wheel impact</h3>
-                                <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
-                            </div>
-                            {wheelImpact ? (
-                                <div className="flex flex-col gap-1 text-sm text-white/70">
-                                    {wheelImpact.top && (
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-emerald-300">↑</span>
-                                            <span>{wheelImpact.top.area} {wheelImpact.top.delta > 0 ? '+' : ''}{wheelImpact.top.delta.toFixed(1)}</span>
-                                        </div>
-                                    )}
-                                    {wheelImpact.bottom && (
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-red-400">↓</span>
-                                            <span>{wheelImpact.bottom.area} {wheelImpact.bottom.delta.toFixed(1)}</span>
-                                        </div>
-                                    )}
-                                    {!wheelImpact.top && !wheelImpact.bottom && (
-                                        <p className="text-white/60">No wheel data yet</p>
-                                    )}
-                                </div>
-                            ) : (
-                                <p className="text-sm text-white/60">No wheel data yet</p>
-                            )}
-                        </div>
-
-                        {/* Fatigue alerts */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-white">Fatigue alerts</h3>
-                                <span className={`text-xs font-semibold uppercase ${fatigueAlerts.hasData
-                                    ? (fatigueAlerts.riskLevel === 'high' ? 'text-red-400' : fatigueAlerts.riskLevel === 'medium' ? 'text-yellow-400' : 'text-green-400')
-                                    : 'text-orange-400'
-                                    }`}>
-                                    {fatigueAlerts.hasData ? 'LIVE' : 'NEED DATA'}
-                                </span>
-                            </div>
-                            {fatigueAlerts.hasData ? (
-                                fatigueAlerts.message ? (
-                                    <div className="flex flex-col gap-1.5">
-                                        <p className="text-sm text-white/70">{fatigueAlerts.message}</p>
-                                        {fatigueAlerts.suggestions && fatigueAlerts.suggestions.length > 0 && (
-                                            <ul className="text-xs text-white/60 list-disc list-inside space-y-0.5">
-                                                {fatigueAlerts.suggestions.map((s, idx) => (
-                                                    <li key={idx}>{s}</li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-white/70">All good! No fatigue detected.</p>
-                                )
-                            ) : (
-                                <p className="text-sm text-white/70">Track more streaks to surface fatigue alerts.</p>
-                            )}
-                        </div>
-
-                        {/* Goal forecast */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-white">Goal forecast</h3>
-                                <span className={`text-xs font-semibold uppercase ${goals.filter(g => g.due_date).length > 0 ? 'text-green-400' : 'text-orange-400'}`}>
-                                    {goals.filter(g => g.due_date).length > 0 ? 'LIVE' : 'NEED DATA'}
-                                </span>
-                            </div>
-                            {goals.filter(g => g.due_date).length > 0 ? (
-                                <p className="text-sm text-white/70">Forecasting completion for {goals.filter(g => g.due_date && g.status === 'active').length} goals with due dates.</p>
-                            ) : (
-                                <p className="text-sm text-white/70">Set due dates to forecast goal completion.</p>
-                            )}
-                        </div>
-
-                        {/* Habit recommendations */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-white">Habit Recommend</h3>
-                                <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
-                            </div>
-                            {habitRecommendationsWithTemplates ? (
-                                <div className="flex flex-col gap-1.5">
-                                    <p className="text-sm text-white/70">
-                                        {habitRecommendationsWithTemplates.area} (down {Math.abs(habitRecommendationsWithTemplates.delta).toFixed(1)})
-                                    </p>
-                                    {habitRecommendationsWithTemplates.templates.length > 0 ? (
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {habitRecommendationsWithTemplates.templates.map((t, idx) => (
-                                                <span key={idx} className="text-xs text-white/60 flex items-center gap-1">
-                                                    <span>{t.icon}</span>
-                                                    <span>{t.title}</span>
-                                                </span>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-white/50">All recommended habits already added</p>
-                                    )}
-                                </div>
-                            ) : (
-                                <p className="text-sm text-white/60">All areas are improving</p>
-                            )}
-                        </div>
-
-                        {/* Recovery suggestions */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-white">Recovery suggestions</h3>
-                                <span className={`text-xs font-semibold uppercase ${recoverySuggestions ? 'text-green-400' : 'text-orange-400'}`}>
-                                    {recoverySuggestions ? 'LIVE' : 'NEED DATA'}
-                                </span>
-                            </div>
-                            {recoverySuggestions ? (
-                                <div className="flex flex-col gap-1">
-                                    <p className="text-sm text-white/70">{recoverySuggestions.count} streak{recoverySuggestions.count === 1 ? '' : 's'} broken</p>
-                                    <ul className="text-xs text-white/60 list-disc list-inside space-y-0.5">
-                                        {recoverySuggestions.suggestions.map((s, idx) => (
-                                            <li key={idx}>{s}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ) : (
-                                <p className="text-sm text-white/60">No recovery needed</p>
-                            )}
-                        </div>
-
-                        {/* Next Badge - убрано (не нужно в Advanced Insights) */}
-                        {/* Linked habits - убрано (дублирует Habit correlations) */}
-                        {/* Risk notifications - убрано (дублирует Predictive Alerts) */}
-                    </div>
-                </section>
-
-
 
             </div>
         </MiniAppPage>

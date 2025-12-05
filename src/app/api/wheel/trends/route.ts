@@ -70,67 +70,83 @@ export async function GET(req: NextRequest) {
 
     const out: Array<{
         area: string;
-        last: number;
+        last: number; // Current week value
+        previous: number | null; // Previous week value (null if no previous week)
+        deltaLast: number | null; // Change: this week vs last week (null if no previous week)
         avg4: number;
-        avg12: number;
-        delta4: number;
-        delta12: number;
+        delta4: number | null; // Change: last 4 weeks vs previous 4 weeks (null if less than 5 weeks of data)
         points: { week: string; score: number }[];
     }> = [];
 
     for (const [area, points] of byArea) {
         if (!points.length) continue;
-        const scores = points.map((p) => p.score);
-        const last = scores[scores.length - 1];
+        
+        // Remove duplicates by week (keep the last one if multiple entries for same week)
+        const uniqueByWeek = new Map<string, { week: string; score: number }>();
+        for (const item of points) {
+            uniqueByWeek.set(item.week, item);
+        }
+        const uniquePoints = Array.from(uniqueByWeek.values()).sort((a, b) => weekKey(a.week) - weekKey(b.week));
+        
+        const scores = uniquePoints.map((p) => Math.max(0, Math.min(10, p.score))); // Clamp scores to 0-10
+        const lastScore = scores[scores.length - 1];
 
-        // Calculate averages for last 4 and 12 weeks
+        // Calculate average for last 4 weeks (use available weeks if less)
         const last4 = scores.slice(-4);
-        const last12 = scores.slice(-12);
+        const avg4 = last4.length > 0 ? Number(avg(last4).toFixed(1)) : Number(Math.max(0, Math.min(10, lastScore)).toFixed(1));
 
-        const avg4 = last4.length > 0 ? Number(avg(last4).toFixed(1)) : Number(last.toFixed(1));
-        const avg12 = last12.length > 0 ? Number(avg(last12).toFixed(1)) : Number(last.toFixed(1));
+        // Last: current week value (clamp to 0-10)
+        const last = Number(Math.max(0, Math.min(10, lastScore)).toFixed(1));
 
-        // Calculate deltas: change vs previous window
+        // Previous: previous week value (clamp to 0-10)
+        let previous: number | null = null;
+        let deltaLast: number | null = null;
+        if (scores.length >= 2) {
+            const thisWeek = scores[scores.length - 1];
+            const lastWeek = scores[scores.length - 2];
+            previous = Number(Math.max(0, Math.min(10, lastWeek)).toFixed(1));
+            // Округляем deltaLast до целого числа (для обычных строк), десятичные будут в Average строке на фронтенде
+            deltaLast = Math.round(thisWeek - lastWeek);
+        }
+        
+        // Debug logging
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`[Wheel Trends] ${area}: ${scores.length} weeks, last=${last}, deltaLast=${deltaLast}, weeks=${uniquePoints.map(p => p.week).join(', ')}`);
+        }
+
         // Δ 4w = avg(last 4 weeks) - avg(previous 4 weeks)
-        let delta4 = 0;
-        if (scores.length >= 8) {
-            const prev4 = scores.slice(-8, -4);
-            delta4 = Number((avg(last4) - avg(prev4)).toFixed(1));
-        } else if (scores.length >= 4) {
-            // If less than 8 weeks, compare with first available period
-            const prev4 = scores.slice(0, Math.min(4, scores.length - 4));
-            if (prev4.length > 0) {
-                delta4 = Number((avg(last4) - avg(prev4)).toFixed(1));
+        // Calculate if we have at least 5 weeks of data
+        let delta4: number | null = null;
+        if (scores.length >= 5) {
+            // Last 4 weeks (most recent 4)
+            const last4Weeks = scores.slice(-4);
+            
+            // Previous 4 weeks (before the last 4)
+            let prev4Weeks: number[] = [];
+            if (scores.length >= 8) {
+                // If we have 8+ weeks, compare last 4 with previous 4 (non-overlapping)
+                prev4Weeks = scores.slice(-8, -4);
             } else {
-                delta4 = Number(avg4.toFixed(1));
+                // If we have 5-7 weeks, compare last 4 with first 4 (may overlap)
+                prev4Weeks = scores.slice(0, 4);
             }
-        } else {
-            // If less than 4 weeks, show last value
-            delta4 = Number(last.toFixed(1));
-        }
-
-        // Δ 12w = avg(last 12 weeks) - avg(previous 12 weeks)
-        let delta12 = 0;
-        if (scores.length >= 24) {
-            const prev12 = scores.slice(-24, -12);
-            delta12 = Number((avg(last12) - avg(prev12)).toFixed(1));
-        } else if (scores.length >= 12) {
-            // If less than 24 weeks, compare with first available period
-            const prev12 = scores.slice(0, Math.min(12, scores.length - 12));
-            if (prev12.length > 0) {
-                delta12 = Number((avg(last12) - avg(prev12)).toFixed(1));
-            } else {
-                delta12 = Number(avg12.toFixed(1));
+            
+            if (prev4Weeks.length > 0 && last4Weeks.length > 0) {
+                delta4 = Number((avg(last4Weeks) - avg(prev4Weeks)).toFixed(1));
             }
-        } else {
-            // If less than 12 weeks, show average value
-            delta12 = Number(avg12.toFixed(1));
         }
+        // If less than 5 weeks, delta4 remains null (not enough data for meaningful comparison)
 
-        out.push({ area, last, avg4, avg12, delta4, delta12, points });
+        out.push({ area, last, previous, deltaLast, avg4, delta4, points: uniquePoints });
     }
 
-    out.sort((a, b) => a.delta4 - b.delta4 || a.area.localeCompare(b.area));
+    out.sort((a, b) => {
+        // Sort by delta4 (null values go last)
+        if (a.delta4 === null && b.delta4 === null) return a.area.localeCompare(b.area);
+        if (a.delta4 === null) return 1;
+        if (b.delta4 === null) return -1;
+        return a.delta4 - b.delta4 || a.area.localeCompare(b.area);
+    });
 
     const result = { weeks, areas: out };
 

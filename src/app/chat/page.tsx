@@ -82,9 +82,11 @@ export default function ChatPage() {
 
     async function authHeaders() {
         const { data: { session } } = await supabase.auth.getSession();
+        const tzOffset = typeof window !== 'undefined' ? new Date().getTimezoneOffset() : 0;
         return {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session?.access_token ?? ''}`,
+            'X-Timezone-Offset': String(tzOffset),
         };
     }
 

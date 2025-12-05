@@ -52,9 +52,11 @@ export default function GoalsPage() {
                 console.warn('[GoalsPage] No user found');
             }
         }
+        const tzOffset = typeof window !== 'undefined' ? new Date().getTimezoneOffset() : 0;
         return {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session?.access_token ?? ''}`,
+            'X-Timezone-Offset': String(tzOffset),
         };
     }, []);
 

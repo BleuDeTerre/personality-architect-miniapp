@@ -11,6 +11,7 @@ type LeaderboardEntry = {
     current_streak: number;
     best_streak: number;
     total_logs: number;
+    total_xp: number;
 };
 
 type NeynarProfile = {
@@ -45,27 +46,48 @@ export async function GET(req: NextRequest) {
 
         const leaderboardEntries: LeaderboardEntry[] = await Promise.all(
             users.map(async (user: any) => {
-                const { data: stats } = await supa.rpc('get_habit_streak', { p_user: user.id });
+                try {
+                    const { data: stats } = await supa.rpc('get_habit_streak', { p_user: user.id });
 
-                const { count } = await supa
-                    .from('habit_logs')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('user_id', user.id)
-                    .eq('value', true);
+                    const { count } = await supa
+                        .from('habit_logs')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('user_id', user.id)
+                        .eq('value', true);
 
-                const entry = Array.isArray(stats) ? stats[0] : { current_streak: 0, best_streak: 0, last_completed: null };
+                    const { data: xpData } = await supa
+                        .rpc('get_user_total_xp', { p_user_id: user.id })
+                        .single();
 
-                return {
-                    user_id: user.id,
-                    fid: user.fid,
-                    current_streak: entry.current_streak || 0,
-                    best_streak: entry.best_streak || 0,
-                    total_logs: count || 0,
-                };
+                    const entry = Array.isArray(stats) ? stats[0] : { current_streak: 0, best_streak: 0, last_completed: null };
+
+                    return {
+                        user_id: user.id,
+                        fid: user.fid,
+                        current_streak: entry.current_streak || 0,
+                        best_streak: entry.best_streak || 0,
+                        total_logs: count || 0,
+                        total_xp: (typeof xpData === 'number' ? xpData : 0) || 0,
+                    };
+                } catch (err) {
+                    // Если ошибка при получении данных для одного пользователя, возвращаем значения по умолчанию
+                    console.error(`Error fetching leaderboard data for user ${user.id}:`, err);
+                    return {
+                        user_id: user.id,
+                        fid: user.fid,
+                        current_streak: 0,
+                        best_streak: 0,
+                        total_logs: 0,
+                        total_xp: 0,
+                    };
+                }
             })
         );
 
         const sorted = leaderboardEntries.sort((a, b) => {
+            if (b.total_xp !== a.total_xp) {
+                return b.total_xp - a.total_xp;
+            }
             if (b.best_streak !== a.best_streak) {
                 return b.best_streak - a.best_streak;
             }

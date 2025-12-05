@@ -27,6 +27,7 @@ type LeaderboardEntry = {
     current_streak: number;
     best_streak: number;
     total_logs: number;
+    total_xp: number;
     neynar_profile: LeaderboardNeynarProfile | null;
 };
 
@@ -107,7 +108,7 @@ export default function LeaderboardPage() {
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">Leaderboard</h1>
                     <p className="text-sm text-white/80">
-                        Ranked by best streak. All time leaders in habit consistency! 🔥
+                        Ranked by XP
                     </p>
                 </section>
 
@@ -159,19 +160,20 @@ export default function LeaderboardPage() {
                                             )}
                                         </div>
 
-                                        {/* Name and Stats */}
+                                        {/* Name */}
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-0.5">
+                                            <div className="flex items-center gap-2">
                                                 {isMe && <span className="text-yellow-400 text-xs">⭐</span>}
                                                 <span className="text-sm font-semibold text-white truncate">
                                                     {entry.neynar_profile?.display_name || entry.neynar_profile?.username || `User ${entry.fid || ''}`}
                                                 </span>
                                             </div>
-                                            <div className="flex gap-3 text-xs text-white/60">
-                                                <span>{entry.best_streak} best</span>
-                                                <span>{entry.current_streak} current</span>
-                                                <span>{entry.total_logs} logs</span>
-                                            </div>
+                                        </div>
+
+                                        {/* XP */}
+                                        <div className="flex flex-col items-end text-right flex-shrink-0 min-w-[80px]">
+                                            <div className="text-lg font-bold text-[#A78BFA] leading-none">{entry.total_xp.toLocaleString()}</div>
+                                            <div className="text-xs text-white/80 mt-0.5">XP</div>
                                         </div>
                                     </div>
                                 );
@@ -230,30 +232,14 @@ export default function LeaderboardPage() {
                                                 {myEntry.neynar_profile.display_name}
                                             </div>
                                         )}
-                                        {myEntry.fid && (
-                                            <div className="text-xs text-white/60 mt-0.5">FID {myEntry.fid}</div>
-                                        )}
                                     </div>
 
-                                    {/* Best Streak */}
+                                    {/* Total XP */}
                                     <div className="flex flex-col items-center text-right flex-shrink-0 min-w-[68px]">
-                                        <div className="text-3xl font-bold text-[#A78BFA] leading-none">{myEntry.best_streak}</div>
-                                        <div className="text-xs text-white/80 mt-1">best streak</div>
+                                        <div className="text-3xl font-bold text-[#A78BFA] leading-none">{myEntry.total_xp.toLocaleString()}</div>
+                                        <div className="text-xs text-white/80 mt-1">XP</div>
                                     </div>
                                 </div>
-
-                                {/* Stats */}
-                                <div className="flex gap-3 mt-3 text-sm text-white/80">
-                                    <div>
-                                        <span className="text-[#A78BFA] font-semibold">{myEntry.current_streak}</span> current
-                                    </div>
-                                    <div>
-                                        <span className="text-[#A78BFA] font-semibold">{myEntry.total_logs}</span> total logs
-                                    </div>
-                                </div>
-
-                                {/* Your position */}
-                                <div className="text-xs text-[#A78BFA] mt-2 font-medium">Your position: #{myPosition}</div>
                             </div>
                         </div>
                     </section>

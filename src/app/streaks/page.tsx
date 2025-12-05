@@ -48,20 +48,25 @@ export default function StreaksPage() {
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
+        const tzOffset = typeof window !== 'undefined' ? new Date().getTimezoneOffset() : 0;
         return {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session?.access_token ?? ''}`,
+            'X-Timezone-Offset': String(tzOffset),
         };
     }, []);
 
-    // Генерируем последние 7 дней (для недельного прогресса)
+    // Генерируем последние 7 дней (для недельного прогресса) - using local date
     const last7Days = useMemo(() => {
         const today = new Date();
         const dates: string[] = [];
         for (let i = 6; i >= 0; i--) {
             const d = new Date(today);
             d.setDate(d.getDate() - i);
-            dates.push(d.toISOString().slice(0, 10));
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            dates.push(`${year}-${month}-${day}`);
         }
         return dates;
     }, []);
@@ -141,11 +146,12 @@ export default function StreaksPage() {
             setHabits(finalUniqueHabits);
 
             // Get logs for last 7 days and all time (for best streak calculation)
-            // For best streak, we need to look at all logs (last 365 days should be enough)
-            const endDate = new Date().toISOString().slice(0, 10);
-            const startDate365 = new Date();
+            // For best streak, we need to look at all logs (last 365 days should be enough) - using local date
+            const now = new Date();
+            const endDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            const startDate365 = new Date(now);
             startDate365.setDate(startDate365.getDate() - 365);
-            const startDate365Str = startDate365.toISOString().slice(0, 10);
+            const startDate365Str = `${startDate365.getFullYear()}-${String(startDate365.getMonth() + 1).padStart(2, '0')}-${String(startDate365.getDate()).padStart(2, '0')}`;
 
             const [weekLogsRes, allLogsRes, statsRes] = await Promise.all([
                 fetch(`/api/habits/logs?from=${last7Days[0]}&to=${last7Days[last7Days.length - 1]}`, { headers: hdrs, cache: 'no-store' }).then(r => r.json()).catch(err => {
@@ -230,8 +236,9 @@ export default function StreaksPage() {
                     console.log(`[Streaks] Habit ${habit.title} (${habit.id}): ${habitLogs.length} completed logs, dates:`, habitLogs.slice(0, 5), '...');
                 }
 
-                // Calculate current streak (от сегодня назад)
-                const today = new Date().toISOString().slice(0, 10);
+                // Calculate current streak (от сегодня назад) - using local date
+                const now = new Date();
+                const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
                 let currentStreak = 0;
                 if (habitLogs.length > 0) {
                     // Нормализуем даты (убираем время, если есть)
@@ -246,9 +253,12 @@ export default function StreaksPage() {
 
                         // Проверяем последовательные дни от сегодня назад
                         for (let i = 0; i < 365; i++) {
-                            const checkDate = new Date(today);
+                            const checkDate = new Date(now);
                             checkDate.setDate(checkDate.getDate() - i);
-                            const dateStr = checkDate.toISOString().slice(0, 10);
+                            const year = checkDate.getFullYear();
+                            const month = String(checkDate.getMonth() + 1).padStart(2, '0');
+                            const day = String(checkDate.getDate()).padStart(2, '0');
+                            const dateStr = `${year}-${month}-${day}`;
                             if (uniqueDates.includes(dateStr)) {
                                 streakCount++;
                             } else {
@@ -258,17 +268,23 @@ export default function StreaksPage() {
                         currentStreak = streakCount;
                     } else {
                         // Если сегодня не выполнено, проверяем вчера и назад
-                        const yesterday = new Date(today);
+                        const yesterday = new Date(now);
                         yesterday.setDate(yesterday.getDate() - 1);
-                        const yesterdayStr = yesterday.toISOString().slice(0, 10);
+                        const year = yesterday.getFullYear();
+                        const month = String(yesterday.getMonth() + 1).padStart(2, '0');
+                        const day = String(yesterday.getDate()).padStart(2, '0');
+                        const yesterdayStr = `${year}-${month}-${day}`;
                         
                         if (lastCompletedDate === yesterdayStr || uniqueDates.includes(yesterdayStr)) {
                             // Если вчера выполнено, считаем streak от вчера назад
                             let streakCount = 0;
                             for (let i = 1; i < 365; i++) {
-                                const checkDate = new Date(today);
+                                const checkDate = new Date(now);
                                 checkDate.setDate(checkDate.getDate() - i);
-                                const dateStr = checkDate.toISOString().slice(0, 10);
+                                const year = checkDate.getFullYear();
+                                const month = String(checkDate.getMonth() + 1).padStart(2, '0');
+                                const day = String(checkDate.getDate()).padStart(2, '0');
+                                const dateStr = `${year}-${month}-${day}`;
                                 if (uniqueDates.includes(dateStr)) {
                                     streakCount++;
                                 } else {
@@ -415,8 +431,14 @@ export default function StreaksPage() {
             // Calculate week stats for momentum timeline
             console.log('[Streaks] Calculating weekStats, allLogs count:', allLogs.length, 'last12Weeks count:', last12Weeks.length);
             const weeks: WeekStats[] = last12Weeks.map((week) => {
-                const weekStartStr = week.start.toISOString().slice(0, 10);
-                const weekEndStr = week.end.toISOString().slice(0, 10);
+                const weekStartYear = week.start.getFullYear();
+                const weekStartMonth = String(week.start.getMonth() + 1).padStart(2, '0');
+                const weekStartDay = String(week.start.getDate()).padStart(2, '0');
+                const weekStartStr = `${weekStartYear}-${weekStartMonth}-${weekStartDay}`;
+                const weekEndYear = week.end.getFullYear();
+                const weekEndMonth = String(week.end.getMonth() + 1).padStart(2, '0');
+                const weekEndDay = String(week.end.getDate()).padStart(2, '0');
+                const weekEndStr = `${weekEndYear}-${weekEndMonth}-${weekEndDay}`;
 
                 // Get logs for this week
                 const weekLogs = allLogs.filter((l: Log) => {
@@ -660,9 +682,20 @@ export default function StreaksPage() {
                         {/* Last Activity */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                             <div className="text-sm font-semibold text-white mb-2">Last Activity</div>
-                            <div className="text-3xl font-bold text-white mb-1">
+                            <div className="text-2xl font-bold text-white mb-1">
                                 {stats.last_completed
-                                    ? new Date(stats.last_completed).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                    ? (() => {
+                                        // Парсим дату из строки YYYY-MM-DD как локальную дату (не UTC)
+                                        // Обрабатываем разные форматы: "2025-12-05" или "2025-12-05T00:00:00Z"
+                                        let dateStr = stats.last_completed;
+                                        if (dateStr.includes('T')) {
+                                            dateStr = dateStr.split('T')[0];
+                                        }
+                                        dateStr = dateStr.slice(0, 10);
+                                        const [year, month, day] = dateStr.split('-').map(Number);
+                                        const localDate = new Date(year, month - 1, day);
+                                        return localDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                    })()
                                     : '—'
                                 }
                             </div>
@@ -790,7 +823,18 @@ export default function StreaksPage() {
                             <div className="text-[10px] uppercase tracking-wide text-white/60 mb-1.5">LAST ACTIVITY</div>
                             <div className="text-2xl font-bold text-white mb-0.5 leading-none">
                                 {selectedHabitLastActivity
-                                    ? new Date(selectedHabitLastActivity).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                    ? (() => {
+                                        // Парсим дату из строки YYYY-MM-DD как локальную дату (не UTC)
+                                        // Обрабатываем разные форматы: "2025-12-05" или "2025-12-05T00:00:00Z"
+                                        let dateStr = selectedHabitLastActivity;
+                                        if (dateStr.includes('T')) {
+                                            dateStr = dateStr.split('T')[0];
+                                        }
+                                        dateStr = dateStr.slice(0, 10);
+                                        const [year, month, day] = dateStr.split('-').map(Number);
+                                        const localDate = new Date(year, month - 1, day);
+                                        return localDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                    })()
                                     : '—'
                                 }
                             </div>

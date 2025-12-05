@@ -18,11 +18,15 @@ export async function GET(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        // Получаем данные пользователя
-        const today = new Date();
-        const dayOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][today.getDay()];
-        const todayStr = today.toISOString().slice(0, 10);
-        const dayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+        // Получаем данные пользователя - using client local date
+        const { getClientLocalDate } = await import('@/lib/time');
+        const todayStr = getClientLocalDate(req);
+        const tzOffsetMinutesRaw = Number(req.headers.get('x-timezone-offset') ?? '0');
+        const timezoneOffsetMinutes = Number.isFinite(tzOffsetMinutesRaw) ? tzOffsetMinutesRaw : 0;
+        const timezoneOffsetMs = timezoneOffsetMinutes * 60 * 1000;
+        const clientNow = new Date(Date.now() - timezoneOffsetMs);
+        const dayOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][clientNow.getDay()];
+        const dayStart = new Date(Date.UTC(clientNow.getUTCFullYear(), clientNow.getUTCMonth(), clientNow.getUTCDate()));
         const dayEnd = new Date(dayStart.getTime() + 86400000);
 
         // Получаем план пользователя для проверки лимита
@@ -64,9 +68,9 @@ export async function GET(req: NextRequest) {
         }
 
         // Получаем данные за последние 7 дней для динамических инсайтов
-        const sevenDaysAgo = new Date(today);
+        const sevenDaysAgo = new Date(clientNow);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
+        const sevenDaysAgoStr = `${sevenDaysAgo.getFullYear()}-${String(sevenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysAgo.getDate()).padStart(2, '0')}`;
 
         const [habitsRes, logsTodayRes, logsWeekRes, statsRes, goalsRes, wheelRes, questEventsRes] = await Promise.all([
             supa
@@ -202,7 +206,7 @@ export async function GET(req: NextRequest) {
         const completedQuests = questEvents.length;
         const recentQuestCompletion = questEvents.filter(e => {
             const eventDate = new Date(e.created_at);
-            const daysAgo = (today.getTime() - eventDate.getTime()) / (1000 * 60 * 60 * 24);
+            const daysAgo = (clientNow.getTime() - eventDate.getTime()) / (1000 * 60 * 60 * 24);
             return daysAgo <= 2;
         }).length;
 

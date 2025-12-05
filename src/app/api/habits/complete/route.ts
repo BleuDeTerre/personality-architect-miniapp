@@ -3,15 +3,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-
-// Текущая дата в UTC как YYYY-MM-DD
-function todayUTC(): string {
-    const d = new Date();
-    const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-}
+import { getClientLocalDate } from '@/lib/time';
 
 export async function POST(req: NextRequest) {
     try {
@@ -27,7 +19,7 @@ export async function POST(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        const date = todayUTC();
+        const date = getClientLocalDate(req);
         const value = is_completed;
 
         // Проверяем, было ли уже выполнено (для определения нового выполнения)

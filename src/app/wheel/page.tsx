@@ -23,11 +23,11 @@ type Item = { area: string; score: number };
 type TrendPoint = { week: string; score: number };
 type TrendArea = {
     area: string;
-    last: number;
+    last: number; // Current week value
+    previous: number | null; // Previous week value (null if no previous week)
+    deltaLast: number | null; // Change: this week vs last week (null if no previous week)
     avg4: number;
-    avg12: number;
-    delta4: number;
-    delta12: number;
+    delta4: number | null; // Change: last 4 weeks vs previous 4 weeks (null if less than 5 weeks of data)
     points: TrendPoint[];
 };
 
@@ -62,9 +62,6 @@ function clamp010(n: number) {
 
 // Форматирование названия области для компактного отображения в таблице
 function formatAreaName(areaName: string): string {
-    if (areaName === 'Personal Growth') {
-        return 'Pers. Growth';
-    }
     return areaName;
 }
 
@@ -103,9 +100,11 @@ export default function WheelPage() {
                 console.warn('[WheelPage] No user found');
             }
         }
+        const tzOffset = typeof window !== 'undefined' ? new Date().getTimezoneOffset() : 0;
         return {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session?.access_token ?? ''}`,
+            'X-Timezone-Offset': String(tzOffset),
         };
     }, []);
 
@@ -542,7 +541,9 @@ export default function WheelPage() {
     // Вычисляем данные для wheel кастов
     const wheelTopShift = useMemo(() => {
         if (!trends || trends.length === 0) return null;
-        return trends.filter(t => t.delta4 > 0).sort((a, b) => b.delta4 - a.delta4)[0] || null;
+        const positiveTrends = trends.filter(t => t.delta4 !== null && t.delta4 > 0);
+        if (positiveTrends.length === 0) return null;
+        return positiveTrends.sort((a, b) => (b.delta4 ?? 0) - (a.delta4 ?? 0))[0] || null;
     }, [trends]);
 
     const wheelTopAreas = useMemo(() => {
@@ -562,7 +563,7 @@ export default function WheelPage() {
             return item?.score ?? 0;
         });
         const encodedScores = encodeWheelScores(scores);
-        
+
         const templates: CastTemplate[] = [
             {
                 key: 'wheel-snapshot',
@@ -580,7 +581,7 @@ export default function WheelPage() {
                 targetPath: '/wheel',
             },
         ];
-        
+
         if (weakArea && weakArea.score < 8) {
             templates.push({
                 key: `focus-${weakArea.area}`,
@@ -601,17 +602,18 @@ export default function WheelPage() {
         }
 
         // Wheel shift - если есть положительные изменения
-        if (wheelTopShift) {
+        if (wheelTopShift && wheelTopShift.delta4 !== null && wheelTopShift.delta4 !== undefined) {
+            const delta4Value = wheelTopShift.delta4;
             templates.push({
                 key: `wheel-shift-${wheelTopShift.area}`,
                 label: `Wheel shift: ${wheelTopShift.area}`,
                 title: 'Wheel of Life Shift',
                 kind: 'wheel',
-                text: getRandomVariant(wheelShiftTexts(wheelTopShift.area, wheelTopShift.delta4)),
+                text: getRandomVariant(wheelShiftTexts(wheelTopShift.area, delta4Value)),
                 previewParams: {
                     variant: 'wheel:shift',
                     area: wheelTopShift.area,
-                    delta: wheelTopShift.delta4 > 0 ? `+${wheelTopShift.delta4.toFixed(1)}` : wheelTopShift.delta4.toFixed(1),
+                    delta: delta4Value > 0 ? `+${delta4Value.toFixed(1)}` : delta4Value.toFixed(1),
                     current: wheelTopShift.last.toFixed(1),
                 },
                 targetPath: '/wheel',
@@ -638,7 +640,7 @@ export default function WheelPage() {
                 targetPath: '/wheel',
             });
         }
-        
+
         return templates;
     }, [avg, items, topArea, weakArea, trends, wheelTopShift, wheelTopAreas, wheelWeakestArea]);
 
@@ -997,31 +999,77 @@ export default function WheelPage() {
                             <thead className="bg-white/10 text-white/70">
                                 <tr>
                                     <th className="px-1.5 py-1 text-left">Area</th>
-                                    <th className="px-1.5 py-1 text-right">Last</th>
+                                    <th className="px-1.5 py-1 text-right">Current</th>
+                                    <th className="px-1.5 py-1 text-center">Previous</th>
                                     <th className="px-1.5 py-1 text-right">4w</th>
-                                    <th className="px-1.5 py-1 text-right">12w</th>
                                     <th className="px-1.5 py-1 text-right">Δ4w</th>
-                                    <th className="px-1.5 py-1 text-right">Δ12w</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {trends.map((area) => (
                                     <tr key={area.area} className="border-t border-white/5">
                                         <td className="px-1.5 py-1">{formatAreaName(area.area)}</td>
-                                        <td className="px-1.5 py-1 text-right">{area.last?.toFixed?.(1) ?? area.last}</td>
-                                        <td className="px-1.5 py-1 text-right">{area.avg4?.toFixed?.(1) ?? area.avg4}</td>
-                                        <td className="px-1.5 py-1 text-right">{area.avg12?.toFixed?.(1) ?? area.avg12}</td>
-                                        <td className={`px-1.5 py-1 text-right ${area.delta4 < 0 ? 'text-red-400' : area.delta4 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
-                                            {area.delta4?.toFixed?.(1) ?? area.delta4}
+                                        <td className={`px-1.5 py-1 text-right ${area.deltaLast !== null && area.deltaLast !== undefined && area.deltaLast !== 0
+                                            ? (area.deltaLast > 0 ? 'text-emerald-300' : 'text-red-400')
+                                            : 'text-white'
+                                            }`}>
+                                            {area.last ? Math.round(area.last) : 0}
+                                            {area.deltaLast !== null && area.deltaLast !== undefined && area.deltaLast !== 0 && (
+                                                <span className="ml-1.5">
+                                                    ({area.deltaLast > 0 ? '+' : ''}{Math.round(Number(area.deltaLast))})
+                                                </span>
+                                            )}
                                         </td>
-                                        <td className={`px-1.5 py-1 text-right ${area.delta12 < 0 ? 'text-red-400' : area.delta12 > 0 ? 'text-emerald-300' : 'text-white/60'}`}>
-                                            {area.delta12?.toFixed?.(1) ?? area.delta12}
+                                        <td className="px-1.5 py-1 text-center text-white/60">
+                                            {area.previous !== null && area.previous !== undefined ? Math.round(area.previous) : '—'}
+                                        </td>
+                                        <td className="px-1.5 py-1 text-right">{area.avg4?.toFixed?.(1) ?? area.avg4}</td>
+                                        <td className={`px-1.5 py-1 text-right ${area.delta4 !== null && area.delta4 !== undefined ? (area.delta4 < 0 ? 'text-red-400' : area.delta4 > 0 ? 'text-emerald-300' : 'text-white/60') : 'text-white/60'}`}>
+                                            {area.delta4 !== null && area.delta4 !== undefined ? (area.delta4 > 0 ? '+' : '') + (area.delta4?.toFixed?.(1) ?? area.delta4) : '—'}
                                         </td>
                                     </tr>
                                 ))}
+                                {trends.length > 0 && (() => {
+                                    // Calculate averages across all categories
+                                    const avgCurrent = trends.reduce((sum, a) => sum + (a.last || 0), 0) / trends.length;
+                                    const avgPrevious = trends.filter(a => a.previous !== null).length > 0
+                                        ? trends.filter(a => a.previous !== null).reduce((sum, a) => sum + (a.previous || 0), 0) / trends.filter(a => a.previous !== null).length
+                                        : null;
+                                    const avgDeltaLast = trends.filter(a => a.deltaLast !== null).length > 0
+                                        ? trends.filter(a => a.deltaLast !== null).reduce((sum, a) => sum + (a.deltaLast || 0), 0) / trends.filter(a => a.deltaLast !== null).length
+                                        : null;
+                                    const avg4w = trends.reduce((sum, a) => sum + (a.avg4 || 0), 0) / trends.length;
+                                    const avgDelta4 = trends.filter(a => a.delta4 !== null).length > 0
+                                        ? trends.filter(a => a.delta4 !== null).reduce((sum, a) => sum + (a.delta4 || 0), 0) / trends.filter(a => a.delta4 !== null).length
+                                        : null;
+
+                                    return (
+                                        <tr className="border-t-2 border-white/20 bg-white/5 font-semibold">
+                                            <td className="px-1.5 py-1 text-left">Average</td>
+                                            <td className={`px-1.5 py-1 text-right ${avgDeltaLast !== null && avgDeltaLast !== 0
+                                                ? (avgDeltaLast > 0 ? 'text-emerald-300' : 'text-red-400')
+                                                : 'text-white'
+                                                }`}>
+                                                {avgCurrent.toFixed(1)}
+                                                {avgDeltaLast !== null && avgDeltaLast !== 0 && (
+                                                    <span className="ml-1.5">
+                                                        ({avgDeltaLast > 0 ? '+' : ''}{avgDeltaLast.toFixed(1)})
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-1.5 py-1 text-center text-white/60">
+                                                {avgPrevious !== null ? avgPrevious.toFixed(1) : '—'}
+                                            </td>
+                                            <td className="px-1.5 py-1 text-right">{avg4w.toFixed(1)}</td>
+                                            <td className={`px-1.5 py-1 text-right ${avgDelta4 !== null ? (avgDelta4 < 0 ? 'text-red-400' : avgDelta4 > 0 ? 'text-emerald-300' : 'text-white/60') : 'text-white/60'}`}>
+                                                {avgDelta4 !== null ? (avgDelta4 > 0 ? '+' : '') + avgDelta4.toFixed(1) : '—'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })()}
                                 {!trends.length && (
                                     <tr>
-                                        <td colSpan={6} className="px-1.5 py-1 text-center text-white/50">
+                                        <td colSpan={5} className="px-1.5 py-1 text-center text-white/50">
                                             No trend data yet.
                                         </td>
                                     </tr>
@@ -1029,7 +1077,7 @@ export default function WheelPage() {
                             </tbody>
                         </table>
                     </div>
-                    <p className="text-xs text-white/50">Δ — change vs previous window. Positive is improvement, negative is decline.</p>
+                    <p className="text-xs text-white/50">Current — current week value (change vs last week in parentheses, green for improvement, red for decline). 4w — average of last 4 weeks. Δ4w — change last 4 weeks vs previous 4 weeks (requires 5+ weeks). Average row shows arithmetic mean across all categories. Positive is improvement, negative is decline.</p>
                 </section>
             </div>
         </MiniAppPage>

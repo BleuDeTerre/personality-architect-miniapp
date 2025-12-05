@@ -86,9 +86,11 @@ export default function ProfilePage() {
     // Headers with Bearer
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
+        const tzOffset = typeof window !== 'undefined' ? new Date().getTimezoneOffset() : 0;
         return {
             'content-type': 'application/json',
             authorization: `Bearer ${session?.access_token ?? ''}`,
+            'X-Timezone-Offset': String(tzOffset),
         };
     }, []);
 

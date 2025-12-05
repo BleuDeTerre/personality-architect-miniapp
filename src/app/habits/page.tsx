@@ -158,9 +158,11 @@ export default function HabitsPage() {
                 console.warn('[HabitsPage] No user found');
             }
         }
+        const tzOffset = typeof window !== 'undefined' ? new Date().getTimezoneOffset() : 0;
         return {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session?.access_token ?? ''}`,
+            'X-Timezone-Offset': String(tzOffset),
         };
     }, []);
 
@@ -631,12 +633,16 @@ export default function HabitsPage() {
         const { toast } = await import('sonner');
 
         try {
+            // Get local date string
+            const now = new Date();
+            const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            
             const res = await fetch('/api/habits/logs', {
                 method: 'POST',
                 headers: await authHeaders(),
                 body: JSON.stringify({
                     habit_id: id,
-                    date: new Date().toISOString().slice(0, 10),
+                    date: localDate,
                     value: true,
                 }),
             });

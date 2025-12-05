@@ -33,10 +33,15 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ alerts: [] });
         }
 
-        const today = new Date();
-        const dayOfWeek = today.getDay();
+        // Using client local date
+        const { getClientLocalDate } = await import('@/lib/time');
+        const todayStr = getClientLocalDate(req);
+        const tzOffsetMinutesRaw = Number(req.headers.get('x-timezone-offset') ?? '0');
+        const timezoneOffsetMinutes = Number.isFinite(tzOffsetMinutesRaw) ? tzOffsetMinutesRaw : 0;
+        const timezoneOffsetMs = timezoneOffsetMinutes * 60 * 1000;
+        const clientNow = new Date(Date.now() - timezoneOffsetMs);
+        const dayOfWeek = clientNow.getDay();
         const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek];
-        const todayStr = today.toISOString().slice(0, 10);
 
         // Получаем все активные привычки
         const { data: habits } = await supa
