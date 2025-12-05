@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
                 ),
                 // Логи с временем для анализа паттернов
                 withTimeout<any>(
-                    supa.from('habit_logs').select('habit_id, created_at, value').eq('user_id', userId).eq('value', true).gte('date', last30DaysStartStr).order('created_at', { ascending: false }),
+                    supa.from('habit_logs').select('habit_id, date, value, created_at').eq('user_id', userId).eq('value', true).gte('date', last30DaysStartStr).order('date', { ascending: false }),
                     4000,
                     () => ({ data: [], error: null })
                 ),

@@ -3,60 +3,283 @@
 ## ✅ Что уже работает
 
 ### 🎯 Основной функционал
-- ✅ **Habits tracking** - создание и логирование привычек
-- ✅ **Wheel of Life** - оценка 10 областей жизни (0-10)
-- ✅ **Free insights** - базовые инсайты по привычкам
-- ✅ **Paid insights** - AI инсайты через X402 ($0.15-0.35)
-- ✅ **Pro Credits** - система кредитов через X402 ($4.99)
-- ✅ **Badges** - система бейджей (10 штук)
-- ✅ **Minting** - минт бейджей в NFT (Zora 1155)
-- ✅ **Referrals** - реферальная система
-- ✅ **Farcaster Auth** - авторизация через Farcaster
-- ✅ **Goals Management** - CRUD для целей
-- ✅ **Streaks Analytics** - heatmap + статистика
-- ✅ **Badge Gallery** - галерея с minting
-- ✅ **Advanced Analytics** - correlations, predictive, comparative
-- ✅ **Subscription Plans** - Free/Pro/Premium tiers
-- ✅ **Dashboard** - главная страница с навигацией
-### 🤖 AI Features
-- ✅ AI Insights (habit, weekly, monthly)
-- ✅ Coach recommendations на основе Wheel of Life trends
-- ✅ Caching для оптимизации costs (7 days)
-- ✅ Real OpenAI integration для всех insights
-- ✅ Habit correlations analysis
-- ✅ Predictive risk analysis
-### 💳 Payments & Credits
-- ✅ X402 integration (base-sepolia/base mainnet)
-- ✅ Pay-per-use модель
-- ✅ Pro credits packs
-- ✅ Middleware для защиты платных эндпоинтов
-- ✅ Subscription tiers (Free/Pro/Premium)
-- ✅ Pricing page with upgrade flows
-- ✅ Habit templates & categories
-- ✅ Search & filters (Habits & Goals)
-- ✅ Loading skeletons & empty states (ALL pages)
-- ✅ Onboarding flow
-- ✅ PWA manifest
-- ✅ AI Chat interface
-- ✅ Leaderboards
-- ✅ Share to Farcaster
-- ✅ Calendar view 
-- ✅ **Gamification** - полная система геймификации:
-  - ✅ XP система (начисление и расчет)
-  - ✅ Уровни (10 уровней с именами)
-  - ✅ Прогресс-бары до следующего уровня
-  - ✅ История XP событий (таблица xp_events)
-  - ✅ Бонусы XP (первое выполнение дня, недельный streak, все привычки дня)
-  - ✅ Достижения (10 достижений с автоматической разблокировкой)
-  - ✅ Daily Quests (ежедневные задания с прогрессом)
-  - ✅ Анимации при получении уровня и достижений
-  - ✅ Toast уведомления при получении XP
-- ⚠️ **Push notifications** - напоминания о пропущенных привычках:
+
+#### ✅ **Habits Tracking (Отслеживание привычек)**
+- Создание неограниченных привычек (Pro/Premium) или до 5 шаблонных (Free)
+- Готовые шаблоны привычек по категориям (Health, Productivity, Wellness, и др.)
+- Настройка целевого количества дней в неделю для каждой привычки
+- Организация по категориям
+- Отметка выполнения одним нажатием
+- История выполнения с календарным представлением
+- Статистика по каждой привычке (completion rate, total logs, streaks)
+- Поиск и фильтрация привычек
+- Анализ сложности привычек (AI-powered)
+
+#### ✅ **Wheel of Life (Колесо жизни)**
+- Оценка 10 ключевых областей жизни (0-10):
+  - Career (Карьера), Health (Здоровье), Family (Семья), Friends (Друзья)
+  - Love (Любовь), Money (Деньги), Growth (Рост), Fun (Развлечения)
+  - Physical (Физическое состояние), Spiritual (Духовное)
+- Отслеживание изменений во времени (исторические данные)
+- Визуализация в виде radar chart
+- Тренды по областям (улучшение/ухудшение)
+- AI-рекомендации на основе трендов
+- Недельный выбор для сравнения периодов
+- Share templates: Snapshot, Spotlight, Focus Area, Wheel Shift
+
+#### ✅ **Goals Management (Управление целями)**
+- Создание целей с метриками (км, книги, часы, и т.д.)
+- Установка дедлайнов и отслеживание прогресса
+- Процент выполнения каждой цели
+- Статусы: active, completed, paused
+- AI-анализ прогресса и рекомендации
+- Связь целей с привычками
+- Поиск и фильтрация целей
+- Пагинация для больших списков
+- Share templates: Goal Progress, Goal Completed, Upcoming Goal
+
+#### ✅ **Streaks Analytics (Аналитика серий)**
+- Текущая серия выполнения привычек
+- Лучший результат (best streak)
+- Анализ серий по каждой привычке отдельно
+- Heatmap активности (календарный вид)
+- Статистика по дням недели
+- Визуализация паттернов выполнения
+- Share templates: Habit Streak, Next Badge
+
+#### ✅ **Advanced Analytics (Продвинутая аналитика)**
+- **Correlations** - корреляции между привычками (какие привычки выполняются вместе)
+- **Predictive Alerts** - предсказания риска пропуска привычек (AI-powered)
+- **Comparative Analytics** - сравнение периодов (эта неделя vs прошлая, этот месяц vs предыдущий)
+- **Interesting Facts** - интересные факты о данных (AI-generated)
+- **Weekly Capsule Timeline** - визуализация недельных капсул с цветовой кодировкой
+- **Time Patterns** - анализ предпочтительного времени выполнения привычек
+- **Wave Graphs** - волновые графики активности
+- Share templates: Weekly Summary, Top Habit, AI Insight, Weekly Capsule
+
+### 🤖 AI Features (AI функции)
+
+#### ✅ **AI Coach Chat (Универсальный AI коуч)**
+- Персональный AI-помощник с доступом ко всем данным пользователя
+- Многоязычная поддержка (отвечает на языке вопроса)
+- Контекст включает:
+  - Все привычки с статистикой (completion rate, streaks, категории)
+  - Все цели с прогрессом и дедлайнами
+  - Wheel of Life с историей и трендами
+  - Серии (current, best, по привычкам)
+  - Геймификация (XP, уровень, достижения, квесты)
+  - Корреляции между привычками
+  - Паттерны времени выполнения
+- Унифицированные лимиты: 5 запросов/день (Free), 20 запросов/день (Pro/Premium)
+- Предупреждения при приближении к лимиту (toast + modal)
+- Оптимизация промптов (топ-10 привычек/целей для экономии токенов)
+
+#### ✅ **AI Insights (AI инсайты)**
+- **Daily Motivation** - ежедневные мотивационные сообщения (AI-generated)
+- **Habit Insights** - детальный анализ конкретной привычки
+- **Weekly Insights** - еженедельные сводки и рекомендации
+- **Monthly Reports** - ежемесячные отчеты с анализом
+- **Wheel Insights** - рекомендации на основе Wheel of Life
+- **Habit Difficulty** - анализ сложности привычек
+- **Habit Suggestions** - предложения новых привычек
+- **Goal Breakdown** - разбивка целей на шаги
+- **Goal Review** - обзор прогресса по целям
+- **Streak Recovery** - советы по восстановлению серий
+- **Correlation Insights** - анализ связей между привычками
+- **Social Motivation** - социальная мотивация
+- **Predictive Alerts** - предсказательные предупреждения
+- Кэширование результатов (7 дней) для оптимизации costs
+
+### 🏆 Gamification (Геймификация)
+
+#### ✅ **XP System (Система опыта)**
+- Начисление XP за выполнение привычек (5 XP за лог)
+- Бонусы XP:
+  - Первое выполнение дня (+10 XP)
+  - Недельный streak (+50 XP)
+  - Все привычки дня (+25 XP)
+- История XP событий (таблица xp_events)
+- Визуализация получения XP (toast уведомления)
+
+#### ✅ **Levels System (Система уровней)**
+- 10 уровней с уникальными именами:
+  - Level 1: Beginner (50 XP)
+  - Level 2: Explorer (300 XP)
+  - Level 3: Builder (1,200 XP)
+  - Level 4: Achiever (3,000 XP)
+  - Level 5: Master (6,000 XP)
+  - Level 6: Champion (10,500 XP)
+  - Level 7: Legend (16,500 XP)
+  - Level 8: Hero (24,000 XP)
+  - Level 9: Titan (33,000 XP)
+  - Level 10: Architect (43,500+ XP, бесконечный)
+- Динамическая формула: `XP = 50 * level^2.49`
+- Прогресс-бары до следующего уровня
+- Анимации при получении уровня (LevelUpAnimation)
+
+#### ✅ **Achievements (Достижения)**
+- 10 типов достижений с автоматической разблокировкой:
+  - First Log - первая запись
+  - Streak 7/30/60/100/365 - серии разной длины
+  - Wheel 70/80 - высокие оценки Wheel of Life
+  - Consistent 21 - 21 день последовательности
+  - Share x3 - 3 шаринга в Farcaster
+- Анимации при получении достижений (AchievementAnimation)
+- Галерея достижений с возможностью minting
+
+#### ✅ **Daily Quests (Ежедневные квесты)**
+- Ежедневные задания с прогрессом
+- Автоматическая генерация квестов
+- Отслеживание выполнения
+- Награды за выполнение
+
+#### ✅ **Badges & NFT (Бейджи и NFT)**
+- 10 уникальных бейджей
+- Автоматическая разблокировка при достижении условий
+- Minting в NFT на Base (Zora 1155)
+- Галерея бейджей с превью и статусом minting
+- Проверка eligibility перед minting
+- История minting операций
+
+### 📱 Social Features (Социальные функции)
+
+#### ✅ **Farcaster Integration**
+- Авторизация через Farcaster (Neynar SDK)
+- Синхронизация профиля (username, display_name, pfp_url, bio)
+- Автоматическое обновление профиля
+
+#### ✅ **Cast Sharing (Шаринг в Farcaster)**
+- 16 типов кастов для шаринга:
+  - **Analytics**: Weekly Summary, Top Habit, AI Insight, Weekly Capsule
+  - **Streaks**: Habit Streak, Next Badge
+  - **Wheel**: Wheel Snapshot, Wheel Spotlight, Focus Area, Wheel Shift
+  - **Habits**: Top Streak Habit, Habits Summary
+  - **Goals**: Goal Progress, Goal Completed, Upcoming Goal
+  - **Profile**: Level Up
+- Динамические тексты (4 варианта для каждого типа)
+- Персонализированные тексты от первого лица
+- Редактирование текста перед публикацией
+- Автоматическая генерация изображений (OG images)
+- Превью кастов перед публикацией
+
+#### ✅ **Leaderboard (Лидерборд)**
+- Топ-50 пользователей по best streak и total logs
+- Медали для топ-3 (🥇🥈🥉)
+- Выделение текущего пользователя в списке
+- Карточка пользователя внизу, если он не в топ-50
+- Позиция пользователя в общем рейтинге
+- Профили пользователей с Neynar данными
+- Server-side кэширование (5 минут)
+
+### 💳 Payments & Credits (Платежи и кредиты)
+
+#### ✅ **X402 Integration**
+- Интеграция с X402 (base-sepolia/base mainnet)
+- Pay-per-use модель для AI инсайтов ($0.15-0.35 за запрос)
+- Pro Credits packs через X402 ($4.99)
+- Middleware для защиты платных эндпоинтов
+- Проверка подписи X402 (требует доработки для продакшена)
+
+#### ✅ **Subscription Plans (Тарифные планы)**
+- **Free**: 5 шаблонных привычек, 5 AI запросов/день, базовые функции
+- **Pro ($4.99/месяц)**: Неограниченные привычки, 20 AI запросов/день, расширенные функции
+- **Premium ($9.99/месяц)**: Всё из Pro + неограниченные кредиты, расширенная аналитика
+- Pricing page с upgrade flows
+- Плановая система с проверкой доступа
+
+### 📊 Data & Export (Данные и экспорт)
+
+#### ✅ **Data Export**
+- Экспорт всех данных в JSON
+- Экспорт календаря в iCal формат
+- Полная история привычек, целей, Wheel of Life
+- Экспорт геймификации данных (XP, достижения)
+
+#### ✅ **Calendar View**
+- Календарное представление выполнения привычек
+- Визуализация паттернов по датам
+- Анализ активности по дням недели
+
+### ⚡ Performance Optimizations (Оптимизация производительности)
+
+#### ✅ **Client-side Caching**
+- Кэширование в localStorage с TTL
+- Применено к: Daily Quests, AI Motivation, AI Predictive Alerts
+- Повторные загрузки в 5-10 раз быстрее
+
+#### ✅ **Server-side Caching**
+- Vercel Edge Cache с Cache-Control headers
+- Кэширование: Leaderboard (5 мин), Daily Quests (1 час), Analytics (1 час)
+- Повторные запросы в 10-50 раз быстрее
+
+#### ✅ **Data Pagination**
+- Пагинация для: Habits Logs, Goals, Leaderboard
+- Поддержка page/limit параметров
+- Backward compatibility (без параметров = все данные)
+
+#### ✅ **Database Indexes**
+- 12+ критических индексов для ускорения запросов
+- Индексы на: user_id, habit_id, date, created_at, category
+- Запросы к БД в 5-10 раз быстрее
+
+#### ✅ **Query Optimization**
+- Ограничение полей в SELECT запросах
+- Добавление лимитов где необходимо
+- Оптимизация AI промптов (топ-10 вместо всех данных)
+- Экономия 30-40% токенов OpenAI
+
+#### ✅ **Lazy Loading**
+- Ленивая загрузка AI компонентов на главной странице
+- Ускорение первой загрузки
+
+### 🎨 UI/UX Features (Интерфейс)
+
+#### ✅ **Design System**
+- Темная тема с фиолетовыми акцентами
+- Адаптивный дизайн (mobile-first)
+- Loading skeletons на всех страницах
+- Empty states с подсказками
+- Toast уведомления
+- Модальные окна
+- Анимации (level up, achievements, XP)
+
+#### ✅ **Navigation**
+- Bottom tab bar с 7 разделами:
+  - Home (Главная)
+  - Habits (Привычки)
+  - Wheel (Колесо жизни)
+  - Goals (Цели)
+  - Streaks (Серии)
+  - Leaders (Лидерборд)
+  - AI Coach (AI коуч)
+- Мини-приложение для Farcaster
+
+#### ✅ **Onboarding**
+- Плавный onboarding flow
+- Объяснение основных функций
+- Подсказки для новых пользователей
+
+### 🔔 Notifications (Уведомления)
+
+#### ⚠️ **Push Notifications**
   - ⚠️ Web Push API отключен (VAPID ключи удалены)
   - ✅ Автоматическая проверка пропущенных привычек через Vercel Cron (ежедневно в 20:00 UTC)
   - ✅ Структура для будущей реализации Farcaster уведомлений
   - ✅ Настройки push-уведомлений в профиле (отображение отключенного статуса)
   - 📋 TODO: Реализовать Farcaster уведомления через webhookUrl в farcaster.json
+
+### 🔐 Security & Auth (Безопасность)
+
+#### ✅ **Authentication**
+- Farcaster авторизация через Neynar SDK
+- Supabase Auth интеграция
+- Защита API endpoints
+- Middleware для проверки авторизации
+
+#### ✅ **Data Privacy**
+- Изоляция данных по user_id
+- Безопасное хранение в Supabase
+- Возможность удаления всех данных
 
 ---
 

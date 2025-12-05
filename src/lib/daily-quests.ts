@@ -28,6 +28,7 @@ export type QuestStats = {
     activeDaysThisMonth: number;
     perfectDaysThisMonth: number;
     monthlyLogCount: number;
+    wheelMomentumWeeks?: number; // Количество уникальных недель с обновлениями Wheel за последние 4 недели
 };
 
 export function calculateQuestProgress(quest: Quest): number {
@@ -171,9 +172,9 @@ const MONTHLY_POOL: QuestDefinition[] = [
         title: 'Wheel momentum',
         description: () => 'Keep your Wheel growing over 4 weeks — update it at least once each week',
         target: () => 4,
-        current: stats => Math.min(4, stats.wheelUpdatesMonth),
+        current: stats => Math.min(4, stats.wheelMomentumWeeks ?? 0),
         xp: () => 220,
-        eligible: stats => stats.wheelUpdatesMonth > 0,
+        eligible: stats => (stats.wheelMomentumWeeks ?? 0) > 0,
     },
     {
         id: 'social_series',

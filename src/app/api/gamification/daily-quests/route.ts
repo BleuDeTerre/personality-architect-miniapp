@@ -147,13 +147,13 @@ export async function GET(req: NextRequest) {
                 .lt('created_at', dayEndIso),
             supa
                 .from('wheel_scores')
-                .select('updated_at')
+                .select('updated_at, week')
                 .eq('user_id', userId)
                 .gte('updated_at', weekStartIso)
                 .lt('updated_at', dayEndIso),
             supa
                 .from('wheel_scores')
-                .select('updated_at')
+                .select('updated_at, week')
                 .eq('user_id', userId)
                 .gte('updated_at', monthStartIso)
                 .lt('updated_at', dayEndIso),
@@ -171,10 +171,16 @@ export async function GET(req: NextRequest) {
             ...log,
             localDate: getLocalDateFromISO(log.created_at, timezoneOffsetMs) ?? log.date ?? todayStr,
         }));
-        const logsWeek = logsWeekRaw.map(log => ({
-            ...log,
-            localDate: getLocalDateFromISO(log.created_at, timezoneOffsetMs) ?? log.date ?? weekStartStr,
-        }));
+        const logsWeek = logsWeekRaw.map(log => {
+            // Для старых записей без created_at используем date напрямую
+            const localDate = log.created_at 
+                ? getLocalDateFromISO(log.created_at, timezoneOffsetMs) 
+                : log.date;
+            return {
+                ...log,
+                localDate: localDate ?? null,
+            };
+        }).filter(log => log.localDate); // Фильтруем логи без даты
         const logsMonth = logsMonthRaw.map(log => ({
             ...log,
             localDate: getLocalDateFromISO(log.created_at, timezoneOffsetMs) ?? log.date ?? monthStartStr,
@@ -215,6 +221,22 @@ export async function GET(req: NextRequest) {
 
         const wheelUpdatesWeek = wheelWeek.length;
         const wheelUpdatesMonth = wheelMonth.length;
+        
+        // Для квеста "Wheel momentum" - считаем количество уникальных недель с обновлениями за последние 4 недели
+        const fourWeeksAgo = new Date(monthStartDate);
+        fourWeeksAgo.setUTCDate(fourWeeksAgo.getUTCDate() - 28); // 4 недели назад
+        const fourWeeksAgoIso = fourWeeksAgo.toISOString();
+        
+        const { data: wheel4WeeksRes } = await supa
+            .from('wheel_scores')
+            .select('week')
+            .eq('user_id', userId)
+            .gte('updated_at', fourWeeksAgoIso)
+            .lt('updated_at', dayEndIso);
+        
+        // Считаем уникальные недели
+        const uniqueWeeks = new Set((wheel4WeeksRes ?? []).map((w: any) => w.week).filter(Boolean));
+        const wheelMomentumWeeks = Math.min(4, uniqueWeeks.size);
 
         const weeklyDayMap = new Map<string, number>();
         logsWeek.forEach(log => {
@@ -231,10 +253,48 @@ export async function GET(req: NextRequest) {
             monthlyDayMap.set(key, count + 1);
         });
 
-        const activeDaysThisWeek = Array.from(weeklyDayMap.values()).filter(count => count > 0).length;
-        const perfectDaysThisWeek = Array.from(weeklyDayMap.values()).filter(count => totalHabits > 0 && count >= totalHabits).length;
-        const activeDaysThisMonth = Array.from(monthlyDayMap.values()).filter(count => count > 0).length;
-        const perfectDaysThisMonth = Array.from(monthlyDayMap.values()).filter(count => totalHabits > 0 && count >= totalHabits).length;
+        // Считаем количество уникальных дней (ключей в Map), где есть хотя бы один лог
+        const activeDaysThisWeek = weeklyDayMap.size;
+        const activeDaysThisMonth = monthlyDayMap.size;
+        
+        // Правильный подсчет perfect days - проверяем уникальные habit_id для каждого дня
+        // Perfect day = день, где выполнены ВСЕ активные привычки (уникальные habit_id должны равняться totalHabits)
+        const perfectDaysWeekMap = new Map<string, Set<string>>();
+        logsWeek.forEach(log => {
+            const key = log.localDate ?? log.date;
+            if (!key || !log.habit_id) return;
+            if (!perfectDaysWeekMap.has(key)) {
+                perfectDaysWeekMap.set(key, new Set());
+            }
+            perfectDaysWeekMap.get(key)!.add(log.habit_id);
+        });
+        const perfectDaysThisWeekCorrected = Array.from(perfectDaysWeekMap.entries())
+            .filter(([_, habitIds]) => totalHabits > 0 && habitIds.size >= totalHabits).length;
+
+        const perfectDaysMonthMap = new Map<string, Set<string>>();
+        logsMonth.forEach(log => {
+            const key = log.localDate ?? log.date;
+            if (!key || !log.habit_id) return;
+            if (!perfectDaysMonthMap.has(key)) {
+                perfectDaysMonthMap.set(key, new Set());
+            }
+            perfectDaysMonthMap.get(key)!.add(log.habit_id);
+        });
+        const perfectDaysThisMonthCorrected = Array.from(perfectDaysMonthMap.entries())
+            .filter(([_, habitIds]) => totalHabits > 0 && habitIds.size >= totalHabits).length;
+
+        // Отладочное логирование
+        console.log('[Daily Quests] Stats:', {
+            logsWeekCount: logsWeek.length,
+            uniqueDays: Array.from(weeklyDayMap.keys()),
+            activeDaysThisWeek,
+            perfectDaysThisWeek: perfectDaysThisWeekCorrected,
+            activeDaysThisMonth,
+            perfectDaysThisMonth: perfectDaysThisMonthCorrected,
+            wheelMomentumWeeks,
+            weekStartStr,
+            todayStr,
+        });
 
         const stats: QuestStats = {
             totalHabits,
@@ -249,10 +309,11 @@ export async function GET(req: NextRequest) {
             wheelUpdatesMonth,
             wheelWeekendShares,
             activeDaysThisWeek,
-            perfectDaysThisWeek,
+            perfectDaysThisWeek: perfectDaysThisWeekCorrected,
             activeDaysThisMonth,
-            perfectDaysThisMonth,
+            perfectDaysThisMonth: perfectDaysThisMonthCorrected,
             monthlyLogCount: logsMonth.length,
+            wheelMomentumWeeks: wheelMomentumWeeks,
         };
 
         const seed = `${userId}:${todayStr}`;

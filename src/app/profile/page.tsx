@@ -351,7 +351,7 @@ export default function ProfilePage() {
                 text: getRandomVariant(levelUpTexts(levelName, level, xp)),
                 previewParams: {
                     variant: 'level:up',
-                    lvl: String(level),
+                    level: String(level),
                     xp: String(xp),
                     gap: String(Math.max(xpRemaining, 0)),
                     name: levelName,

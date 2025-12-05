@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
         const { data, error } = await supa
             .from('habits')
-            .select('id,title,target_days_per_week,is_active')
+            .select('id,title,target_days_per_week,is_active,category')
             .eq('user_id', userId)
             .order('title', { ascending: true });
 

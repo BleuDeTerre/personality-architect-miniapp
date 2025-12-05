@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
     // Запрос данных
     let dataQuery = supa
       .from('habit_logs')
-      .select('id, habit_id, date, value, is_completed')
+      .select('id, habit_id, date, value, is_completed, created_at')
       .eq('user_id', userId);
     
     if (date) {

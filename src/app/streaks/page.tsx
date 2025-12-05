@@ -33,7 +33,7 @@ type WeekStats = {
     completedDays: number;
     totalDays: number;
     longestRun: number;
-    color: 'green' | 'purple' | 'red';
+    color: 'green' | 'yellow' | 'orange' | 'red';
 };
 
 export default function StreaksPage() {
@@ -148,23 +148,51 @@ export default function StreaksPage() {
             const startDate365Str = startDate365.toISOString().slice(0, 10);
 
             const [weekLogsRes, allLogsRes, statsRes] = await Promise.all([
-                fetch(`/api/habits/logs?from=${last7Days[0]}&to=${last7Days[last7Days.length - 1]}`, { headers: hdrs, cache: 'no-store' }).then(r => r.json()),
-                fetch(`/api/habits/logs?from=${startDate365Str}&to=${endDate}`, { headers: hdrs, cache: 'no-store' }).then(r => r.json()),
-                fetch('/api/habits/stats', { headers: hdrs, cache: 'no-store' }).then(r => r.json()),
+                fetch(`/api/habits/logs?from=${last7Days[0]}&to=${last7Days[last7Days.length - 1]}`, { headers: hdrs, cache: 'no-store' }).then(r => r.json()).catch(err => {
+                    console.error('[Streaks] Failed to fetch week logs:', err);
+                    return { items: [] };
+                }),
+                fetch(`/api/habits/logs?from=${startDate365Str}&to=${endDate}`, { headers: hdrs, cache: 'no-store' }).then(r => r.json()).catch(err => {
+                    console.error('[Streaks] Failed to fetch all logs:', err);
+                    return { items: [] };
+                }),
+                fetch('/api/habits/stats', { headers: hdrs, cache: 'no-store' }).then(r => r.json()).catch(err => {
+                    console.error('[Streaks] Failed to fetch stats:', err);
+                    return { current_streak: 0, best_streak: 0, last_completed: null };
+                }),
             ]);
 
             // Фильтруем только завершенные логи для консистентности
-            const weekLogs = Array.isArray(weekLogsRes.items)
+            const weekLogs = Array.isArray(weekLogsRes?.items)
                 ? weekLogsRes.items.filter((l: Log) => isLogCompleted(l))
                 : [];
-            const allLogs = Array.isArray(allLogsRes.items)
+            const allLogs = Array.isArray(allLogsRes?.items)
                 ? allLogsRes.items.filter((l: Log) => isLogCompleted(l))
                 : [];
 
-            // Отладочное логирование (можно убрать после проверки)
+            // Отладочное логирование
             console.log('[Streaks] Week logs count:', weekLogs.length, 'All logs count:', allLogs.length);
-            console.log('[Streaks] Sample week log:', weekLogs[0]);
-            console.log('[Streaks] Sample all log:', allLogs[0]);
+            console.log('[Streaks] Raw weekLogsRes:', weekLogsRes);
+            console.log('[Streaks] Raw allLogsRes:', allLogsRes);
+            if (weekLogs.length > 0) {
+                console.log('[Streaks] Sample week log:', weekLogs[0]);
+                console.log('[Streaks] Week log isCompleted check:', isLogCompleted(weekLogs[0]));
+            }
+            if (allLogs.length > 0) {
+                console.log('[Streaks] Sample all log:', allLogs[0]);
+                console.log('[Streaks] All log isCompleted check:', isLogCompleted(allLogs[0]));
+            }
+            // Проверяем, сколько логов не прошли фильтр
+            const weekLogsRaw = Array.isArray(weekLogsRes?.items) ? weekLogsRes.items : [];
+            const allLogsRaw = Array.isArray(allLogsRes?.items) ? allLogsRes.items : [];
+            console.log('[Streaks] Raw week logs:', weekLogsRaw.length, 'Filtered:', weekLogs.length);
+            console.log('[Streaks] Raw all logs:', allLogsRaw.length, 'Filtered:', allLogs.length);
+            if (weekLogsRaw.length > 0 && weekLogs.length === 0) {
+                console.warn('[Streaks] ⚠️ All week logs filtered out! Sample raw log:', weekLogsRaw[0]);
+            }
+            if (allLogsRaw.length > 0 && allLogs.length === 0) {
+                console.warn('[Streaks] ⚠️ All logs filtered out! Sample raw log:', allLogsRaw[0]);
+            }
 
             setLogs(allLogs);
             setStats(statsRes);
@@ -187,19 +215,33 @@ export default function StreaksPage() {
 
                 // Calculate streaks from all logs (более надежно, чем полагаться на функцию БД)
                 const habitLogs = allLogs
-                    .filter((l: Log) => l.habit_id === habit.id && isLogCompleted(l))
-                    .map((l: Log) => l.date)
-                    .sort();
+                    .filter((l: Log) => {
+                        const matches = l.habit_id === habit.id && isLogCompleted(l);
+                        if (matches && !l.date) {
+                            console.warn('[Streaks] Habit log without date:', l);
+                        }
+                        return matches;
+                    })
+                    .map((l: Log) => l.date?.slice(0, 10))
+                    .filter(Boolean)
+                    .sort() as string[];
+                
+                if (habitLogs.length > 0) {
+                    console.log(`[Streaks] Habit ${habit.title} (${habit.id}): ${habitLogs.length} completed logs, dates:`, habitLogs.slice(0, 5), '...');
+                }
 
                 // Calculate current streak (от сегодня назад)
                 const today = new Date().toISOString().slice(0, 10);
                 let currentStreak = 0;
                 if (habitLogs.length > 0) {
+                    // Нормализуем даты (убираем время, если есть)
+                    const normalizedDates = habitLogs.map(d => d?.slice(0, 10)).filter(Boolean) as string[];
+                    const uniqueDates = [...new Set(normalizedDates)].sort();
+                    
                     // Находим последний выполненный день
-                    const lastCompletedDate = habitLogs[habitLogs.length - 1];
-                    if (lastCompletedDate === today || habitLogs.includes(today)) {
+                    const lastCompletedDate = uniqueDates[uniqueDates.length - 1];
+                    if (lastCompletedDate === today || uniqueDates.includes(today)) {
                         // Если сегодня выполнено, считаем streak от сегодня назад
-                        const sortedDates = [...new Set(habitLogs)].sort();
                         let streakCount = 0;
 
                         // Проверяем последовательные дни от сегодня назад
@@ -207,34 +249,60 @@ export default function StreaksPage() {
                             const checkDate = new Date(today);
                             checkDate.setDate(checkDate.getDate() - i);
                             const dateStr = checkDate.toISOString().slice(0, 10);
-                            if (sortedDates.includes(dateStr)) {
+                            if (uniqueDates.includes(dateStr)) {
                                 streakCount++;
                             } else {
                                 break;
                             }
                         }
                         currentStreak = streakCount;
+                    } else {
+                        // Если сегодня не выполнено, проверяем вчера и назад
+                        const yesterday = new Date(today);
+                        yesterday.setDate(yesterday.getDate() - 1);
+                        const yesterdayStr = yesterday.toISOString().slice(0, 10);
+                        
+                        if (lastCompletedDate === yesterdayStr || uniqueDates.includes(yesterdayStr)) {
+                            // Если вчера выполнено, считаем streak от вчера назад
+                            let streakCount = 0;
+                            for (let i = 1; i < 365; i++) {
+                                const checkDate = new Date(today);
+                                checkDate.setDate(checkDate.getDate() - i);
+                                const dateStr = checkDate.toISOString().slice(0, 10);
+                                if (uniqueDates.includes(dateStr)) {
+                                    streakCount++;
+                                } else {
+                                    break;
+                                }
+                            }
+                            currentStreak = streakCount;
+                        }
                     }
                 }
 
                 // Calculate best streak from all logs
                 let bestStreak = 0;
                 if (habitLogs.length > 0) {
-                    const uniqueDates = [...new Set(habitLogs)].sort() as string[];
-                    let currentRun = 1;
-                    let maxRun = 1;
-                    for (let i = 1; i < uniqueDates.length; i++) {
-                        const prevDate = new Date(uniqueDates[i - 1] as string);
-                        const currDate = new Date(uniqueDates[i] as string);
-                        const daysDiff = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
-                        if (daysDiff === 1) {
-                            currentRun++;
-                            maxRun = Math.max(maxRun, currentRun);
-                        } else {
-                            currentRun = 1;
+                    // Нормализуем даты
+                    const normalizedDates = habitLogs.map(d => d?.slice(0, 10)).filter(Boolean) as string[];
+                    const uniqueDates = [...new Set(normalizedDates)].sort();
+                    
+                    if (uniqueDates.length > 0) {
+                        let currentRun = 1;
+                        let maxRun = 1;
+                        for (let i = 1; i < uniqueDates.length; i++) {
+                            const prevDate = new Date(uniqueDates[i - 1]);
+                            const currDate = new Date(uniqueDates[i]);
+                            const daysDiff = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+                            if (daysDiff === 1) {
+                                currentRun++;
+                                maxRun = Math.max(maxRun, currentRun);
+                            } else {
+                                currentRun = 1;
+                            }
                         }
+                        bestStreak = maxRun;
                     }
-                    bestStreak = maxRun;
                 }
 
                 return {
@@ -345,17 +413,22 @@ export default function StreaksPage() {
             setHabitsWithStats(uniqueHabitsStats);
 
             // Calculate week stats for momentum timeline
+            console.log('[Streaks] Calculating weekStats, allLogs count:', allLogs.length, 'last12Weeks count:', last12Weeks.length);
             const weeks: WeekStats[] = last12Weeks.map((week) => {
                 const weekStartStr = week.start.toISOString().slice(0, 10);
                 const weekEndStr = week.end.toISOString().slice(0, 10);
 
                 // Get logs for this week
                 const weekLogs = allLogs.filter((l: Log) => {
-                    return l.date >= weekStartStr && l.date <= weekEndStr && isLogCompleted(l);
+                    if (!l.date) return false;
+                    const logDate = l.date.slice(0, 10);
+                    const inRange = logDate >= weekStartStr && logDate <= weekEndStr;
+                    const completed = isLogCompleted(l);
+                    return inRange && completed;
                 });
 
-                // Get unique dates with completed habits
-                const completedDates = new Set(weekLogs.map((l: Log) => l.date));
+                // Get unique dates with completed habits (нормализуем даты)
+                const completedDates = new Set(weekLogs.map((l: Log) => l.date?.slice(0, 10)).filter(Boolean));
                 const completedDays = completedDates.size;
                 const totalDays = 7;
 
@@ -377,12 +450,14 @@ export default function StreaksPage() {
                     }
                 }
 
-                // Determine color
-                let color: 'green' | 'purple' | 'red' = 'red';
+                // Determine color (same logic as analytics: green -> yellow -> orange -> red)
+                let color: 'green' | 'yellow' | 'orange' | 'red' = 'red';
                 if (completedDays === 7) {
                     color = 'green';
+                } else if (completedDays >= 4) {
+                    color = 'yellow';
                 } else if (completedDays > 0) {
-                    color = 'purple';
+                    color = 'orange';
                 }
 
                 return {
@@ -395,7 +470,15 @@ export default function StreaksPage() {
                 };
             });
 
+            console.log('[Streaks] WeekStats calculated:', weeks.length, 'weeks');
             setWeekStats(weeks);
+            console.log('[Streaks] habitsWithStats count:', uniqueHabitsStats.length);
+        } catch (error) {
+            console.error('[Streaks] Error in fetchData:', error);
+            // Устанавливаем пустые данные при ошибке
+            setHabitsWithStats([]);
+            setWeekStats([]);
+            setLogs([]);
         } finally {
             setLoading(false);
         }
@@ -472,9 +555,21 @@ export default function StreaksPage() {
     // Если привычка не выбрана, автоматически выбираем первую доступную
     useEffect(() => {
         if (!selectedHabitId && habitsWithStats.length > 0) {
+            console.log('[Streaks] Auto-selecting first habit:', habitsWithStats[0].id);
             setSelectedHabitId(habitsWithStats[0].id);
         }
     }, [selectedHabitId, habitsWithStats]);
+    
+    // Логируем состояние для отладки
+    useEffect(() => {
+        console.log('[Streaks] State update:', {
+            habitsWithStatsCount: habitsWithStats.length,
+            weekStatsCount: weekStats.length,
+            selectedHabitId,
+            selectedHabit: selectedHabit?.id || null,
+            logsCount: logs.length
+        });
+    }, [habitsWithStats.length, weekStats.length, selectedHabitId, selectedHabit?.id, logs.length]);
 
     // Касты для шаринга
     const shareTemplates = useMemo<CastTemplate[]>(() => {
@@ -558,14 +653,14 @@ export default function StreaksPage() {
                         {/* Best Streak */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                             <div className="text-sm font-semibold text-white mb-2">Best Streak</div>
-                            <div className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{stats.best_streak || 0}</div>
+                            <div className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{stats.best_streak || 0}</div>
                             <div className="text-sm text-white/70">days</div>
                         </div>
 
                         {/* Last Activity */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                             <div className="text-sm font-semibold text-white mb-2">Last Activity</div>
-                            <div className="text-xl font-bold text-white mb-1">
+                            <div className="text-3xl font-bold text-white mb-1">
                                 {stats.last_completed
                                     ? new Date(stats.last_completed).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                                     : '—'
@@ -576,7 +671,7 @@ export default function StreaksPage() {
                         {/* Next Badge */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
                             <div className="text-sm font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Next Badge</div>
-                            <div className="text-3xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{nextBadgeDays || 0}</div>
+                            <div className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{nextBadgeDays || 0}</div>
                             <div className="text-sm text-white/70">days remaining</div>
                         </div>
                     </div>
@@ -693,7 +788,7 @@ export default function StreaksPage() {
                         {/* LAST ACTIVITY */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col">
                             <div className="text-[10px] uppercase tracking-wide text-white/60 mb-1.5">LAST ACTIVITY</div>
-                            <div className="text-3xl font-bold text-white mb-0.5 leading-none">
+                            <div className="text-2xl font-bold text-white mb-0.5 leading-none">
                                 {selectedHabitLastActivity
                                     ? new Date(selectedHabitLastActivity).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                                     : '—'
@@ -809,12 +904,15 @@ export default function StreaksPage() {
                                 return (
                                     <div key={idx} className="flex items-start gap-3 leading-tight">
                                         <div
-                                            className={`h-2.5 w-2.5 rounded-full flex-shrink-0 mt-0.5 ${week.color === 'green'
-                                                ? 'bg-[#2BD4A4]'
-                                                : week.color === 'purple'
-                                                    ? 'bg-[#A78BFA]'
-                                                    : 'bg-red-400'
-                                                }`}
+                                            className={`h-2.5 w-2.5 rounded-full flex-shrink-0 mt-0.5 ${
+                                                week.color === 'green'
+                                                    ? 'bg-[#22C55E]'
+                                                    : week.color === 'yellow'
+                                                        ? 'bg-yellow-400'
+                                                        : week.color === 'orange'
+                                                            ? 'bg-orange-400'
+                                                            : 'bg-red-400'
+                                            }`}
                                         />
                                         <div className="flex-1 min-w-0">
                                             <div className="text-sm font-semibold text-white mb-0.5 leading-tight">

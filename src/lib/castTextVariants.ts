@@ -146,7 +146,7 @@ export const weeklyCapsuleTexts = (startStr: string, endStr: string, completedDa
 export const levelUpTexts = (levelName: string, level: number, xp: number) => [
   `⚡️ Reached ${levelName} (Level ${level}) with ${xp.toLocaleString()} XP in Personality Architect!`,
   `⚡️ Just hit ${levelName} — Level ${level} with ${xp.toLocaleString()} XP! Tracking in Personality Architect.`,
-  `⚡️ Level ${level} ${levelName} unlocked! I've got ${xp.toLocaleString()} XP now. Personality Architect.`,
-  `⚡️ Made it to ${levelName} (Level ${level})! ${xp.toLocaleString()} XP and counting. Personality Architect.`,
+  `⚡️ Level ${level} ${levelName} unlocked! I've got ${xp.toLocaleString()} XP now.`,
+  `⚡️ Made it to ${levelName} (Level ${level})! ${xp.toLocaleString()} XP and counting.`,
 ];
 

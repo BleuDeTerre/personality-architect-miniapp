@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
         since30.setDate(since30.getDate() - 30);
         const since30Str = since30.toISOString().slice(0, 10);
 
+        // Получаем логи с created_at для анализа времени выполнения
         const { data: logs } = await supa
             .from('habit_logs')
             .select('habit_id, date, created_at')
@@ -77,70 +78,79 @@ export async function GET(req: NextRequest) {
                 }
             });
 
+            let optimalTime = 'morning'; // Fallback
             if (times.length > 0) {
                 const avgHour = times.reduce((a, b) => a + b, 0) / times.length;
-                const optimalTime = `${Math.floor(avgHour)}:${Math.floor((avgHour % 1) * 60).toString().padStart(2, '0')}`;
+                optimalTime = `${Math.floor(avgHour)}:${Math.floor((avgHour % 1) * 60).toString().padStart(2, '0')}`;
+            }
 
-                // Проверяем лимит перед каждым AI запросом (может быть несколько привычек)
-                const currentLimitCheck = await checkAILimit(supa, userId, userPlan);
-                if (!currentLimitCheck.allowed) {
-                    // Если лимит достигнут - используем fallback для оставшихся привычек
-                    suggestions.push({
-                        habitId: habit.id,
-                        habitTitle: habit.title,
-                        optimalTime,
-                        suggestion: `You usually complete this around ${optimalTime}. Consider setting a reminder.`,
+            // Проверяем лимит перед каждым AI запросом (может быть несколько привычек)
+            const currentLimitCheck = await checkAILimit(supa, userId, userPlan);
+            if (!currentLimitCheck.allowed) {
+                // Если лимит достигнут - используем fallback для оставшихся привычек
+                suggestions.push({
+                    habitId: habit.id,
+                    habitTitle: habit.title,
+                    optimalTime: times.length > 0 ? optimalTime : 'morning',
+                    suggestion: times.length > 0
+                        ? `You usually complete this around ${optimalTime}. Consider setting a reminder.`
+                        : `You've completed this habit ${habitLogs.length} times recently. Consider setting a consistent reminder.`,
+                });
+                continue;
+            }
+
+            // Генерируем предложение через AI
+            const openai = openaiClient();
+            const model = pickModel({ deep: false });
+
+            try {
+                const chat = await openai.chat.completions.create({
+                    model,
+                    temperature: 0.7,
+                    messages: [
+                        {
+                            role: 'system',
+                            content: HABIT_SUGGESTIONS_PROMPT,
+                        },
+                        {
+                            role: 'user',
+                            content: [
+                                times.length > 0
+                                    ? `User usually completes "${habit.title}" around ${optimalTime} (based on ${habitLogs.length} recent completions).`
+                                    : `User has completed "${habit.title}" ${habitLogs.length} times in the last 30 days.`,
+                                `Suggest: 1) Optimal time reminder, 2) If this habit should be combined with others.`,
+                            ].join('\n'),
+                        },
+                    ],
+                });
+
+                const suggestion = chat.choices[0]?.message?.content || (times.length > 0
+                    ? `Consider setting a reminder for ${optimalTime}`
+                    : `Consider setting a consistent reminder for this habit.`);
+
+                suggestions.push({
+                    habitId: habit.id,
+                    habitTitle: habit.title,
+                    optimalTime: times.length > 0 ? optimalTime : 'morning',
+                    suggestion,
+                });
+
+                // Логируем AI запрос в фоне
+                (async () => {
+                    await logAIRequest(supa, userId, userPlan, 'ai/habit-suggestions', {
+                        habit_id: habit.id,
                     });
-                    continue;
-                }
-
-                // Генерируем предложение через AI
-                const openai = openaiClient();
-                const model = pickModel({ deep: false });
-
-                try {
-                    const chat = await openai.chat.completions.create({
-                        model,
-                        temperature: 0.7,
-                        messages: [
-                            {
-                                role: 'system',
-                                content: HABIT_SUGGESTIONS_PROMPT,
-                            },
-                            {
-                                role: 'user',
-                                content: [
-                                    `User usually completes "${habit.title}" around ${optimalTime} (based on ${habitLogs.length} recent completions).`,
-                                    `Suggest: 1) Optimal time reminder, 2) If this habit should be combined with others.`,
-                                ].join('\n'),
-                            },
-                        ],
-                    });
-
-                    const suggestion = chat.choices[0]?.message?.content || `Consider setting a reminder for ${optimalTime}`;
-
-                    suggestions.push({
-                        habitId: habit.id,
-                        habitTitle: habit.title,
-                        optimalTime,
-                        suggestion,
-                    });
-
-                    // Логируем AI запрос в фоне
-                    (async () => {
-                        await logAIRequest(supa, userId, userPlan, 'ai/habit-suggestions', {
-                            habit_id: habit.id,
-                        });
-                    })();
-                } catch (_aiError) {
-                    // Fallback
-                    suggestions.push({
-                        habitId: habit.id,
-                        habitTitle: habit.title,
-                        optimalTime,
-                        suggestion: `You usually complete this around ${optimalTime}. Consider setting a reminder.`,
-                    });
-                }
+                })();
+            } catch (_aiError) {
+                // Fallback
+                suggestions.push({
+                    habitId: habit.id,
+                    habitTitle: habit.title,
+                    optimalTime: times.length > 0 ? optimalTime : 'morning',
+                    suggestion: times.length > 0
+                        ? `You usually complete this around ${optimalTime}. Consider setting a reminder.`
+                        : `You've completed this habit ${habitLogs.length} times recently. Consider setting a consistent reminder.`,
+                });
             }
         }
 

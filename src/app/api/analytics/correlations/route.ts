@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
 
         // Вычисляем корреляции
         const habitIds = Array.from(habitsMap.keys());
-        const correlations: Array<{ habit_a: string; habit_b: string; correlation: number }> = [];
+        const correlations: Array<{ habit_a: string; habit_b: string; correlation: number; daysA: number; daysB: number; daysBoth: number }> = [];
 
         for (let i = 0; i < habitIds.length; i++) {
             for (let j = i + 1; j < habitIds.length; j++) {
@@ -93,11 +93,22 @@ export async function GET(req: NextRequest) {
                     ? Number((daysBoth / daysUnion).toFixed(3))
                     : 0;
 
-                if (correlation > 0) {
+                // Фильтруем: показываем только значимые корреляции
+                // Минимум 5 дней вместе И корреляция >30% ИЛИ корреляция >70% (сильная)
+                const minDaysTogether = 5;
+                const minCorrelation = 0.3;
+                const strongCorrelation = 0.7;
+
+                if (correlation > 0 && 
+                    ((daysBoth >= minDaysTogether && correlation >= minCorrelation) || 
+                     correlation >= strongCorrelation)) {
                     correlations.push({
                         habit_a: a,
                         habit_b: b,
                         correlation,
+                        daysA,
+                        daysB,
+                        daysBoth,
                     });
                 }
             }
@@ -112,6 +123,9 @@ export async function GET(req: NextRequest) {
                 habit_a: habitsMap.get(c.habit_a) || c.habit_a,
                 habit_b: habitsMap.get(c.habit_b) || c.habit_b,
                 correlation: c.correlation,
+                daysA: c.daysA,
+                daysB: c.daysB,
+                daysBoth: c.daysBoth,
             })),
         };
 

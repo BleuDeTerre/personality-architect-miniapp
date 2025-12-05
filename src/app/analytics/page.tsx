@@ -7,14 +7,14 @@ import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCa
 import MiniAppPage from '@/components/MiniAppPage';
 import AICorrelationInsights from '@/components/AICorrelationInsights';
 import CollapsibleCard from '@/components/CollapsibleCard';
-import { getRandomVariant, weeklySummaryTexts, topHabitTexts, aiInsightTexts, weeklyCapsuleTexts } from '@/lib/castTextVariants';
+import { getRandomVariant, weeklySummaryTexts, topHabitTexts, aiInsightTexts } from '@/lib/castTextVariants';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-type Correlation = { habit_a: string; habit_b: string; correlation: number };
+type Correlation = { habit_a: string; habit_b: string; correlation: number; daysA?: number; daysB?: number; daysBoth?: number };
 type Predictive = { habit_id: string; habit_title: string; streak_days: number; risk_break: boolean; risk_score: number; days_since_last: number };
 type Comparative = {
     this_week: { completed_total: number; active_days: number; avg_streak: number; max_streak: number };
@@ -26,7 +26,7 @@ type Facts = { facts: string[]; top_habits: Array<{ habit: string; count: number
 type Goal = { id: string; title: string; metric?: string; target?: number; unit?: string; due_date?: string; status: string; created_at?: string };
 type WheelTrend = { area: string; last: number; avg4: number; avg12: number; delta4: number; delta12: number };
 type Stats = { current_streak: number; best_streak: number; last_completed: string | null };
-type Habit = { id: string; title: string; is_active?: boolean };
+type Habit = { id: string; title: string; is_active?: boolean; target_days_per_week?: number; category?: string | null };
 type Log = { habit_id: string; date: string; value: boolean; is_completed?: boolean };
 type TrendPoint = { date: string; streak: number };
 
@@ -506,11 +506,20 @@ export default function AnalyticsPage() {
         };
     }, []);
 
+    const [logsWithTime, setLogsWithTime] = useState<Array<{ habit_id: string; date: string; created_at?: string }>>([]);
+
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const hdrs = await authHeaders();
-            const [corrRes, predRes, compRes, factsRes, goalsRes, wheelRes, statsRes, habitsRes] = await Promise.all([
+
+            // Calculate date range for logs (last 7 days for time analysis)
+            const today = new Date().toISOString().slice(0, 10);
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
+
+            const [corrRes, predRes, compRes, factsRes, goalsRes, wheelRes, statsRes, habitsRes, logsRes] = await Promise.all([
                 fetch('/api/analytics/correlations', { headers: hdrs }).then(r => r.json()).catch(() => ({ correlations: [] })),
                 fetch('/api/analytics/predictive', { headers: hdrs }).then(r => r.json()).catch(() => ({ insights: [] })),
                 fetch('/api/analytics/comparative', { headers: hdrs }).then(r => r.json()).catch(() => null),
@@ -519,6 +528,7 @@ export default function AnalyticsPage() {
                 fetch('/api/wheel/trends', { headers: hdrs }).then(r => r.json()).catch(() => ({ areas: [] })),
                 fetch('/api/habits/stats', { headers: hdrs }).then(r => r.json()).catch(() => ({ current_streak: 0, best_streak: 0, last_completed: null })),
                 fetch('/api/habits/list', { headers: hdrs }).then(r => r.json()).catch(() => []),
+                fetch(`/api/habits/logs?from=${sevenDaysAgoStr}&to=${today}`, { headers: hdrs }).then(r => r.json()).catch(() => ({ items: [] })),
             ]);
 
             setCorrelations(corrRes.correlations || []);
@@ -528,6 +538,11 @@ export default function AnalyticsPage() {
             setGoals(goalsRes.items || []);
             setWheelTrends(wheelRes.areas || []);
             setStats(statsRes);
+
+            // Store logs with timestamps for time analysis
+            const logs = Array.isArray(logsRes.items) ? logsRes.items.filter((l: any) => l.value === true || l.is_completed === true) : [];
+            setLogsWithTime(logs);
+
             const activeHabits = Array.isArray(habitsRes) ? habitsRes.filter((h: Habit) => h.is_active !== false) : [];
 
             // Убираем дубликаты по ID (если API вернул дубликаты)
@@ -548,10 +563,14 @@ export default function AnalyticsPage() {
 
     // Fetch trend data for selected habit or all habits
     const fetchHabitTrend = useCallback(async (habitId: string) => {
-        if (!habitId) return;
+        if (!habitId) {
+            console.warn('[Analytics] fetchHabitTrend called without habitId');
+            return;
+        }
         setLoadingTrend(true);
         try {
             const hdrs = await authHeaders();
+            console.log('[Analytics] Starting fetchHabitTrend for:', habitId);
 
             // Get logs for last 90 days
             const endDate = new Date().toISOString().slice(0, 10);
@@ -562,16 +581,25 @@ export default function AnalyticsPage() {
             // Загружаем логи в зависимости от выбора
             const isAll = habitId === 'all';
             const logsRes = isAll
-                ? await fetch(`/api/habits/logs?from=${startDateStr}&to=${endDate}`, { headers: hdrs }).then(r => r.json())
-                : await fetch(`/api/habits/logs?from=${startDateStr}&to=${endDate}&habit_id=${habitId}`, { headers: hdrs }).then(r => r.json());
+                ? await fetch(`/api/habits/logs?from=${startDateStr}&to=${endDate}`, { headers: hdrs }).then(r => r.json()).catch(err => {
+                    console.error('[Analytics] Failed to fetch logs:', err);
+                    return { items: [] };
+                })
+                : await fetch(`/api/habits/logs?from=${startDateStr}&to=${endDate}&habit_id=${habitId}`, { headers: hdrs }).then(r => r.json()).catch(err => {
+                    console.error('[Analytics] Failed to fetch logs:', err);
+                    return { items: [] };
+                });
 
             // Учитываем и value и is_completed для консистентности
-            const logs = Array.isArray(logsRes.items) ? logsRes.items.filter((l: any) => l.value === true || l.is_completed === true) : [];
+            const logs = Array.isArray(logsRes?.items) ? logsRes.items.filter((l: any) => l.value === true || l.is_completed === true) : [];
 
             // Для Weekly capsule всегда используем все логи
-            const allLogsRes = await fetch(`/api/habits/logs?from=${startDateStr}&to=${endDate}`, { headers: hdrs }).then(r => r.json());
+            const allLogsRes = await fetch(`/api/habits/logs?from=${startDateStr}&to=${endDate}`, { headers: hdrs }).then(r => r.json()).catch(err => {
+                console.error('[Analytics] Failed to fetch all logs:', err);
+                return { items: [] };
+            });
             // Учитываем и value и is_completed для консистентности
-            const allLogs = Array.isArray(allLogsRes.items) ? allLogsRes.items.filter((l: any) => l.value === true || l.is_completed === true) : [];
+            const allLogs = Array.isArray(allLogsRes?.items) ? allLogsRes.items.filter((l: any) => l.value === true || l.is_completed === true) : [];
 
             // Calculate streak for each day over the last 90 days
             const trendData: Array<{ date: string; streak: number }> = [];
@@ -606,6 +634,7 @@ export default function AnalyticsPage() {
                 trendData.push({ date, streak: currentStreak });
             }
 
+            console.log('[Analytics] Trend data calculated:', trendData.length, 'points, max streak:', maxStreakValue);
             setHabitTrendData(trendData);
             setMaxStreak(maxStreakValue);
 
@@ -679,17 +708,34 @@ export default function AnalyticsPage() {
                 });
             }
 
+            console.log('[Analytics] Weekly capsules calculated:', capsules.length);
             setWeeklyCapsules(capsules);
+        } catch (error) {
+            console.error('[Analytics] Error in fetchHabitTrend:', error);
+            // Устанавливаем пустые данные при ошибке
+            setHabitTrendData([]);
+            setWeeklyCapsules([]);
+            setMaxStreak(0);
         } finally {
             setLoadingTrend(false);
         }
     }, [authHeaders]);
 
+    // Загружаем данные тренда после загрузки основных данных
     useEffect(() => {
-        if (selectedHabitId) {
-            fetchHabitTrend(selectedHabitId);
+        if (!loading && habits.length > 0) {
+            // Убеждаемся, что selectedHabitId установлен (по умолчанию 'all')
+            const habitIdToFetch = selectedHabitId || 'all';
+            console.log('[Analytics] Fetching habit trend for:', habitIdToFetch, 'habits count:', habits.length);
+            fetchHabitTrend(habitIdToFetch).catch(err => {
+                console.error('[Analytics] Failed to fetch habit trend:', err);
+                // Устанавливаем пустые данные при ошибке
+                setHabitTrendData([]);
+                setWeeklyCapsules([]);
+                setMaxStreak(0);
+            });
         }
-    }, [selectedHabitId, fetchHabitTrend]);
+    }, [selectedHabitId, loading, habits.length, fetchHabitTrend]);
 
     const { isSDKLoaded, context } = useMiniApp();
 
@@ -715,26 +761,93 @@ export default function AnalyticsPage() {
         })();
     }, [fetchData]);
 
-    const topHabit = useMemo(() => facts?.top_habits?.[0] ?? null, [facts]);
+    const topHabit = useMemo(() => {
+        if (!facts?.top_habits?.[0]) return null;
+        const top = facts.top_habits[0];
+        const habit = habits.find(h => {
+            const emojiMatch = h.title?.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
+            const title = h.title?.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || h.title;
+            return title === top.habit || h.title === top.habit;
+        });
+
+        // Calculate percentage of total logs
+        const totalLogs = facts.top_habits.reduce((sum, h) => sum + h.count, 0);
+        const percentage = totalLogs > 0 ? (top.count / totalLogs) * 100 : 0;
+
+        return {
+            ...top,
+            category: habit?.category || null,
+            percentage: Number(percentage.toFixed(1))
+        };
+    }, [facts, habits]);
+
     const mostActiveDay = useMemo(() => {
         if (!facts?.day_stats?.length) return null;
-        return [...facts.day_stats].sort((a, b) => b.count - a.count)[0];
-    }, [facts]);
+        const peakDay = [...facts.day_stats].sort((a, b) => b.count - a.count)[0];
+
+        // Calculate average time of day from logs with created_at
+        if (logsWithTime.length === 0) {
+            return { ...peakDay, timeOfDay: null, avgHour: null };
+        }
+
+        const times: number[] = [];
+        logsWithTime.forEach(log => {
+            if (log.created_at) {
+                const date = new Date(log.created_at);
+                const hours = date.getHours() + date.getMinutes() / 60;
+                times.push(hours);
+            }
+        });
+
+        if (times.length === 0) {
+            return { ...peakDay, timeOfDay: null, avgHour: null };
+        }
+
+        const avgHour = times.reduce((a, b) => a + b, 0) / times.length;
+        let timeOfDay = 'Evening';
+        if (avgHour < 12) timeOfDay = 'Morning';
+        else if (avgHour < 18) timeOfDay = 'Afternoon';
+
+        return {
+            ...peakDay,
+            timeOfDay,
+            avgHour: Math.round(avgHour * 10) / 10
+        };
+    }, [facts, logsWithTime]);
     const _riskyHabits = useMemo(
         () => predictive.filter(p => p.risk_score > 0).sort((a, b) => b.risk_score - a.risk_score).slice(0, 4),
         [predictive]
     );
 
     // Core metrics calculations
-    const completionRate = useMemo(() => {
+    const completionRate = useMemo<{ value: number; change: number; trend: 'up' | 'down' | 'stable' } | null>(() => {
         if (!comparative || habits.length === 0) return null;
-        // Calculate completion rate: average completed habits per day / total active habits
+
+        // Calculate completion rate considering target_days_per_week for each habit
         const totalDays = 7; // Week
-        const totalPossibleLogs = habits.length * totalDays;
+        let totalPossibleLogs = 0;
+
+        habits.forEach(habit => {
+            const targetDays = habit.target_days_per_week || 7; // Default to 7 if not set
+            totalPossibleLogs += targetDays;
+        });
+
         const completedLogs = comparative.this_week.completed_total;
-        if (totalPossibleLogs === 0) return 0;
+        if (totalPossibleLogs === 0) return null;
         const rate = (completedLogs / totalPossibleLogs) * 100;
-        return Number(rate.toFixed(2));
+
+        // Calculate previous week rate for comparison
+        const lastWeekTotalPossible = totalPossibleLogs; // Same habits, same targets
+        const lastWeekRate = lastWeekTotalPossible > 0
+            ? (comparative.last_week.completed_total / lastWeekTotalPossible) * 100
+            : 0;
+        const change = rate - lastWeekRate;
+
+        return {
+            value: Number(rate.toFixed(2)),
+            change: Number(change.toFixed(2)),
+            trend: change > 0 ? 'up' : change < 0 ? 'down' : 'stable'
+        };
     }, [comparative, habits]);
 
     const activeGoals = useMemo(() => goals.filter(g => g.status === 'active'), [goals]);
@@ -763,38 +876,49 @@ export default function AnalyticsPage() {
         if (activeGoals.length === 0) return null;
         const completedCount = goals.filter(g => g.status === 'completed').length;
 
-        // Calculate average progress based on due dates and time elapsed
-        const now = new Date();
+        // Calculate progress based on actual metric progress, not just time
         const progressValues = activeGoals.map(goal => {
-            if (!goal.due_date) {
-                // If no due date, assume 0% progress (just started)
-                return 0;
+            // If goal has metric and target, calculate based on actual progress
+            if (goal.metric && goal.target !== undefined && goal.target !== null) {
+                // For now, we don't have current value stored, so use time-based as fallback
+                // TODO: Add current_value field to goals table for accurate progress
+                if (!goal.due_date) return 0;
+
+                const now = new Date();
+                const dueDate = new Date(goal.due_date);
+                const createdDate = goal.created_at ? new Date(goal.created_at) : now;
+                const totalTime = dueDate.getTime() - createdDate.getTime();
+                const elapsedTime = now.getTime() - createdDate.getTime();
+
+                if (totalTime <= 0) return 100;
+                return Math.min(100, Math.max(0, (elapsedTime / totalTime) * 100));
             }
 
+            // For goals without metric, use time-based progress
+            if (!goal.due_date) return 0;
+
+            const now = new Date();
             const dueDate = new Date(goal.due_date);
             const createdDate = goal.created_at ? new Date(goal.created_at) : now;
             const totalTime = dueDate.getTime() - createdDate.getTime();
             const elapsedTime = now.getTime() - createdDate.getTime();
 
-            if (totalTime <= 0) {
-                // Due date has passed or is invalid
-                return 100;
-            }
-
-            // Calculate progress as percentage of time elapsed
-            const progress = Math.min(100, Math.max(0, (elapsedTime / totalTime) * 100));
-            return progress;
+            if (totalTime <= 0) return 100;
+            return Math.min(100, Math.max(0, (elapsedTime / totalTime) * 100));
         });
 
         const avgProgress = progressValues.length > 0
             ? progressValues.reduce((sum, p) => sum + p, 0) / progressValues.length
             : 0;
 
+        // Calculate previous week progress for comparison (simplified - would need historical data)
         return {
             completed: completedCount,
             total: goals.length,
             active: activeGoals.length,
             avg: Math.round(avgProgress),
+            change: 0, // Would need historical data to calculate
+            trend: 'stable' as 'up' | 'down' | 'stable'
         };
     }, [goals, activeGoals]);
 
@@ -805,6 +929,92 @@ export default function AnalyticsPage() {
             .slice(0, 3)
             .map(t => ({ area: t.area, delta: t.delta4, score: t.last }));
     }, [wheelTrends]);
+
+    // Consistency score: measures variability in completion (lower = more consistent)
+    const consistencyScore = useMemo(() => {
+        if (!comparative || habits.length === 0 || logsWithTime.length === 0) return null;
+
+        // Group logs by date
+        const logsByDate = new Map<string, number>();
+        logsWithTime.forEach(log => {
+            const count = logsByDate.get(log.date) || 0;
+            logsByDate.set(log.date, count + 1);
+        });
+
+        if (logsByDate.size < 3) return null; // Need at least 3 days of data
+
+        const dailyCounts = Array.from(logsByDate.values());
+        const avg = dailyCounts.reduce((a, b) => a + b, 0) / dailyCounts.length;
+
+        // Calculate standard deviation
+        const variance = dailyCounts.reduce((sum, count) => {
+            return sum + Math.pow(count - avg, 2);
+        }, 0) / dailyCounts.length;
+        const stdDev = Math.sqrt(variance);
+
+        // Normalize to 0-100 scale (lower stdDev = higher consistency = lower score)
+        // Max stdDev would be if one day had all logs and others had none
+        const maxPossibleStdDev = Math.sqrt(habits.length * habits.length / logsByDate.size);
+        const consistency = maxPossibleStdDev > 0
+            ? Math.max(0, Math.min(100, 100 - (stdDev / maxPossibleStdDev) * 100))
+            : 100;
+
+        // Compare with previous week (simplified - would need historical data)
+        return {
+            value: Math.round(consistency),
+            label: consistency >= 70 ? 'Very consistent' : consistency >= 50 ? 'Moderately consistent' : 'Variable',
+            change: 0, // Would need historical data
+            trend: 'stable' as 'up' | 'down' | 'stable'
+        };
+    }, [comparative, habits, logsWithTime]);
+
+    // Category balance: distribution of activity across categories
+    const categoryBalance = useMemo(() => {
+        if (habits.length === 0 || logsWithTime.length === 0) return null;
+
+        const categoryCounts = new Map<string, number>();
+        const habitCategoryMap = new Map<string, string>();
+
+        habits.forEach(habit => {
+            habitCategoryMap.set(habit.id, habit.category || 'Uncategorized');
+        });
+
+        logsWithTime.forEach(log => {
+            const category = habitCategoryMap.get(log.habit_id) || 'Uncategorized';
+            categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
+        });
+
+        const total = Array.from(categoryCounts.values()).reduce((a, b) => a + b, 0);
+        if (total === 0) return null;
+
+        const distribution = Array.from(categoryCounts.entries())
+            .map(([category, count]) => ({
+                category,
+                count,
+                percentage: (count / total) * 100
+            }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5); // Top 5 categories
+
+        // Calculate balance score (0-100, higher = more balanced)
+        // Using Gini coefficient approach (inverted)
+        const percentages = distribution.map(d => d.percentage);
+        const sorted = [...percentages].sort((a, b) => a - b);
+        let gini = 0;
+        for (let i = 0; i < sorted.length; i++) {
+            for (let j = 0; j < sorted.length; j++) {
+                gini += Math.abs(sorted[i] - sorted[j]);
+            }
+        }
+        gini = gini / (2 * sorted.length * sorted.reduce((a, b) => a + b, 0));
+        const balanceScore = Math.round((1 - gini) * 100);
+
+        return {
+            distribution,
+            balanceScore,
+            label: balanceScore >= 70 ? 'Well balanced' : balanceScore >= 50 ? 'Moderately balanced' : 'Focused on few areas'
+        };
+    }, [habits, logsWithTime]);
 
     // Advanced Insights calculations
     const weakWindows = useMemo(() => {
@@ -825,16 +1035,17 @@ export default function AnalyticsPage() {
         return { day: dayName, count: strongest.count };
     }, [facts]);
 
-    const linkedHabits = useMemo(() => {
-        if (!correlations || correlations.length === 0) return null;
-        const topCorr = correlations[0];
-        if (!topCorr || topCorr.correlation < 0.9) return null;
-        const emojiA = topCorr.habit_a.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u)?.[0] || '';
-        const titleA = topCorr.habit_a.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || topCorr.habit_a;
-        const emojiB = topCorr.habit_b.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u)?.[0] || '';
-        const titleB = topCorr.habit_b.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || topCorr.habit_b;
-        return { habitA: { emoji: emojiA, title: titleA }, habitB: { emoji: emojiB, title: titleB }, overlap: Math.round(topCorr.correlation * 100) };
-    }, [correlations]);
+    // Linked habits - убрано из UI (дублирует Habit correlations)
+    // const linkedHabits = useMemo(() => {
+    //     if (!correlations || correlations.length === 0) return null;
+    //     const topCorr = correlations[0];
+    //     if (!topCorr || topCorr.correlation < 0.9) return null;
+    //     const emojiA = topCorr.habit_a.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u)?.[0] || '';
+    //     const titleA = topCorr.habit_a.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || topCorr.habit_a;
+    //     const emojiB = topCorr.habit_b.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u)?.[0] || '';
+    //     const titleB = topCorr.habit_b.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || topCorr.habit_b;
+    //     return { habitA: { emoji: emojiA, title: titleA }, habitB: { emoji: emojiB, title: titleB }, overlap: Math.round(topCorr.correlation * 100) };
+    // }, [correlations]);
 
     const wheelImpact = useMemo(() => {
         if (!topWheelDeltas || topWheelDeltas.length === 0) return null;
@@ -853,6 +1064,182 @@ export default function AnalyticsPage() {
         const worst = declining[0];
         return { area: worst.area, delta: worst.delta4 };
     }, [wheelTrends]);
+
+    // Маппинг Wheel areas -> Habit categories
+    const WHEEL_TO_HABIT_CATEGORIES: Record<string, string[]> = {
+        'Health': ['Wellness', 'Fitness', 'Anti-harm'],
+        'Personal Growth': ['Mindset', 'Productivity', 'Digital'],
+        'Career': ['Productivity', 'Mindset'],
+        'Relationships': ['Social'],
+        'Social': ['Social'],
+        'Finances': ['Finance'],
+        'Joy & Leisure': ['Lifestyle', 'Social'],
+        'Spirituality': ['Wellness', 'Mindset'],
+        'Inner State': ['Wellness', 'Mindset'],
+        'Environment': ['Lifestyle'],
+    };
+
+    // Улучшенные Habit recommendations с конкретными привычками
+    const habitRecommendationsWithTemplates = useMemo(() => {
+        if (!habitRecommendations || !wheelTrends || wheelTrends.length === 0) return null;
+
+        const area = habitRecommendations.area;
+        const categories = WHEEL_TO_HABIT_CATEGORIES[area] || [];
+
+        // Шаблоны привычек
+        const HABIT_TEMPLATES = [
+            { title: 'Meditation', icon: '🧘', category: 'Wellness' },
+            { title: 'Breathwork', icon: '🌬️', category: 'Wellness' },
+            { title: 'Hydration', icon: '💧', category: 'Wellness' },
+            { title: 'Sleep Before 23:00', icon: '🛏️', category: 'Wellness' },
+            { title: 'Stretching', icon: '🤸', category: 'Wellness' },
+            { title: 'Exercise', icon: '💪', category: 'Fitness' },
+            { title: 'Strength Training', icon: '🏋️', category: 'Fitness' },
+            { title: 'Walks', icon: '🚶', category: 'Fitness' },
+            { title: 'Yoga Flow', icon: '🧘', category: 'Fitness' },
+            { title: 'Reading', icon: '📚', category: 'Mindset' },
+            { title: 'Journaling', icon: '📝', category: 'Mindset' },
+            { title: 'Gratitude', icon: '🙏', category: 'Mindset' },
+            { title: 'Learning Session', icon: '🧠', category: 'Mindset' },
+            { title: 'Code Practice', icon: '💻', category: 'Productivity' },
+            { title: 'Daily Planning', icon: '🗂️', category: 'Productivity' },
+            { title: 'Inbox Zero', icon: '📫', category: 'Productivity' },
+            { title: 'Deep Work Block', icon: '⏱️', category: 'Productivity' },
+            { title: 'No Phone AM', icon: '📵', category: 'Lifestyle' },
+            { title: 'Meal Prep', icon: '🍱', category: 'Lifestyle' },
+            { title: 'Home Reset', icon: '🧹', category: 'Lifestyle' },
+            { title: 'Outdoor Time', icon: '🌳', category: 'Lifestyle' },
+            { title: 'No Smoking', icon: '🚭', category: 'Anti-harm' },
+            { title: 'No Sugary Drinks', icon: '🥤', category: 'Anti-harm' },
+            { title: 'No Alcohol', icon: '🍷', category: 'Anti-harm' },
+            { title: 'Limit Junk Food', icon: '🍔', category: 'Anti-harm' },
+            { title: 'Budget Review', icon: '💸', category: 'Finance' },
+            { title: 'Expense Tracking', icon: '🧾', category: 'Finance' },
+            { title: 'Investing Check', icon: '📈', category: 'Finance' },
+            { title: 'Savings Transfer', icon: '🏦', category: 'Finance' },
+            { title: 'Gratitude Text', icon: '💬', category: 'Social' },
+            { title: 'Call Family', icon: '📞', category: 'Social' },
+            { title: 'Meet a Friend', icon: '🤝', category: 'Social' },
+            { title: 'Community Post', icon: '🗣️', category: 'Social' },
+            { title: 'Content Detox', icon: '📱', category: 'Digital' },
+            { title: 'Creator Session', icon: '🎥', category: 'Digital' },
+            { title: 'Learning Reel', icon: '🎬', category: 'Digital' },
+        ];
+
+        // Получаем существующие привычки пользователя
+        const existingHabitTitles = new Set(habits.map(h => {
+            const emojiMatch = h.title.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
+            const title = h.title.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim();
+            return title;
+        }));
+
+        // Фильтруем шаблоны по категориям и исключаем уже существующие
+        const recommendedTemplates = HABIT_TEMPLATES
+            .filter(t => categories.includes(t.category))
+            .filter(t => !existingHabitTitles.has(t.title))
+            .slice(0, 3); // Показываем до 3 рекомендаций
+
+        return {
+            area,
+            delta: habitRecommendations.delta,
+            templates: recommendedTemplates,
+        };
+    }, [habitRecommendations, wheelTrends, habits]);
+
+    // Fatigue alerts - анализ усталости
+    const fatigueAlerts = useMemo(() => {
+        if (!habits || habits.length === 0 || !predictive || predictive.length === 0) {
+            return { hasData: false, riskLevel: null, message: null, suggestions: null };
+        }
+
+        // Анализируем паттерны потери серий
+        const habitsWithRisk = predictive.filter(p => p.risk_score > 0.5);
+        if (habitsWithRisk.length === 0) {
+            return { hasData: true, riskLevel: 'low', message: null, suggestions: null };
+        }
+
+        // Анализируем completion rate за последние дни
+        let completionRateDrop = 0;
+        if (comparative) {
+            const thisWeek = comparative.this_week?.completed_total || 0;
+            const lastWeek = comparative.last_week?.completed_total || 0;
+            if (lastWeek > 0) {
+                completionRateDrop = ((thisWeek - lastWeek) / lastWeek) * 100;
+            }
+        }
+
+        // Определяем уровень риска
+        let riskLevel: 'low' | 'medium' | 'high' = 'low';
+        let message: string | null = null;
+        let suggestions: string[] | null = null;
+
+        if (habitsWithRisk.length >= 3 || completionRateDrop < -20) {
+            riskLevel = 'high';
+            message = `You're showing signs of fatigue. ${habitsWithRisk.length} habits at risk, completion rate dropped ${Math.abs(completionRateDrop).toFixed(0)}%.`;
+            suggestions = [
+                'Take a rest day',
+                'Focus on 2-3 key habits',
+                'Reduce target days this week'
+            ];
+        } else if (habitsWithRisk.length >= 2 || completionRateDrop < -10) {
+            riskLevel = 'medium';
+            message = `Mild fatigue detected. ${habitsWithRisk.length} habits at risk.`;
+            suggestions = [
+                'Prioritize key habits',
+                'Take it easier this week'
+            ];
+        } else {
+            riskLevel = 'low';
+            message = null;
+            suggestions = null;
+        }
+
+        return { hasData: true, riskLevel, message, suggestions };
+    }, [habits, predictive, comparative]);
+
+    // Weekly momentum - тренд активности за неделю
+    const weeklyMomentum = useMemo(() => {
+        if (!comparative) return null;
+
+        const percentChange = comparative.comparison?.percent_change || 0;
+        const trend = comparative.comparison?.trend || 'neutral';
+
+        return {
+            trend,
+            percentChange: Math.abs(percentChange),
+            isPositive: percentChange > 0,
+            message: comparative.comparison?.message || null,
+        };
+    }, [comparative]);
+
+    // Recovery suggestions - советы по восстановлению
+    const recoverySuggestions = useMemo(() => {
+        if (!predictive || predictive.length === 0) return null;
+
+        const brokenStreaks = predictive.filter(p => p.days_since_last >= 2 && p.streak_days >= 7);
+        if (brokenStreaks.length === 0) return null;
+
+        const suggestions: string[] = [];
+
+        // Если потеряли несколько серий
+        if (brokenStreaks.length >= 2) {
+            suggestions.push('Start with 1-2 key habits');
+            suggestions.push('Reduce target days temporarily');
+        } else {
+            suggestions.push('Focus on consistency over quantity');
+        }
+
+        // Если пропустили 3+ дня
+        const longBreaks = brokenStreaks.filter(p => p.days_since_last >= 3);
+        if (longBreaks.length > 0) {
+            suggestions.push('Ease back gradually');
+        }
+
+        return {
+            count: brokenStreaks.length,
+            suggestions: suggestions.slice(0, 2), // Показываем до 2 советов
+        };
+    }, [predictive]);
 
     const nextStreakBadge = useMemo(() => {
         if (!stats.current_streak) return null;
@@ -976,40 +1363,13 @@ export default function AnalyticsPage() {
         }
 
         // Убраны wheel касты (перенесены в Wheel)
-
-        if (weeklyCapsules.length > 0) {
-            const capsule = weeklyCapsules[0];
-            const startStr = capsule.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            const endStr = capsule.weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            templates.push({
-                key: `capsule-${startStr}`,
-                label: `Capsule ${startStr}`,
-                title: 'Weekly Capsule',
-                kind: 'analytics',
-                text: getRandomVariant(weeklyCapsuleTexts(startStr, endStr, capsule.completedDays, capsule.totalDays, capsule.longestRun)),
-                previewParams: {
-                    variant: 'capsule:weekly',
-                    week: `${startStr} – ${endStr}`,
-                    completed: String(capsule.completedDays),
-                    total: String(capsule.totalDays),
-                    longest: String(capsule.longestRun),
-                    habit: topHabitTitle ?? 'Focus habit',
-                    icon: topHabitIcon ?? '',
-                    streak: String(stats.current_streak ?? 0),
-                    wheel: String(wheelAverageScore ?? 0),
-                    wheelTop: wheelTopAreas[0]?.area ?? 'Top area',
-                    wheelLow: wheelWeakestArea?.area ?? 'Focus area',
-                },
-                targetPath: '/analytics',
-            });
-        }
+        // Weekly Capsule - убрано (не нужен в share)
 
         return templates;
     }, [
         comparative,
         facts,
         predictive,
-        weeklyCapsules,
         topHabitTitle,
         topHabitIcon,
         stats,
@@ -1044,7 +1404,7 @@ export default function AnalyticsPage() {
                     <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Core metrics</h2>
                     {loading ? (
                         <div className="grid grid-cols-2 gap-3">
-                            {[1, 2, 3, 4, 5, 6].map(i => (
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
                                 <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse space-y-2">
                                     <div className="h-6 bg-white/10 rounded w-32"></div>
                                     <div className="h-6 bg-white/10 rounded w-20"></div>
@@ -1055,12 +1415,27 @@ export default function AnalyticsPage() {
                     ) : (
                         <div className="grid grid-cols-2 gap-3">
                             {/* Completion rate */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
-                                <h3 className="text-sm font-semibold text-white">Completion rate</h3>
-                                {completionRate !== null ? (
+                            <div className={`rounded-2xl border p-4 space-y-2 ${completionRate !== null && completionRate.value !== undefined
+                                ? completionRate.value >= 70 ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                    : completionRate.value >= 50 ? 'border-yellow-400/50 bg-yellow-400/5'
+                                        : 'border-red-400/50 bg-red-400/5'
+                                : 'border-white/10 bg-[#1a1b2e]'
+                                }`}>
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-base font-semibold text-white">Completion rate</h3>
+                                    {completionRate !== null && completionRate.change !== 0 && (
+                                        <span className={`text-xs font-semibold ${completionRate.trend === 'up' ? 'text-[#22C55E]'
+                                            : completionRate.trend === 'down' ? 'text-red-400'
+                                                : 'text-white/60'
+                                            }`}>
+                                            {completionRate.trend === 'up' ? '↑' : completionRate.trend === 'down' ? '↓' : '→'} {Math.abs(completionRate.change).toFixed(1)}%
+                                        </span>
+                                    )}
+                                </div>
+                                {completionRate !== null && completionRate.value !== undefined ? (
                                     <>
-                                        <p className="text-xl font-semibold text-[#8B5CF6]">{completionRate}%</p>
-                                        <p className="text-xs text-white/70 leading-snug">
+                                        <p className="text-xl font-semibold text-[#8B5CF6]">{completionRate.value}%</p>
+                                        <p className="text-xs text-white/70 leading-snug" title="Completion rate considers each habit's target days per week">
                                             Share of tracked habits you finish each day. Helps you spot consistency gains or gaps.
                                         </p>
                                     </>
@@ -1069,35 +1444,111 @@ export default function AnalyticsPage() {
                                 )}
                             </div>
 
+                            {/* Goal progress */}
+                            <div className={`rounded-2xl border p-4 space-y-2 ${goalProgress !== null && goalProgress.avg !== undefined
+                                ? goalProgress.avg >= 70 ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                    : goalProgress.avg >= 50 ? 'border-yellow-400/50 bg-yellow-400/5'
+                                        : 'border-red-400/50 bg-red-400/5'
+                                : 'border-white/10 bg-[#1a1b2e]'
+                                }`}>
+                                <h3 className="text-base font-semibold text-white">Goal progress</h3>
+                                {goalProgress ? (
+                                    <>
+                                        <div className="space-y-1">
+                                            <p className="text-base font-semibold text-[#8B5CF6] inline-flex items-center gap-1">
+                                                {goalProgress.active}/{goalProgress.total} goals
+                                                <span className="h-1.5 w-1.5 rounded-full bg-[#8B5CF6]"></span>
+                                            </p>
+                                            <p className="text-sm font-semibold text-[#8B5CF6]">{goalProgress.avg}% avg</p>
+                                        </div>
+                                        <p className="text-xs text-white/70 leading-snug" title="Progress calculated based on actual metric values when available, otherwise time-based">
+                                            How close active goals are to completion. Tracks velocity toward targets.
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className="text-xs text-white/60">No goals yet</p>
+                                )}
+                            </div>
+
+                            {/* Wheel delta */}
+                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
+                                <h3 className="text-base font-semibold text-white">Wheel delta</h3>
+                                {topWheelDeltas.length > 0 ? (
+                                    <>
+                                        <div className="space-y-1">
+                                            <p className="text-sm text-white/70 leading-snug">
+                                                {topWheelDeltas.map((item, idx) => (
+                                                    <span key={idx}>
+                                                        <span className="text-emerald-300">↑</span>{' '}
+                                                        <span className="text-[#8B5CF6] font-semibold">{item.area}</span>{' '}
+                                                        <span className="text-[#8B5CF6] font-semibold">{item.score.toFixed(1)}</span>
+                                                        {idx < topWheelDeltas.length - 1 && ', '}
+                                                    </span>
+                                                ))}
+                                            </p>
+                                        </div>
+                                        <p className="text-xs text-white/70 leading-snug" title="Shows top 3 Wheel of Life areas with positive change over 4 weeks">
+                                            Change in Wheel of Life areas over time. Connects behavior to perceived balance.
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className="text-xs text-white/60">No wheel data yet</p>
+                                )}
+                            </div>
+
+                            {/* Consistency score */}
+                            {consistencyScore && (
+                                <div className={`rounded-2xl border p-4 space-y-2 ${consistencyScore.value >= 70 ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                    : consistencyScore.value >= 50 ? 'border-yellow-400/50 bg-yellow-400/5'
+                                        : 'border-red-400/50 bg-red-400/5'
+                                    }`}>
+                                    <h3 className="text-base font-semibold text-white">Consistency score</h3>
+                                    <div className="space-y-1">
+                                        <p className="text-xl font-semibold text-[#8B5CF6]">{consistencyScore.value}/100</p>
+                                        <p className="text-sm text-[#8B5CF6] font-semibold">{consistencyScore.label}</p>
+                                    </div>
+                                    <p className="text-xs text-white/70 leading-snug" title="Measures variability in daily completion. Higher score = more consistent daily activity">
+                                        Measures how consistent your daily activity is. Lower variability = higher score.
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Streaks */}
                             <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-sm font-semibold text-white">Streaks</h3>
-                                    <div className="h-px w-12 bg-[#8B5CF6]"></div>
-                                </div>
+                                <h3 className="text-base font-semibold text-white">Streaks</h3>
                                 <div className="space-y-1">
-                                    <p className="text-xs text-white/70">
+                                    <p className="text-sm text-white/70">
                                         <span className="text-[#8B5CF6] font-semibold">Current:</span> {stats.current_streak}d
                                     </p>
-                                    <p className="text-xs text-white/70">
+                                    <p className="text-sm text-white/70">
                                         <span className="text-[#8B5CF6] font-semibold">Best:</span> {stats.best_streak}d
                                     </p>
                                 </div>
-                                <p className="text-xs text-white/70 leading-snug">
+                                <p className="text-xs text-white/70 leading-snug" title="Current streak shows consecutive days with at least one completed habit">
                                     Current and best streaks across your habits — the quickest way to see momentum.
                                 </p>
                             </div>
 
                             {/* Focus areas */}
                             <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
-                                <h3 className="text-sm font-semibold text-white">Focus areas</h3>
+                                <h3 className="text-base font-semibold text-white">Focus areas</h3>
                                 {topHabit && topHabitIcon && topHabitTitle ? (
                                     <>
                                         <div className="flex items-center gap-2">
                                             <span className="text-2xl">{topHabitIcon}</span>
-                                            <p className="text-base font-semibold text-[#8B5CF6]">{topHabitTitle}</p>
+                                            <div className="flex-1">
+                                                <p className="text-base font-semibold text-[#8B5CF6]">{topHabitTitle}</p>
+                                                {topHabit.category && (
+                                                    <p className="text-xs text-white/60">{topHabit.category}</p>
+                                                )}
+                                            </div>
                                         </div>
-                                        <p className="text-xs text-white/70 leading-snug">
+                                        {topHabit.percentage !== undefined && (
+                                            <p className="text-sm text-[#8B5CF6] font-semibold">
+                                                {topHabit.percentage}% of total activity
+                                            </p>
+                                        )}
+                                        <p className="text-xs text-white/70 leading-snug" title="Top habit by number of completed logs">
                                             Top habit categories you invest time in. Highlights where energy is going.
                                         </p>
                                     </>
@@ -1108,13 +1559,21 @@ export default function AnalyticsPage() {
 
                             {/* Average completion time */}
                             <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
-                                <h3 className="text-sm font-semibold text-white">Average completion time</h3>
+                                <h3 className="text-base font-semibold text-white">Peak activity</h3>
                                 {mostActiveDay ? (
                                     <>
-                                        <p className="text-base font-semibold text-white">
-                                            Peak day: <span className="text-[#8B5CF6]">{mostActiveDay.day}</span>
-                                        </p>
-                                        <p className="text-xs text-white/70 leading-snug">
+                                        <div className="space-y-1">
+                                            <p className="text-base font-semibold text-white">
+                                                Day: <span className="text-[#8B5CF6] font-semibold">{mostActiveDay.day}</span>
+                                            </p>
+                                            {mostActiveDay.timeOfDay && (
+                                                <p className="text-sm font-semibold text-[#8B5CF6]">
+                                                    {mostActiveDay.timeOfDay}
+                                                    {mostActiveDay.avgHour !== null && ` (~${Math.floor(mostActiveDay.avgHour)}:${String(Math.round((mostActiveDay.avgHour % 1) * 60)).padStart(2, '0')})`}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-white/70 leading-snug" title="Peak day shows the day of week with most completions. Time shows average completion time.">
                                             Typical time of day you complete habits. Useful to schedule around natural energy peaks.
                                         </p>
                                     </>
@@ -1123,54 +1582,34 @@ export default function AnalyticsPage() {
                                 )}
                             </div>
 
-                            {/* Goal progress */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
-                                <div className="flex items-start justify-between">
-                                    <h3 className="text-sm font-semibold text-white">Goal progress</h3>
-                                    {goalProgress && (
-                                        <div className="text-right">
-                                            <p className="text-xs font-semibold text-[#8B5CF6] inline-flex items-center gap-1">
-                                                {goalProgress.active}/{goalProgress.total} goals
-                                                <span className="h-1.5 w-1.5 rounded-full bg-[#8B5CF6]"></span>
-                                            </p>
-                                            <p className="text-xs text-[#8B5CF6]">{goalProgress.avg}% avg</p>
-                                        </div>
-                                    )}
-                                </div>
-                                {goalProgress ? (
-                                    <p className="text-xs text-white/70 leading-snug">
-                                        How close active goals are to completion. Tracks velocity toward targets.
+                            {/* Category balance */}
+                            {categoryBalance && (
+                                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-base font-semibold text-white">Category balance</h3>
+                                        <span className="text-xs font-semibold text-[#8B5CF6]">{categoryBalance.balanceScore}/100</span>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        {categoryBalance.distribution.slice(0, 3).map((item, idx) => (
+                                            <div key={idx} className="flex items-center justify-between">
+                                                <span className="text-sm text-white/80">{item.category}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="h-1.5 w-16 bg-white/10 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-[#8B5CF6] rounded-full"
+                                                            style={{ width: `${item.percentage}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className="text-sm text-[#8B5CF6] font-medium w-10 text-right">{item.percentage.toFixed(0)}%</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-white/70 leading-snug" title="Distribution of activity across habit categories. Higher balance = more evenly spread">
+                                        {categoryBalance.label}
                                     </p>
-                                ) : (
-                                    <p className="text-xs text-white/60">No goals yet</p>
-                                )}
-                            </div>
-
-                            {/* Wheel delta */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
-                                <h3 className="text-sm font-semibold text-white">Wheel delta</h3>
-                                {topWheelDeltas.length > 0 ? (
-                                    <>
-                                        <div className="space-y-1">
-                                            <p className="text-xs text-white/70 leading-snug">
-                                                {topWheelDeltas.map((item, idx) => (
-                                                    <span key={idx}>
-                                                        <span className="text-emerald-300">↑</span>{' '}
-                                                        <span className="text-[#8B5CF6] font-semibold">{item.area}</span>{' '}
-                                                        <span className="text-[#8B5CF6]">{item.score.toFixed(1)}</span>
-                                                        {idx < topWheelDeltas.length - 1 && ', '}
-                                                    </span>
-                                                ))}
-                                            </p>
-                                        </div>
-                                        <p className="text-xs text-white/70 leading-snug">
-                                            Change in Wheel of Life areas over time. Connects behavior to perceived balance.
-                                        </p>
-                                    </>
-                                ) : (
-                                    <p className="text-xs text-white/60">No wheel data yet</p>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </section>
@@ -1188,7 +1627,7 @@ export default function AnalyticsPage() {
                                 </div>
                                 <div className="space-y-1.5">
                                     <p className="text-xs font-medium text-white/80">Last week</p>
-                                    <p className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">{comparative.last_week.completed_total}</p>
+                                    <p className="text-2xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">{comparative.last_week.completed_total}</p>
                                     <p className="text-xs text-white/70">completed logs</p>
                                 </div>
                             </div>
@@ -1362,7 +1801,14 @@ export default function AnalyticsPage() {
 
                 {/* Habit Correlations Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
-                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Habit correlations</h2>
+                    <div className="flex items-start justify-between gap-2">
+                        <div>
+                            <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Habit correlations</h2>
+                            <p className="text-xs text-white/50 mt-1">
+                                Shows how often habits are completed together. 100% = always together.
+                            </p>
+                        </div>
+                    </div>
                     <AICorrelationInsights />
                     {correlations && correlations.length > 0 ? (
                         <div className="space-y-1.5">
@@ -1376,21 +1822,65 @@ export default function AnalyticsPage() {
                                 const titleB = corr.habit_b.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || corr.habit_b;
 
                                 const percentage = Math.round(corr.correlation * 100);
+                                const daysBoth = corr.daysBoth || 0;
+                                const daysA = corr.daysA || 0;
+                                const daysB = corr.daysB || 0;
+
+                                // Цветовая индикация силы связи
+                                const getCorrelationColor = (corr: number) => {
+                                    if (corr >= 0.8) return 'text-[#22C55E]'; // Очень сильная (80-100%)
+                                    if (corr >= 0.6) return 'text-[#8B5CF6]'; // Сильная (60-80%)
+                                    if (corr >= 0.4) return 'text-yellow-400'; // Средняя (40-60%)
+                                    return 'text-white/60'; // Слабая (30-40%)
+                                };
+
+                                const getCorrelationBg = (corr: number) => {
+                                    if (corr >= 0.8) return 'bg-[#22C55E]/5 border-[#22C55E]/50'; // Очень сильная
+                                    if (corr >= 0.6) return 'bg-[#8B5CF6]/5 border-[#8B5CF6]/50'; // Сильная
+                                    if (corr >= 0.4) return 'bg-yellow-400/5 border-yellow-400/50'; // Средняя
+                                    return 'bg-white/5 border-white/10'; // Слабая
+                                };
+
+                                const correlationColor = getCorrelationColor(corr.correlation);
+                                const correlationBg = getCorrelationBg(corr.correlation);
+
+                                // Визуальный индикатор силы (полоска)
+                                const barWidth = Math.min(100, percentage);
 
                                 return (
-                                    <div key={idx} className="flex items-center justify-between py-1.5">
-                                        <span className="text-xs text-white flex-1">
-                                            {emojiA ? `${emojiA} ` : ''}{titleA} ↔ {emojiB ? `${emojiB} ` : ''}{titleB}
-                                        </span>
-                                        <span className="text-xs font-semibold text-white ml-3 flex-shrink-0">
-                                            {percentage}%
-                                        </span>
+                                    <div key={idx} className={`flex items-start justify-between py-2.5 px-3 rounded-xl border ${correlationBg} hover:opacity-80 transition-all`}>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1.5">
+                                                <span className="text-xs text-white">
+                                                    {emojiA ? `${emojiA} ` : ''}{titleA} ↔ {emojiB ? `${emojiB} ` : ''}{titleB}
+                                                </span>
+                                                <span className={`text-xs font-bold ${correlationColor} flex-shrink-0`}>
+                                                    {percentage}%
+                                                </span>
+                                            </div>
+                                            {/* Визуальный индикатор силы связи */}
+                                            <div className="h-1 bg-white/10 rounded-full overflow-hidden mb-1.5">
+                                                <div
+                                                    className={`h-full rounded-full transition-all ${corr.correlation >= 0.8 ? 'bg-[#22C55E]' :
+                                                        corr.correlation >= 0.6 ? 'bg-[#8B5CF6]' :
+                                                            corr.correlation >= 0.4 ? 'bg-yellow-400' :
+                                                                'bg-white/40'
+                                                        }`}
+                                                    style={{ width: `${barWidth}%` }}
+                                                />
+                                            </div>
+                                            {daysBoth > 0 && (
+                                                <p className="text-xs text-white/50">
+                                                    Together {daysBoth} day{daysBoth === 1 ? '' : 's'} • {titleA}: {daysA} days • {titleB}: {daysB} days
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
                                 );
                             })}
                         </div>
                     ) : (
-                        <p className="text-xs text-white/60">No data yet</p>
+                        <p className="text-xs text-white/60">No significant correlations yet. Complete more habits together to see patterns.</p>
                     )}
                 </section>
 
@@ -1425,25 +1915,30 @@ export default function AnalyticsPage() {
                             )}
                         </div>
 
-                        {/* Linked habits */}
+                        {/* Weekly momentum */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-white">Linked habits</h3>
-                                <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
+                                <h3 className="text-base font-semibold text-white">Weekly momentum</h3>
+                                <span className={`text-xs font-semibold uppercase ${weeklyMomentum ? 'text-green-400' : 'text-orange-400'}`}>
+                                    {weeklyMomentum ? 'LIVE' : 'NEED DATA'}
+                                </span>
                             </div>
-                            {linkedHabits ? (
+                            {weeklyMomentum ? (
                                 <div className="flex flex-col gap-1">
-                                    <div className="flex items-center gap-2 text-sm text-white/70">
-                                        <span>{linkedHabits.habitA.emoji}</span>
-                                        <span>{linkedHabits.habitA.title}</span>
-                                        <span>↔️</span>
-                                        <span>{linkedHabits.habitB.emoji}</span>
-                                        <span>{linkedHabits.habitB.title}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-lg ${weeklyMomentum.isPositive ? 'text-emerald-300' : 'text-red-400'}`}>
+                                            {weeklyMomentum.isPositive ? '↑' : '↓'}
+                                        </span>
+                                        <p className="text-sm text-white/70">
+                                            {weeklyMomentum.isPositive ? '+' : '-'}{weeklyMomentum.percentChange.toFixed(0)}% vs last week
+                                        </p>
                                     </div>
-                                    <p className="text-xs text-white/60">({linkedHabits.overlap}% overlap)</p>
+                                    {weeklyMomentum.message && (
+                                        <p className="text-xs text-white/50">{weeklyMomentum.message}</p>
+                                    )}
                                 </div>
                             ) : (
-                                <p className="text-sm text-white/60">No linked habits found</p>
+                                <p className="text-sm text-white/60">No data yet</p>
                             )}
                         </div>
 
@@ -1480,9 +1975,31 @@ export default function AnalyticsPage() {
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-semibold text-white">Fatigue alerts</h3>
-                                <span className="text-xs font-semibold text-orange-400 uppercase">NEED DATA</span>
+                                <span className={`text-xs font-semibold uppercase ${fatigueAlerts.hasData
+                                    ? (fatigueAlerts.riskLevel === 'high' ? 'text-red-400' : fatigueAlerts.riskLevel === 'medium' ? 'text-yellow-400' : 'text-green-400')
+                                    : 'text-orange-400'
+                                    }`}>
+                                    {fatigueAlerts.hasData ? 'LIVE' : 'NEED DATA'}
+                                </span>
                             </div>
-                            <p className="text-sm text-white/70">Track more streaks to surface fatigue alerts.</p>
+                            {fatigueAlerts.hasData ? (
+                                fatigueAlerts.message ? (
+                                    <div className="flex flex-col gap-1.5">
+                                        <p className="text-sm text-white/70">{fatigueAlerts.message}</p>
+                                        {fatigueAlerts.suggestions && fatigueAlerts.suggestions.length > 0 && (
+                                            <ul className="text-xs text-white/60 list-disc list-inside space-y-0.5">
+                                                {fatigueAlerts.suggestions.map((s, idx) => (
+                                                    <li key={idx}>{s}</li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-white/70">All good! No fatigue detected.</p>
+                                )
+                            ) : (
+                                <p className="text-sm text-white/70">Track more streaks to surface fatigue alerts.</p>
+                            )}
                         </div>
 
                         {/* Goal forecast */}
@@ -1503,43 +2020,57 @@ export default function AnalyticsPage() {
                         {/* Habit recommendations */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-white">Habit recommendations</h3>
+                                <h3 className="text-base font-semibold text-white">Habit Recommend</h3>
                                 <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
                             </div>
-                            {habitRecommendations ? (
-                                <p className="text-sm text-white/70">Add support for {habitRecommendations.area} (down {Math.abs(habitRecommendations.delta).toFixed(1)})</p>
+                            {habitRecommendationsWithTemplates ? (
+                                <div className="flex flex-col gap-1.5">
+                                    <p className="text-sm text-white/70">
+                                        {habitRecommendationsWithTemplates.area} (down {Math.abs(habitRecommendationsWithTemplates.delta).toFixed(1)})
+                                    </p>
+                                    {habitRecommendationsWithTemplates.templates.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {habitRecommendationsWithTemplates.templates.map((t, idx) => (
+                                                <span key={idx} className="text-xs text-white/60 flex items-center gap-1">
+                                                    <span>{t.icon}</span>
+                                                    <span>{t.title}</span>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-white/50">All recommended habits already added</p>
+                                    )}
+                                </div>
                             ) : (
                                 <p className="text-sm text-white/60">All areas are improving</p>
                             )}
                         </div>
 
-                        {/* Risk notifications */}
+                        {/* Recovery suggestions */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-white">Risk notifications</h3>
-                                <span className={`text-xs font-semibold uppercase ${predictive.filter(p => p.risk_score > 0).length > 0 ? 'text-green-400' : 'text-orange-400'}`}>
-                                    {predictive.filter(p => p.risk_score > 0).length > 0 ? 'LIVE' : 'NEED DATA'}
+                                <h3 className="text-base font-semibold text-white">Recovery suggestions</h3>
+                                <span className={`text-xs font-semibold uppercase ${recoverySuggestions ? 'text-green-400' : 'text-orange-400'}`}>
+                                    {recoverySuggestions ? 'LIVE' : 'NEED DATA'}
                                 </span>
                             </div>
-                            {predictive.filter(p => p.risk_score > 0).length > 0 ? (
-                                <p className="text-sm text-white/70">{predictive.filter(p => p.risk_score > 0).length} habits at risk of breaking streak.</p>
+                            {recoverySuggestions ? (
+                                <div className="flex flex-col gap-1">
+                                    <p className="text-sm text-white/70">{recoverySuggestions.count} streak{recoverySuggestions.count === 1 ? '' : 's'} broken</p>
+                                    <ul className="text-xs text-white/60 list-disc list-inside space-y-0.5">
+                                        {recoverySuggestions.suggestions.map((s, idx) => (
+                                            <li key={idx}>{s}</li>
+                                        ))}
+                                    </ul>
+                                </div>
                             ) : (
-                                <p className="text-sm text-white/70">Log habits regularly to see risk highlights.</p>
+                                <p className="text-sm text-white/60">No recovery needed</p>
                             )}
                         </div>
 
-                        {/* Micro-rewards */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-white">Micro-rewards</h3>
-                                <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
-                            </div>
-                            {nextStreakBadge ? (
-                                <p className="text-sm text-white/70">{nextStreakBadge.days} days until the {nextStreakBadge.milestone}-day streak badge.</p>
-                            ) : (
-                                <p className="text-sm text-white/60">Keep tracking your streak!</p>
-                            )}
-                        </div>
+                        {/* Next Badge - убрано (не нужно в Advanced Insights) */}
+                        {/* Linked habits - убрано (дублирует Habit correlations) */}
+                        {/* Risk notifications - убрано (дублирует Predictive Alerts) */}
                     </div>
                 </section>
 

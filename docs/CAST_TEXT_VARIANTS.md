@@ -440,12 +440,12 @@
 
 **Вариант 3:**
 ```
-⚡️ Level [X] [level name] unlocked! I've got [XP] XP now. Personality Architect.
+⚡️ Level [X] [level name] unlocked! I've got [XP] XP now.
 ```
 
 **Вариант 4:**
 ```
-⚡️ Made it to [level name] (Level [X])! [XP] XP and counting. Personality Architect.
+⚡️ Made it to [level name] (Level [X])! [XP] XP and counting.
 ```
 
 ---
