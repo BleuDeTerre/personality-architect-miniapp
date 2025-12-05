@@ -115,12 +115,45 @@ export async function GET(req: NextRequest) {
             neynar_profile: profilesMap[entry.user_id] ?? null,
         }));
 
+        // Находим позицию текущего пользователя в полном списке (даже если он не в топ-50)
+        const userPosition = sorted.findIndex(e => e.user_id === userId) + 1; // +1 потому что позиция начинается с 1
+        const userEntry = sorted.find(e => e.user_id === userId);
+        
+        // Если пользователь не в топ-50, получаем его профиль отдельно
+        let userProfile: NeynarProfile | null = null;
+        if (userEntry && userPosition > 50) {
+            const { data: userProfileData } = await supa
+                .from('farcaster_profiles')
+                .select('user_id, fid, username, display_name, pfp_url, bio, follower_count, following_count, updated_at')
+                .eq('user_id', userId)
+                .maybeSingle();
+            
+            if (userProfileData) {
+                userProfile = {
+                    user_id: userProfileData.user_id,
+                    fid: userProfileData.fid ?? null,
+                    username: userProfileData.username ?? null,
+                    display_name: userProfileData.display_name ?? null,
+                    pfp_url: userProfileData.pfp_url ?? null,
+                    bio: userProfileData.bio ?? null,
+                    follower_count: userProfileData.follower_count ?? null,
+                    following_count: userProfileData.following_count ?? null,
+                    updated_at: userProfileData.updated_at ?? null,
+                };
+            }
+        }
+
         // Если используется пагинация - возвращаем с метаданными
         if (usePagination) {
             const meta = getPaginationMeta(total, pagination.page, pagination.limit);
             const response = NextResponse.json({
                 entries: enriched,
                 viewer: userId,
+                userPosition: userPosition > 0 ? userPosition : null,
+                userEntry: userEntry && userPosition > 50 ? {
+                    ...userEntry,
+                    neynar_profile: userProfile,
+                } : null,
                 ...meta,
             });
             // Server-side cache: лидерборд одинаков для всех, кэшируем на 5 минут
@@ -128,8 +161,18 @@ export async function GET(req: NextRequest) {
             return response;
         }
 
-        // Обратная совместимость: без пагинации возвращаем как раньше
-        const response = NextResponse.json({ entries: enriched, viewer: userId });
+        // Обратная совместимость: без пагинации возвращаем топ-50 + позицию пользователя
+        // Если пользователь в топ-50, его entry уже есть в enriched, но возвращаем позицию отдельно
+        const response = NextResponse.json({ 
+            entries: enriched, 
+            viewer: userId,
+            userPosition: userPosition > 0 ? userPosition : null,
+            // userEntry возвращаем только если пользователь НЕ в топ-50
+            userEntry: userEntry && userPosition > 50 ? {
+                ...userEntry,
+                neynar_profile: userProfile,
+            } : null,
+        });
         
         // Server-side cache: лидерборд одинаков для всех, кэшируем на 5 минут
         response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');

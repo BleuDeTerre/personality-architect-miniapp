@@ -34,6 +34,8 @@ export default function LeaderboardPage() {
     const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
     const [loading, setLoading] = useState(false);
     const [myUserId, setMyUserId] = useState<string | null>(null);
+    const [myPosition, setMyPosition] = useState<number | null>(null);
+    const [myEntry, setMyEntry] = useState<LeaderboardEntry | null>(null);
     const [_ctx, setCtx] = useState<any>(null);
 
     const { isSDKLoaded, context: neynarContext } = useMiniApp();
@@ -82,6 +84,8 @@ export default function LeaderboardPage() {
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             setEntries(data.entries || []);
+            setMyPosition(data.userPosition || null);
+            setMyEntry(data.userEntry || null);
         } catch (e) {
             console.error('Failed to load leaderboard:', e);
         } finally {
@@ -89,15 +93,7 @@ export default function LeaderboardPage() {
         }
     }
 
-    const myEntry = useMemo(() => {
-        if (!myUserId) return null;
-        return entries.find(e => e.user_id === myUserId) || null;
-    }, [entries, myUserId]);
-
-    const myPosition = useMemo(() => {
-        if (!myEntry) return null;
-        return entries.findIndex(e => e.user_id === myEntry.user_id) + 1;
-    }, [entries, myEntry]);
+    // myEntry и myPosition теперь приходят из API
 
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return null;
@@ -115,14 +111,83 @@ export default function LeaderboardPage() {
                     </p>
                 </section>
 
-                {/* User Card */}
-                {myEntry && myPosition && (
+                {/* Top 50 Leaderboard List */}
+                {!loading && entries.length > 0 && (
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
+                        <h2 className="text-lg font-semibold text-white mb-4">Top 50</h2>
+                        <div className="space-y-2">
+                            {entries.map((entry, index) => {
+                                const position = index + 1;
+                                const isMe = entry.user_id === myUserId;
+                                const medal = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : null;
+                                
+                                return (
+                                    <div
+                                        key={entry.user_id}
+                                        className={`rounded-2xl border ${
+                                            isMe ? 'border-yellow-400/40 bg-yellow-400/5' : 'border-white/10 bg-[#101327]'
+                                        } p-3 flex items-center gap-3`}
+                                    >
+                                        {/* Position */}
+                                        <div className="flex-shrink-0 w-8 text-center">
+                                            {medal ? (
+                                                <span className="text-xl">{medal}</span>
+                                            ) : (
+                                                <span className="text-sm font-semibold text-white/70">#{position}</span>
+                                            )}
+                                        </div>
+
+                                        {/* Avatar */}
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                            {entry.neynar_profile?.pfp_url ? (
+                                                <Image
+                                                    src={entry.neynar_profile.pfp_url}
+                                                    alt="Profile"
+                                                    width={40}
+                                                    height={40}
+                                                    className="object-cover w-full h-full"
+                                                    unoptimized
+                                                />
+                                            ) : (
+                                                <span className="text-xs font-semibold text-white">
+                                                    {entry.neynar_profile?.display_name
+                                                        ? entry.neynar_profile.display_name.slice(0, 2).toUpperCase()
+                                                        : entry.neynar_profile?.username
+                                                            ? entry.neynar_profile.username.slice(0, 2).toUpperCase()
+                                                            : 'FC'}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Name and Stats */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                {isMe && <span className="text-yellow-400 text-xs">⭐</span>}
+                                                <span className="text-sm font-semibold text-white truncate">
+                                                    {entry.neynar_profile?.display_name || entry.neynar_profile?.username || `User ${entry.fid || ''}`}
+                                                </span>
+                                            </div>
+                                            <div className="flex gap-3 text-xs text-white/60">
+                                                <span>{entry.best_streak} best</span>
+                                                <span>{entry.current_streak} current</span>
+                                                <span>{entry.total_logs} logs</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </section>
+                )}
+
+                {/* User Card (если пользователь не в топ-50) */}
+                {!loading && myEntry && myPosition && myPosition > 50 && (
                     <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                         <div className="flex items-start gap-3">
                             {/* Medal */}
                             <div className="relative flex-shrink-0">
                                 <div className="text-2xl">
-                                    🥇
+                                    🎯
                                 </div>
                                 <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 text-xs font-semibold text-white/70">
                                     #{myPosition}
@@ -187,8 +252,8 @@ export default function LeaderboardPage() {
                                     </div>
                                 </div>
 
-                                {/* Your position link */}
-                                <div className="text-xs text-[#A78BFA] mt-2 font-medium">Your position</div>
+                                {/* Your position */}
+                                <div className="text-xs text-[#A78BFA] mt-2 font-medium">Your position: #{myPosition}</div>
                             </div>
                         </div>
                     </section>
