@@ -1043,7 +1043,7 @@ export default function GoalsPage() {
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="flex items-center gap-2 mt-4" style={{ position: 'relative', zIndex: 1000 }}>
+                                            <div className="flex items-center gap-2 mt-4">
                                                 <button
                                                     type="button"
                                                     onMouseDown={(e) => {
@@ -1075,7 +1075,7 @@ export default function GoalsPage() {
                                                         } ${mutatingGoal ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     disabled={mutatingGoal}
                                                     aria-label={goal.status === 'completed' ? 'Completed' : 'Mark done'}
-                                                    style={{ pointerEvents: mutatingGoal ? 'none' : 'auto', zIndex: 101 }}
+                                                    style={{ pointerEvents: mutatingGoal ? 'none' : 'auto' }}
                                                 >
                                                     <svg
                                                         className="h-5 w-5 pointer-events-none"
@@ -1119,7 +1119,7 @@ export default function GoalsPage() {
                                                         }}
                                                         className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 cursor-pointer flex-shrink-0"
                                                         disabled={mutatingGoal}
-                                                        style={{ pointerEvents: mutatingGoal ? 'none' : 'auto', zIndex: 101 }}
+                                                        style={{ pointerEvents: mutatingGoal ? 'none' : 'auto' }}
                                                     >
                                                         Edit
                                                     </button>

@@ -129,6 +129,12 @@ export async function POST(req: NextRequest) {
         // === РАСШИРЕННЫЕ ЗАПРОСЫ (необязательные, с таймаутами) ===
         // Выполняются параллельно с базовыми, но не блокируют ответ
         const extendedRequestsPromise = Promise.allSettled([
+            // Wellness metrics (last 30 days)
+            withTimeout<any>(
+                supa.from('daily_wellness_metrics').select('date, stress_level, productivity_level, sleep_hours, work_hours').eq('user_id', userId).gte('date', addDaysISO(today, -30)).order('date', { ascending: false }),
+                3000,
+                () => ({ data: [], error: null })
+            ),
             // Wheel scores за период
             withTimeout<any>(
                 supa.from('wheel_scores').select('day, area, score').eq('user_id', userId).gte('day', periodStartStr).order('day', { ascending: false }),
@@ -202,19 +208,20 @@ export async function POST(req: NextRequest) {
         );
 
         // Извлекаем результаты расширенных запросов с fallback значениями
-        // Индексы: 0=wheelScores, 1=logsThisWeek, 2=questEvents, 3=achievementEvents, [+Pro данные]
-        const wheelScores90d = extendedRequests[0]?.status === 'fulfilled' ? extendedRequests[0].value : { data: [], error: null };
-        const logsThisWeekRes = extendedRequests[1]?.status === 'fulfilled' ? extendedRequests[1].value : { data: [], error: null };
-        const questEventsRes = extendedRequests[2]?.status === 'fulfilled' ? extendedRequests[2].value : { data: [], error: null };
-        const achievementEventsRes = extendedRequests[3]?.status === 'fulfilled' ? extendedRequests[3].value : { data: [], error: null };
+        // Индексы: 0=wellnessMetrics, 1=wheelScores, 2=logsThisWeek, 3=questEvents, 4=achievementEvents, [+Pro данные]
+        const wellnessMetricsRes = extendedRequests[0]?.status === 'fulfilled' ? extendedRequests[0].value : { data: [], error: null };
+        const wheelScores90d = extendedRequests[1]?.status === 'fulfilled' ? extendedRequests[1].value : { data: [], error: null };
+        const logsThisWeekRes = extendedRequests[2]?.status === 'fulfilled' ? extendedRequests[2].value : { data: [], error: null };
+        const questEventsRes = extendedRequests[3]?.status === 'fulfilled' ? extendedRequests[3].value : { data: [], error: null };
+        const achievementEventsRes = extendedRequests[4]?.status === 'fulfilled' ? extendedRequests[4].value : { data: [], error: null };
 
         // Pro данные (если isPro)
-        const allLogs90d = isPro && extendedRequests[4]?.status === 'fulfilled' ? extendedRequests[4].value : { data: [], error: null };
-        const logsLast30d = isPro && extendedRequests[5]?.status === 'fulfilled' ? extendedRequests[5].value : { data: [], error: null };
-        const logsPrevious30d = isPro && extendedRequests[6]?.status === 'fulfilled' ? extendedRequests[6].value : { data: [], error: null };
-        const logsLastWeekRes = isPro && extendedRequests[7]?.status === 'fulfilled' ? extendedRequests[7].value : { data: [], error: null };
-        const weeklySummaries = isPro && extendedRequests[8]?.status === 'fulfilled' ? extendedRequests[8].value : { data: [], error: null };
-        const logsWithTimeRes = isPro && extendedRequests[9]?.status === 'fulfilled' ? extendedRequests[9].value : { data: [], error: null };
+        const allLogs90d = isPro && extendedRequests[5]?.status === 'fulfilled' ? extendedRequests[5].value : { data: [], error: null };
+        const logsLast30d = isPro && extendedRequests[6]?.status === 'fulfilled' ? extendedRequests[6].value : { data: [], error: null };
+        const logsPrevious30d = isPro && extendedRequests[7]?.status === 'fulfilled' ? extendedRequests[7].value : { data: [], error: null };
+        const logsLastWeekRes = isPro && extendedRequests[8]?.status === 'fulfilled' ? extendedRequests[8].value : { data: [], error: null };
+        const weeklySummaries = isPro && extendedRequests[9]?.status === 'fulfilled' ? extendedRequests[9].value : { data: [], error: null };
+        const logsWithTimeRes = isPro && extendedRequests[10]?.status === 'fulfilled' ? extendedRequests[10].value : { data: [], error: null };
 
         // Формируем wheelTrends из wheelScores90d для совместимости
         const wheelTrends = wheelScores90d?.data ? wheelScores90d.data.map((w: any) => ({
@@ -552,6 +559,8 @@ export async function POST(req: NextRequest) {
             correlations: isPro ? topCorrelations : [],
             // Preferred Time Patterns (только для Pro)
             timePatterns: isPro ? timePatternsByHabit : {},
+            // Wellness Metrics (last 30 days)
+            wellnessMetrics: Array.isArray(wellnessMetricsRes.data) ? wellnessMetricsRes.data.slice(0, 30) : [],
         };
 
         // AI ответ
@@ -583,6 +592,7 @@ export async function POST(req: NextRequest) {
             goalsWithDetails: context.goalsWithDetails,
             recentActivity: context.recentActivity,
             wheelTrends: context.wheelTrends,
+            wellnessMetrics: context.wellnessMetrics,
             weeklySummary: context.weeklySummary,
             threeMonthsStats: context.threeMonthsStats,
             wheelComparison: context.wheelComparison,

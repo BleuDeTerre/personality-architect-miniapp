@@ -29,6 +29,8 @@ type Stats = { current_streak: number; best_streak: number; last_completed: stri
 type Habit = { id: string; title: string; is_active?: boolean; target_days_per_week?: number; category?: string | null };
 type Log = { habit_id: string; date: string; value: boolean; is_completed?: boolean };
 type TrendPoint = { date: string; streak: number };
+type WellnessTrend = { metric: string; current: number | null; previous: number | null; change: number | null; changePercent: number | null; trend?: 'improving' | 'declining' | 'stable'; status?: 'optimal' | 'below' | 'above' | null; optimalRange?: { min: number; max: number; lowerIsBetter?: boolean } | null };
+type WellnessAnalytics = { trends: WellnessTrend[]; averages: { stress_level: number; productivity_level: number; sleep_hours: number; work_hours: number } | null; correlations: Array<{ metric_a: string; metric_b: string; correlation: number }>; insights: string[]; dataPoints: number };
 
 // Helper function for date formatting (shared)
 function formatChartDate(dateStr: string) {
@@ -498,6 +500,7 @@ export default function AnalyticsPage() {
     const [loadingTrend, setLoadingTrend] = useState(false);
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'core' | 'advanced'>('core');
+    const [wellnessAnalytics, setWellnessAnalytics] = useState<WellnessAnalytics | null>(null);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -523,7 +526,7 @@ export default function AnalyticsPage() {
             sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
             const sevenDaysAgoStr = `${sevenDaysAgo.getFullYear()}-${String(sevenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysAgo.getDate()).padStart(2, '0')}`;
 
-            const [corrRes, predRes, compRes, factsRes, goalsRes, wheelRes, statsRes, habitsRes, logsRes] = await Promise.all([
+            const [corrRes, predRes, compRes, factsRes, goalsRes, wheelRes, statsRes, habitsRes, logsRes, wellnessRes] = await Promise.all([
                 fetch('/api/analytics/correlations', { headers: hdrs }).then(r => r.json()).catch(() => ({ correlations: [] })),
                 fetch('/api/analytics/predictive', { headers: hdrs }).then(r => r.json()).catch(() => ({ insights: [] })),
                 fetch('/api/analytics/comparative', { headers: hdrs }).then(r => r.json()).catch(() => null),
@@ -533,6 +536,7 @@ export default function AnalyticsPage() {
                 fetch('/api/habits/stats', { headers: hdrs }).then(r => r.json()).catch(() => ({ current_streak: 0, best_streak: 0, last_completed: null })),
                 fetch('/api/habits/list', { headers: hdrs }).then(r => r.json()).catch(() => []),
                 fetch(`/api/habits/logs?from=${sevenDaysAgoStr}&to=${today}`, { headers: hdrs }).then(r => r.json()).catch(() => ({ items: [] })),
+                fetch('/api/analytics/wellness?days=30', { headers: hdrs }).then(r => r.json()).catch(() => ({ trends: [], averages: null, correlations: [], insights: [], dataPoints: 0 })),
             ]);
 
             setCorrelations(corrRes.correlations || []);
@@ -542,6 +546,7 @@ export default function AnalyticsPage() {
             setGoals(goalsRes.items || []);
             setWheelTrends(wheelRes.areas || []);
             setStats(statsRes);
+            setWellnessAnalytics(wellnessRes);
 
             // Store logs with timestamps for time analysis
             const logs = Array.isArray(logsRes.items) ? logsRes.items.filter((l: any) => l.value === true || l.is_completed === true) : [];
@@ -1703,6 +1708,83 @@ export default function AnalyticsPage() {
                                     <p className="text-sm text-white/70">Track more streaks to surface fatigue alerts.</p>
                                 )}
                             </div>
+
+                            {/* Wellness Deep Dive */}
+                            {wellnessAnalytics && wellnessAnalytics.dataPoints > 0 && (
+                                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
+                                    <h3 className="text-base font-semibold text-white">Wellness Deep Dive</h3>
+                                    {wellnessAnalytics.trends && wellnessAnalytics.trends.length > 0 ? (
+                                        <div className="space-y-2 text-sm">
+                                            {wellnessAnalytics.trends.map((trend) => {
+                                                if (trend.current === null) return null;
+                                                
+                                                const metricLabels: Record<string, { label: string; color: string }> = {
+                                                    stress_level: { label: 'Stress', color: 'text-red-400' },
+                                                    productivity_level: { label: 'Productivity', color: 'text-green-400' },
+                                                    sleep_hours: { label: 'Sleep', color: 'text-blue-400' },
+                                                    work_hours: { label: 'Work', color: 'text-yellow-400' },
+                                                };
+                                                const metric = metricLabels[trend.metric] || { label: trend.metric, color: 'text-white' };
+                                                
+                                                const isHours = trend.metric.includes('hours');
+                                                const displayValue = isHours ? `${trend.current.toFixed(1)}h` : `${trend.current.toFixed(1)}`;
+                                                
+                                                // Trend indicator
+                                                // For stress: improving = lower, declining = higher
+                                                // For others: improving = higher, declining = lower
+                                                const trendIcon = trend.trend === 'improving' ? '↑' : trend.trend === 'declining' ? '↓' : '→';
+                                                const trendColor = trend.trend === 'improving' 
+                                                    ? 'text-green-400'
+                                                    : trend.trend === 'declining' 
+                                                        ? 'text-red-400'
+                                                        : 'text-white/60';
+                                                
+                                                // For stress, reverse the icon (lower is better = improving)
+                                                const displayIcon = trend.metric === 'stress_level' && trend.trend === 'improving'
+                                                    ? '↓'
+                                                    : trend.metric === 'stress_level' && trend.trend === 'declining'
+                                                        ? '↑'
+                                                        : trendIcon;
+                                                
+                                                // Status
+                                                const statusText = trend.status === 'optimal' ? 'Optimal' : trend.status === 'below' ? 'Below optimal' : trend.status === 'above' ? 'Above optimal' : null;
+                                                const statusColor = trend.status === 'optimal' ? 'text-green-400' : trend.status === 'below' ? 'text-yellow-400' : trend.status === 'above' ? 'text-orange-400' : 'text-white/60';
+                                                
+                                                // Optimal range display
+                                                const rangeText = trend.optimalRange 
+                                                    ? ` (Optimal: ${isHours ? `${trend.optimalRange.min}-${trend.optimalRange.max}h` : `${trend.optimalRange.min}-${trend.optimalRange.max}`})`
+                                                    : '';
+                                                
+                                                return (
+                                                    <div key={trend.metric} className="flex flex-col gap-0.5">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-white/70">{metric.label}:</span>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className={`font-semibold ${metric.color}`}>{displayValue}</span>
+                                                                {trend.trend && (
+                                                                    <span className={`text-xs ${trendColor}`}>{displayIcon}</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        {statusText && (
+                                                            <div className="flex items-center justify-between text-xs">
+                                                                <span className={`${statusColor} font-medium`}>{statusText}{rangeText}</span>
+                                                                {trend.change !== null && trend.change !== 0 && (
+                                                                    <span className="text-white/50">
+                                                                        {trend.change > 0 ? '+' : ''}{trend.change.toFixed(1)} vs last week
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-white/60">No data yet</p>
+                                    )}
+                                </div>
+                            )}
                                 </div>
                             )}
                         </>
@@ -1914,6 +1996,35 @@ export default function AnalyticsPage() {
                                             <p className="text-sm text-white/60">No recovery needed</p>
                                         )}
                                     </div>
+
+                                    {/* Wellness Correlations */}
+                                    {wellnessAnalytics && wellnessAnalytics.dataPoints > 0 && (
+                                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
+                                            <h3 className="text-base font-semibold text-white">Wellness Correlations</h3>
+                                            {wellnessAnalytics.correlations && wellnessAnalytics.correlations.length > 0 ? (
+                                                <div className="space-y-1.5">
+                                                    {wellnessAnalytics.correlations.slice(0, 3).map((corr, idx) => {
+                                                        const strength = Math.abs(corr.correlation);
+                                                        const direction = corr.correlation > 0 ? 'increases with' : 'decreases with';
+                                                        const strengthLabel = strength > 0.7 ? 'Strong' : strength > 0.5 ? 'Moderate' : 'Weak';
+                                                        return (
+                                                            <div key={idx} className="text-xs text-white/70 leading-relaxed">
+                                                                <span className="text-white/90">{corr.metric_a.replace('_', ' ')}</span> {direction}{' '}
+                                                                <span className="text-white/90">{corr.metric_b.replace('_', ' ')}</span>{' '}
+                                                                <span className="text-purple-400">({strengthLabel}: {strength.toFixed(2)})</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-white/60 leading-snug">
+                                                    {wellnessAnalytics.dataPoints < 5 
+                                                        ? `Need at least 5 data points to calculate correlations (currently ${wellnessAnalytics.dataPoints})`
+                                                        : 'No significant correlations found yet. Keep tracking your wellness metrics!'}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </>

@@ -23,6 +23,15 @@ const AIPredictiveAlerts = dynamic(() => import('@/components/AIPredictiveAlerts
   loading: () => null, // Don't show loading skeleton if no alerts
 });
 
+const DailyWellness = dynamic(() => import('@/components/DailyWellness'), {
+  ssr: false,
+  loading: () => (
+    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
+      <div className="h-24 w-full rounded bg-white/10" />
+    </section>
+  ),
+});
+
 const DailyQuests = dynamic(() => import('@/components/DailyQuests'), {
   ssr: false,
   loading: () => (
@@ -197,6 +206,7 @@ export default function DashboardPage() {
           ))}
         </div>
 
+        <DailyWellness />
         <AIMotivationMessage />
         <AIPredictiveAlerts />
         <DailyQuests />

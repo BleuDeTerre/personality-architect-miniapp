@@ -75,6 +75,7 @@ export function buildChatPrompt(context: {
     recentAchievements?: string[];
     correlations?: Array<{ habit_a: string; habit_b: string; correlation: number }>;
     timePatterns?: Record<string, { avgHour: number; timeOfDay: string }>;
+    wellnessMetrics?: Array<{ date: string; stress_level?: number | null; productivity_level?: number | null; sleep_hours?: number | null; work_hours?: number | null }>;
     // НОВЫЕ ПОЛЯ
     currentDate?: string; // Передавайте new Date().toString()
     userMainFocus?: string; // "Главная цель жизни" (если есть)
@@ -238,6 +239,33 @@ ${timeLines.join('\n')}`;
         }
     }
 
+    // Wellness metrics context
+    let wellnessContext = '';
+    if (context.wellnessMetrics && context.wellnessMetrics.length > 0) {
+        const recent = context.wellnessMetrics.slice(0, 7); // Last 7 days
+        const hasData = recent.filter(m => m.stress_level !== null || m.productivity_level !== null || m.sleep_hours !== null || m.work_hours !== null);
+
+        if (hasData.length > 0) {
+            const avgStress = recent.filter(m => m.stress_level !== null).reduce((sum, m) => sum + (m.stress_level || 0), 0) / recent.filter(m => m.stress_level !== null).length || 0;
+            const avgProductivity = recent.filter(m => m.productivity_level !== null).reduce((sum, m) => sum + (m.productivity_level || 0), 0) / recent.filter(m => m.productivity_level !== null).length || 0;
+            const avgSleep = recent.filter(m => m.sleep_hours !== null).reduce((sum, m) => sum + (m.sleep_hours || 0), 0) / recent.filter(m => m.sleep_hours !== null).length || 0;
+            const avgWork = recent.filter(m => m.work_hours !== null).reduce((sum, m) => sum + (m.work_hours || 0), 0) / recent.filter(m => m.work_hours !== null).length || 0;
+
+            wellnessContext = `
+DAILY WELLNESS METRICS (last 7 days, scale 1-10):
+${avgStress > 0 ? `- Average Stress Level: ${avgStress.toFixed(1)}/10` : ''}
+${avgProductivity > 0 ? `- Average Productivity: ${avgProductivity.toFixed(1)}/10` : ''}
+${avgSleep > 0 ? `- Average Sleep: ${avgSleep.toFixed(1)} hours` : ''}
+${avgWork > 0 ? `- Average Work Hours: ${avgWork.toFixed(1)} hours` : ''}
+
+Use this data to understand their daily patterns:
+- High stress (>7/10) may affect habit completion. Suggest stress reduction.
+- Low sleep (<7 hours) correlates with lower productivity. Recommend sleep hygiene.
+- High work hours (>8) with high stress may indicate burnout risk.
+- Productivity peaks can help schedule important habits.`;
+        }
+    }
+
     return `${BASE_COACH_PERSONA}
 ${BASE_OUTPUT_RULES}
 
@@ -249,7 +277,7 @@ The person's current context:
 - Active habits: ${context.habits.join(', ') || 'None yet'}${categoryContext}
 - Active goals: ${context.activeGoals.join(', ') || 'None yet'}${goalDetailsContext}
 - Recent activity: ${context.recentActivity} completed habit logs
-- Latest weekly summary: ${context.weeklySummary || 'None yet'}${comparisonContext}${streakContext}${gamificationContext}${questContext}${achievementContext}${habitDetailsContext}${goalDetailsContext}${correlationContext}${timePatternContext}
+- Latest weekly summary: ${context.weeklySummary || 'None yet'}${comparisonContext}${streakContext}${gamificationContext}${questContext}${achievementContext}${habitDetailsContext}${goalDetailsContext}${correlationContext}${timePatternContext}${wellnessContext}
 
 MENTORING GUIDELINES (HOW TO THINK & ACT):
 
@@ -261,6 +289,7 @@ MENTORING GUIDELINES (HOW TO THINK & ACT):
    - Look at 'Time Patterns': If they miss a habit, check if they are trying to do it at the wrong time (e.g., trying to exercise when they usually work).
    - Look at 'Struggling Habits': If completion is < 50%, suggest making the habit smaller (e.g., "Just 5 mins instead of 30").
    - Look at 'Streak': If they lost a streak, acknowledge the pain but push for immediate recovery ("Don't miss twice").
+   - Look at 'Wellness Metrics': High stress (>7) or low sleep (<7h) often explains missed habits. Address root causes.
 
 3. **Tough Love (Sensei Mode):**
    - If stats are declining (-%), ask: "What is distracting you?"
