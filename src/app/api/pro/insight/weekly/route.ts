@@ -35,6 +35,15 @@ async function generateWeekly(supa: ReturnType<typeof createUserServerClient>, u
         .eq('user_id', userId)
         .eq('week', weekISO);
 
+    // Получаем wellness метрики за неделю
+    const { data: wellness } = await supa
+        .from('daily_wellness_metrics')
+        .select('date, stress_level, productivity_level, sleep_hours, work_hours')
+        .eq('user_id', userId)
+        .gte('date', startDate)
+        .lte('date', endDateStr)
+        .order('date', { ascending: true });
+
     // Агрегируем по дням
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const items = dayNames.map(() => ({ completed: 0, total: 0 }));
@@ -59,6 +68,37 @@ async function generateWeekly(supa: ReturnType<typeof createUserServerClient>, u
     const wheelAvg = wheelItems.length ? wheelItems.reduce((sum: number, x: any) => sum + x.score, 0) / wheelItems.length : 0;
     const top3 = wheelItems.sort((a, b) => b.score - a.score).slice(0, 3).map(x => `${x.area}: ${x.score}`).join(', ');
 
+    // Вычисляем средние wellness метрики за неделю
+    const wellnessContext = wellness && wellness.length > 0 ? (() => {
+        const validMetrics = wellness.filter((m: any) => 
+            m.stress_level !== null || m.productivity_level !== null || 
+            m.sleep_hours !== null || m.work_hours !== null
+        );
+        if (validMetrics.length === 0) return '';
+
+        const avgStress = validMetrics.filter((m: any) => m.stress_level !== null)
+            .reduce((sum: number, m: any) => sum + (m.stress_level || 0), 0) / 
+            validMetrics.filter((m: any) => m.stress_level !== null).length || 0;
+        const avgProductivity = validMetrics.filter((m: any) => m.productivity_level !== null)
+            .reduce((sum: number, m: any) => sum + (m.productivity_level || 0), 0) / 
+            validMetrics.filter((m: any) => m.productivity_level !== null).length || 0;
+        const avgSleep = validMetrics.filter((m: any) => m.sleep_hours !== null)
+            .reduce((sum: number, m: any) => sum + (m.sleep_hours || 0), 0) / 
+            validMetrics.filter((m: any) => m.sleep_hours !== null).length || 0;
+        const avgWork = validMetrics.filter((m: any) => m.work_hours !== null)
+            .reduce((sum: number, m: any) => sum + (m.work_hours || 0), 0) / 
+            validMetrics.filter((m: any) => m.work_hours !== null).length || 0;
+
+        const parts: string[] = [];
+        if (avgStress > 0) parts.push(`Stress: ${avgStress.toFixed(1)}/10`);
+        if (avgProductivity > 0) parts.push(`Productivity: ${avgProductivity.toFixed(1)}/10`);
+        if (avgSleep > 0) parts.push(`Sleep: ${avgSleep.toFixed(1)}h`);
+        if (avgWork > 0) parts.push(`Work: ${avgWork.toFixed(1)}h`);
+        
+        if (parts.length === 0) return '';
+        return `Wellness averages: ${parts.join(', ')}. Use this to understand their capacity and energy levels.`;
+    })() : '';
+
     const { openaiClient, pickModel } = await import('@/lib/aiModel');
     const openai = openaiClient();
     const model = pickModel({ deep: false });
@@ -74,8 +114,9 @@ async function generateWeekly(supa: ReturnType<typeof createUserServerClient>, u
                     `Weekly summary for ${startDate} to ${endDateStr}:`,
                     `Completed ${completed} habit logs across ${logsByDate.size} active days.`,
                     wheelItems.length > 0 ? `Wheel average: ${wheelAvg.toFixed(1)}/10. Top areas: ${top3}` : 'No wheel data.',
+                    wellnessContext || '',
                     `Provide 4-5 bullet insights and 3 actionable recommendations for next week.`,
-                ].join('\n'),
+                ].filter(Boolean).join('\n'),
             },
         ],
     });

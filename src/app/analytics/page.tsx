@@ -29,7 +29,7 @@ type Stats = { current_streak: number; best_streak: number; last_completed: stri
 type Habit = { id: string; title: string; is_active?: boolean; target_days_per_week?: number; category?: string | null };
 type Log = { habit_id: string; date: string; value: boolean; is_completed?: boolean };
 type TrendPoint = { date: string; streak: number };
-type WellnessTrend = { metric: string; current: number | null; previous: number | null; change: number | null; changePercent: number | null; trend?: 'improving' | 'declining' | 'stable'; status?: 'optimal' | 'below' | 'above' | null; optimalRange?: { min: number; max: number; lowerIsBetter?: boolean } | null };
+type WellnessTrend = { metric: string; current: number | null; previous: number | null; change: number | null; changePercent: number | null; trend?: 'improving' | 'declining' | 'stable' | null; status?: 'optimal' | 'below' | 'above' | null; optimalRange?: { min: number; max: number; lowerIsBetter?: boolean } | null };
 type WellnessAnalytics = { trends: WellnessTrend[]; averages: { stress_level: number; productivity_level: number; sleep_hours: number; work_hours: number } | null; correlations: Array<{ metric_a: string; metric_b: string; correlation: number }>; insights: string[]; dataPoints: number };
 
 // Helper function for date formatting (shared)
@@ -1710,8 +1710,33 @@ export default function AnalyticsPage() {
                             </div>
 
                             {/* Wellness Deep Dive */}
-                            {wellnessAnalytics && wellnessAnalytics.dataPoints > 0 && (
-                                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
+                            {wellnessAnalytics && wellnessAnalytics.dataPoints > 0 && (() => {
+                                // Count optimal metrics
+                                const optimalCount = wellnessAnalytics.trends?.filter(t => t.status === 'optimal').length || 0;
+                                const totalCount = wellnessAnalytics.trends?.filter(t => t.current !== null).length || 0;
+                                
+                                // Determine border and background color based on optimal count
+                                let borderColor = 'border-white/10';
+                                let bgColor = 'bg-[#1a1b2e]';
+                                
+                                if (totalCount > 0) {
+                                    if (optimalCount >= 3) {
+                                        // Green for 3+ optimal
+                                        borderColor = 'border-[#22C55E]/50';
+                                        bgColor = 'bg-[#22C55E]/5';
+                                    } else if (optimalCount === 2) {
+                                        // Yellow for 2 optimal
+                                        borderColor = 'border-yellow-400/50';
+                                        bgColor = 'bg-yellow-400/5';
+                                    } else {
+                                        // Red for 0-1 optimal
+                                        borderColor = 'border-red-400/50';
+                                        bgColor = 'bg-red-400/5';
+                                    }
+                                }
+                                
+                                return (
+                                <div className={`rounded-2xl border p-4 space-y-2 ${borderColor} ${bgColor}`}>
                                     <h3 className="text-base font-semibold text-white">Wellness Deep Dive</h3>
                                     {wellnessAnalytics.trends && wellnessAnalytics.trends.length > 0 ? (
                                         <div className="space-y-2 text-sm">
@@ -1729,22 +1754,26 @@ export default function AnalyticsPage() {
                                                 const isHours = trend.metric.includes('hours');
                                                 const displayValue = isHours ? `${trend.current.toFixed(1)}h` : `${trend.current.toFixed(1)}`;
                                                 
-                                                // Trend indicator
-                                                // For stress: improving = lower, declining = higher
-                                                // For others: improving = higher, declining = lower
-                                                const trendIcon = trend.trend === 'improving' ? '↑' : trend.trend === 'declining' ? '↓' : '→';
-                                                const trendColor = trend.trend === 'improving' 
-                                                    ? 'text-green-400'
-                                                    : trend.trend === 'declining' 
-                                                        ? 'text-red-400'
-                                                        : 'text-white/60';
+                                                // Trend indicator (vs yesterday)
+                                                // Show ↑ (green), ↓ (red), or → (white/gray if no change)
+                                                let displayIcon = null;
+                                                let trendColor = 'text-white/60';
                                                 
-                                                // For stress, reverse the icon (lower is better = improving)
-                                                const displayIcon = trend.metric === 'stress_level' && trend.trend === 'improving'
-                                                    ? '↓'
-                                                    : trend.metric === 'stress_level' && trend.trend === 'declining'
-                                                        ? '↑'
-                                                        : trendIcon;
+                                                if (trend.trend === 'improving') {
+                                                    // For stress: improving = lower (↓ green)
+                                                    // For others: improving = higher (↑ green)
+                                                    displayIcon = trend.metric === 'stress_level' ? '↓' : '↑';
+                                                    trendColor = 'text-green-400';
+                                                } else if (trend.trend === 'declining') {
+                                                    // For stress: declining = higher (↑ red)
+                                                    // For others: declining = lower (↓ red)
+                                                    displayIcon = trend.metric === 'stress_level' ? '↑' : '↓';
+                                                    trendColor = 'text-red-400';
+                                                } else if (trend.trend === 'stable') {
+                                                    // No change - show → in white/gray
+                                                    displayIcon = '→';
+                                                    trendColor = 'text-white/60';
+                                                }
                                                 
                                                 // Status
                                                 const statusText = trend.status === 'optimal' ? 'Optimal' : trend.status === 'below' ? 'Below optimal' : trend.status === 'above' ? 'Above optimal' : null;
@@ -1761,7 +1790,7 @@ export default function AnalyticsPage() {
                                                             <span className="text-white/70">{metric.label}:</span>
                                                             <div className="flex items-center gap-1.5">
                                                                 <span className={`font-semibold ${metric.color}`}>{displayValue}</span>
-                                                                {trend.trend && (
+                                                                {displayIcon && (
                                                                     <span className={`text-xs ${trendColor}`}>{displayIcon}</span>
                                                                 )}
                                                             </div>
@@ -1771,7 +1800,7 @@ export default function AnalyticsPage() {
                                                                 <span className={`${statusColor} font-medium`}>{statusText}{rangeText}</span>
                                                                 {trend.change !== null && trend.change !== 0 && (
                                                                     <span className="text-white/50">
-                                                                        {trend.change > 0 ? '+' : ''}{trend.change.toFixed(1)} vs last week
+                                                                        {trend.change > 0 ? '+' : ''}{trend.change.toFixed(1)} vs yesterday
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -1784,7 +1813,8 @@ export default function AnalyticsPage() {
                                         <p className="text-xs text-white/60">No data yet</p>
                                     )}
                                 </div>
-                            )}
+                                );
+                            })()}
                                 </div>
                             )}
                         </>

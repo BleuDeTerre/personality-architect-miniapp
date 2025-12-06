@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         const sevenDaysAgoStr = `${sevenDaysAgo.getFullYear()}-${String(sevenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysAgo.getDate()).padStart(2, '0')}`;
 
-        const [habitsRes, logsTodayRes, logsWeekRes, statsRes, goalsRes, wheelRes, questEventsRes] = await Promise.all([
+        const [habitsRes, logsTodayRes, logsWeekRes, statsRes, goalsRes, wheelRes, questEventsRes, wellnessRes] = await Promise.all([
             supa
                 .from('habits')
                 .select('id, title, category')
@@ -111,6 +111,13 @@ export async function GET(req: NextRequest) {
                 .in('name', ['daily_quest_completed', 'weekly_quest_completed', 'monthly_quest_completed'])
                 .gte('created_at', sevenDaysAgoStr)
                 .order('created_at', { ascending: false }),
+            supa
+                .from('daily_wellness_metrics')
+                .select('date, stress_level, productivity_level, sleep_hours, work_hours')
+                .eq('user_id', userId)
+                .gte('date', sevenDaysAgoStr)
+                .lte('date', todayStr)
+                .order('date', { ascending: false }),
         ]);
 
         const habits = habitsRes.data || [];
@@ -120,6 +127,39 @@ export async function GET(req: NextRequest) {
         const goals = goalsRes.data || [];
         const wheelScores = wheelRes.data || [];
         const questEvents = questEventsRes.data || [];
+        const wellnessMetrics = wellnessRes.data || [];
+
+        // Вычисляем средние wellness метрики за последние 7 дней
+        const wellnessContext = wellnessMetrics.length > 0 ? (() => {
+            const validMetrics = wellnessMetrics.filter(m => 
+                m.stress_level !== null || m.productivity_level !== null || 
+                m.sleep_hours !== null || m.work_hours !== null
+            );
+            if (validMetrics.length === 0) return '';
+
+            const avgStress = validMetrics.filter(m => m.stress_level !== null)
+                .reduce((sum, m) => sum + (m.stress_level || 0), 0) / 
+                validMetrics.filter(m => m.stress_level !== null).length || 0;
+            const avgProductivity = validMetrics.filter(m => m.productivity_level !== null)
+                .reduce((sum, m) => sum + (m.productivity_level || 0), 0) / 
+                validMetrics.filter(m => m.productivity_level !== null).length || 0;
+            const avgSleep = validMetrics.filter(m => m.sleep_hours !== null)
+                .reduce((sum, m) => sum + (m.sleep_hours || 0), 0) / 
+                validMetrics.filter(m => m.sleep_hours !== null).length || 0;
+            const avgWork = validMetrics.filter(m => m.work_hours !== null)
+                .reduce((sum, m) => sum + (m.work_hours || 0), 0) / 
+                validMetrics.filter(m => m.work_hours !== null).length || 0;
+
+            const parts: string[] = [];
+            if (avgStress > 0) parts.push(`Stress: ${avgStress.toFixed(1)}/10`);
+            if (avgProductivity > 0) parts.push(`Productivity: ${avgProductivity.toFixed(1)}/10`);
+            if (avgSleep > 0) parts.push(`Sleep: ${avgSleep.toFixed(1)}h`);
+            if (avgWork > 0) parts.push(`Work: ${avgWork.toFixed(1)}h`);
+            
+            if (parts.length === 0) return '';
+            return `Wellness (last 7 days): ${parts.join(', ')}. ` +
+                `Use this to understand their energy and capacity. High stress (>7) or low sleep (<7h) may affect motivation.`;
+        })() : '';
 
         // Анализ выполнения привычек
         const completedToday = new Set(logsToday.map(l => l.habit_id)).size;
@@ -245,6 +285,11 @@ export async function GET(req: NextRequest) {
         // Добавляем информацию о квестах
         if (completedQuests > 0) {
             contextParts.push(`Quests completed recently: ${completedQuests} (${recentQuestCompletion} in last 2 days)`);
+        }
+
+        // Добавляем wellness метрики
+        if (wellnessContext) {
+            contextParts.push(wellnessContext);
         }
 
         // Определяем тон сообщения на основе данных

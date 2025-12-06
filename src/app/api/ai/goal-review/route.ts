@@ -37,6 +37,51 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ reviews: [] });
         }
 
+        // Получаем wellness метрики за последние 7 дней для контекста
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
+        const todayStr = new Date().toISOString().slice(0, 10);
+        
+        const { data: wellness } = await supa
+            .from('daily_wellness_metrics')
+            .select('date, stress_level, productivity_level, sleep_hours, work_hours')
+            .eq('user_id', userId)
+            .gte('date', sevenDaysAgoStr)
+            .lte('date', todayStr)
+            .order('date', { ascending: false });
+
+        // Вычисляем средние wellness метрики
+        const wellnessContext = wellness && wellness.length > 0 ? (() => {
+            const validMetrics = wellness.filter((m: any) => 
+                m.stress_level !== null || m.productivity_level !== null || 
+                m.sleep_hours !== null || m.work_hours !== null
+            );
+            if (validMetrics.length === 0) return '';
+
+            const avgStress = validMetrics.filter((m: any) => m.stress_level !== null)
+                .reduce((sum: number, m: any) => sum + (m.stress_level || 0), 0) / 
+                validMetrics.filter((m: any) => m.stress_level !== null).length || 0;
+            const avgProductivity = validMetrics.filter((m: any) => m.productivity_level !== null)
+                .reduce((sum: number, m: any) => sum + (m.productivity_level || 0), 0) / 
+                validMetrics.filter((m: any) => m.productivity_level !== null).length || 0;
+            const avgSleep = validMetrics.filter((m: any) => m.sleep_hours !== null)
+                .reduce((sum: number, m: any) => sum + (m.sleep_hours || 0), 0) / 
+                validMetrics.filter((m: any) => m.sleep_hours !== null).length || 0;
+            const avgWork = validMetrics.filter((m: any) => m.work_hours !== null)
+                .reduce((sum: number, m: any) => sum + (m.work_hours || 0), 0) / 
+                validMetrics.filter((m: any) => m.work_hours !== null).length || 0;
+
+            const parts: string[] = [];
+            if (avgStress > 0) parts.push(`Stress: ${avgStress.toFixed(1)}/10`);
+            if (avgProductivity > 0) parts.push(`Productivity: ${avgProductivity.toFixed(1)}/10`);
+            if (avgSleep > 0) parts.push(`Sleep: ${avgSleep.toFixed(1)}h`);
+            if (avgWork > 0) parts.push(`Work: ${avgWork.toFixed(1)}h`);
+            
+            if (parts.length === 0) return '';
+            return `Wellness (last 7 days): ${parts.join(', ')}. Consider this when assessing goal progress capacity.`;
+        })() : '';
+
         const today = new Date();
         const reviews: Array<{
             goalId: string;
@@ -102,8 +147,9 @@ export async function GET(req: NextRequest) {
                                 dueDate ? `Due in: ${Math.max(0, Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))} days` : 'No deadline',
                                 `Progress: ${progress.toFixed(0)}%`,
                                 goal.important !== undefined || goal.urgent !== undefined ? `Eisenhower Matrix: ${goal.important ? 'Important' : 'Not Important'} & ${goal.urgent ? 'Urgent' : 'Not Urgent'}` : '',
+                                wellnessContext || '',
                                 ``,
-                                `Assess if on track and provide recommendation considering the priority level.`,
+                                `Assess if on track and provide recommendation considering the priority level and their wellness capacity.`,
                                 `Return JSON only.`,
                             ].filter(Boolean).join('\n'),
                         },

@@ -72,10 +72,10 @@ export async function GET(req: NextRequest) {
             work_hours: validData.reduce((sum, d) => sum + (d.work_hours || 0), 0) / validData.filter(d => d.work_hours !== null).length || 0,
         };
 
-        // Calculate trends (last 7 days vs previous 7 days)
+        // Calculate trends (today vs yesterday)
         const sortedData = [...wellnessData].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        const last7Days = sortedData.slice(-7);
-        const previous7Days = sortedData.slice(-14, -7);
+        const todayData = sortedData[sortedData.length - 1] || null;
+        const yesterdayData = sortedData.length >= 2 ? sortedData[sortedData.length - 2] : null;
 
         // Define optimal ranges for each metric
         const optimalRanges: Record<string, { min: number; max: number; lowerIsBetter?: boolean }> = {
@@ -88,39 +88,23 @@ export async function GET(req: NextRequest) {
         const trends = [
             {
                 metric: 'stress_level',
-                current: last7Days.filter(d => d.stress_level !== null).length > 0
-                    ? last7Days.reduce((sum, d) => sum + (d.stress_level || 0), 0) / last7Days.filter(d => d.stress_level !== null).length
-                    : null,
-                previous: previous7Days.filter(d => d.stress_level !== null).length > 0
-                    ? previous7Days.reduce((sum, d) => sum + (d.stress_level || 0), 0) / previous7Days.filter(d => d.stress_level !== null).length
-                    : null,
+                current: todayData?.stress_level ?? null,
+                previous: yesterdayData?.stress_level ?? null,
             },
             {
                 metric: 'productivity_level',
-                current: last7Days.filter(d => d.productivity_level !== null).length > 0
-                    ? last7Days.reduce((sum, d) => sum + (d.productivity_level || 0), 0) / last7Days.filter(d => d.productivity_level !== null).length
-                    : null,
-                previous: previous7Days.filter(d => d.productivity_level !== null).length > 0
-                    ? previous7Days.reduce((sum, d) => sum + (d.productivity_level || 0), 0) / previous7Days.filter(d => d.productivity_level !== null).length
-                    : null,
+                current: todayData?.productivity_level ?? null,
+                previous: yesterdayData?.productivity_level ?? null,
             },
             {
                 metric: 'sleep_hours',
-                current: last7Days.filter(d => d.sleep_hours !== null).length > 0
-                    ? last7Days.reduce((sum, d) => sum + (d.sleep_hours || 0), 0) / last7Days.filter(d => d.sleep_hours !== null).length
-                    : null,
-                previous: previous7Days.filter(d => d.sleep_hours !== null).length > 0
-                    ? previous7Days.reduce((sum, d) => sum + (d.sleep_hours || 0), 0) / previous7Days.filter(d => d.sleep_hours !== null).length
-                    : null,
+                current: todayData?.sleep_hours ?? null,
+                previous: yesterdayData?.sleep_hours ?? null,
             },
             {
                 metric: 'work_hours',
-                current: last7Days.filter(d => d.work_hours !== null).length > 0
-                    ? last7Days.reduce((sum, d) => sum + (d.work_hours || 0), 0) / last7Days.filter(d => d.work_hours !== null).length
-                    : null,
-                previous: previous7Days.filter(d => d.work_hours !== null).length > 0
-                    ? previous7Days.reduce((sum, d) => sum + (d.work_hours || 0), 0) / previous7Days.filter(d => d.work_hours !== null).length
-                    : null,
+                current: todayData?.work_hours ?? null,
+                previous: yesterdayData?.work_hours ?? null,
             },
         ].map(t => {
             const change = t.current !== null && t.previous !== null ? t.current - t.previous : null;
@@ -128,18 +112,35 @@ export async function GET(req: NextRequest) {
                 ? ((t.current - t.previous) / t.previous) * 100
                 : null;
             
-            // Determine trend
-            let trend: 'improving' | 'declining' | 'stable' = 'stable';
+            // Determine trend (improving, declining, or stable if no change)
+            let trend: 'improving' | 'declining' | 'stable' | null = null;
             if (change !== null) {
-                const range = optimalRanges[t.metric];
-                if (range) {
-                    if (range.lowerIsBetter) {
-                        // For stress: lower is better
-                        trend = change < -0.1 ? 'improving' : change > 0.1 ? 'declining' : 'stable';
-                    } else {
-                        // For productivity/sleep/work: higher is better
-                        trend = change > 0.1 ? 'improving' : change < -0.1 ? 'declining' : 'stable';
+                // If change is very small (less than 0.1), consider it stable
+                if (Math.abs(change) < 0.1) {
+                    trend = 'stable';
+                } else {
+                    const range = optimalRanges[t.metric];
+                    if (range) {
+                        if (range.lowerIsBetter) {
+                            // For stress: lower is better
+                            trend = change < 0 ? 'improving' : 'declining';
+                        } else {
+                            // For productivity/sleep/work: higher is better
+                            trend = change > 0 ? 'improving' : 'declining';
+                        }
                     }
+                }
+            }
+            // If no previous data, use average from last 7 days for current
+            let currentValue = t.current;
+            if (currentValue === null && sortedData.length > 0) {
+                const last7Days = sortedData.slice(-7);
+                const avgValue = last7Days
+                    .filter(d => d[t.metric as keyof typeof d] !== null)
+                    .reduce((sum, d) => sum + (Number(d[t.metric as keyof typeof d]) || 0), 0) / 
+                    last7Days.filter(d => d[t.metric as keyof typeof d] !== null).length;
+                if (!isNaN(avgValue) && avgValue > 0) {
+                    currentValue = avgValue;
                 }
             }
 
@@ -160,6 +161,7 @@ export async function GET(req: NextRequest) {
 
             return {
                 ...t,
+                current: currentValue,
                 change,
                 changePercent,
                 trend,

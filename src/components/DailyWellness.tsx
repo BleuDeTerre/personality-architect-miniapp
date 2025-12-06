@@ -105,6 +105,44 @@ export default function DailyWellness() {
         );
     }
 
+    // Define optimal ranges and color logic for each metric
+    const getBarColor = (key: string, value: number | null): string => {
+        if (value === null) return 'bg-white/10';
+        
+        switch (key) {
+            case 'stress_level':
+                // Optimal: 3-5 (green)
+                // Slightly out: 2-3 or 5-7 (orange)
+                // Very bad: <2 or >7 (red)
+                if (value >= 3 && value <= 5) return 'bg-green-400';
+                if ((value >= 2 && value < 3) || (value > 5 && value <= 7)) return 'bg-orange-400';
+                return 'bg-red-400';
+            case 'productivity_level':
+                // Optimal: 6-8 (green)
+                // Slightly out: 5-6 or 8-9 (orange)
+                // Very bad: <5 or >9 (red)
+                if (value >= 6 && value <= 8) return 'bg-green-400';
+                if ((value >= 5 && value < 6) || (value > 8 && value <= 9)) return 'bg-orange-400';
+                return 'bg-red-400';
+            case 'sleep_hours':
+                // Optimal: 7-8h (green)
+                // Slightly out: 6-7 or 8-9h (orange)
+                // Very bad: <6 or >9h (red)
+                if (value >= 7 && value <= 8) return 'bg-green-400';
+                if ((value >= 6 && value < 7) || (value > 8 && value <= 9)) return 'bg-orange-400';
+                return 'bg-red-400';
+            case 'work_hours':
+                // Optimal: 6-8h (green)
+                // Slightly out: 5-6 or 8-9h (orange)
+                // Very bad: <5 or >9h (red)
+                if (value >= 6 && value <= 8) return 'bg-green-400';
+                if ((value >= 5 && value < 6) || (value > 8 && value <= 9)) return 'bg-orange-400';
+                return 'bg-red-400';
+            default:
+                return 'bg-white/10';
+        }
+    };
+
     const metrics = [
         {
             key: 'stress_level' as const,
@@ -123,20 +161,20 @@ export default function DailyWellness() {
             label: 'Sleep',
             emoji: '😴',
             value: values.sleep_hours,
-            suffix: 'h',
+            suffix: 'hours',
         },
         {
             key: 'work_hours' as const,
             label: 'Work',
             emoji: '💼',
             value: values.work_hours,
-            suffix: 'h',
+            suffix: 'hours',
         },
     ];
 
     return (
         <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-            <h2 className="text-lg font-semibold text-white mb-3">Daily Wellness</h2>
+            <h2 className="text-lg font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-3">Daily Wellness</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {metrics.map((metric) => (
                     <div
@@ -168,7 +206,7 @@ export default function DailyWellness() {
                                     }
                                 }}
                                 placeholder="—"
-                                className="flex-1 bg-transparent border-none outline-none text-lg font-semibold text-[#8B5CF6] w-12 placeholder:text-white/30"
+                                className="bg-white/10 border-none outline-none text-lg font-semibold text-white px-3 py-2 rounded-xl placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:bg-white/15 hover:bg-white/12 transition-colors"
                                 disabled={saving}
                             />
                             {metric.suffix && (
@@ -178,8 +216,14 @@ export default function DailyWellness() {
                         {/* Visual slider indicator */}
                         <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
                             <div
-                                className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-200"
-                                style={{ width: metric.value ? `${((metric.value - 1) / 9) * 100}%` : '0%' }}
+                                className={`h-full transition-all duration-200 ${getBarColor(metric.key, metric.value ?? null)}`}
+                                style={{ 
+                                    width: metric.value 
+                                        ? metric.key.includes('hours') 
+                                            ? `${Math.min(100, (metric.value / 12) * 100)}%` 
+                                            : `${((metric.value - 1) / 9) * 100}%` 
+                                        : '0%' 
+                                }}
                             />
                         </div>
                     </div>

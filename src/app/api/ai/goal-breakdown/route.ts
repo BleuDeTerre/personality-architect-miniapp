@@ -51,15 +51,6 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Получаем существующие привычки пользователя для контекста
-        const { data: habits } = await supa
-            .from('habits')
-            .select('title')
-            .eq('user_id', userId)
-            .eq('is_active', true);
-
-        const existingHabits = (habits || []).map(h => h.title).join(', ') || 'None';
-
         // Получаем текущую дату для контекста
         const currentDate = new Date();
         const currentDateStr = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -73,6 +64,60 @@ export async function POST(req: NextRequest) {
             daysUntilDue = daysDiff > 0 ? daysDiff : 0;
             deadlineContext = `IMPORTANT: The goal deadline is in ${daysUntilDue} days (${dueDate}). All steps and milestones MUST fit within this timeframe. Total estimated days for all steps combined must NOT exceed ${daysUntilDue} days.`;
         }
+
+        // Получаем существующие привычки пользователя для контекста
+        const { data: habits } = await supa
+            .from('habits')
+            .select('title')
+            .eq('user_id', userId)
+            .eq('is_active', true);
+
+        const existingHabits = (habits || []).map(h => h.title).join(', ') || 'None';
+
+        // Получаем wellness метрики за последние 7 дней для понимания capacity
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
+        const todayStr = currentDateStr;
+        
+        const { data: wellness } = await supa
+            .from('daily_wellness_metrics')
+            .select('date, stress_level, productivity_level, sleep_hours, work_hours')
+            .eq('user_id', userId)
+            .gte('date', sevenDaysAgoStr)
+            .lte('date', todayStr)
+            .order('date', { ascending: false });
+
+        // Вычисляем средние wellness метрики
+        const wellnessContext = wellness && wellness.length > 0 ? (() => {
+            const validMetrics = wellness.filter((m: any) => 
+                m.stress_level !== null || m.productivity_level !== null || 
+                m.sleep_hours !== null || m.work_hours !== null
+            );
+            if (validMetrics.length === 0) return '';
+
+            const avgStress = validMetrics.filter((m: any) => m.stress_level !== null)
+                .reduce((sum: number, m: any) => sum + (m.stress_level || 0), 0) / 
+                validMetrics.filter((m: any) => m.stress_level !== null).length || 0;
+            const avgProductivity = validMetrics.filter((m: any) => m.productivity_level !== null)
+                .reduce((sum: number, m: any) => sum + (m.productivity_level || 0), 0) / 
+                validMetrics.filter((m: any) => m.productivity_level !== null).length || 0;
+            const avgSleep = validMetrics.filter((m: any) => m.sleep_hours !== null)
+                .reduce((sum: number, m: any) => sum + (m.sleep_hours || 0), 0) / 
+                validMetrics.filter((m: any) => m.sleep_hours !== null).length || 0;
+            const avgWork = validMetrics.filter((m: any) => m.work_hours !== null)
+                .reduce((sum: number, m: any) => sum + (m.work_hours || 0), 0) / 
+                validMetrics.filter((m: any) => m.work_hours !== null).length || 0;
+
+            const parts: string[] = [];
+            if (avgStress > 0) parts.push(`Stress: ${avgStress.toFixed(1)}/10`);
+            if (avgProductivity > 0) parts.push(`Productivity: ${avgProductivity.toFixed(1)}/10`);
+            if (avgSleep > 0) parts.push(`Sleep: ${avgSleep.toFixed(1)}h`);
+            if (avgWork > 0) parts.push(`Work: ${avgWork.toFixed(1)}h`);
+            
+            if (parts.length === 0) return '';
+            return `User's current capacity (last 7 days): ${parts.join(', ')}. Consider this when planning steps - adjust scope if stress is high (>7) or sleep is low (<7h).`;
+        })() : '';
 
         // Генерируем план через AI
         const openai = openaiClient();
@@ -96,6 +141,7 @@ export async function POST(req: NextRequest) {
                         deadlineContext,
                         important !== undefined || urgent !== undefined ? `Eisenhower Matrix: ${important ? 'Important' : 'Not Important'} & ${urgent ? 'Urgent' : 'Not Urgent'}` : '',
                         `User's existing habits: ${existingHabits}`,
+                        wellnessContext || '',
                         ``,
                         `Create a breakdown with:`,
                         `1. 3-5 actionable steps with estimated days (MUST fit within the deadline if specified)`,
