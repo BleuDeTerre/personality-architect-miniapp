@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
         // Выполняются параллельно, но с обработкой ошибок
         const basicRequests = await Promise.allSettled([
             supa.from('habits').select('id, title, target_days_per_week, category').eq('user_id', userId).eq('is_active', true),
-            supa.from('goals').select('id, title, metric, target, unit, due_date, status, progress').eq('user_id', userId).eq('status', 'active'),
+            supa.from('goals').select('id, title, metric, target, unit, due_date, status, progress, important, urgent').eq('user_id', userId).eq('status', 'active'),
             supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).order('date', { ascending: false }).limit(10),
             supa.rpc('get_habit_streak', { p_user: userId }),
             supa.rpc('get_user_total_xp', { p_user_id: userId }).single(),
@@ -303,6 +303,8 @@ export async function POST(req: NextRequest) {
                 daysUntilDue: daysUntilDue,
                 progress: goal.progress || null,
                 progressPercent: progressPercent,
+                important: goal.important || false,
+                urgent: goal.urgent || false,
             };
         });
 
@@ -556,6 +558,22 @@ export async function POST(req: NextRequest) {
         const openai = openaiClient();
         const model = pickModel({ deep: false });
 
+        // Get user's main focus
+        const { data: profileData } = await supa
+            .from('user_profile_settings')
+            .select('main_focus')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        const userMainFocus = profileData?.main_focus || null;
+
+        // Get current time in user's timezone
+        const tzOffsetMinutesRaw = Number(req.headers.get('x-timezone-offset') ?? '0');
+        const timezoneOffsetMinutes = Number.isFinite(tzOffsetMinutesRaw) ? tzOffsetMinutesRaw : 0;
+        const timezoneOffsetMs = timezoneOffsetMinutes * 60 * 1000;
+        const clientNow = new Date(Date.now() - timezoneOffsetMs);
+        const currentDate = clientNow.toString();
+
         // Используем улучшенный промпт из централизованной библиотеки
         const systemPrompt = buildChatPrompt({
             habits: context.habits,
@@ -576,6 +594,8 @@ export async function POST(req: NextRequest) {
             recentAchievements: context.recentAchievements,
             correlations: context.correlations,
             timePatterns: context.timePatterns,
+            currentDate,
+            userMainFocus,
         });
 
         // Собираем историю сообщений для контекста разговора

@@ -26,10 +26,10 @@ export async function GET(req: NextRequest) {
             .maybeSingle();
         const userPlan = (planData?.plan ?? 'free') as UserPlan;
 
-        // Получаем активные цели
+        // Получаем активные цели (включая матрицу Эйзенхауэра)
         const { data: goals } = await supa
             .from('goals')
-            .select('id, title, metric, target, unit, due_date, created_at, status')
+            .select('id, title, metric, target, unit, due_date, created_at, status, important, urgent')
             .eq('user_id', userId)
             .eq('status', 'active');
 
@@ -101,8 +101,9 @@ export async function GET(req: NextRequest) {
                                 `Created: ${daysSinceStart} days ago`,
                                 dueDate ? `Due in: ${Math.max(0, Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))} days` : 'No deadline',
                                 `Progress: ${progress.toFixed(0)}%`,
+                                goal.important !== undefined || goal.urgent !== undefined ? `Eisenhower Matrix: ${goal.important ? 'Important' : 'Not Important'} & ${goal.urgent ? 'Urgent' : 'Not Urgent'}` : '',
                                 ``,
-                                `Assess if on track and provide recommendation.`,
+                                `Assess if on track and provide recommendation considering the priority level.`,
                                 `Return JSON only.`,
                             ].filter(Boolean).join('\n'),
                         },

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useMiniApp } from '@neynar/react';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
@@ -8,10 +8,23 @@ import MiniAppPage from '@/components/MiniAppPage';
 import CollapsibleCard from '@/components/CollapsibleCard';
 import AIGoalBreakdown from '@/components/AIGoalBreakdown';
 import AIGoalReview from '@/components/AIGoalReview';
+import EisenhowerMatrix from '@/components/EisenhowerMatrix';
+import GoalSubtasks from '@/components/GoalSubtasks';
 import DatePicker from '@/components/DatePicker';
 import { getRandomVariant, goalProgressTexts, goalCompletedTexts, upcomingGoalTexts } from '@/lib/castTextVariants';
 
 // Используем централизованный клиент из lib/supabase с правильными настройками
+
+type Subtask = {
+    id: number;
+    goal_id: number;
+    title: string;
+    is_completed: boolean;
+    weight: number;
+    order_index: number;
+    due_date: string | null;
+    created_at: string;
+};
 
 type Goal = {
     id: number;
@@ -22,25 +35,35 @@ type Goal = {
     due_date: string | null;
     status: string;
     created_at: string;
+    important?: boolean;
+    urgent?: boolean;
+    progress?: number; // Auto-calculated progress (0-100)
+    subtasks?: Subtask[]; // Subtasks for this goal
 };
 
 export default function GoalsPage() {
     const { isSDKLoaded, context } = useMiniApp();
     const [goals, setGoals] = useState<Goal[]>([]);
     const [title, setTitle] = useState('');
-    const [metric, setMetric] = useState('');
-    const [target, setTarget] = useState('');
-    const [unit, setUnit] = useState('');
     const [dueDate, setDueDate] = useState('');
+    const [important, setImportant] = useState(false);
+    const [urgent, setUrgent] = useState(false);
     const [loadingGoals, setLoadingGoals] = useState(true);
     const [mutatingGoal, setMutatingGoal] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [mainFocus, setMainFocus] = useState<string | null>(null);
+    const [mainFocusEditing, setMainFocusEditing] = useState(false);
+    const [mainFocusInput, setMainFocusInput] = useState('');
     const [filterStatus, setFilterStatus] = useState<'active' | 'completed'>(() => {
         if (typeof window !== 'undefined') {
             return (localStorage.getItem('goals_filterStatus') as 'active' | 'completed') || 'active';
         }
         return 'active';
     });
+    const [selectedQuadrant, setSelectedQuadrant] = useState<{
+        important: boolean | null;
+        urgent: boolean | null;
+    } | null>(null);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -227,6 +250,19 @@ export default function GoalsPage() {
 
             if (!mounted) return;
             await fetchGoals();
+
+            // Load main focus
+            try {
+                const headers = await authHeaders();
+                const focusRes = await fetch('/api/profile/main-focus', { headers });
+                if (focusRes.ok) {
+                    const focusData = await focusRes.json();
+                    setMainFocus(focusData.main_focus || null);
+                    setMainFocusInput(focusData.main_focus || '');
+                }
+            } catch (error) {
+                console.error('[GoalsPage] Failed to load main focus:', error);
+            }
         };
 
         ensureSessionAndLoad();
@@ -367,10 +403,12 @@ export default function GoalsPage() {
                     headers,
                     body: JSON.stringify({
                         title,
-                        metric: metric || null,
-                        target: target ? Number(target) : null,
-                        unit: unit || null,
+                        metric: null,
+                        target: null,
+                        unit: null,
                         due_date: dueDate || null,
+                        important,
+                        urgent,
                     }),
                 });
                 try {
@@ -387,10 +425,9 @@ export default function GoalsPage() {
             if (res.ok) {
                 console.log('[GoalsPage] Goal created successfully:', data);
                 setTitle('');
-                setMetric('');
-                setTarget('');
-                setUnit('');
                 setDueDate('');
+                setImportant(false);
+                setUrgent(false);
                 await fetchGoals();
             } else {
                 console.error('[GoalsPage] Failed to create goal:', res.status, data);
@@ -411,25 +448,48 @@ export default function GoalsPage() {
     }
 
     async function updateGoal(goal: Goal) {
+        if (!goal.id) {
+            console.error('[GoalsPage] Cannot update goal: no id');
+            return;
+        }
+
         setMutatingGoal(true);
         try {
             const headers = await authHeaders();
+            console.log('[GoalsPage] Updating goal:', goal.id, goal);
             const res = await fetch(`/api/goals/${goal.id}`, {
                 method: 'PUT',
                 headers,
                 body: JSON.stringify(goal),
             });
+
             if (res.ok) {
-                setEditingId(null);
                 await fetchGoals();
+                setEditingId(null);
+            } else {
+                const errorData = await res.json().catch(() => ({}));
+                console.error('[GoalsPage] Failed to update goal:', res.status, errorData);
+                const { toast } = await import('sonner');
+                toast.error('Failed to update goal', {
+                    description: errorData.error || `Server error (${res.status})`,
+                });
             }
+        } catch (error) {
+            console.error('[GoalsPage] Error updating goal:', error);
+            const { toast } = await import('sonner');
+            toast.error('Error updating goal', {
+                description: error instanceof Error ? error.message : 'Unknown error',
+            });
         } finally {
             setMutatingGoal(false);
         }
     }
 
-    async function deleteGoal(id: number) {
+    const deleteGoal = useCallback(async (id: number) => {
+        if (!id) return;
+
         if (!confirm('Delete this goal?')) return;
+
         setMutatingGoal(true);
         try {
             const headers = await authHeaders();
@@ -437,18 +497,84 @@ export default function GoalsPage() {
                 method: 'DELETE',
                 headers,
             });
+
             if (res.ok) {
                 await fetchGoals();
+            } else {
+                const errorData = await res.json().catch(() => ({}));
+                const { toast } = await import('sonner');
+                toast.error('Failed to delete goal', {
+                    description: errorData.error || `Server error (${res.status})`,
+                });
             }
+        } catch (error) {
+            const { toast } = await import('sonner');
+            toast.error('Error deleting goal', {
+                description: error instanceof Error ? error.message : 'Unknown error',
+            });
         } finally {
             setMutatingGoal(false);
         }
-    }
+    }, [mutatingGoal, authHeaders, fetchGoals]);
+
+    // Добавляем прямые обработчики для кнопок Delete через DOM API
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const handleDeleteClick = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            if (!target) return;
+
+            const button = target.closest('button[data-goal-id]') as HTMLButtonElement;
+            if (!button) return;
+
+            const isDeleteButton = button.classList.contains('border-red-400');
+            if (!isDeleteButton) return;
+
+            const goalIdAttr = button.getAttribute('data-goal-id');
+            if (!goalIdAttr) return;
+
+            const goalId = parseInt(goalIdAttr, 10);
+            if (isNaN(goalId)) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            deleteGoal(goalId);
+        };
+
+        document.addEventListener('click', handleDeleteClick as EventListener, true);
+        document.addEventListener('mousedown', handleDeleteClick as EventListener, true);
+
+        return () => {
+            document.removeEventListener('click', handleDeleteClick as EventListener, true);
+            document.removeEventListener('mousedown', handleDeleteClick as EventListener, true);
+        };
+    }, [deleteGoal]);
 
     async function toggleStatus(goal: Goal) {
         const nextStatus = goal.status === 'active' ? 'completed' : 'active';
         await updateGoal({ ...goal, status: nextStatus });
     }
+
+    const handleSaveMainFocus = async () => {
+        try {
+            const headers = await authHeaders();
+            const res = await fetch('/api/profile/main-focus', {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({ main_focus: mainFocusInput.trim() || null }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setMainFocus(data.main_focus);
+                setMainFocusEditing(false);
+            }
+        } catch (error) {
+            console.error('[GoalsPage] Failed to save main focus:', error);
+        }
+    };
 
     const activeGoals = useMemo(() => goals.filter(g => g.status === 'active'), [goals]);
     const completedGoals = useMemo(() => goals.filter(g => g.status === 'completed'), [goals]);
@@ -461,8 +587,19 @@ export default function GoalsPage() {
     }, [goals]);
 
     const filteredGoals = useMemo(() => {
-        return goals.filter(goal => goal.status === filterStatus);
-    }, [goals, filterStatus]);
+        let filtered = goals.filter(goal => goal.status === filterStatus);
+
+        // Apply quadrant filter if selected
+        if (selectedQuadrant) {
+            filtered = filtered.filter(goal => {
+                if (selectedQuadrant.important !== null && goal.important !== selectedQuadrant.important) return false;
+                if (selectedQuadrant.urgent !== null && goal.urgent !== selectedQuadrant.urgent) return false;
+                return true;
+            });
+        }
+
+        return filtered;
+    }, [goals, filterStatus, selectedQuadrant]);
 
     const goalShareTemplates = useMemo<CastTemplate[]>(() => {
         if (!goals.length) return [];
@@ -552,6 +689,78 @@ export default function GoalsPage() {
                     </p>
                 </section>
 
+                {/* Main Life Focus */}
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                    <h2 className="text-lg font-semibold text-white mb-2">⭐ Main Life Focus</h2>
+                    <p className="text-xs text-white/60 mb-3">
+                        Your North Star - what you're focusing on for the next 3 months. This helps AI give you more personalized advice about your goals.
+                    </p>
+                    {mainFocusEditing ? (
+                        <div className="space-y-2">
+                            <input
+                                type="text"
+                                value={mainFocusInput}
+                                onChange={(e) => setMainFocusInput(e.target.value)}
+                                placeholder="e.g., Career, Health, Family, Finance, or custom..."
+                                className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:border-purple-500/50 text-sm"
+                                onKeyPress={(e) => {
+                                    if (e.key === 'Enter') {
+                                        handleSaveMainFocus();
+                                    } else if (e.key === 'Escape') {
+                                        setMainFocusEditing(false);
+                                        setMainFocusInput(mainFocus || '');
+                                    }
+                                }}
+                                autoFocus
+                            />
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleSaveMainFocus}
+                                    className="px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors text-xs font-semibold"
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setMainFocusEditing(false);
+                                        setMainFocusInput(mainFocus || '');
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 transition-colors text-xs"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div>
+                            {mainFocus ? (
+                                <div className="flex items-center justify-between">
+                                    <p className="text-white/90 font-medium text-sm">{mainFocus}</p>
+                                    <button
+                                        onClick={() => {
+                                            setMainFocusEditing(true);
+                                            setMainFocusInput(mainFocus);
+                                        }}
+                                        className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                                    >
+                                        Edit
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => {
+                                        setMainFocusEditing(true);
+                                        setMainFocusInput('');
+                                    }}
+                                    className="w-full px-3 py-2 rounded-lg border border-dashed border-white/20 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80 transition-colors text-xs text-left"
+                                >
+                                    + Set your main focus (helps AI give personalized advice)
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </section>
+
                 {/* Share Section */}
                 {goalShareTemplates.length > 0 && (
                     <CollapsibleCard title="Share your goals">
@@ -561,6 +770,43 @@ export default function GoalsPage() {
                         />
                     </CollapsibleCard>
                 )}
+
+                {/* Eisenhower Matrix */}
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
+                            Eisenhower Matrix
+                        </h2>
+                        {selectedQuadrant && (
+                            <button
+                                onClick={() => setSelectedQuadrant(null)}
+                                className="text-xs text-white/60 hover:text-white/80 underline"
+                            >
+                                Clear filter
+                            </button>
+                        )}
+                    </div>
+                    <EisenhowerMatrix
+                        goals={goals}
+                        onGoalClick={(goal) => {
+                            setEditingId(goal.id);
+                            setGoals(goals.map(g => g.id === goal.id ? { ...g } : g));
+                        }}
+                        onQuadrantClick={(quadrant) => {
+                            const mapping: Record<string, { important: boolean | null; urgent: boolean | null }> = {
+                                'important-urgent': { important: true, urgent: true },
+                                'important-not-urgent': { important: true, urgent: false },
+                                'not-important-urgent': { important: false, urgent: true },
+                                'not-important-not-urgent': { important: false, urgent: false },
+                            };
+                            const filter = mapping[quadrant];
+                            if (filter) {
+                                setSelectedQuadrant(filter);
+                                setFilterStatus('active'); // Switch to active goals when filtering by quadrant
+                            }
+                        }}
+                    />
+                </section>
 
                 {/* AI Goal Review */}
                 <CollapsibleCard title="AI goal review" subtitle="Weekly summary" defaultOpen={false}>
@@ -588,43 +834,41 @@ export default function GoalsPage() {
                             {title && (
                                 <AIGoalBreakdown
                                     goalTitle={title}
-                                    goalDescription={metric}
+                                    goalDescription=""
                                     dueDate={dueDate}
                                 />
                             )}
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <input
-                                type="text"
-                                placeholder="Metric (e.g., days, reps)"
-                                value={metric}
-                                onChange={(e) => setMetric(e.target.value)}
-                                className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
-                            />
-                            <input
-                                type="number"
-                                min={0}
-                                placeholder="Target"
-                                value={target}
-                                onChange={(e) => setTarget(e.target.value)}
-                                className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
-                            />
+                        <DatePicker
+                            value={dueDate}
+                            onChange={(date) => setDueDate(date)}
+                            placeholder="Deadline"
+                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
+                        />
+                        {/* Eisenhower Matrix Priority - Centered */}
+                        <div className="flex items-center justify-center gap-6">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={important}
+                                    onChange={(e) => setImportant(e.target.checked)}
+                                    className="w-5 h-5 rounded border-white/20 bg-[#1a1b2e] text-[#8B5CF6] focus:ring-2 focus:ring-[#8B5CF6] focus:ring-offset-0"
+                                />
+                                <span className="text-sm text-white/80">Important</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={urgent}
+                                    onChange={(e) => setUrgent(e.target.checked)}
+                                    className="w-5 h-5 rounded border-white/20 bg-[#1a1b2e] text-red-400 focus:ring-2 focus:ring-red-400 focus:ring-offset-0"
+                                />
+                                <span className="text-sm text-white/80">Urgent</span>
+                            </label>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <input
-                                type="text"
-                                placeholder="Unit"
-                                value={unit}
-                                onChange={(e) => setUnit(e.target.value)}
-                                className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
-                            />
-                            <DatePicker
-                                value={dueDate}
-                                onChange={(date) => setDueDate(date)}
-                                placeholder="MM/DD/YYYY"
-                                className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
-                            />
-                        </div>
+                        <p className="text-xs text-white/50 text-center">
+                            💡 After creating a goal, you can break it down into subtasks using AI or add them manually
+                        </p>
                         <button
                             type="submit"
                             disabled={mutatingGoal}
@@ -689,19 +933,59 @@ export default function GoalsPage() {
                                                 type="text"
                                                 value={goal.title}
                                                 onChange={(e) => setGoals(goals.map(g => g.id === goal.id ? { ...g, title: e.target.value } : g))}
-                                                className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-3 py-2 text-white focus:border-white/30 focus:outline-none"
+                                                placeholder="Goal title"
+                                                className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-3 py-2 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
                                             />
+                                            <DatePicker
+                                                value={goal.due_date || ''}
+                                                onChange={(date) => setGoals(goals.map(g => g.id === goal.id ? { ...g, due_date: date } : g))}
+                                                placeholder="Deadline"
+                                                className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-3 py-2 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
+                                            />
+                                            {/* Eisenhower Matrix Priority - Centered */}
+                                            <div className="flex items-center justify-center gap-6">
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={goal.important || false}
+                                                        onChange={(e) => setGoals(goals.map(g => g.id === goal.id ? { ...g, important: e.target.checked } : g))}
+                                                        className="w-5 h-5 rounded border-white/20 bg-[#1a1b2e] text-[#8B5CF6] focus:ring-2 focus:ring-[#8B5CF6] focus:ring-offset-0"
+                                                    />
+                                                    <span className="text-sm text-white/80">Important</span>
+                                                </label>
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={goal.urgent || false}
+                                                        onChange={(e) => setGoals(goals.map(g => g.id === goal.id ? { ...g, urgent: e.target.checked } : g))}
+                                                        className="w-5 h-5 rounded border-white/20 bg-[#1a1b2e] text-red-400 focus:ring-2 focus:ring-red-400 focus:ring-offset-0"
+                                                    />
+                                                    <span className="text-sm text-white/80">Urgent</span>
+                                                </label>
+                                            </div>
                                             <div className="flex gap-2">
                                                 <button
-                                                    onClick={() => updateGoal(goal)}
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        const currentGoal = goals.find(g => g.id === goal.id);
+                                                        if (currentGoal) {
+                                                            await updateGoal(currentGoal);
+                                                        }
+                                                    }}
                                                     disabled={mutatingGoal}
                                                     className="rounded-2xl bg-gradient-to-r from-[#2BD4A4] to-[#12b886] px-4 py-2 text-sm font-semibold text-[#041812] transition disabled:opacity-60"
                                                 >
                                                     Save
                                                 </button>
                                                 <button
-                                                    onClick={() => setEditingId(null)}
-                                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setEditingId(null);
+                                                        // Восстанавливаем оригинальное состояние цели при отмене
+                                                        fetchGoals();
+                                                    }}
+                                                    disabled={mutatingGoal}
+                                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-2 text-sm text-white/80 transition hover:bg-white/10 disabled:opacity-60"
                                                 >
                                                     Cancel
                                                 </button>
@@ -709,7 +993,7 @@ export default function GoalsPage() {
                                         </div>
                                     ) : (
                                         <>
-                                            <div className="flex-1">
+                                            <div className="flex-1" style={{ pointerEvents: 'auto' }}>
                                                 <h3 className={`text-xl font-semibold ${goal.status === 'completed' ? 'text-white/50 line-through' : 'text-white'}`}>
                                                     {goal.title}
                                                 </h3>
@@ -726,19 +1010,75 @@ export default function GoalsPage() {
                                                 {goal.status && (
                                                     <div className="mt-1 text-sm text-white/60">{goal.status}</div>
                                                 )}
+                                                {goal.progress !== undefined && goal.progress !== null && (
+                                                    <div className="mt-2">
+                                                        <div className="flex items-center justify-between text-xs text-white/70 mb-1">
+                                                            <span>Progress</span>
+                                                            <span>{goal.progress}%</span>
+                                                        </div>
+                                                        <div className="w-full bg-white/10 rounded-full h-2">
+                                                            <div
+                                                                className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-300"
+                                                                style={{ width: `${goal.progress}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {goal.status === 'active' && (
+                                                    <div className="mt-3 space-y-2">
+                                                        <AIGoalBreakdown
+                                                            goalTitle={goal.title}
+                                                            goalId={goal.id}
+                                                            important={goal.important}
+                                                            urgent={goal.urgent}
+                                                            onSubtasksCreated={fetchGoals}
+                                                        />
+                                                        <div className="mt-2">
+                                                            <GoalSubtasks
+                                                                goalId={goal.id}
+                                                                subtasks={goal.subtasks}
+                                                                onSubtasksChange={fetchGoals}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 mt-4" style={{ position: 'relative', zIndex: 1000 }}>
                                                 <button
-                                                    onClick={() => toggleStatus(goal)}
-                                                    className={`flex h-10 w-10 items-center justify-center rounded-full transition ${goal.status === 'completed'
+                                                    type="button"
+                                                    onMouseDown={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        console.log('[GoalsPage] Toggle status mousedown for goal:', goal.id);
+                                                        if (!mutatingGoal) {
+                                                            toggleStatus(goal);
+                                                        }
+                                                    }}
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        console.log('[GoalsPage] Toggle status clicked for goal:', goal.id);
+                                                        if (!mutatingGoal) {
+                                                            toggleStatus(goal);
+                                                        }
+                                                    }}
+                                                    onTouchStart={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        if (!mutatingGoal) {
+                                                            toggleStatus(goal);
+                                                        }
+                                                    }}
+                                                    className={`flex h-10 w-10 items-center justify-center rounded-full transition cursor-pointer flex-shrink-0 ${goal.status === 'completed'
                                                         ? 'bg-gradient-to-r from-[#2BD4A4] to-[#14b8a6] text-[#041812]'
                                                         : 'bg-white/10 text-white hover:bg-white/20'
-                                                        }`}
+                                                        } ${mutatingGoal ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     disabled={mutatingGoal}
                                                     aria-label={goal.status === 'completed' ? 'Completed' : 'Mark done'}
+                                                    style={{ pointerEvents: mutatingGoal ? 'none' : 'auto', zIndex: 101 }}
                                                 >
                                                     <svg
-                                                        className="h-5 w-5"
+                                                        className="h-5 w-5 pointer-events-none"
                                                         fill="none"
                                                         stroke="currentColor"
                                                         viewBox="0 0 24 24"
@@ -753,16 +1093,41 @@ export default function GoalsPage() {
                                                 </button>
                                                 {goal.status !== 'completed' && (
                                                     <button
-                                                        onClick={() => setEditingId(goal.id)}
-                                                        className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+                                                        type="button"
+                                                        onMouseDown={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            console.log('[GoalsPage] Edit mousedown for goal:', goal.id);
+                                                            if (!mutatingGoal) {
+                                                                setEditingId(goal.id);
+                                                            }
+                                                        }}
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            console.log('[GoalsPage] Edit clicked for goal:', goal.id);
+                                                            if (!mutatingGoal) {
+                                                                setEditingId(goal.id);
+                                                            }
+                                                        }}
+                                                        onTouchStart={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            if (!mutatingGoal) {
+                                                                setEditingId(goal.id);
+                                                            }
+                                                        }}
+                                                        className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 cursor-pointer flex-shrink-0"
                                                         disabled={mutatingGoal}
+                                                        style={{ pointerEvents: mutatingGoal ? 'none' : 'auto', zIndex: 101 }}
                                                     >
                                                         Edit
                                                     </button>
                                                 )}
                                                 <button
+                                                    type="button"
                                                     onClick={() => deleteGoal(goal.id)}
-                                                    className="rounded-2xl border border-red-400/30 bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/30 disabled:opacity-60"
+                                                    className="rounded-2xl border border-red-400/30 bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/30 disabled:opacity-60 cursor-pointer flex-shrink-0"
                                                     disabled={mutatingGoal}
                                                 >
                                                     Delete

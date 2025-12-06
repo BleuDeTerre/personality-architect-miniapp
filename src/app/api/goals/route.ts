@@ -32,10 +32,10 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // Запрос данных
+        // Запрос данных (включая subtasks и progress)
         let query = supa
             .from('goals')
-            .select('id, title, metric, target, unit, due_date, status, created_at')
+            .select('id, title, metric, target, unit, due_date, status, created_at, important, urgent, progress, subtasks(id, title, is_completed, weight, order_index, due_date)')
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
         
@@ -104,6 +104,8 @@ export async function POST(req: NextRequest) {
                 unit: body?.unit ? String(body.unit) : null,
                 due_date: body?.due_date ? String(body.due_date) : null,
                 status: body?.status || 'active',
+                important: body?.important === true || body?.important === 'true',
+                urgent: body?.urgent === true || body?.urgent === 'true',
             })
             .select()
             .single();

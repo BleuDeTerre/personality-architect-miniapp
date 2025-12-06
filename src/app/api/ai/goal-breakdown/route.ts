@@ -22,6 +22,8 @@ export async function POST(req: NextRequest) {
         const goalTitle = String(body.goalTitle || '').trim();
         const goalDescription = String(body.goalDescription || '').trim();
         const dueDate = body.dueDate ? String(body.dueDate) : null;
+        const important = body.important === true || body.important === 'true';
+        const urgent = body.urgent === true || body.urgent === 'true';
 
         if (!goalTitle) {
             return NextResponse.json({ error: 'goal_title_required' }, { status: 400 });
@@ -58,6 +60,20 @@ export async function POST(req: NextRequest) {
 
         const existingHabits = (habits || []).map(h => h.title).join(', ') || 'None';
 
+        // Получаем текущую дату для контекста
+        const currentDate = new Date();
+        const currentDateStr = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        
+        // Вычисляем количество дней до дедлайна
+        let daysUntilDue = null;
+        let deadlineContext = '';
+        if (dueDate) {
+            const due = new Date(dueDate);
+            const daysDiff = Math.ceil((due.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+            daysUntilDue = daysDiff > 0 ? daysDiff : 0;
+            deadlineContext = `IMPORTANT: The goal deadline is in ${daysUntilDue} days (${dueDate}). All steps and milestones MUST fit within this timeframe. Total estimated days for all steps combined must NOT exceed ${daysUntilDue} days.`;
+        }
+
         // Генерируем план через AI
         const openai = openaiClient();
         const model = pickModel({ deep: true }); // Используем более мощную модель для планирования
@@ -73,16 +89,20 @@ export async function POST(req: NextRequest) {
                 {
                     role: 'user',
                     content: [
+                        `Current date: ${currentDateStr} (YYYY-MM-DD format)`,
                         `Goal: "${goalTitle}"`,
                         goalDescription ? `Description: ${goalDescription}` : '',
-                        dueDate ? `Target date: ${dueDate}` : 'No specific deadline',
+                        dueDate ? `Target deadline: ${dueDate} (${daysUntilDue} days from now)` : 'No specific deadline',
+                        deadlineContext,
+                        important !== undefined || urgent !== undefined ? `Eisenhower Matrix: ${important ? 'Important' : 'Not Important'} & ${urgent ? 'Urgent' : 'Not Urgent'}` : '',
                         `User's existing habits: ${existingHabits}`,
                         ``,
                         `Create a breakdown with:`,
-                        `1. 3-5 actionable steps with estimated days`,
-                        `2. 2-3 milestones with target dates`,
+                        `1. 3-5 actionable steps with estimated days (MUST fit within the deadline if specified)`,
+                        `2. 2-3 milestones with target dates (dates MUST be in the future relative to current date ${currentDateStr} and within deadline if specified)`,
                         `3. Suggestions for habits that could support this goal`,
                         ``,
+                        `CRITICAL: If deadline is specified (${dueDate}), ensure ALL steps and milestones fit within ${daysUntilDue} days. Dates in milestones must be formatted as YYYY-MM-DD and be realistic.`,
                         `Return JSON only, no additional text.`,
                     ].filter(Boolean).join('\n'),
                 },

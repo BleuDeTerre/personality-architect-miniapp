@@ -82,6 +82,9 @@ export default function ProfilePage() {
     const [badgesLoading, setBadgesLoading] = useState(true);
     const [gamificationStats, setGamificationStats] = useState<UserStats | null>(null);
     const [currentPlan, setCurrentPlan] = useState<'free' | 'pro' | 'premium'>('free');
+    const [mainFocus, setMainFocus] = useState<string | null>(null);
+    const [mainFocusEditing, setMainFocusEditing] = useState(false);
+    const [mainFocusInput, setMainFocusInput] = useState('');
 
     // Headers with Bearer
     const authHeaders = useCallback(async () => {
@@ -271,6 +274,14 @@ export default function ProfilePage() {
                     const planData = await planRes.json();
                     setCurrentPlan(planData.plan || 'free');
                 }
+
+                // Load main focus
+                const focusRes = await fetch('/api/profile/main-focus', { headers: await authHeaders() });
+                if (focusRes.ok) {
+                    const focusData = await focusRes.json();
+                    setMainFocus(focusData.main_focus || null);
+                    setMainFocusInput(focusData.main_focus || '');
+                }
             } catch (error) {
                 console.error('[Profile] init error:', error);
                 if (!cancelled) {
@@ -287,6 +298,30 @@ export default function ProfilePage() {
             cancelled = true;
         };
     }, [refreshMints, refreshEligibility, loadNeynarProfile, authHeaders, isSDKLoaded, context]);
+
+    const handleSaveMainFocus = async () => {
+        try {
+            const headers = await authHeaders();
+            const res = await fetch('/api/profile/main-focus', {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({ main_focus: mainFocusInput.trim() || null }),
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setMainFocus(data.main_focus);
+                setMainFocusEditing(false);
+            } else {
+                const { toast } = await import('sonner');
+                toast.error('Failed to save main focus');
+            }
+        } catch (error) {
+            console.error('Failed to save main focus:', error);
+            const { toast } = await import('sonner');
+            toast.error('Failed to save main focus');
+        }
+    };
 
     useEffect(() => {
         if (!p.fid && !p.supaUserId) return;
@@ -460,6 +495,72 @@ export default function ProfilePage() {
                                     </p>
                                 </div>
                             </div>
+                        </div>
+                    )}
+                </section>
+
+                {/* Main Focus Section */}
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 mb-6">
+                    <h2 className="text-lg font-semibold text-white mb-3">Main Life Focus</h2>
+                    <p className="text-sm text-white/60 mb-3">
+                        Your North Star - what you're focusing on for the next 3 months. This helps AI give you more personalized advice.
+                    </p>
+                    {mainFocusEditing ? (
+                        <div className="space-y-2">
+                            <input
+                                type="text"
+                                value={mainFocusInput}
+                                onChange={(e) => setMainFocusInput(e.target.value)}
+                                placeholder="e.g., Career, Health, Family, Finance, or custom..."
+                                className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:border-purple-500/50"
+                                onKeyPress={(e) => {
+                                    if (e.key === 'Enter') {
+                                        handleSaveMainFocus();
+                                    } else if (e.key === 'Escape') {
+                                        setMainFocusEditing(false);
+                                        setMainFocusInput(mainFocus || '');
+                                    }
+                                }}
+                                autoFocus
+                            />
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleSaveMainFocus}
+                                    className="px-4 py-2 rounded-lg bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors text-sm font-semibold"
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setMainFocusEditing(false);
+                                        setMainFocusInput(mainFocus || '');
+                                    }}
+                                    className="px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 transition-colors text-sm"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div>
+                            {mainFocus ? (
+                                <div className="flex items-center justify-between">
+                                    <p className="text-white/90 font-medium">{mainFocus}</p>
+                                    <button
+                                        onClick={() => setMainFocusEditing(true)}
+                                        className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
+                                    >
+                                        Edit
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setMainFocusEditing(true)}
+                                    className="w-full px-4 py-3 rounded-lg border border-dashed border-white/20 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80 transition-colors text-sm"
+                                >
+                                    + Set your main focus
+                                </button>
+                            )}
                         </div>
                     )}
                 </section>

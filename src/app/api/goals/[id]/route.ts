@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 
-export async function PUT(req: NextRequest, ctx: any) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -12,7 +12,9 @@ export async function PUT(req: NextRequest, ctx: any) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        const goalId = ctx?.params?.id;
+        // Handle both Promise and direct params (for Next.js 13/14/15 compatibility)
+        const resolvedParams = params instanceof Promise ? await params : params;
+        const goalId = resolvedParams?.id;
         if (!goalId) return NextResponse.json({ error: 'id_required' }, { status: 400 });
 
         const body = await req.json().catch(() => ({}));
@@ -24,6 +26,8 @@ export async function PUT(req: NextRequest, ctx: any) {
         if (body.unit !== undefined) updates.unit = body.unit ? String(body.unit) : null;
         if (body.due_date !== undefined) updates.due_date = body.due_date ? String(body.due_date) : null;
         if (body.status !== undefined) updates.status = body.status;
+        if (body.important !== undefined) updates.important = body.important === true || body.important === 'true';
+        if (body.urgent !== undefined) updates.urgent = body.urgent === true || body.urgent === 'true';
 
         if (Object.keys(updates).length === 0) {
             return NextResponse.json({ error: 'no_updates' }, { status: 400 });
@@ -56,7 +60,7 @@ export async function PUT(req: NextRequest, ctx: any) {
     }
 }
 
-export async function DELETE(req: NextRequest, ctx: any) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -64,7 +68,9 @@ export async function DELETE(req: NextRequest, ctx: any) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        const goalId = ctx?.params?.id;
+        // Handle both Promise and direct params (for Next.js 13/14/15 compatibility)
+        const resolvedParams = params instanceof Promise ? await params : params;
+        const goalId = resolvedParams?.id;
         if (!goalId) return NextResponse.json({ error: 'id_required' }, { status: 400 });
 
         const { error } = await supa
