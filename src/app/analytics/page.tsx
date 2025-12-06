@@ -24,7 +24,7 @@ type Comparative = {
 type Facts = { facts: string[]; top_habits: Array<{ habit: string; count: number }>; day_stats: Array<{ day: string; count: number }> };
 
 type Goal = { id: string; title: string; metric?: string; target?: number; unit?: string; due_date?: string; status: string; created_at?: string };
-type WheelTrend = { area: string; last: number; avg4: number; delta4: number };
+type WheelTrend = { area: string; last: number; avg4: number; delta4: number | null; deltaLast: number | null };
 type Stats = { current_streak: number; best_streak: number; last_completed: string | null };
 type Habit = { id: string; title: string; is_active?: boolean; target_days_per_week?: number; category?: string | null };
 type Log = { habit_id: string; date: string; value: boolean; is_completed?: boolean };
@@ -945,10 +945,10 @@ export default function AnalyticsPage() {
 
     const topWheelDeltas = useMemo(() => {
         return wheelTrends
-            .filter(t => t.delta4 > 0)
-            .sort((a, b) => b.delta4 - a.delta4)
+            .filter(t => t.delta4 !== null && t.delta4 > 0)
+            .sort((a, b) => (b.delta4 ?? 0) - (a.delta4 ?? 0))
             .slice(0, 3)
-            .map(t => ({ area: t.area, delta: t.delta4, score: t.last }));
+            .map(t => ({ area: t.area, delta: t.delta4 ?? 0, score: t.last }));
     }, [wheelTrends]);
 
     // Consistency score: measures variability in completion (lower = more consistent)
@@ -1075,21 +1075,92 @@ export default function AnalyticsPage() {
     // }, [correlations]);
 
     const wheelImpact = useMemo(() => {
-        if (!topWheelDeltas || topWheelDeltas.length === 0) return null;
-        const top = topWheelDeltas[0];
-        const bottom = wheelTrends.filter(t => t.delta4 < 0).sort((a, b) => a.delta4 - b.delta4)[0];
+        if (!wheelTrends || wheelTrends.length === 0) return null;
+        // Use deltaLast (this week vs last week) instead of delta4
+        const top = wheelTrends.filter(t => t.deltaLast !== null && t.deltaLast > 0).sort((a, b) => (b.deltaLast ?? 0) - (a.deltaLast ?? 0))[0];
+        const bottom = wheelTrends.filter(t => t.deltaLast !== null && t.deltaLast < 0).sort((a, b) => (a.deltaLast ?? 0) - (b.deltaLast ?? 0))[0];
+        
+        // Return object if we have at least one change
+        if (top || bottom) {
+            return {
+                top: top ? { area: top.area, delta: top.deltaLast ?? 0 } : null,
+                bottom: bottom ? { area: bottom.area, delta: bottom.deltaLast ?? 0 } : null
+            };
+        }
+        // If we have wheel data but no deltaLast yet, still return structure to show we have data
+        if (wheelTrends.length > 0) {
+            return { top: null, bottom: null };
+        }
+        return null;
+    }, [wheelTrends]);
+
+    // Goal forecast: calculate probability of completion and risk status
+    const goalForecast = useMemo(() => {
+        const goalsWithDueDate = goals.filter(g => g.due_date && g.status === 'active');
+        if (goalsWithDueDate.length === 0) return null;
+
+        const now = new Date();
+        let onTrackCount = 0;
+        let atRiskCount = 0;
+        let totalProgress = 0;
+        let nearestDeadline: { days: number; goal: Goal } | null = null;
+
+        for (const goal of goalsWithDueDate) {
+            const dueDate = new Date(goal.due_date!);
+            const createdDate = goal.created_at ? new Date(goal.created_at) : now;
+            const totalDays = Math.max(1, Math.ceil((dueDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)));
+            const daysElapsed = Math.max(0, Math.ceil((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)));
+            const daysRemaining = Math.max(0, Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+            
+            // Calculate progress based on time elapsed vs total time
+            let progress = 0;
+            if (goal.target && goal.target > 0) {
+                // If goal has metric and target, we'd ideally use actual progress
+                // For now, estimate based on time (this could be improved with actual metric tracking)
+                progress = Math.min(100, (daysElapsed / totalDays) * 100);
+            } else {
+                // For goals without metric, use time-based progress
+                progress = Math.min(100, (daysElapsed / totalDays) * 100);
+            }
+
+            totalProgress += progress;
+
+            // Determine if on track (progress should be >= expected progress for time elapsed)
+            // If we're past due date or progress is significantly behind, it's at risk
+            const expectedProgress = Math.min(100, (daysElapsed / totalDays) * 100);
+            const isOnTrack = daysRemaining >= 0 && progress >= expectedProgress * 0.8; // 80% tolerance
+
+            if (isOnTrack) {
+                onTrackCount++;
+            } else {
+                atRiskCount++;
+            }
+
+            // Track nearest deadline
+            if (!nearestDeadline || daysRemaining < nearestDeadline.days) {
+                nearestDeadline = { days: daysRemaining, goal };
+            }
+        }
+
+        const avgProgress = totalProgress / goalsWithDueDate.length;
+        const onTrackPercent = Math.round((onTrackCount / goalsWithDueDate.length) * 100);
+
         return {
-            top: top ? { area: top.area, delta: top.delta } : null,
-            bottom: bottom ? { area: bottom.area, delta: bottom.delta4 } : null
+            total: goalsWithDueDate.length,
+            onTrack: onTrackCount,
+            atRisk: atRiskCount,
+            avgProgress: Math.round(avgProgress),
+            onTrackPercent,
+            nearestDeadline
         };
-    }, [topWheelDeltas, wheelTrends]);
+    }, [goals]);
 
     const habitRecommendations = useMemo(() => {
         if (!wheelTrends || wheelTrends.length === 0) return null;
-        const declining = wheelTrends.filter(t => t.delta4 < 0).sort((a, b) => a.delta4 - b.delta4);
+        const declining = wheelTrends.filter(t => t.delta4 !== null && t.delta4 < 0).sort((a, b) => (a.delta4 ?? 0) - (b.delta4 ?? 0));
         if (declining.length === 0) return null;
         const worst = declining[0];
-        return { area: worst.area, delta: worst.delta4 };
+        return { area: worst.area, delta: worst.delta4 ?? 0 };
     }, [wheelTrends]);
 
     // Маппинг Wheel areas -> Habit categories
@@ -1429,7 +1500,7 @@ export default function AnalyticsPage() {
                 {/* Metrics Section with Tabs */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-4">
                     {/* Tabs */}
-                    <div className="flex gap-2 border-b border-white/10">
+                    <div className="flex gap-2 border-b border-white/10 justify-between px-4">
                         <button
                             onClick={() => setActiveTab('core')}
                             className={`px-4 py-2 text-lg font-semibold transition-colors ${
@@ -1572,31 +1643,6 @@ export default function AnalyticsPage() {
                                 </div>
                             )}
 
-                            {/* Peak activity */}
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
-                                <h3 className="text-base font-semibold text-white">Peak activity</h3>
-                                {mostActiveDay ? (
-                                    <>
-                                        <div className="space-y-1">
-                                            <p className="text-base font-semibold text-white">
-                                                Day: <span className="text-[#8B5CF6] font-semibold">{mostActiveDay.day}</span>
-                                            </p>
-                                            {mostActiveDay.timeOfDay && (
-                                                <p className="text-sm font-semibold text-[#8B5CF6]">
-                                                    {mostActiveDay.timeOfDay}
-                                                    {mostActiveDay.avgHour !== null && ` (~${Math.floor(mostActiveDay.avgHour)}:${String(Math.round((mostActiveDay.avgHour % 1) * 60)).padStart(2, '0')})`}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <p className="text-xs text-white/70 leading-snug" title="Peak day shows the day of week with most completions. Time shows average completion time.">
-                                            Typical time of day you complete habits. Useful to schedule around natural energy peaks.
-                                        </p>
-                                    </>
-                                ) : (
-                                    <p className="text-xs text-white/60">No data yet</p>
-                                )}
-                            </div>
-
                             {/* Category balance */}
                             {categoryBalance && (
                                 <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
@@ -1625,6 +1671,38 @@ export default function AnalyticsPage() {
                                     </p>
                                 </div>
                             )}
+
+                            {/* Fatigue alerts */}
+                            <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${fatigueAlerts.hasData
+                                ? fatigueAlerts.riskLevel === 'high' 
+                                    ? 'border-red-400/50 bg-red-400/5'
+                                    : fatigueAlerts.riskLevel === 'medium' 
+                                        ? 'border-yellow-400/50 bg-yellow-400/5'
+                                        : 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                : 'border-white/10 bg-[#1a1b2e]'
+                                }`}>
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-base font-semibold text-white">Fatigue alerts</h3>
+                                </div>
+                                {fatigueAlerts.hasData ? (
+                                    fatigueAlerts.message ? (
+                                        <div className="flex flex-col gap-1.5">
+                                            <p className="text-sm text-white/70">{fatigueAlerts.message}</p>
+                                            {fatigueAlerts.suggestions && fatigueAlerts.suggestions.length > 0 && (
+                                                <ul className="text-xs text-white/60 list-disc list-inside space-y-0.5">
+                                                    {fatigueAlerts.suggestions.map((s, idx) => (
+                                                        <li key={idx}>{s}</li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-white/70">All good! No fatigue detected.</p>
+                                    )
+                                ) : (
+                                    <p className="text-sm text-white/70">Track more streaks to surface fatigue alerts.</p>
+                                )}
+                            </div>
                                 </div>
                             )}
                         </>
@@ -1661,16 +1739,28 @@ export default function AnalyticsPage() {
                                         </p>
                                     </div>
 
-                                    {/* Energy peaks */}
-                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-base font-semibold text-white">Energy peaks</h3>
-                                            <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
-                                        </div>
-                                        {energyPeaks ? (
-                                            <p className="text-sm text-white/70">{energyPeaks.day} is your strongest day ({energyPeaks.count} check-ins)</p>
+                                    {/* Peak activity */}
+                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
+                                        <h3 className="text-base font-semibold text-white">Peak activity</h3>
+                                        {mostActiveDay ? (
+                                            <>
+                                                <div className="space-y-1">
+                                                    <p className="text-base font-semibold text-white">
+                                                        Day: <span className="text-[#8B5CF6] font-semibold">{mostActiveDay.day}</span>
+                                                    </p>
+                                                    {mostActiveDay.timeOfDay && (
+                                                        <p className="text-sm font-semibold text-[#8B5CF6]">
+                                                            {mostActiveDay.timeOfDay}
+                                                            {mostActiveDay.avgHour !== null && ` (~${Math.floor(mostActiveDay.avgHour)}:${String(Math.round((mostActiveDay.avgHour % 1) * 60)).padStart(2, '0')})`}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-white/70 leading-snug" title="Peak day shows the day of week with most completions. Time shows average completion time.">
+                                                    Typical time of day you complete habits. Useful to schedule around natural energy peaks.
+                                                </p>
+                                            </>
                                         ) : (
-                                            <p className="text-sm text-white/60">No data yet</p>
+                                            <p className="text-xs text-white/60">No data yet</p>
                                         )}
                                     </div>
 
@@ -1694,21 +1784,24 @@ export default function AnalyticsPage() {
                                             <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
                                         </div>
                                         {wheelImpact ? (
-                                            <div className="flex flex-col gap-1 text-sm text-white/70">
+                                            <div className="flex flex-col gap-1.5">
                                                 {wheelImpact.top && (
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-emerald-300">↑</span>
-                                                        <span>{wheelImpact.top.area} {wheelImpact.top.delta > 0 ? '+' : ''}{wheelImpact.top.delta.toFixed(1)}</span>
+                                                        <span className="text-sm text-white/70">{wheelImpact.top.area} +{Math.round(wheelImpact.top.delta)}</span>
                                                     </div>
                                                 )}
                                                 {wheelImpact.bottom && (
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-red-400">↓</span>
-                                                        <span>{wheelImpact.bottom.area} {wheelImpact.bottom.delta.toFixed(1)}</span>
+                                                        <span className="text-sm text-white/70">{wheelImpact.bottom.area} {Math.round(wheelImpact.bottom.delta)}</span>
                                                     </div>
                                                 )}
                                                 {!wheelImpact.top && !wheelImpact.bottom && (
-                                                    <p className="text-white/60">No wheel data yet</p>
+                                                    <p className="text-sm text-white/60">Track wheel scores for 2+ weeks to see trends</p>
+                                                )}
+                                                {(wheelImpact.top || wheelImpact.bottom) && (
+                                                    <p className="text-xs text-white/50">Compared to last week</p>
                                                 )}
                                             </div>
                                         ) : (
@@ -1716,47 +1809,56 @@ export default function AnalyticsPage() {
                                         )}
                                     </div>
 
-                                    {/* Fatigue alerts */}
+                                    {/* Energy peaks */}
                                     <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
                                         <div className="flex items-center justify-between">
-                                            <h3 className="text-base font-semibold text-white">Fatigue alerts</h3>
-                                            <span className={`text-xs font-semibold uppercase ${fatigueAlerts.hasData
-                                                ? (fatigueAlerts.riskLevel === 'high' ? 'text-red-400' : fatigueAlerts.riskLevel === 'medium' ? 'text-yellow-400' : 'text-green-400')
-                                                : 'text-orange-400'
-                                                }`}>
-                                                {fatigueAlerts.hasData ? 'LIVE' : 'NEED DATA'}
-                                            </span>
+                                            <h3 className="text-base font-semibold text-white">Energy peaks</h3>
+                                            <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
                                         </div>
-                                        {fatigueAlerts.hasData ? (
-                                            fatigueAlerts.message ? (
-                                                <div className="flex flex-col gap-1.5">
-                                                    <p className="text-sm text-white/70">{fatigueAlerts.message}</p>
-                                                    {fatigueAlerts.suggestions && fatigueAlerts.suggestions.length > 0 && (
-                                                        <ul className="text-xs text-white/60 list-disc list-inside space-y-0.5">
-                                                            {fatigueAlerts.suggestions.map((s, idx) => (
-                                                                <li key={idx}>{s}</li>
-                                                            ))}
-                                                        </ul>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <p className="text-sm text-white/70">All good! No fatigue detected.</p>
-                                            )
+                                        {energyPeaks ? (
+                                            <p className="text-sm text-white/70">{energyPeaks.day} is your strongest day ({energyPeaks.count} check-ins)</p>
                                         ) : (
-                                            <p className="text-sm text-white/70">Track more streaks to surface fatigue alerts.</p>
+                                            <p className="text-sm text-white/60">No data yet</p>
                                         )}
                                     </div>
 
                                     {/* Goal forecast */}
-                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
+                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${goalForecast
+                                        ? goalForecast.onTrackPercent >= 70 
+                                            ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                            : goalForecast.onTrackPercent >= 50
+                                                ? 'border-yellow-400/50 bg-yellow-400/5'
+                                                : 'border-red-400/50 bg-red-400/5'
+                                        : 'border-white/10 bg-[#1a1b2e]'
+                                        }`}>
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-base font-semibold text-white">Goal forecast</h3>
-                                            <span className={`text-xs font-semibold uppercase ${goals.filter(g => g.due_date).length > 0 ? 'text-green-400' : 'text-orange-400'}`}>
-                                                {goals.filter(g => g.due_date).length > 0 ? 'LIVE' : 'NEED DATA'}
+                                            <span className={`text-xs font-semibold uppercase ${goalForecast ? 'text-green-400' : 'text-orange-400'}`}>
+                                                {goalForecast ? 'LIVE' : 'NEED DATA'}
                                             </span>
                                         </div>
-                                        {goals.filter(g => g.due_date).length > 0 ? (
-                                            <p className="text-sm text-white/70">Forecasting completion for {goals.filter(g => g.due_date && g.status === 'active').length} goals with due dates.</p>
+                                        {goalForecast ? (
+                                            <div className="flex flex-col gap-1.5">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm text-white/70">{goalForecast.onTrack}/{goalForecast.total} on track</span>
+                                                    <span className={`text-sm font-semibold ${goalForecast.onTrackPercent >= 70 ? 'text-[#22C55E]' : goalForecast.onTrackPercent >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                                        {goalForecast.onTrackPercent}%
+                                                    </span>
+                                                </div>
+                                                {goalForecast.atRisk > 0 && (
+                                                    <p className="text-xs text-red-400/80">{goalForecast.atRisk} goal{goalForecast.atRisk === 1 ? '' : 's'} at risk</p>
+                                                )}
+                                                {goalForecast.nearestDeadline && (
+                                                    <p className="text-xs text-white/60">
+                                                        {goalForecast.nearestDeadline.days === 0 
+                                                            ? 'Nearest deadline: Today' 
+                                                            : goalForecast.nearestDeadline.days === 1
+                                                                ? 'Nearest deadline: Tomorrow'
+                                                                : `Nearest deadline: ${goalForecast.nearestDeadline.days} days`
+                                                        }
+                                                    </p>
+                                                )}
+                                            </div>
                                         ) : (
                                             <p className="text-sm text-white/70">Set due dates to forecast goal completion.</p>
                                         )}
