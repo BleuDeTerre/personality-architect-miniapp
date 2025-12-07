@@ -32,7 +32,7 @@
 
 **Провайдер:** OpenRouter  
 **Библиотека:** `openai` SDK (OpenRouter использует OpenAI-совместимый API)  
-**Модель:** `tng-ai/deepseek-r1t2-chimera:free` (по умолчанию)  
+**Модель:** `tngtech/deepseek-r1t2-chimera:free` (по умолчанию)  
 **API ключ:** `OPENROUTER_API_KEY`  
 **Глобальный лимит:** 980 запросов/день (защита от превышения лимита OpenRouter в 1000 запросов/день)
 
