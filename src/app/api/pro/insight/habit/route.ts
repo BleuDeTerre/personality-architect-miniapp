@@ -33,6 +33,14 @@ export async function POST(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
+        // Проверяем план пользователя
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as 'free' | 'pro' | 'premium';
+
         // входные
         const body = await req.json().catch(() => ({}));
         const date = String(body?.date || new Date().toISOString().slice(0, 10));
@@ -49,10 +57,12 @@ export async function POST(req: NextRequest) {
         // AI init (флаг deep по желанию из body)
         const deep = !!body?.deep;
 
-        // 0) списываем кредит (RPC должна использовать auth.uid() внутри)
-        const { data: ok, error: consumeErr } = await supa.rpc('consume_credit', { p_period: PERIOD });
-        if (consumeErr) return NextResponse.json({ error: consumeErr.message }, { status: 500 });
-        if (!ok) return NextResponse.json({ error: 'no credits', code: 'NO_CREDITS' }, { status: 402 });
+        // 0) списываем кредит (пропускаем для premium)
+        if (userPlan !== 'premium') {
+            const { data: ok, error: consumeErr } = await supa.rpc('consume_credit', { p_period: PERIOD });
+            if (consumeErr) return NextResponse.json({ error: consumeErr.message }, { status: 500 });
+            if (!ok) return NextResponse.json({ error: 'no credits', code: 'NO_CREDITS' }, { status: 402 });
+        }
 
         // 1) cache hit
         {

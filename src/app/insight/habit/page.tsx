@@ -1,11 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { PRICES_USD } from '@/lib/pricing';
-import ClientToaster from '@/components/ClientToaster';
-import PayButton from '@/components/PayButton';
-import CreditsBadge from '@/components/CreditsBadge';
-import MiniCredits from '@/components/MiniCredits';
+import { useEffect, useState, useCallback } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import { useMiniApp } from '@neynar/react';
+import MiniAppPage from '@/components/MiniAppPage';
+import { toast } from 'sonner';
+
+const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 type Resp = {
     date: string;
@@ -15,113 +19,178 @@ type Resp = {
     cachedUntil?: string;
 };
 
-function todayUTC() { return new Date().toISOString().slice(0, 10); }
+function todayUTC() {
+    return new Date().toISOString().slice(0, 10);
+}
 
 export default function HabitInsightPage() {
+    const { isSDKLoaded, context } = useMiniApp();
     const [date, setDate] = useState<string>(todayUTC());
     const [data, setData] = useState<Resp | null>(null);
     const [loading, setLoading] = useState(false);
-    const [err, setErr] = useState<string | null>(null);
-    const price = PRICES_USD["/api/paid/insight/habit"];
+    const [userPlan, setUserPlan] = useState<'free' | 'pro' | 'premium'>('free');
 
-    async function load(d: string) {
-        setLoading(true); setErr(null);
+    const authHeaders = useCallback(async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const tzOffset = typeof window !== 'undefined' ? new Date().getTimezoneOffset() : 0;
+        return {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token ?? ''}`,
+            'X-Timezone-Offset': String(tzOffset),
+        };
+    }, []);
+
+    useEffect(() => {
+        (async () => {
+            if (!isSDKLoaded || !context?.user?.fid) return;
+            const fid = Number(context.user.fid);
+
+            const { data } = await supabase.auth.getUser();
+            if (!data.user) {
+                const res = await fetch('/api/auth/farcaster-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fid }),
+                });
+                const { access_token } = await res.json();
+                if (access_token) {
+                    await supabase.auth.setSession({ access_token, refresh_token: '' });
+                }
+            }
+
+            // Get user plan
+            const headers = await authHeaders();
+            try {
+                const planRes = await fetch('/api/plan', { headers });
+                if (planRes.ok) {
+                    const planData = await planRes.json();
+                    setUserPlan((planData.plan || 'free') as 'free' | 'pro' | 'premium');
+                }
+            } catch (e) {
+                console.warn('[Habit Insight] Failed to load plan:', e);
+            }
+        })();
+    }, [isSDKLoaded, context?.user?.fid, authHeaders]);
+
+    async function loadHabit(d: string) {
+        setLoading(true);
         try {
-            const r = await fetch(`/api/insight/habit?date=${encodeURIComponent(d)}`);
+            const headers = await authHeaders();
+            const r = await fetch(`/api/insight/habit?date=${encodeURIComponent(d)}`, { headers });
             const j = await r.json();
-            if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+            
+            if (!r.ok) {
+                if (r.status === 402) {
+                    toast.error('Payment required', {
+                        description: userPlan === 'premium' 
+                            ? 'Please check your premium status' 
+                            : 'Upgrade to Pro or purchase credits',
+                    });
+                } else {
+                    toast.error('Failed to load insight', {
+                        description: j?.error || `HTTP ${r.status}`,
+                    });
+                }
+                return;
+            }
             setData(j as Resp);
-        } catch (e: any) { setErr(e?.message || 'error'); setData(null); }
-        finally { setLoading(false); }
+        } catch (e: any) {
+            toast.error('Error loading insight', {
+                description: e?.message || 'Unknown error',
+            });
+        } finally {
+            setLoading(false);
+        }
     }
 
-    useEffect(() => { load(date); }, [date]);
-
-    async function performBuy(opts: { highAccuracy: boolean }) {
-        const r = await fetch('/api/buy/habit', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ date, highAccuracy: opts.highAccuracy }),
-        });
-        const j = await r.json();
-        if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-        return j as Resp;
-    }
+    useEffect(() => {
+        if (isSDKLoaded && context?.user?.fid) {
+            loadHabit(date);
+        }
+    }, [date, isSDKLoaded, context?.user?.fid, userPlan]);
 
     return (
-        <div className="p-6 max-w-3xl mx-auto space-y-6">
-            <ClientToaster />
+        <MiniAppPage>
+            <div className="space-y-3">
+                {/* Header Card */}
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">
+                        Habit Review
+                    </h1>
+                    <p className="text-sm text-white/70">
+                        Detailed review of your habits for a specific day
+                    </p>
+                </section>
 
-            <h1 className="text-2xl font-semibold">Habit Review</h1>
-            <CreditsBadge />
+                {/* Date Selector */}
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                    <label className="block text-sm font-semibold text-white mb-2">Date</label>
+                    <input
+                        type="date"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="w-full rounded-xl border border-white/10 bg-[#0c0f1a] px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
+                    />
+                </section>
 
-            <div>
-                <label className="block mb-1 text-sm">Date</label>
-                <input
-                    type="date" value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="border p-2 rounded w-full"
-                />
-            </div>
+                {loading && (
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                        <div className="text-sm text-white/70">Loading insight...</div>
+                    </section>
+                )}
 
-            <div className="flex flex-wrap items-center gap-3">
-                <button
-                    onClick={() => load(date)}
-                    className="px-3 py-2 rounded border"
-                    disabled={loading}
-                >
-                    Refresh (free)
-                </button>
-
-                <PayButton<Resp>
-                    price={price}
-                    title="Purchase: Habit Insight"
-                    description="Pay via x402. A 7-day cache will be enabled after purchase."
-                    defaultHighAccuracy={false}
-                    perform={performBuy}
-                    onSuccess={(resp) => setData(resp)}
-                />
-
-                <MiniCredits priceUsd={price} />
-            </div>
-
-            {loading && <div>Loading…</div>}
-            {err && <div className="text-red-600">Error: {err}</div>}
-
-            {data && !loading && (
-                <div className="space-y-4">
-                    <div className="border rounded-xl p-4">
-                        <div className="text-sm opacity-70">Date: {data.date}</div>
-                        <div className="mt-1 text-sm">
-                            Completed: <b>{data.totals.completed}/{data.totals.habits_total}</b> ({data.totals.rate_pct}%)
-                        </div>
-                        {data.cachedUntil && (
-                            <div className="text-xs opacity-60 mt-1">
-                                cached until: {new Date(data.cachedUntil).toLocaleString()}
+                {data && !loading && (
+                    <div className="space-y-3">
+                        {/* Stats Card */}
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                            <div className="text-sm font-semibold text-white mb-3">Day Overview</div>
+                            <div className="rounded-2xl border border-white/10 bg-[#0c0f1a] p-3 mb-3">
+                                <div className="text-xs text-white/60 mb-1">Date</div>
+                                <div className="text-sm font-semibold text-white">{data.date}</div>
                             </div>
-                        )}
-                    </div>
+                            <div className="rounded-2xl border border-white/10 bg-[#0c0f1a] p-3">
+                                <div className="text-xs text-white/60 mb-1">Completion Rate</div>
+                                <div className="text-lg font-bold text-white">
+                                    {data.totals.completed} / {data.totals.habits_total} ({data.totals.rate_pct}%)
+                                </div>
+                            </div>
+                            {data.cachedUntil && (
+                                <div className="text-xs text-white/60 mt-3">
+                                    Cached until: {new Date(data.cachedUntil).toLocaleString()}
+                                </div>
+                            )}
+                        </section>
 
-                    <div className="border rounded-xl p-4">
-                        <div className="font-medium mb-2">Summary</div>
-                        <pre className="whitespace-pre-wrap text-sm">{data.summary}</pre>
-                    </div>
+                        {/* Summary */}
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                            <div className="text-sm font-semibold text-white mb-3">AI Summary</div>
+                            <div className="rounded-xl border border-white/10 bg-[#0c0f1a] p-4">
+                                <pre className="whitespace-pre-wrap text-sm text-white/80 leading-relaxed">
+                                    {data.summary}
+                                </pre>
+                            </div>
+                        </section>
 
-                    <div className="border rounded-xl p-4">
-                        <div className="font-medium mb-2">By Habit</div>
-                        <ul className="text-sm space-y-1">
-                            {data.items.map((x) => (
-                                <li key={x.habit_id} className="flex justify-between">
-                                    <span className="truncate">{x.title}</span>
-                                    <span>{x.done ? '✓' : '—'}</span>
-                                </li>
-                            ))}
-                        </ul>
+                        {/* By Habit */}
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                            <div className="text-sm font-semibold text-white mb-3">By Habit</div>
+                            <div className="space-y-2">
+                                {data.items.map((x) => (
+                                    <div
+                                        key={x.habit_id}
+                                        className="flex justify-between items-center rounded-xl border border-white/10 bg-[#0c0f1a] p-3"
+                                    >
+                                        <span className="text-sm text-white/80 truncate">{x.title}</span>
+                                        <span className="text-sm font-semibold text-white">
+                                            {x.done ? '✓' : '—'}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
                     </div>
-
-                    <div className="text-xs opacity-60">x402 enabled. Cache: 7 days.</div>
-                </div>
-            )}
-        </div>
+                )}
+            </div>
+        </MiniAppPage>
     );
 }

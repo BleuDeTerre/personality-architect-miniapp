@@ -173,19 +173,19 @@ export default function DailyWellness() {
     ];
 
     return (
-        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-            <h2 className="text-lg font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-3">Daily Wellness</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
+            <h2 className="text-base font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Daily Wellness</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {metrics.map((metric) => (
                     <div
                         key={metric.key}
-                        className="flex flex-col gap-2 p-3 rounded-2xl border border-white/10 bg-[#1a1b2e] hover:bg-[#252640] transition-colors"
+                        className="flex flex-col gap-1.5 p-2.5 rounded-2xl border border-white/10 bg-[#1a1b2e] hover:bg-[#252640] transition-colors"
                     >
-                        <div className="flex items-center gap-2">
-                            <span className="text-xl">{metric.emoji}</span>
-                            <span className="text-xs font-medium text-white/80">{metric.label}</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-lg">{metric.emoji}</span>
+                            <span className="text-[11px] font-medium text-white/80">{metric.label}</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                             <input
                                 type="number"
                                 min="1"
@@ -206,15 +206,15 @@ export default function DailyWellness() {
                                     }
                                 }}
                                 placeholder="—"
-                                className="bg-white/10 border-none outline-none text-lg font-semibold text-white px-3 py-2 rounded-xl placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:bg-white/15 hover:bg-white/12 transition-colors w-16 flex-shrink-0"
+                                className="bg-white/10 border-none outline-none text-base font-semibold text-white px-2.5 py-1.5 rounded-xl placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:bg-white/15 hover:bg-white/12 transition-colors w-16 flex-shrink-0"
                                 disabled={saving}
                             />
                             {metric.suffix && (
-                                <span className="text-xs text-white/60 flex-shrink-0">{metric.suffix}</span>
+                                <span className="text-[10px] text-white/60 flex-shrink-0">{metric.suffix}</span>
                             )}
                         </div>
                         {/* Visual slider indicator */}
-                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-1 bg-white/10 rounded-full overflow-hidden">
                             <div
                                 className={`h-full transition-all duration-200 ${getBarColor(metric.key, metric.value ?? null)}`}
                                 style={{ 

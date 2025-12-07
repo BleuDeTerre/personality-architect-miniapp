@@ -1,16 +1,15 @@
-// src/app/insight/monthly/page.tsx
 'use client';
 
-// RU: страница Monthly Insight. UI-строки EN.
-import { useMemo, useState } from 'react';
-import PayButton from '@/components/PayButton';
-// MiniCreditsBadge может отсутствовать — временно уберём импорт/использование
-import { PRICES_USD, type PaidPath } from '@/lib/pricing';
-import CoachBlock from '@/components/CoachBlock';
+import { useMemo, useState, useEffect, useCallback } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import { useMiniApp } from '@neynar/react';
+import MiniAppPage from '@/components/MiniAppPage';
+import { toast } from 'sonner';
 
-// ↓ ДОБАВЛЕНО: обёртка fetch с таймаутом/ретраями и телеметрия
-import { fetchJson } from '@/lib/http';
-import { logEvent } from '@/lib/telemetry';
+const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 type Resp = {
     month_start: string;
@@ -20,126 +19,177 @@ type Resp = {
     cachedUntil?: string;
 };
 
-const PAID_PATH = '/api/paid/insight/monthly' as PaidPath;
-
 function monthUTC(d = new Date()) {
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
-// -------------------- helper for Farcaster share --------------------
-async function openShare(kind: 'monthly', month: string, title: string, text: string) {
-    const qs = new URLSearchParams({ kind, month, title, text });
-    const r = await fetch(`/api/share/link?${qs.toString()}`, { cache: 'no-store' });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const { url } = await r.json();
-    // Открываем URL через window.open, так как это не компонент с useMiniApp
-    window.open(url, '_blank');
-}
-// -------------------------------------------------------------------
-
 export default function MonthlyInsightPage() {
+    const { isSDKLoaded, context } = useMiniApp();
     const [month, setMonth] = useState<string>(monthUTC());
     const [data, setData] = useState<Resp | null>(null);
     const [loading, setLoading] = useState(false);
+    const [userPlan, setUserPlan] = useState<'free' | 'pro' | 'premium'>('free');
+
+    const authHeaders = useCallback(async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const tzOffset = typeof window !== 'undefined' ? new Date().getTimezoneOffset() : 0;
+        return {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token ?? ''}`,
+            'X-Timezone-Offset': String(tzOffset),
+        };
+    }, []);
+
+    useEffect(() => {
+        (async () => {
+            if (!isSDKLoaded || !context?.user?.fid) return;
+            const fid = Number(context.user.fid);
+
+            const { data } = await supabase.auth.getUser();
+            if (!data.user) {
+                const res = await fetch('/api/auth/farcaster-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fid }),
+                });
+                const { access_token } = await res.json();
+                if (access_token) {
+                    await supabase.auth.setSession({ access_token, refresh_token: '' });
+                }
+            }
+
+            // Get user plan
+            const headers = await authHeaders();
+            try {
+                const planRes = await fetch('/api/plan', { headers });
+                if (planRes.ok) {
+                    const planData = await planRes.json();
+                    setUserPlan((planData.plan || 'free') as 'free' | 'pro' | 'premium');
+                }
+            } catch (e) {
+                console.warn('[Monthly Insight] Failed to load plan:', e);
+            }
+        })();
+    }, [isSDKLoaded, context?.user?.fid, authHeaders]);
 
     const title = useMemo(() => {
         const [y, m] = month.split('-').map(Number);
         return `Monthly Insight for ${String(m).padStart(2, '0')}/${y}`;
     }, [month]);
 
-    async function load(endpoint: '/api/pro/insight/monthly' | '/api/paid/insight/monthly') {
+    async function loadMonthly() {
         setLoading(true);
         try {
-            const j = await fetchJson<Resp>(`${endpoint}?month=${month}`, { timeoutMs: 20000, retries: 1 });
-            setData(j);
-            await logEvent('insight.monthly.view', { status: 'success', path: endpoint, props: { month } });
-        } catch (e: any) {
-            if (e?.code === 402) {
-                await logEvent('insight.monthly.error', { status: '402', path: endpoint, props: { month } });
-                alert('Payment required. Please buy or use Pro credit.');
-            } else if (e?.name === 'AbortError') {
-                await logEvent('insight.monthly.error', { status: 'timeout', path: endpoint, props: { month } });
-                alert('Timeout. Try again.');
-            } else {
-                await logEvent('insight.monthly.error', { status: String(e?.code ?? 'error'), path: endpoint, props: { month } });
-                alert('Error loading report');
+            const headers = await authHeaders();
+            
+            // Use pro endpoint for pro/premium users
+            const endpoint = (userPlan === 'pro' || userPlan === 'premium')
+                ? '/api/pro/insight/monthly'
+                : '/api/paid/insight/monthly';
+
+            const url = `${endpoint}?month=${month}`;
+            const r = await fetch(url, { headers });
+            const j = await r.json();
+            
+            if (!r.ok) {
+                if (r.status === 402) {
+                    toast.error('Payment required', {
+                        description: userPlan === 'premium' 
+                            ? 'Please check your premium status' 
+                            : 'Upgrade to Pro or purchase credits',
+                    });
+                } else {
+                    toast.error('Failed to load insight', {
+                        description: j?.error || `HTTP ${r.status}`,
+                    });
+                }
+                return;
             }
+            setData(j as Resp);
+        } catch (e: any) {
+            toast.error('Error loading insight', {
+                description: e?.message || 'Unknown error',
+            });
         } finally {
             setLoading(false);
         }
     }
 
+    useEffect(() => {
+        if (isSDKLoaded && context?.user?.fid && userPlan) {
+            loadMonthly();
+        }
+    }, [month, isSDKLoaded, context?.user?.fid, userPlan]);
+
     return (
-        <div className="max-w-2xl mx-auto p-4 space-y-4">
-            <h1 className="text-2xl font-semibold">{title}</h1>
+        <MiniAppPage>
+            <div className="space-y-3">
+                {/* Header Card */}
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">
+                        Monthly Insight
+                    </h1>
+                    <p className="text-sm text-white/70">
+                        Deep analysis of your monthly performance and trends
+                    </p>
+                </section>
 
-            <div className="flex items-center gap-3">
-                <input
-                    type="month"
-                    className="border rounded px-2 py-1"
-                    value={month}
-                    onChange={e => setMonth(e.target.value)}
-                />
-                {/* MiniCreditsBadge */}
+                {/* Month Selector */}
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                    <label className="block text-sm font-semibold text-white mb-2">Month</label>
+                    <input
+                        type="month"
+                        className="w-full rounded-xl border border-white/10 bg-[#0c0f1a] px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
+                        value={month}
+                        onChange={e => setMonth(e.target.value)}
+                    />
+                </section>
+
+                {loading && (
+                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                        <div className="text-sm text-white/70">Building report...</div>
+                    </section>
+                )}
+
+                {data && !loading && (
+                    <div className="space-y-3">
+                        {/* Stats Grid */}
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                            <div className="text-sm font-semibold text-white mb-3">Monthly Statistics</div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <StatCard label="Days" value={data.totals.days} />
+                                <StatCard label="Total Actions" value={data.totals.habits_total} />
+                                <StatCard label="Completed" value={data.totals.completed} />
+                                <StatCard label="Completion Rate" value={`${data.totals.rate_pct}%`} />
+                            </div>
+                            {data.cachedUntil && (
+                                <div className="text-xs text-white/60 mt-3">
+                                    Cache valid until: {new Date(data.cachedUntil).toLocaleString()}
+                                </div>
+                            )}
+                        </section>
+
+                        {/* Summary */}
+                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+                            <div className="text-sm font-semibold text-white mb-3">AI Summary</div>
+                            <div className="rounded-xl border border-white/10 bg-[#0c0f1a] p-4">
+                                <pre className="whitespace-pre-wrap text-sm text-white/80 leading-relaxed">
+                                    {data.summary}
+                                </pre>
+                            </div>
+                        </section>
+                    </div>
+                )}
             </div>
-
-            <div className="flex gap-3">
-                <button
-                    onClick={() => load('/api/pro/insight/monthly')}
-                    className="px-3 py-2 rounded bg-neutral-800 text-white"
-                >
-                    Use Pro Credit
-                </button>
-
-                <PayButton
-                    price={PRICES_USD[PAID_PATH]}
-                    description="Pay to generate monthly insight"
-                    perform={async () => {
-                        await fetchJson(`${'/api/buy/meta'}?path=${encodeURIComponent(PAID_PATH)}`);
-                        await load('/api/paid/insight/monthly');
-                        return { ok: true } as const;
-                    }}
-                />
-
-                <button
-                    onClick={() => openShare('monthly', month, title, 'Monthly summary of my habits')}
-                    className="px-3 py-2 rounded border border-neutral-300"
-                >
-                    Share
-                </button>
-            </div>
-
-            {loading && <div>Building report…</div>}
-
-            {data && (
-                <div className="space-y-3">
-                    <div className="text-sm text-neutral-500">
-                        Cache valid until: {data.cachedUntil ? new Date(data.cachedUntil).toLocaleString() : '—'}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                        <Stat label="Days" value={data.totals.days} />
-                        <Stat label="Total actions" value={data.totals.habits_total} />
-                        <Stat label="Completed" value={data.totals.completed} />
-                        <Stat label="Completion rate" value={`${data.totals.rate_pct}%`} />
-                    </div>
-
-                    <CoachBlock />
-
-                    <div className="whitespace-pre-wrap border rounded p-3">
-                        {data.summary}
-                    </div>
-                </div>
-            )}
-        </div>
+        </MiniAppPage>
     );
 }
 
-function Stat({ label, value }: { label: string; value: number | string }) {
+function StatCard({ label, value }: { label: string; value: number | string }) {
     return (
-        <div className="border rounded p-3">
-            <div className="text-xs text-neutral-500">{label}</div>
-            <div className="text-lg font-semibold">{value}</div>
+        <div className="rounded-2xl border border-white/10 bg-[#0c0f1a] p-3">
+            <div className="text-xs text-white/60 mb-1">{label}</div>
+            <div className="text-lg font-semibold text-white">{value}</div>
         </div>
     );
 }

@@ -41,11 +41,6 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ insights: [] });
         }
 
-        // Генерируем объяснения через AI (используем Gemma для легких задач)
-        const provider = pickAIProvider('light');
-        const aiClient = getAIClient(provider);
-        const model = getAIModel(provider);
-
         const insights: Array<{
             habitA: string;
             habitB: string;
@@ -54,8 +49,33 @@ export async function GET(req: NextRequest) {
             suggestion: string;
         }> = [];
 
+        // Генерируем объяснения через AI (используем Gemma для легких задач)
+        const provider = pickAIProvider('light');
+        let aiClient;
+        let model;
+        
+        try {
+            aiClient = getAIClient(provider);
+            model = getAIModel(provider);
+        } catch (clientError) {
+            console.error('[AI Correlation Insights] Failed to initialize AI client:', clientError);
+            // Если клиент не инициализирован - используем только fallback
+        }
+
         // Обрабатываем топ-3 корреляции
         for (const corr of correlations.slice(0, 3)) {
+            // Если AI клиент не инициализирован, используем fallback сразу
+            if (!aiClient || !model) {
+                insights.push({
+                    habitA: corr.habit_a,
+                    habitB: corr.habit_b,
+                    correlation: corr.correlation,
+                    explanation: 'These habits are often completed together. This strong correlation suggests they complement each other in your routine.',
+                    suggestion: 'Try doing them together to build momentum and maintain consistency.',
+                });
+                continue;
+            }
+
             // Проверяем лимит перед каждым AI запросом (может быть несколько корреляций)
             const currentLimitCheck = await checkAILimit(supa, userId, userPlan);
             if (!currentLimitCheck.allowed) {
@@ -64,8 +84,8 @@ export async function GET(req: NextRequest) {
                     habitA: corr.habit_a,
                     habitB: corr.habit_b,
                     correlation: corr.correlation,
-                    explanation: 'These habits are often completed together.',
-                    suggestion: 'Try doing them together to build momentum.',
+                    explanation: 'These habits are often completed together. This strong correlation suggests they complement each other in your routine.',
+                    suggestion: 'Try doing them together to build momentum and maintain consistency.',
                 });
                 continue;
             }
@@ -118,21 +138,36 @@ export async function GET(req: NextRequest) {
                         habit_b: corr.habit_b,
                     });
                 })();
-            } catch (_aiError) {
-                // Fallback
+            } catch (aiError: any) {
+                console.error('[AI Correlation Insights] AI error for correlation:', corr.habit_a, corr.habit_b, aiError?.message);
+                // Fallback - всегда добавляем инсайт, даже если AI не работает
                 insights.push({
                     habitA: corr.habit_a,
                     habitB: corr.habit_b,
                     correlation: corr.correlation,
-                    explanation: 'These habits are often completed together.',
-                    suggestion: 'Try doing them together to build momentum.',
+                    explanation: `These habits are often completed together (${Math.round(corr.correlation * 100)}% correlation). This strong connection suggests they complement each other in your routine.`,
+                    suggestion: 'Try doing them together to build momentum and maintain consistency.',
                 });
             }
         }
 
+        // Всегда возвращаем инсайты, даже если они только fallback
+        // Если insights пуст, значит что-то пошло не так - возвращаем fallback для первой корреляции
+        if (insights.length === 0 && correlations.length > 0) {
+            const firstCorr = correlations[0];
+            insights.push({
+                habitA: firstCorr.habit_a,
+                habitB: firstCorr.habit_b,
+                correlation: firstCorr.correlation,
+                explanation: `These habits are often completed together (${Math.round(firstCorr.correlation * 100)}% correlation). This strong connection suggests they complement each other in your routine.`,
+                suggestion: 'Try doing them together to build momentum and maintain consistency.',
+            });
+        }
+
         return NextResponse.json({ insights });
     } catch (error: any) {
-        console.error('[AI Correlation Insights] Error:', error);
+        console.error('[AI Correlation Insights] Unexpected error:', error);
+        // В случае ошибки возвращаем пустой массив - fallback уже обработан выше
         return NextResponse.json({ insights: [], error: error?.message });
     }
 }

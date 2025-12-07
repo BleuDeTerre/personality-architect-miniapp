@@ -146,83 +146,99 @@ export async function GET(req: NextRequest) {
 
             const todayCount = dayPatterns.get(dayOfWeek) || 0;
             const avgCount = habitLogs.length / 7; // Среднее за неделю
-            const riskScore = avgCount > 0 ? (1 - todayCount / avgCount) : 0.5;
+            const hasPattern = todayCount > 0;
+            const riskScore = hasPattern && avgCount > 0 
+                ? Math.max(0.6, (1 - todayCount / avgCount))
+                : (habitLogs.length > 0 ? 0.5 : 0.7); // Если есть история - средний риск, если нет - высокий
 
-            // Если риск высокий (обычно выполняли в этот день, но еще не выполнили)
-            if (riskScore > 0.6 && todayCount > 0) {
-                // Проверяем лимит перед каждым AI запросом (может быть несколько алертов)
-                const currentLimitCheck = await checkAILimit(supa, userId, userPlan);
-                if (!currentLimitCheck.allowed) {
-                    // Если лимит достигнут - используем fallback для оставшихся привычек
-                    alerts.push({
-                        habitId: habit.id,
-                        habitTitle: habit.title,
-                        riskScore: Math.round(riskScore * 100),
-                        message: `You usually complete ${habit.title} on ${dayName}s. Don't forget it today!`,
-                        suggestion: `Consider setting a reminder for ${dayName}s`,
-                    });
-                    continue;
-                }
+            // Показываем алерт для ВСЕХ невыполненных привычек
+            // Проверяем лимит перед каждым AI запросом (может быть несколько алертов)
+            const currentLimitCheck = await checkAILimit(supa, userId, userPlan);
+            if (!currentLimitCheck.allowed) {
+                // Если лимит достигнут - используем fallback для оставшихся привычек
+                alerts.push({
+                    habitId: habit.id,
+                    habitTitle: habit.title,
+                    riskScore: Math.round(riskScore * 100),
+                    message: hasPattern 
+                        ? `You usually complete ${habit.title} on ${dayName}s. Don't forget it today!`
+                        : `Don't forget to complete ${habit.title} today!`,
+                    suggestion: hasPattern 
+                        ? `Consider setting a reminder for ${dayName}s`
+                        : `Try to complete this habit to build consistency.`,
+                });
+                continue;
+            }
 
-                // Генерируем предупреждение через AI (используем Gemma для легких задач)
-                const provider = pickAIProvider('light');
-                const aiClient = getAIClient(provider);
-                const model = getAIModel(provider);
+            // Генерируем предупреждение через AI (используем Gemma для легких задач)
+            const provider = pickAIProvider('light');
+            const aiClient = getAIClient(provider);
+            const model = getAIModel(provider);
 
-                // Определяем язык по названию привычки
-                const detectedLang = detectLanguage(habit.title);
-                const languageInstruction = getLanguageInstruction(detectedLang);
-                const systemPrompt = PREDICTIVE_ALERTS_PROMPT.replace('{LANGUAGE_INSTRUCTION}', languageInstruction);
+            // Определяем язык по названию привычки
+            const detectedLang = detectLanguage(habit.title);
+            const languageInstruction = getLanguageInstruction(detectedLang);
+            const systemPrompt = PREDICTIVE_ALERTS_PROMPT.replace('{LANGUAGE_INSTRUCTION}', languageInstruction);
 
-                const userMessage = [
+            const userMessage = hasPattern
+                ? [
                     `User usually completes "${habit.title}" on ${dayName}s (${todayCount} times in last 30 days).`,
                     `Today is ${dayName} and they haven't completed it yet.`,
                     wellnessContext || '',
                     `Generate a friendly reminder with a suggestion to prevent missing it. Consider their wellness state when crafting the message.`,
-                ].filter(Boolean).join('\n');
+                  ].filter(Boolean).join('\n')
+                : [
+                    `User has an active habit "${habit.title}" that they haven't completed today.`,
+                    `Total completions in last 30 days: ${habitLogs.length}.`,
+                    wellnessContext || '',
+                    `Generate a friendly reminder to complete this habit today. Consider their wellness state when crafting the message.`,
+                  ].filter(Boolean).join('\n');
 
-                try {
-                    const chat = await aiClient.chat.completions.create({
-                        model,
-                        temperature: 0.7,
-                        messages: [
-                            {
-                                role: 'system',
-                                content: systemPrompt,
-                            },
-                            {
-                                role: 'user',
-                                content: userMessage,
-                            },
-                        ],
+            try {
+                const chat = await aiClient.chat.completions.create({
+                    model,
+                    temperature: 0.7,
+                    messages: [
+                        {
+                            role: 'system',
+                            content: systemPrompt,
+                        },
+                        {
+                            role: 'user',
+                            content: userMessage,
+                        },
+                    ],
+                });
+
+                const message = chat.choices[0]?.message?.content || `Don't forget ${habit.title} today!`;
+
+                alerts.push({
+                    habitId: habit.id,
+                    habitTitle: habit.title,
+                    riskScore: Math.round(riskScore * 100),
+                    message,
+                    suggestion: `Consider setting a reminder for ${dayName}s`,
+                });
+
+                // Логируем AI запрос в фоне
+                (async () => {
+                    await logAIRequest(supa, userId, userPlan, 'ai/predictive-alerts', {
+                        habit_id: habit.id,
                     });
-
-                    const message = chat.choices[0]?.message?.content || `Don't forget ${habit.title} today!`;
-
-                    alerts.push({
-                        habitId: habit.id,
-                        habitTitle: habit.title,
-                        riskScore: Math.round(riskScore * 100),
-                        message,
-                        suggestion: `Consider setting a reminder for ${dayName}s`,
-                    });
-
-                    // Логируем AI запрос в фоне
-                    (async () => {
-                        await logAIRequest(supa, userId, userPlan, 'ai/predictive-alerts', {
-                            habit_id: habit.id,
-                        });
-                    })();
-                } catch (_aiError) {
-                    // Fallback
-                    alerts.push({
-                        habitId: habit.id,
-                        habitTitle: habit.title,
-                        riskScore: Math.round(riskScore * 100),
-                        message: `You usually complete ${habit.title} on ${dayName}s. Don't forget it today!`,
-                        suggestion: `Consider setting a reminder for ${dayName}s`,
-                    });
-                }
+                })();
+            } catch (_aiError) {
+                // Fallback
+                alerts.push({
+                    habitId: habit.id,
+                    habitTitle: habit.title,
+                    riskScore: Math.round(riskScore * 100),
+                    message: hasPattern 
+                        ? `You usually complete ${habit.title} on ${dayName}s. Don't forget it today!`
+                        : `Don't forget to complete ${habit.title} today!`,
+                    suggestion: hasPattern 
+                        ? `Consider setting a reminder for ${dayName}s`
+                        : `Try to complete this habit to build consistency.`,
+                });
             }
         }
 

@@ -47,6 +47,7 @@ const NAVIGATION = [
   { href: '/goals', label: 'Goals', icon: '🎯', desc: 'Set & track goals' },
   { href: '/streaks', label: 'Streaks', icon: '🔥', desc: 'View your streaks' },
   { href: '/analytics', label: 'Analytics', icon: '📊', desc: 'Advanced insights' },
+  { href: '/insight', label: 'AI Insights', icon: '💡', desc: 'Weekly, monthly & habit reviews' },
   { href: '/leaderboard', label: 'Leaderboard', icon: '🏅', desc: 'Top performers' },
   { href: '/chat', label: 'AI Coach', icon: '🤖', desc: 'Chat with your coach' },
   { href: '/profile', label: 'Profile', icon: '👤', desc: 'Account & badges' },

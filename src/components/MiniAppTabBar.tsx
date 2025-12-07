@@ -18,6 +18,7 @@ const NAV_ITEMS: NavItem[] = [
     { href: "/goals", label: "Goals", icon: "🎯", color: "#10b981" }, // Зеленый
     { href: "/streaks", label: "Streaks", icon: "🔥", color: "#f87171" }, // Красный
     { href: "/analytics", label: "Analytics", icon: "📊", color: "#3b82f6" }, // Синий
+    { href: "/insight", label: "Insights", icon: "💡", color: "#fbbf24" }, // Желтый
     { href: "/chat", label: "AI Coach", icon: "🤖", color: "#8b5cf6" }, // Фиолетовый
     { href: "/leaderboard", label: "Leaders", icon: "🏅", color: "#8b5cf6" }, // Фиолетовый
     { href: "/profile", label: "Profile", icon: "👤", color: "#8b5cf6" }, // Фиолетовый

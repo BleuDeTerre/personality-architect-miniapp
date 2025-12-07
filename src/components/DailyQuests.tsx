@@ -178,8 +178,7 @@ export default function DailyQuests() {
                 <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-xs uppercase tracking-wide text-white/60">Daily focus</p>
-                            <h3 className="text-xl font-semibold text-white">Daily quests</h3>
+                            <h3 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Daily quests</h3>
                         </div>
                         <span className="text-sm text-white/60">
                             {loading ? '—/—' : `${buckets?.completedDaily ?? 0}/${buckets?.totalDaily ?? 0}`}
@@ -191,8 +190,7 @@ export default function DailyQuests() {
                 <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-xs uppercase tracking-wide text-white/60">Weekly outlook</p>
-                            <h3 className="text-xl font-semibold text-white">Weekly quests</h3>
+                            <h3 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Weekly quests</h3>
                         </div>
                         <span className="text-sm text-white/60">
                             {loading ? '—' : `${buckets?.weekly?.filter(q => q.completed).length ?? 0}/${buckets?.weekly?.length ?? 0}`}

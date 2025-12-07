@@ -1623,7 +1623,7 @@ export default function AnalyticsPage() {
                                             </p>
                                         </div>
                                         {weeklyMomentum.message && (
-                                            <p className="text-xs text-white/50">{weeklyMomentum.message}</p>
+                                            <p className="text-xs text-white">{weeklyMomentum.message}</p>
                                         )}
                                     </div>
                                 ) : (
@@ -1743,13 +1743,13 @@ export default function AnalyticsPage() {
                                             {wellnessAnalytics.trends.map((trend) => {
                                                 if (trend.current === null) return null;
                                                 
-                                                const metricLabels: Record<string, { label: string; color: string }> = {
-                                                    stress_level: { label: 'Stress', color: 'text-red-400' },
-                                                    productivity_level: { label: 'Productivity', color: 'text-green-400' },
-                                                    sleep_hours: { label: 'Sleep', color: 'text-blue-400' },
-                                                    work_hours: { label: 'Work', color: 'text-yellow-400' },
+                                                const metricLabels: Record<string, string> = {
+                                                    stress_level: 'Stress',
+                                                    productivity_level: 'Productivity',
+                                                    sleep_hours: 'Sleep',
+                                                    work_hours: 'Work',
                                                 };
-                                                const metric = metricLabels[trend.metric] || { label: trend.metric, color: 'text-white' };
+                                                const metricLabel = metricLabels[trend.metric] || trend.metric;
                                                 
                                                 const isHours = trend.metric.includes('hours');
                                                 const displayValue = isHours ? `${trend.current.toFixed(1)}h` : `${trend.current.toFixed(1)}`;
@@ -1758,38 +1758,37 @@ export default function AnalyticsPage() {
                                                 // Show ↑ (green), ↓ (red), or → (white/gray if no change)
                                                 let displayIcon = null;
                                                 let trendColor = 'text-white/60';
+                                                let valueColor = 'text-white'; // Color for the number itself
                                                 
                                                 if (trend.trend === 'improving') {
                                                     // For stress: improving = lower (↓ green)
                                                     // For others: improving = higher (↑ green)
                                                     displayIcon = trend.metric === 'stress_level' ? '↓' : '↑';
                                                     trendColor = 'text-green-400';
+                                                    valueColor = 'text-green-400'; // Green if improved
                                                 } else if (trend.trend === 'declining') {
                                                     // For stress: declining = higher (↑ red)
                                                     // For others: declining = lower (↓ red)
                                                     displayIcon = trend.metric === 'stress_level' ? '↑' : '↓';
                                                     trendColor = 'text-red-400';
+                                                    valueColor = 'text-red-400'; // Red if declined
                                                 } else if (trend.trend === 'stable') {
                                                     // No change - show → in white/gray
                                                     displayIcon = '→';
                                                     trendColor = 'text-white/60';
+                                                    valueColor = 'text-white'; // Neutral if stable
                                                 }
                                                 
                                                 // Status
                                                 const statusText = trend.status === 'optimal' ? 'Optimal' : trend.status === 'below' ? 'Below optimal' : trend.status === 'above' ? 'Above optimal' : null;
                                                 const statusColor = trend.status === 'optimal' ? 'text-green-400' : trend.status === 'below' ? 'text-yellow-400' : trend.status === 'above' ? 'text-orange-400' : 'text-white/60';
                                                 
-                                                // Optimal range display
-                                                const rangeText = trend.optimalRange 
-                                                    ? ` (Optimal: ${isHours ? `${trend.optimalRange.min}-${trend.optimalRange.max}h` : `${trend.optimalRange.min}-${trend.optimalRange.max}`})`
-                                                    : '';
-                                                
                                                 return (
                                                     <div key={trend.metric} className="flex flex-col gap-0.5">
                                                         <div className="flex items-center justify-between">
-                                                            <span className="text-white/70">{metric.label}:</span>
+                                                            <span className="text-white/70">{metricLabel}:</span>
                                                             <div className="flex items-center gap-1.5">
-                                                                <span className={`font-semibold ${metric.color}`}>{displayValue}</span>
+                                                                <span className={`font-semibold ${valueColor}`}>{displayValue}</span>
                                                                 {displayIcon && (
                                                                     <span className={`text-xs ${trendColor}`}>{displayIcon}</span>
                                                                 )}
@@ -1797,7 +1796,7 @@ export default function AnalyticsPage() {
                                                         </div>
                                                         {statusText && (
                                                             <div className="flex items-center justify-between text-xs">
-                                                                <span className={`${statusColor} font-medium`}>{statusText}{rangeText}</span>
+                                                                <span className={`${statusColor} font-medium`}>{statusText}</span>
                                                                 {trend.change !== null && trend.change !== 0 && (
                                                                     <span className="text-white/50">
                                                                         {trend.change > 0 ? '+' : ''}{trend.change.toFixed(1)} vs yesterday
@@ -2062,8 +2061,8 @@ export default function AnalyticsPage() {
                 </section>
 
                 {/* AI Facts Section */}
-                {facts && facts.facts && facts.facts.length > 0 && (
-                    <CollapsibleCard title="🤖 AI facts" defaultOpen={false}>
+                <CollapsibleCard title="🤖 AI facts" defaultOpen={true}>
+                    {facts && facts.facts && facts.facts.length > 0 ? (
                         <div className="space-y-2">
                             {facts.facts.map((fact, idx) => (
                                 <div key={idx} className="flex items-start gap-2.5">
@@ -2072,8 +2071,10 @@ export default function AnalyticsPage() {
                                 </div>
                             ))}
                         </div>
-                    </CollapsibleCard>
-                )}
+                    ) : (
+                        <p className="text-xs text-white/60">AI facts are being generated... Check back later!</p>
+                    )}
+                </CollapsibleCard>
 
                 {/* Week Comparison Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">

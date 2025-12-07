@@ -38,9 +38,13 @@ export default function AICorrelationInsights() {
                 if (res.ok) {
                     const data = await res.json();
                     setInsights(data.insights || []);
+                } else {
+                    console.error('[AI Correlation Insights] API error:', res.status, res.statusText);
+                    // Не устанавливаем пустой массив - оставляем текущее состояние
                 }
             } catch (e) {
                 console.error('[AI Correlation Insights] Failed to load:', e);
+                // При ошибке не сбрасываем инсайты - возможно есть кешированные
             } finally {
                 setLoading(false);
             }

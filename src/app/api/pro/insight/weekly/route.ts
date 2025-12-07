@@ -152,6 +152,14 @@ export async function POST(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
+        // Проверяем план пользователя
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as 'free' | 'pro' | 'premium';
+
         // 2) Входные
         const body = await req.json().catch(() => ({}));
         const week_start = String(body?.week_start || new Date().toISOString().slice(0, 10));
@@ -165,10 +173,12 @@ export async function POST(req: NextRequest) {
         const input_hash = sha(key);
         const cached_until = new Date(Date.now() + CACHE_DAYS * 864e5).toISOString();
 
-        // 3) Списываем кредит
-        const { data: ok, error: consumeErr } = await supa.rpc('consume_credit', { p_period: PERIOD });
-        if (consumeErr) return NextResponse.json({ error: consumeErr.message }, { status: 500 });
-        if (!ok) return NextResponse.json({ error: 'no credits', code: 'NO_CREDITS' }, { status: 402 });
+        // 3) Списываем кредит (пропускаем для premium)
+        if (userPlan !== 'premium') {
+            const { data: ok, error: consumeErr } = await supa.rpc('consume_credit', { p_period: PERIOD });
+            if (consumeErr) return NextResponse.json({ error: consumeErr.message }, { status: 500 });
+            if (!ok) return NextResponse.json({ error: 'no credits', code: 'NO_CREDITS' }, { status: 402 });
+        }
 
         // 4) Кэш-хит
         {

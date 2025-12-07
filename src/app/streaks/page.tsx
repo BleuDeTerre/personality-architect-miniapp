@@ -664,25 +664,25 @@ export default function StreaksPage() {
                 {/* Statistics Cards and Progress */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
                     {/* 2x2 Grid of Statistics Cards */}
-                    <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="grid grid-cols-2 gap-2 mb-4">
                         {/* Current Streak */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
-                            <div className="text-sm font-semibold text-white mb-2">Current Streak</div>
-                            <div className="text-4xl font-bold text-[#2BD4A4] mb-1">{stats.current_streak || 0}</div>
-                            <div className="text-sm text-white/70">days</div>
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3">
+                            <div className="text-xs font-semibold text-white/80 mb-1.5">Current Streak</div>
+                            <div className="text-2xl font-bold text-[#2BD4A4] mb-0.5 leading-tight">{stats.current_streak || 0}</div>
+                            <div className="text-xs text-white/60">days</div>
                         </div>
 
                         {/* Best Streak */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
-                            <div className="text-sm font-semibold text-white mb-2">Best Streak</div>
-                            <div className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{stats.best_streak || 0}</div>
-                            <div className="text-sm text-white/70">days</div>
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3">
+                            <div className="text-xs font-semibold text-white/80 mb-1.5">Best Streak</div>
+                            <div className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-0.5 leading-tight">{stats.best_streak || 0}</div>
+                            <div className="text-xs text-white/60">days</div>
                         </div>
 
                         {/* Last Activity */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
-                            <div className="text-sm font-semibold text-white mb-2">Last Activity</div>
-                            <div className="text-2xl font-bold text-white mb-1">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3">
+                            <div className="text-xs font-semibold text-white/80 mb-1.5">Last Activity</div>
+                            <div className="text-lg font-bold text-white leading-tight">
                                 {stats.last_completed
                                     ? (() => {
                                         // Парсим дату из строки YYYY-MM-DD как локальную дату (не UTC)
@@ -702,10 +702,10 @@ export default function StreaksPage() {
                         </div>
 
                         {/* Next Badge */}
-                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
-                            <div className="text-sm font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Next Badge</div>
-                            <div className="text-4xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">{nextBadgeDays || 0}</div>
-                            <div className="text-sm text-white/70">days remaining</div>
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3">
+                            <div className="text-xs font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">Next Badge</div>
+                            <div className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-0.5 leading-tight">{nextBadgeDays || 0}</div>
+                            <div className="text-xs text-white/60">days remaining</div>
                         </div>
                     </div>
 

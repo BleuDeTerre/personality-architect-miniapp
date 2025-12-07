@@ -29,6 +29,20 @@ export type QuestStats = {
     perfectDaysThisMonth: number;
     monthlyLogCount: number;
     wheelMomentumWeeks?: number; // Количество уникальных недель с обновлениями Wheel за последние 4 недели
+    // Новые поля для расширенной системы квестов
+    totalGoals?: number; // Количество активных целей
+    goalsProgressToday?: number; // Количество целей с прогрессом сегодня
+    subtasksCompletedToday?: number; // Количество завершенных подзадач сегодня
+    wellnessLoggedToday?: boolean; // Записаны ли метрики wellness сегодня
+    wellnessDaysThisWeek?: number; // Количество дней с wellness на неделе
+    wellnessDaysThisMonth?: number; // Количество дней с wellness в месяце
+    aiInteractionsToday?: number; // Количество AI взаимодействий сегодня
+    aiInteractionsWeek?: number; // Количество AI взаимодействий на неделе
+    wheelUpdatedToday?: boolean; // Обновлен ли Wheel сегодня
+    streakIncreased?: boolean; // Увеличился ли streak сегодня
+    goalsCompletedThisMonth?: number; // Количество завершенных целей в месяце
+    goalsProgressThisWeek?: number; // Количество обновлений прогресса по целям на неделе
+    aiInteractionsMonth?: number; // Количество AI взаимодействий в месяце
 };
 
 export function calculateQuestProgress(quest: Quest): number {
@@ -48,6 +62,7 @@ type QuestDefinition = {
 };
 
 const DAILY_POOL: QuestDefinition[] = [
+    // ==================== HABITS (оставить некоторые) ====================
     {
         id: 'all_active',
         icon: '✅',
@@ -69,15 +84,6 @@ const DAILY_POOL: QuestDefinition[] = [
         eligible: stats => stats.totalHabits > 0,
     },
     {
-        id: 'share_highlight',
-        icon: '📣',
-        title: 'Share a win',
-        description: () => 'Publish a Farcaster cast about your progress',
-        target: () => 1,
-        current: stats => Math.min(1, stats.shareCastsToday),
-        xp: () => 25,
-    },
-    {
         id: 'half_day',
         icon: '📊',
         title: 'Half day champion',
@@ -97,18 +103,105 @@ const DAILY_POOL: QuestDefinition[] = [
         xp: stats => Math.max(20, Math.min(4, Math.max(2, stats.totalHabits)) * 8),
         eligible: stats => stats.totalHabits >= 2,
     },
+    
+    // ==================== GOALS ====================
+    {
+        id: 'goal_progress',
+        icon: '📈',
+        title: 'Goal progress',
+        description: () => 'Make progress on any goal today',
+        target: () => 1,
+        current: stats => Math.min(1, stats.goalsProgressToday ?? 0),
+        xp: () => 22,
+        eligible: stats => (stats.totalGoals ?? 0) > 0,
+    },
+    {
+        id: 'complete_subtask',
+        icon: '✅',
+        title: 'Complete subtask',
+        description: () => 'Complete a subtask in one of your goals',
+        target: () => 1,
+        current: stats => Math.min(1, stats.subtasksCompletedToday ?? 0),
+        xp: () => 20,
+        eligible: stats => (stats.totalGoals ?? 0) > 0,
+    },
+    
+    // ==================== WHEEL OF LIFE ====================
+    {
+        id: 'wheel_update',
+        icon: '🎡',
+        title: 'Wheel check-in',
+        description: () => 'Update your Wheel of Life today',
+        target: () => 1,
+        current: stats => stats.wheelUpdatedToday ? 1 : 0,
+        xp: () => 30,
+    },
+    
+    // ==================== DAILY WELLNESS ====================
+    {
+        id: 'log_wellness',
+        icon: '💊',
+        title: 'Log wellness',
+        description: () => 'Record your wellness metrics (stress, productivity, sleep, work)',
+        target: () => 1,
+        current: stats => stats.wellnessLoggedToday ? 1 : 0,
+        xp: () => 25,
+    },
+    {
+        id: 'wellness_balance',
+        icon: '⚖️',
+        title: 'Wellness balance',
+        description: () => 'Log all 4 wellness metrics today',
+        target: () => 1,
+        current: stats => stats.wellnessLoggedToday ? 1 : 0,
+        xp: () => 35,
+    },
+    
+    // ==================== AI COACH ====================
+    {
+        id: 'ask_ai',
+        icon: '🤖',
+        title: 'Ask AI Coach',
+        description: () => 'Chat with your AI Coach today',
+        target: () => 1,
+        current: stats => Math.min(1, stats.aiInteractionsToday ?? 0),
+        xp: () => 15,
+    },
+    {
+        id: 'get_coach_advice',
+        icon: '🎓',
+        title: 'Get Coach Advice',
+        description: () => 'Get personalized advice from AI Coach',
+        target: () => 1,
+        current: stats => Math.min(1, stats.aiInteractionsToday ?? 0),
+        xp: () => 28,
+    },
+    
+    // ==================== STREAKS ====================
+    {
+        id: 'maintain_streak',
+        icon: '🔥',
+        title: 'Maintain streak',
+        description: () => 'Keep your habit streak alive today',
+        target: () => 1,
+        current: stats => stats.completedToday > 0 ? 1 : 0,
+        xp: () => 20,
+        eligible: stats => (stats.currentStreak ?? 0) > 0,
+    },
+    
+    // ==================== SHARING ====================
+    {
+        id: 'share_highlight',
+        icon: '📣',
+        title: 'Share a win',
+        description: () => 'Publish a Farcaster cast about your progress',
+        target: () => 1,
+        current: stats => Math.min(1, stats.shareCastsToday),
+        xp: () => 25,
+    },
 ];
 
 const WEEKLY_POOL: QuestDefinition[] = [
-    {
-        id: 'wheel_weekend_share',
-        icon: '🎡',
-        title: 'Wheel spotlight',
-        description: () => 'Share your Wheel this week',
-        target: () => 1,
-        current: stats => Math.min(1, stats.wheelWeekendShares),
-        xp: () => 80,
-    },
     {
         id: 'active_days',
         icon: '📅',
@@ -128,15 +221,6 @@ const WEEKLY_POOL: QuestDefinition[] = [
         xp: () => 70,
     },
     {
-        id: 'social_boost',
-        icon: '📢',
-        title: 'Social boost',
-        description: () => 'Share 3 casts about your progress this week',
-        target: () => 3,
-        current: stats => Math.min(stats.shareCastsWeek, 3),
-        xp: () => 65,
-    },
-    {
         id: 'wheel_checkin',
         icon: '🧭',
         title: 'Wheel check-in',
@@ -144,6 +228,62 @@ const WEEKLY_POOL: QuestDefinition[] = [
         target: () => 1,
         current: stats => Math.min(1, stats.wheelUpdatesWeek),
         xp: () => 55,
+    },
+    {
+        id: 'wheel_weekend_share',
+        icon: '🎡',
+        title: 'Wheel spotlight',
+        description: () => 'Share your Wheel this week',
+        target: () => 1,
+        current: stats => Math.min(1, stats.wheelWeekendShares),
+        xp: () => 80,
+    },
+    {
+        id: 'wellness_week',
+        icon: '💊',
+        title: 'Wellness week',
+        description: () => 'Log wellness metrics at least 4 days this week',
+        target: () => 4,
+        current: stats => Math.min(stats.wellnessDaysThisWeek ?? 0, 4),
+        xp: () => 75,
+    },
+    {
+        id: 'goals_weekly',
+        icon: '🎯',
+        title: 'Goals progress',
+        description: () => 'Update progress on your goals 3 times this week',
+        target: () => 3,
+        current: stats => Math.min(3, stats.goalsProgressThisWeek ?? 0),
+        xp: () => 65,
+        eligible: stats => (stats.totalGoals ?? 0) > 0,
+    },
+    {
+        id: 'ai_insights',
+        icon: '💡',
+        title: 'AI insights',
+        description: () => 'Get Weekly Insight from AI Coach',
+        target: () => 1,
+        current: stats => Math.min(1, stats.aiInteractionsWeek ?? 0), // TODO: специфичная проверка для Weekly Insight
+        xp: () => 70,
+    },
+    {
+        id: 'streak_growth',
+        icon: '🔥',
+        title: 'Streak growth',
+        description: () => 'Increase your streak this week',
+        target: () => 1,
+        current: stats => stats.streakIncreased ? 1 : 0,
+        xp: () => 60,
+        eligible: stats => (stats.currentStreak ?? 0) > 0,
+    },
+    {
+        id: 'social_boost',
+        icon: '📢',
+        title: 'Social boost',
+        description: () => 'Share 3 casts about your progress this week',
+        target: () => 3,
+        current: stats => Math.min(stats.shareCastsWeek, 3),
+        xp: () => 65,
     },
 ];
 
@@ -177,13 +317,32 @@ const MONTHLY_POOL: QuestDefinition[] = [
         eligible: stats => (stats.wheelMomentumWeeks ?? 0) > 0,
     },
     {
-        id: 'social_series',
-        icon: '📡',
-        title: 'Share your journey',
-        description: () => 'Publish 5 casts about your growth this month',
-        target: () => 5,
-        current: stats => Math.min(stats.shareCastsMonth, 5),
-        xp: () => 160,
+        id: 'goals_achievement',
+        icon: '🏆',
+        title: 'Goal achievement',
+        description: () => 'Complete a goal this month',
+        target: () => 1,
+        current: stats => Math.min(1, stats.goalsCompletedThisMonth ?? 0),
+        xp: () => 200,
+        eligible: stats => (stats.totalGoals ?? 0) > 0,
+    },
+    {
+        id: 'wellness_consistency',
+        icon: '💊',
+        title: 'Wellness consistency',
+        description: () => 'Log wellness metrics 20 days this month',
+        target: () => 20,
+        current: stats => Math.min(stats.wellnessDaysThisMonth ?? 0, 20),
+        xp: () => 180,
+    },
+    {
+        id: 'ai_power_user',
+        icon: '🤖',
+        title: 'AI power user',
+        description: () => 'Use AI functions 15 times this month',
+        target: () => 15,
+        current: stats => Math.min(stats.aiInteractionsMonth ?? 0, 15),
+        xp: () => 190,
     },
     {
         id: 'streak_summit',
@@ -194,6 +353,15 @@ const MONTHLY_POOL: QuestDefinition[] = [
         current: stats => Math.min(stats.currentStreak || 0, 10),
         xp: () => 180,
         eligible: stats => (stats.currentStreak || 0) > 0,
+    },
+    {
+        id: 'social_series',
+        icon: '📡',
+        title: 'Share your journey',
+        description: () => 'Publish 5 casts about your growth this month',
+        target: () => 5,
+        current: stats => Math.min(stats.shareCastsMonth, 5),
+        xp: () => 160,
     },
 ];
 

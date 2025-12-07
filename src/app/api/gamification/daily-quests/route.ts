@@ -132,9 +132,19 @@ export async function GET(req: NextRequest) {
             shareEventsRes,
             wheelWeekRes,
             wheelMonthRes,
+            wheelTodayRes,
             logsTodayResult,
             logsWeekResult,
             logsMonthResult,
+            goalsRes,
+            subtasksTodayRes,
+            wellnessTodayRes,
+            wellnessWeekRes,
+            wellnessMonthRes,
+            aiEventsTodayRes,
+            aiEventsWeekRes,
+            aiEventsMonthRes,
+            goalsCompletedMonthRes,
         ] = await Promise.all([
             supa.from('habits').select('id').eq('user_id', userId).eq('is_active', true),
             supa.rpc('get_habit_streak', { p_user: userId }),
@@ -157,9 +167,81 @@ export async function GET(req: NextRequest) {
                 .eq('user_id', userId)
                 .gte('updated_at', monthStartIso)
                 .lt('updated_at', dayEndIso),
+            supa
+                .from('wheel_scores')
+                .select('updated_at')
+                .eq('user_id', userId)
+                .gte('updated_at', dayStartIso)
+                .lt('updated_at', dayEndIso)
+                .limit(1),
             fetchHabitLogs(supa, userId, query => query.eq('date', todayStr)),
             fetchHabitLogs(supa, userId, query => query.gte('date', weekStartStr).lte('date', todayStr)),
             fetchHabitLogs(supa, userId, query => query.gte('date', monthStartStr).lte('date', todayStr)),
+            supa
+                .from('goals')
+                .select('id, progress, status, updated_at')
+                .eq('user_id', userId)
+                .eq('status', 'active'),
+            supa
+                .from('subtasks')
+                .select('id, is_completed, updated_at')
+                .eq('user_id', userId)
+                .eq('is_completed', true)
+                .gte('updated_at', dayStartIso)
+                .lt('updated_at', dayEndIso),
+            supa
+                .from('goals')
+                .select('id, progress, updated_at')
+                .eq('user_id', userId)
+                .eq('status', 'active')
+                .gte('updated_at', weekStartIso)
+                .lt('updated_at', dayEndIso),
+            supa
+                .from('daily_wellness_metrics')
+                .select('date, stress_level, productivity_level, sleep_hours, work_hours')
+                .eq('user_id', userId)
+                .eq('date', todayStr)
+                .limit(1),
+            supa
+                .from('daily_wellness_metrics')
+                .select('date')
+                .eq('user_id', userId)
+                .gte('date', weekStartStr)
+                .lte('date', todayStr),
+            supa
+                .from('daily_wellness_metrics')
+                .select('date')
+                .eq('user_id', userId)
+                .gte('date', monthStartStr)
+                .lte('date', todayStr),
+            supa
+                .from('events_log')
+                .select('name, created_at')
+                .eq('user_id', userId)
+                .in('name', ['ai_request', 'chat_message', 'coach_advice', 'goal_breakdown', 'goal_review', 'wheel_insights', 'daily_motivation'])
+                .gte('created_at', dayStartIso)
+                .lt('created_at', dayEndIso),
+            supa
+                .from('events_log')
+                .select('name, created_at')
+                .eq('user_id', userId)
+                .in('name', ['ai_request', 'chat_message', 'coach_advice', 'goal_breakdown', 'goal_review', 'wheel_insights', 'daily_motivation'])
+                .gte('created_at', weekStartIso)
+                .lt('created_at', dayEndIso),
+            supa
+                .from('events_log')
+                .select('name, created_at')
+                .eq('user_id', userId)
+                .in('name', ['ai_request', 'chat_message', 'coach_advice', 'goal_breakdown', 'goal_review', 'wheel_insights', 'daily_motivation'])
+                .gte('created_at', monthStartIso)
+                .lt('created_at', dayEndIso),
+            supa
+                .from('goals')
+                .select('id, status, updated_at')
+                .eq('user_id', userId)
+                .eq('status', 'completed')
+                .gte('updated_at', monthStartIso)
+                .lt('updated_at', dayEndIso),
         ]);
 
         const totalHabits = habitsRes.data?.length ?? 0;
@@ -296,6 +378,58 @@ export async function GET(req: NextRequest) {
             todayStr,
         });
 
+        // ==================== НОВЫЕ ВЫЧИСЛЕНИЯ ====================
+        
+        // Goals статистика
+        const goals = goalsRes.data ?? [];
+        const totalGoals = goals.length;
+        
+        // Проверяем, был ли прогресс по целям сегодня (обновление прогресса или завершение подзадачи)
+        const goalsWithProgressToday = goals.filter((goal: any) => {
+            if (!goal.updated_at) return false;
+            const updated = new Date(goal.updated_at);
+            return updated >= dayStart && updated < dayEnd && goal.progress > 0;
+        }).length;
+        const subtasksCompletedToday = (subtasksTodayRes.data ?? []).length;
+        const goalsProgressToday = goalsWithProgressToday > 0 || subtasksCompletedToday > 0 ? 1 : 0;
+        
+        // Goals прогресс на неделе - считаем количество обновлений целей (упрощенная логика)
+        // В будущем можно улучшить, добавив отдельный запрос для подзадач на неделе
+        const goalsWeekUpdates = goals.filter((goal: any) => {
+            if (!goal.updated_at) return false;
+            const updated = new Date(goal.updated_at);
+            return updated >= weekStartDate && updated < dayEnd;
+        });
+        const goalsProgressThisWeek = Math.min(7, goalsWeekUpdates.length);
+        
+        // Goals завершенные в месяце
+        const goalsCompletedThisMonth = (goalsCompletedMonthRes.data ?? []).length;
+        
+        // Wellness статистика
+        const wellnessToday = wellnessTodayRes.data ?? [];
+        const wellnessLoggedToday = wellnessToday.length > 0 && 
+            wellnessToday.some((w: any) => 
+                w.stress_level !== null || 
+                w.productivity_level !== null || 
+                w.sleep_hours !== null || 
+                w.work_hours !== null
+            );
+        
+        // Уникальные дни с wellness на неделе и месяце
+        const wellnessWeekDays = new Set((wellnessWeekRes.data ?? []).map((w: any) => w.date)).size;
+        const wellnessMonthDays = new Set((wellnessMonthRes.data ?? []).map((w: any) => w.date)).size;
+        
+        // Wheel обновлен сегодня
+        const wheelUpdatedToday = (wheelTodayRes.data ?? []).length > 0;
+        
+        // AI interactions
+        const aiInteractionsToday = (aiEventsTodayRes.data ?? []).length;
+        const aiInteractionsWeek = (aiEventsWeekRes.data ?? []).length;
+        const aiInteractionsMonth = (aiEventsMonthRes.data ?? []).length;
+        
+        // Streak увеличился (упрощенная проверка: если текущий streak > 0 и есть логи сегодня)
+        const streakIncreased = (currentStreak > 0 && completedToday > 0);
+
         const stats: QuestStats = {
             totalHabits,
             completedToday,
@@ -314,6 +448,20 @@ export async function GET(req: NextRequest) {
             perfectDaysThisMonth: perfectDaysThisMonthCorrected,
             monthlyLogCount: logsMonth.length,
             wheelMomentumWeeks: wheelMomentumWeeks,
+            // Новые поля
+            totalGoals,
+            goalsProgressToday,
+            subtasksCompletedToday,
+            wellnessLoggedToday,
+            wellnessDaysThisWeek: wellnessWeekDays,
+            wellnessDaysThisMonth: wellnessMonthDays,
+            aiInteractionsToday,
+            aiInteractionsWeek,
+            wheelUpdatedToday,
+            streakIncreased,
+            goalsCompletedThisMonth,
+            goalsProgressThisWeek,
+            aiInteractionsMonth,
         };
 
         const seed = `${userId}:${todayStr}`;

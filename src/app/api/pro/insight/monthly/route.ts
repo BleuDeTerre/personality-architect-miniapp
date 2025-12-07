@@ -16,10 +16,21 @@ export async function GET(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        // списываем кредит (только после auth)
-        const { data: ok, error: consumeErr } = await supa.rpc('consume_credit', { p_period: 'pro-monthly' });
-        if (consumeErr) return NextResponse.json({ error: consumeErr.message }, { status: 500 });
-        if (!ok) return NextResponse.json({ error: 'no credits', code: 'NO_CREDITS' }, { status: 402 });
+        // Проверяем план пользователя
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as 'free' | 'pro' | 'premium';
+
+        // Для premium пользователей пропускаем списание кредитов
+        if (userPlan !== 'premium') {
+            // списываем кредит (только после auth)
+            const { data: ok, error: consumeErr } = await supa.rpc('consume_credit', { p_period: 'pro-monthly' });
+            if (consumeErr) return NextResponse.json({ error: consumeErr.message }, { status: 500 });
+            if (!ok) return NextResponse.json({ error: 'no credits', code: 'NO_CREDITS' }, { status: 402 });
+        }
 
         // входные: month=YYYY-MM, deep=0|1
         const sp = new URL(req.url).searchParams;
