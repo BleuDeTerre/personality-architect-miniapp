@@ -808,12 +808,37 @@ export default function AnalyticsPage() {
     }, [facts, habits]);
 
     const mostActiveDay = useMemo(() => {
-        if (!facts?.day_stats?.length) return null;
-        const peakDay = [...facts.day_stats].sort((a, b) => b.count - a.count)[0];
+        // Try to use facts.day_stats first, but fallback to calculating from logsWithTime
+        let peakDay: { day: string; count: number } | null = null;
+        let allDays: Array<{ day: string; count: number }> | null = null;
+        
+        if (facts?.day_stats?.length) {
+            allDays = facts.day_stats;
+            peakDay = [...facts.day_stats].sort((a, b) => b.count - a.count)[0];
+        } else if (logsWithTime.length > 0) {
+            // Calculate day_stats from logsWithTime as fallback
+            const dayOfWeekCount = new Map<number, number>();
+            logsWithTime.forEach(log => {
+                const date = new Date(log.date);
+                const day = date.getDay();
+                dayOfWeekCount.set(day, (dayOfWeekCount.get(day) || 0) + 1);
+            });
+            
+            if (dayOfWeekCount.size > 0) {
+                allDays = Array.from(dayOfWeekCount.entries())
+                    .map(([day, count]) => ({
+                        day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][day],
+                        count
+                    }));
+                peakDay = [...allDays].sort((a, b) => b.count - a.count)[0];
+            }
+        }
+        
+        if (!peakDay || peakDay.count === 0) return null;
 
         // Calculate average time of day from logs with created_at
         if (logsWithTime.length === 0) {
-            return { ...peakDay, timeOfDay: null, avgHour: null };
+            return { ...peakDay, timeOfDay: null, avgHour: null, allDays };
         }
 
         const times: number[] = [];
@@ -826,7 +851,7 @@ export default function AnalyticsPage() {
         });
 
         if (times.length === 0) {
-            return { ...peakDay, timeOfDay: null, avgHour: null };
+            return { ...peakDay, timeOfDay: null, avgHour: null, allDays };
         }
 
         const avgHour = times.reduce((a, b) => a + b, 0) / times.length;
@@ -837,7 +862,8 @@ export default function AnalyticsPage() {
         return {
             ...peakDay,
             timeOfDay,
-            avgHour: Math.round(avgHour * 10) / 10
+            avgHour: Math.round(avgHour * 10) / 10,
+            allDays
         };
     }, [facts, logsWithTime]);
     const _riskyHabits = useMemo(
@@ -1050,22 +1076,37 @@ export default function AnalyticsPage() {
 
     // Advanced Insights calculations
     const weakWindows = useMemo(() => {
-        if (!facts?.day_stats?.length) return null;
-        const sorted = [...facts.day_stats].sort((a, b) => a.count - b.count);
+        // Try to use facts.day_stats first, but fallback to calculating from logsWithTime
+        let dayStats: Array<{ day: string; count: number }> | null = null;
+        
+        if (facts?.day_stats?.length) {
+            dayStats = facts.day_stats;
+        } else if (logsWithTime.length > 0) {
+            // Calculate day_stats from logsWithTime as fallback
+            const dayOfWeekCount = new Map<number, number>();
+            logsWithTime.forEach(log => {
+                const date = new Date(log.date);
+                const day = date.getDay();
+                dayOfWeekCount.set(day, (dayOfWeekCount.get(day) || 0) + 1);
+            });
+            
+            if (dayOfWeekCount.size > 0) {
+                dayStats = Array.from(dayOfWeekCount.entries())
+                    .map(([day, count]) => ({
+                        day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][day],
+                        count
+                    }));
+            }
+        }
+        
+        if (!dayStats || dayStats.length === 0) return null;
+        const sorted = [...dayStats].sort((a, b) => a.count - b.count);
         const weakest = sorted[0];
         if (!weakest || weakest.count === 0) return null;
         const dayName = weakest.day.charAt(0).toUpperCase() + weakest.day.slice(1);
-        return { day: dayName, count: weakest.count };
-    }, [facts]);
+        return { day: dayName, count: weakest.count, allDays: dayStats };
+    }, [facts, logsWithTime]);
 
-    const energyPeaks = useMemo(() => {
-        if (!facts?.day_stats?.length) return null;
-        const sorted = [...facts.day_stats].sort((a, b) => b.count - a.count);
-        const strongest = sorted[0];
-        if (!strongest || strongest.count === 0) return null;
-        const dayName = strongest.day.charAt(0).toUpperCase() + strongest.day.slice(1);
-        return { day: dayName, count: strongest.count };
-    }, [facts]);
 
     // Linked habits - убрано из UI (дублирует Habit correlations)
     // const linkedHabits = useMemo(() => {
@@ -1850,46 +1891,19 @@ export default function AnalyticsPage() {
                                         </p>
                                     </div>
 
-                                    {/* Peak activity */}
-                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
-                                        <h3 className="text-base font-semibold text-white">Peak activity</h3>
-                                        {mostActiveDay ? (
-                                            <>
-                                                <div className="space-y-1">
-                                                    <p className="text-base font-semibold text-white">
-                                                        Day: <span className="text-[#8B5CF6] font-semibold">{mostActiveDay.day}</span>
-                                                    </p>
-                                                    {mostActiveDay.timeOfDay && (
-                                                        <p className="text-sm font-semibold text-[#8B5CF6]">
-                                                            {mostActiveDay.timeOfDay}
-                                                            {mostActiveDay.avgHour !== null && ` (~${Math.floor(mostActiveDay.avgHour)}:${String(Math.round((mostActiveDay.avgHour % 1) * 60)).padStart(2, '0')})`}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <p className="text-xs text-white/70 leading-snug" title="Peak day shows the day of week with most completions. Time shows average completion time.">
-                                                    Typical time of day you complete habits. Useful to schedule around natural energy peaks.
-                                                </p>
-                                            </>
-                                        ) : (
-                                            <p className="text-xs text-white/60">No data yet</p>
-                                        )}
-                                    </div>
-
-                                    {/* Weak windows */}
-                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-base font-semibold text-white">Weak windows</h3>
-                                            <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
-                                        </div>
-                                        {weakWindows ? (
-                                            <p className="text-sm text-white/70">{weakWindows.day}: {weakWindows.count} check-ins</p>
-                                        ) : (
-                                            <p className="text-sm text-white/60">No data yet</p>
-                                        )}
-                                    </div>
-
                                     {/* Wheel impact */}
-                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
+                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${wheelImpact
+                                        ? (wheelImpact.top && wheelImpact.top.delta > 2) || (wheelImpact.bottom && wheelImpact.bottom.delta < -2)
+                                            ? (wheelImpact.top && wheelImpact.top.delta > 2)
+                                                ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                                : 'border-red-400/50 bg-red-400/5'
+                                            : (wheelImpact.top && wheelImpact.top.delta > 1) || (wheelImpact.bottom && wheelImpact.bottom.delta < -1)
+                                                ? (wheelImpact.top && wheelImpact.top.delta > 1)
+                                                    ? 'border-yellow-400/50 bg-yellow-400/5'
+                                                    : 'border-orange-400/50 bg-orange-400/5'
+                                                : 'border-white/10 bg-[#1a1b2e]'
+                                        : 'border-white/10 bg-[#1a1b2e]'
+                                        }`}>
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-base font-semibold text-white">Wheel impact</h3>
                                             <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
@@ -1920,14 +1934,66 @@ export default function AnalyticsPage() {
                                         )}
                                     </div>
 
-                                    {/* Energy peaks */}
-                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
+                                    {/* Peak activity */}
+                                    <div className={`rounded-2xl border p-4 space-y-2 ${mostActiveDay
+                                        ? (() => {
+                                            // Calculate average count across all days for comparison
+                                            const allDays = mostActiveDay.allDays || facts?.day_stats || [];
+                                            const avgCount = allDays.length > 0 
+                                                ? allDays.reduce((sum, d) => sum + d.count, 0) / allDays.length
+                                                : mostActiveDay.count;
+                                            const ratio = mostActiveDay.count / avgCount;
+                                            if (ratio >= 1.5) return 'border-[#22C55E]/50 bg-[#22C55E]/5';
+                                            if (ratio >= 1.2) return 'border-yellow-400/50 bg-yellow-400/5';
+                                            return 'border-white/10 bg-[#1a1b2e]';
+                                        })()
+                                        : 'border-white/10 bg-[#1a1b2e]'
+                                        }`}>
+                                        <h3 className="text-base font-semibold text-white">Peak activity</h3>
+                                        {mostActiveDay ? (
+                                            <>
+                                                <div className="space-y-1">
+                                                    <p className="text-base font-semibold text-white">
+                                                        Day: <span className="text-[#8B5CF6] font-semibold">{mostActiveDay.day}</span>
+                                                    </p>
+                                                    {mostActiveDay.timeOfDay && (
+                                                        <p className="text-sm font-semibold text-[#8B5CF6]">
+                                                            {mostActiveDay.timeOfDay}
+                                                            {mostActiveDay.avgHour !== null && ` (~${Math.floor(mostActiveDay.avgHour)}:${String(Math.round((mostActiveDay.avgHour % 1) * 60)).padStart(2, '0')})`}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-white/70 leading-snug" title="Peak day shows the day of week with most completions. Time shows average completion time.">
+                                                    Typical time of day you complete habits. Useful to schedule around natural energy peaks.
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <p className="text-xs text-white/60">No data yet</p>
+                                        )}
+                                    </div>
+
+                                    {/* Weak windows */}
+                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${weakWindows
+                                        ? (() => {
+                                            // Calculate average count across all days for comparison
+                                            const allDays = weakWindows.allDays || facts?.day_stats || [];
+                                            const avgCount = allDays.length > 0
+                                                ? allDays.reduce((sum, d) => sum + d.count, 0) / allDays.length
+                                                : weakWindows.count;
+                                            const ratio = weakWindows.count / avgCount;
+                                            if (ratio < 0.5) return 'border-red-400/50 bg-red-400/5';
+                                            if (ratio < 0.8) return 'border-orange-400/50 bg-orange-400/5';
+                                            if (ratio >= 0.8) return 'border-yellow-400/50 bg-yellow-400/5';
+                                            return 'border-white/10 bg-[#1a1b2e]';
+                                        })()
+                                        : 'border-white/10 bg-[#1a1b2e]'
+                                        }`}>
                                         <div className="flex items-center justify-between">
-                                            <h3 className="text-base font-semibold text-white">Energy peaks</h3>
+                                            <h3 className="text-base font-semibold text-white">Weak windows</h3>
                                             <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
                                         </div>
-                                        {energyPeaks ? (
-                                            <p className="text-sm text-white/70">{energyPeaks.day} is your strongest day ({energyPeaks.count} check-ins)</p>
+                                        {weakWindows ? (
+                                            <p className="text-sm text-white/70">{weakWindows.day}: {weakWindows.count} check-ins</p>
                                         ) : (
                                             <p className="text-sm text-white/60">No data yet</p>
                                         )}
@@ -1976,7 +2042,14 @@ export default function AnalyticsPage() {
                                     </div>
 
                                     {/* Habit recommendations */}
-                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
+                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${habitRecommendationsWithTemplates
+                                        ? Math.abs(habitRecommendationsWithTemplates.delta) >= 5
+                                            ? 'border-red-400/50 bg-red-400/5'
+                                            : Math.abs(habitRecommendationsWithTemplates.delta) >= 2
+                                                ? 'border-orange-400/50 bg-orange-400/5'
+                                                : 'border-yellow-400/50 bg-yellow-400/5'
+                                        : 'border-white/10 bg-[#1a1b2e]'
+                                        }`}>
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-base font-semibold text-white">Habit Recommend</h3>
                                             <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
@@ -2005,7 +2078,12 @@ export default function AnalyticsPage() {
                                     </div>
 
                                     {/* Recovery suggestions */}
-                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-2">
+                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${recoverySuggestions
+                                        ? recoverySuggestions.count >= 2
+                                            ? 'border-red-400/50 bg-red-400/5'
+                                            : 'border-orange-400/50 bg-orange-400/5'
+                                        : 'border-white/10 bg-[#1a1b2e]'
+                                        }`}>
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-base font-semibold text-white">Recovery suggestions</h3>
                                             <span className={`text-xs font-semibold uppercase ${recoverySuggestions ? 'text-green-400' : 'text-orange-400'}`}>
@@ -2028,7 +2106,15 @@ export default function AnalyticsPage() {
 
                                     {/* Wellness Correlations */}
                                     {wellnessAnalytics && wellnessAnalytics.dataPoints > 0 && (
-                                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
+                                        <div className={`rounded-2xl border p-4 space-y-2 ${wellnessAnalytics.correlations && wellnessAnalytics.correlations.length > 0
+                                            ? (() => {
+                                                const maxStrength = Math.max(...wellnessAnalytics.correlations.map(c => Math.abs(c.correlation)));
+                                                if (maxStrength >= 0.7) return 'border-[#8B5CF6]/50 bg-[#8B5CF6]/5';
+                                                if (maxStrength >= 0.5) return 'border-yellow-400/50 bg-yellow-400/5';
+                                                return 'border-white/10 bg-[#1a1b2e]';
+                                            })()
+                                            : 'border-white/10 bg-[#1a1b2e]'
+                                            }`}>
                                             <h3 className="text-base font-semibold text-white">Wellness Correlations</h3>
                                             {wellnessAnalytics.correlations && wellnessAnalytics.correlations.length > 0 ? (
                                                 <div className="space-y-1.5">

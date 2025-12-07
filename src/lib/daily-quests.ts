@@ -63,6 +63,7 @@ type QuestDefinition = {
 
 const DAILY_POOL: QuestDefinition[] = [
     // ==================== HABITS (оставить некоторые) ====================
+    // Балансировка: 8 XP/день (4 квеста × 2 XP в среднем) для достижения Level 10 за 6.7 месяцев
     {
         id: 'all_active',
         icon: '✅',
@@ -70,7 +71,7 @@ const DAILY_POOL: QuestDefinition[] = [
         description: stats => `Complete all ${stats.totalHabits} active habits today`,
         target: stats => Math.max(1, stats.totalHabits),
         current: stats => stats.completedToday,
-        xp: stats => Math.max(30, stats.totalHabits * 8),
+        xp: stats => Math.max(4, Math.min(5, stats.totalHabits)), // 4-5 XP
         eligible: stats => stats.totalHabits > 0,
     },
     {
@@ -80,7 +81,7 @@ const DAILY_POOL: QuestDefinition[] = [
         description: () => 'Complete a habit before 10:00',
         target: () => 1,
         current: stats => Math.min(1, stats.morningLogs),
-        xp: () => 18,
+        xp: () => 2, // Легкий квест
         eligible: stats => stats.totalHabits > 0,
     },
     {
@@ -90,7 +91,7 @@ const DAILY_POOL: QuestDefinition[] = [
         description: stats => `Complete at least ${Math.max(1, Math.ceil(stats.totalHabits / 2))} habits`,
         target: stats => Math.max(1, Math.ceil(stats.totalHabits / 2)),
         current: stats => stats.completedToday,
-        xp: stats => Math.max(15, Math.ceil(stats.totalHabits / 2) * 8),
+        xp: () => 2,
         eligible: stats => stats.totalHabits >= 2,
     },
     {
@@ -100,7 +101,7 @@ const DAILY_POOL: QuestDefinition[] = [
         description: stats => `Log ${Math.min(4, Math.max(2, stats.totalHabits))} habits today`,
         target: stats => Math.min(4, Math.max(2, stats.totalHabits)),
         current: stats => stats.completedToday,
-        xp: stats => Math.max(20, Math.min(4, Math.max(2, stats.totalHabits)) * 8),
+        xp: () => 3,
         eligible: stats => stats.totalHabits >= 2,
     },
     
@@ -112,7 +113,7 @@ const DAILY_POOL: QuestDefinition[] = [
         description: () => 'Make progress on any goal today',
         target: () => 1,
         current: stats => Math.min(1, stats.goalsProgressToday ?? 0),
-        xp: () => 22,
+        xp: () => 3,
         eligible: stats => (stats.totalGoals ?? 0) > 0,
     },
     {
@@ -122,7 +123,7 @@ const DAILY_POOL: QuestDefinition[] = [
         description: () => 'Complete a subtask in one of your goals',
         target: () => 1,
         current: stats => Math.min(1, stats.subtasksCompletedToday ?? 0),
-        xp: () => 20,
+        xp: () => 2,
         eligible: stats => (stats.totalGoals ?? 0) > 0,
     },
     
@@ -134,7 +135,7 @@ const DAILY_POOL: QuestDefinition[] = [
         description: () => 'Update your Wheel of Life today',
         target: () => 1,
         current: stats => stats.wheelUpdatedToday ? 1 : 0,
-        xp: () => 30,
+        xp: () => 4, // Сложный квест
     },
     
     // ==================== DAILY WELLNESS ====================
@@ -145,7 +146,7 @@ const DAILY_POOL: QuestDefinition[] = [
         description: () => 'Record your wellness metrics (stress, productivity, sleep, work)',
         target: () => 1,
         current: stats => stats.wellnessLoggedToday ? 1 : 0,
-        xp: () => 25,
+        xp: () => 3,
     },
     {
         id: 'wellness_balance',
@@ -154,7 +155,7 @@ const DAILY_POOL: QuestDefinition[] = [
         description: () => 'Log all 4 wellness metrics today',
         target: () => 1,
         current: stats => stats.wellnessLoggedToday ? 1 : 0,
-        xp: () => 35,
+        xp: () => 4,
     },
     
     // ==================== AI COACH ====================
@@ -165,7 +166,7 @@ const DAILY_POOL: QuestDefinition[] = [
         description: () => 'Chat with your AI Coach today',
         target: () => 1,
         current: stats => Math.min(1, stats.aiInteractionsToday ?? 0),
-        xp: () => 15,
+        xp: () => 2,
     },
     {
         id: 'get_coach_advice',
@@ -174,7 +175,7 @@ const DAILY_POOL: QuestDefinition[] = [
         description: () => 'Get personalized advice from AI Coach',
         target: () => 1,
         current: stats => Math.min(1, stats.aiInteractionsToday ?? 0),
-        xp: () => 28,
+        xp: () => 3,
     },
     
     // ==================== STREAKS ====================
@@ -185,7 +186,7 @@ const DAILY_POOL: QuestDefinition[] = [
         description: () => 'Keep your habit streak alive today',
         target: () => 1,
         current: stats => stats.completedToday > 0 ? 1 : 0,
-        xp: () => 20,
+        xp: () => 2,
         eligible: stats => (stats.currentStreak ?? 0) > 0,
     },
     
@@ -197,11 +198,13 @@ const DAILY_POOL: QuestDefinition[] = [
         description: () => 'Publish a Farcaster cast about your progress',
         target: () => 1,
         current: stats => Math.min(1, stats.shareCastsToday),
-        xp: () => 25,
+        xp: () => 3,
     },
 ];
 
 const WEEKLY_POOL: QuestDefinition[] = [
+    // Балансировка: 77 XP/неделю всего (11 XP/день) = средний квест ~8.6 XP
+    // Диапазон: 5-12 XP для поддержания правильных соотношений
     {
         id: 'active_days',
         icon: '📅',
@@ -209,7 +212,7 @@ const WEEKLY_POOL: QuestDefinition[] = [
         description: () => 'Be active on 5 different days this week',
         target: () => 5,
         current: stats => Math.min(stats.activeDaysThisWeek, 5),
-        xp: () => 60,
+        xp: () => 8,
     },
     {
         id: 'perfect_days',
@@ -218,7 +221,7 @@ const WEEKLY_POOL: QuestDefinition[] = [
         description: () => 'Hit two perfect days this week',
         target: () => 2,
         current: stats => Math.min(stats.perfectDaysThisWeek, 2),
-        xp: () => 70,
+        xp: () => 10,
     },
     {
         id: 'wheel_checkin',
@@ -227,7 +230,7 @@ const WEEKLY_POOL: QuestDefinition[] = [
         description: () => 'Update your Wheel of Life this week',
         target: () => 1,
         current: stats => Math.min(1, stats.wheelUpdatesWeek),
-        xp: () => 55,
+        xp: () => 8,
     },
     {
         id: 'wheel_weekend_share',
@@ -236,7 +239,7 @@ const WEEKLY_POOL: QuestDefinition[] = [
         description: () => 'Share your Wheel this week',
         target: () => 1,
         current: stats => Math.min(1, stats.wheelWeekendShares),
-        xp: () => 80,
+        xp: () => 12,
     },
     {
         id: 'wellness_week',
@@ -245,7 +248,7 @@ const WEEKLY_POOL: QuestDefinition[] = [
         description: () => 'Log wellness metrics at least 4 days this week',
         target: () => 4,
         current: stats => Math.min(stats.wellnessDaysThisWeek ?? 0, 4),
-        xp: () => 75,
+        xp: () => 9,
     },
     {
         id: 'goals_weekly',
@@ -254,7 +257,7 @@ const WEEKLY_POOL: QuestDefinition[] = [
         description: () => 'Update progress on your goals 3 times this week',
         target: () => 3,
         current: stats => Math.min(3, stats.goalsProgressThisWeek ?? 0),
-        xp: () => 65,
+        xp: () => 8,
         eligible: stats => (stats.totalGoals ?? 0) > 0,
     },
     {
@@ -264,7 +267,7 @@ const WEEKLY_POOL: QuestDefinition[] = [
         description: () => 'Get Weekly Insight from AI Coach',
         target: () => 1,
         current: stats => Math.min(1, stats.aiInteractionsWeek ?? 0), // TODO: специфичная проверка для Weekly Insight
-        xp: () => 70,
+        xp: () => 9,
     },
     {
         id: 'streak_growth',
@@ -273,7 +276,7 @@ const WEEKLY_POOL: QuestDefinition[] = [
         description: () => 'Increase your streak this week',
         target: () => 1,
         current: stats => stats.streakIncreased ? 1 : 0,
-        xp: () => 60,
+        xp: () => 7,
         eligible: stats => (stats.currentStreak ?? 0) > 0,
     },
     {
@@ -283,11 +286,13 @@ const WEEKLY_POOL: QuestDefinition[] = [
         description: () => 'Share 3 casts about your progress this week',
         target: () => 3,
         current: stats => Math.min(stats.shareCastsWeek, 3),
-        xp: () => 65,
+        xp: () => 8,
     },
 ];
 
 const MONTHLY_POOL: QuestDefinition[] = [
+    // Балансировка: 390 XP/месяц всего (13 XP/день) = средний квест ~49 XP
+    // Диапазон: 40-60 XP для поддержания правильных соотношений
     {
         id: 'active_month',
         icon: '🗓️',
@@ -295,7 +300,7 @@ const MONTHLY_POOL: QuestDefinition[] = [
         description: () => 'Be active on 20 days this month',
         target: () => 20,
         current: stats => Math.min(stats.activeDaysThisMonth, 20),
-        xp: () => 150,
+        xp: () => 50,
     },
     {
         id: 'wheel_story',
@@ -304,7 +309,7 @@ const MONTHLY_POOL: QuestDefinition[] = [
         description: () => 'Update your Wheel of Life twice this month',
         target: () => 2,
         current: stats => Math.min(stats.wheelUpdatesMonth, 2),
-        xp: () => 140,
+        xp: () => 45,
     },
     {
         id: 'wheel_momentum_4weeks',
@@ -313,7 +318,7 @@ const MONTHLY_POOL: QuestDefinition[] = [
         description: () => 'Keep your Wheel growing over 4 weeks — update it at least once each week',
         target: () => 4,
         current: stats => Math.min(4, stats.wheelMomentumWeeks ?? 0),
-        xp: () => 220,
+        xp: () => 60,
         eligible: stats => (stats.wheelMomentumWeeks ?? 0) > 0,
     },
     {
@@ -323,7 +328,7 @@ const MONTHLY_POOL: QuestDefinition[] = [
         description: () => 'Complete a goal this month',
         target: () => 1,
         current: stats => Math.min(1, stats.goalsCompletedThisMonth ?? 0),
-        xp: () => 200,
+        xp: () => 55,
         eligible: stats => (stats.totalGoals ?? 0) > 0,
     },
     {
@@ -333,7 +338,7 @@ const MONTHLY_POOL: QuestDefinition[] = [
         description: () => 'Log wellness metrics 20 days this month',
         target: () => 20,
         current: stats => Math.min(stats.wellnessDaysThisMonth ?? 0, 20),
-        xp: () => 180,
+        xp: () => 50,
     },
     {
         id: 'ai_power_user',
@@ -342,7 +347,7 @@ const MONTHLY_POOL: QuestDefinition[] = [
         description: () => 'Use AI functions 15 times this month',
         target: () => 15,
         current: stats => Math.min(stats.aiInteractionsMonth ?? 0, 15),
-        xp: () => 190,
+        xp: () => 48,
     },
     {
         id: 'streak_summit',
@@ -351,7 +356,7 @@ const MONTHLY_POOL: QuestDefinition[] = [
         description: () => 'Reach a 10-day streak this month',
         target: () => 10,
         current: stats => Math.min(stats.currentStreak || 0, 10),
-        xp: () => 180,
+        xp: () => 50,
         eligible: stats => (stats.currentStreak || 0) > 0,
     },
     {
@@ -361,7 +366,7 @@ const MONTHLY_POOL: QuestDefinition[] = [
         description: () => 'Publish 5 casts about your growth this month',
         target: () => 5,
         current: stats => Math.min(stats.shareCastsMonth, 5),
-        xp: () => 160,
+        xp: () => 42,
     },
 ];
 
@@ -392,7 +397,7 @@ function instantiate(def: QuestDefinition, stats: QuestStats): Quest {
         target,
         current,
         completed: current >= target,
-        xpReward: Math.max(10, def.xp(stats)),
+        xpReward: Math.max(2, def.xp(stats)), // Минимум 2 XP (для ежедневных квестов)
     };
 }
 
