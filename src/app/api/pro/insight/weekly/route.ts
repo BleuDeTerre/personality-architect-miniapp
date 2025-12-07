@@ -13,7 +13,11 @@ function sha(x: unknown) {
 }
 
 // Реальная генерация weekly
-async function generateWeekly(supa: ReturnType<typeof createUserServerClient>, userId: string, startDate: string) {
+async function generateWeekly(
+    supa: ReturnType<typeof createUserServerClient>, 
+    userId: string, 
+    startDate: string
+): Promise<NextResponse | { week_start: string; totals: { days: number; habits_total: number; completed: number; rate_pct: number }; items: any[]; summary: string }> {
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + 6);
     const endDateStr = endDate.toISOString().slice(0, 10);
@@ -99,11 +103,14 @@ async function generateWeekly(supa: ReturnType<typeof createUserServerClient>, u
         return `Wellness averages: ${parts.join(', ')}. Use this to understand their capacity and energy levels.`;
     })() : '';
 
-    const { openaiClient, pickModel } = await import('@/lib/aiModel');
-    const openai = openaiClient();
-    const model = pickModel({ deep: false });
+    const { getDeepSeekWithLimitCheck } = await import('@/lib/deepseekHelper');
+    const deepseekResult = await getDeepSeekWithLimitCheck(supa);
+    if (deepseekResult.error) {
+        return deepseekResult.error;
+    }
+    const { aiClient, model } = deepseekResult;
 
-    const chat = await openai.chat.completions.create({
+    const chat = await aiClient.chat.completions.create({
         model,
         temperature: 0.2,
         messages: [
@@ -191,6 +198,11 @@ export async function POST(req: NextRequest) {
 
         // 5) Генерация
         const report = await generateWeekly(supa, userId, week_start);
+        
+        // Проверяем, что report не является NextResponse (ошибка)
+        if (report instanceof NextResponse) {
+            return report;
+        }
 
         // 6) Кэш
         await supa.from('ai_reports').upsert(

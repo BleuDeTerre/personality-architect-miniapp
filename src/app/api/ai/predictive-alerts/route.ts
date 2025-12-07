@@ -4,8 +4,9 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { PREDICTIVE_ALERTS_PROMPT } from '@/lib/aiPrompts';
+import { detectLanguage, getLanguageInstruction } from '@/lib/detectLanguage';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function GET(req: NextRequest) {
@@ -163,27 +164,35 @@ export async function GET(req: NextRequest) {
                     continue;
                 }
 
-                // Генерируем предупреждение через AI
-                const openai = openaiClient();
-                const model = pickModel({ deep: false });
+                // Генерируем предупреждение через AI (используем Gemma для легких задач)
+                const provider = pickAIProvider('light');
+                const aiClient = getAIClient(provider);
+                const model = getAIModel(provider);
+
+                // Определяем язык по названию привычки
+                const detectedLang = detectLanguage(habit.title);
+                const languageInstruction = getLanguageInstruction(detectedLang);
+                const systemPrompt = PREDICTIVE_ALERTS_PROMPT.replace('{LANGUAGE_INSTRUCTION}', languageInstruction);
+
+                const userMessage = [
+                    `User usually completes "${habit.title}" on ${dayName}s (${todayCount} times in last 30 days).`,
+                    `Today is ${dayName} and they haven't completed it yet.`,
+                    wellnessContext || '',
+                    `Generate a friendly reminder with a suggestion to prevent missing it. Consider their wellness state when crafting the message.`,
+                ].filter(Boolean).join('\n');
 
                 try {
-                    const chat = await openai.chat.completions.create({
+                    const chat = await aiClient.chat.completions.create({
                         model,
                         temperature: 0.7,
                         messages: [
                             {
                                 role: 'system',
-                                content: PREDICTIVE_ALERTS_PROMPT,
+                                content: systemPrompt,
                             },
                             {
                                 role: 'user',
-                                content: [
-                                    `User usually completes "${habit.title}" on ${dayName}s (${todayCount} times in last 30 days).`,
-                                    `Today is ${dayName} and they haven't completed it yet.`,
-                                    wellnessContext || '',
-                                    `Generate a friendly reminder with a suggestion to prevent missing it. Consider their wellness state when crafting the message.`,
-                                ].filter(Boolean).join('\n'),
+                                content: userMessage,
                             },
                         ],
                     });

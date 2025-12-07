@@ -4,7 +4,8 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
+import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
 import { GOAL_BREAKDOWN_PROMPT } from '@/lib/aiPrompts';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
@@ -119,11 +120,14 @@ export async function POST(req: NextRequest) {
             return `User's current capacity (last 7 days): ${parts.join(', ')}. Consider this when planning steps - adjust scope if stress is high (>7) or sleep is low (<7h).`;
         })() : '';
 
-        // Генерируем план через AI
-        const openai = openaiClient();
-        const model = pickModel({ deep: true }); // Используем более мощную модель для планирования
+        // Генерируем план через AI (используем DeepSeek для сложных задач)
+        const deepseekResult = await getDeepSeekWithLimitCheck(supa);
+        if (deepseekResult.error) {
+            return deepseekResult.error;
+        }
+        const { aiClient, model } = deepseekResult;
 
-        const chat = await openai.chat.completions.create({
+        const chat = await aiClient.chat.completions.create({
             model,
             temperature: 0.7,
             messages: [
@@ -158,11 +162,11 @@ export async function POST(req: NextRequest) {
 
         const result = JSON.parse(chat.choices[0]?.message?.content || '{}');
 
-        // Логируем AI запрос в фоне
+        // Логируем AI запрос в фоне (помечаем как DeepSeek)
         (async () => {
-            await logAIRequest(supa, userId, userPlan, 'ai/goal-breakdown', {
+            await logAIRequest(supa, userId, userPlan, 'ai/goal-breakdown', deepseekResult.markAsDeepSeek({
                 goal_title: goalTitle,
-            });
+            }));
         })();
 
         return NextResponse.json({

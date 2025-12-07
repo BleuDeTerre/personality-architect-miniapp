@@ -6,6 +6,7 @@ import MiniAppPage from '@/components/MiniAppPage';
 import { fetchJson } from '@/lib/http';
 import { checkAndShowAILimitWarning, showAILimitReachedModal, type AILimitInfo } from '@/lib/aiLimitWarnings';
 import AILimitReachedModal from '@/components/AILimitReachedModal';
+import { toast } from 'sonner';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -145,6 +146,24 @@ export default function ChatPage() {
                     setLoading(false);
                     return;
                 }
+                
+                // Обработка глобального лимита DeepSeek
+                if (data.error === 'deepseek_limit_reached') {
+                    toast.error('AI service temporarily unavailable', {
+                        description: data.message || 'The AI service has reached its daily capacity. Please try again tomorrow.',
+                        duration: 8000,
+                    });
+                    
+                    const errorMsg: Message = {
+                        role: 'assistant',
+                        content: data.message || 'The AI service is temporarily unavailable due to high demand. Please try again tomorrow.',
+                        timestamp: new Date(),
+                    };
+                    setMessages(prev => [...prev, errorMsg]);
+                    setLoading(false);
+                    return;
+                }
+                
                 throw new Error(data.error);
             }
 

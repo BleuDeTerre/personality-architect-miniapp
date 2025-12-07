@@ -4,7 +4,8 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
+import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
 import { GOAL_REVIEW_PROMPT } from '@/lib/aiPrompts';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
         const todayStr = new Date().toISOString().slice(0, 10);
-        
+
         const { data: wellness } = await supa
             .from('daily_wellness_metrics')
             .select('date, stress_level, productivity_level, sleep_hours, work_hours')
@@ -53,23 +54,23 @@ export async function GET(req: NextRequest) {
 
         // Вычисляем средние wellness метрики
         const wellnessContext = wellness && wellness.length > 0 ? (() => {
-            const validMetrics = wellness.filter((m: any) => 
-                m.stress_level !== null || m.productivity_level !== null || 
+            const validMetrics = wellness.filter((m: any) =>
+                m.stress_level !== null || m.productivity_level !== null ||
                 m.sleep_hours !== null || m.work_hours !== null
             );
             if (validMetrics.length === 0) return '';
 
             const avgStress = validMetrics.filter((m: any) => m.stress_level !== null)
-                .reduce((sum: number, m: any) => sum + (m.stress_level || 0), 0) / 
+                .reduce((sum: number, m: any) => sum + (m.stress_level || 0), 0) /
                 validMetrics.filter((m: any) => m.stress_level !== null).length || 0;
             const avgProductivity = validMetrics.filter((m: any) => m.productivity_level !== null)
-                .reduce((sum: number, m: any) => sum + (m.productivity_level || 0), 0) / 
+                .reduce((sum: number, m: any) => sum + (m.productivity_level || 0), 0) /
                 validMetrics.filter((m: any) => m.productivity_level !== null).length || 0;
             const avgSleep = validMetrics.filter((m: any) => m.sleep_hours !== null)
-                .reduce((sum: number, m: any) => sum + (m.sleep_hours || 0), 0) / 
+                .reduce((sum: number, m: any) => sum + (m.sleep_hours || 0), 0) /
                 validMetrics.filter((m: any) => m.sleep_hours !== null).length || 0;
             const avgWork = validMetrics.filter((m: any) => m.work_hours !== null)
-                .reduce((sum: number, m: any) => sum + (m.work_hours || 0), 0) / 
+                .reduce((sum: number, m: any) => sum + (m.work_hours || 0), 0) /
                 validMetrics.filter((m: any) => m.work_hours !== null).length || 0;
 
             const parts: string[] = [];
@@ -77,7 +78,7 @@ export async function GET(req: NextRequest) {
             if (avgProductivity > 0) parts.push(`Productivity: ${avgProductivity.toFixed(1)}/10`);
             if (avgSleep > 0) parts.push(`Sleep: ${avgSleep.toFixed(1)}h`);
             if (avgWork > 0) parts.push(`Work: ${avgWork.toFixed(1)}h`);
-            
+
             if (parts.length === 0) return '';
             return `Wellness (last 7 days): ${parts.join(', ')}. Consider this when assessing goal progress capacity.`;
         })() : '';
@@ -124,12 +125,15 @@ export async function GET(req: NextRequest) {
             const progress = totalDays ? Math.min(100, (daysSinceStart / totalDays) * 100) : 50;
             const isOnTrack = progress <= 100 || !dueDate;
 
-            // Генерируем обзор через AI
-            const openai = openaiClient();
-            const model = pickModel({ deep: false });
+            // Генерируем обзор через AI (используем DeepSeek для сложных задач)
+            const deepseekResult = await getDeepSeekWithLimitCheck(supa);
+            if (deepseekResult.error) {
+                return deepseekResult.error;
+            }
+            const { aiClient, model } = deepseekResult;
 
             try {
-                const chat = await openai.chat.completions.create({
+                const chat = await aiClient.chat.completions.create({
                     model,
                     temperature: 0.6,
                     messages: [
@@ -168,11 +172,11 @@ export async function GET(req: NextRequest) {
                     isOnTrack,
                 });
 
-                // Логируем AI запрос в фоне
+                // Логируем AI запрос в фоне (помечаем как DeepSeek)
                 (async () => {
-                    await logAIRequest(supa, userId, userPlan, 'ai/goal-review', {
+                    await logAIRequest(supa, userId, userPlan, 'ai/goal-review', deepseekResult.markAsDeepSeek({
                         goal_id: goal.id,
-                    });
+                    }));
                 })();
             } catch (_aiError) {
                 // Fallback

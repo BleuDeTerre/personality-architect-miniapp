@@ -1,4 +1,4 @@
-import { openaiClient, pickModel } from '@/lib/aiModel';
+// OpenAI removed - not used in this file
 // src/app/api/pro/habits/habit/route.ts
 export const runtime = 'nodejs';
 
@@ -48,8 +48,6 @@ export async function POST(req: NextRequest) {
 
         // AI init (флаг deep по желанию из body)
         const deep = !!body?.deep;
-        const _openai = openaiClient();
-        const _model = pickModel({ deep });
 
         // 0) списываем кредит (RPC должна использовать auth.uid() внутри)
         const { data: ok, error: consumeErr } = await supa.rpc('consume_credit', { p_period: PERIOD });

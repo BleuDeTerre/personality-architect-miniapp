@@ -4,8 +4,9 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { STREAK_RECOVERY_PROMPT } from '@/lib/aiPrompts';
+import { detectLanguageFromSources, getLanguageInstruction } from '@/lib/detectLanguage';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function GET(req: NextRequest) {
@@ -100,29 +101,37 @@ export async function GET(req: NextRequest) {
             ? ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][leastActiveDay[0]]
             : null;
 
-        // Генерируем сообщение восстановления через AI
-        const openai = openaiClient();
-        const model = pickModel({ deep: false });
+        // Генерируем сообщение восстановления через AI (используем Gemma для легких задач)
+        const provider = pickAIProvider('light');
+        const aiClient = getAIClient(provider);
+        const model = getAIModel(provider);
 
-        const chat = await openai.chat.completions.create({
+        const userMessage = [
+            `User lost their ${bestStreak}-day streak.`,
+            `Current streak: ${currentStreak} days`,
+            `Best streak: ${bestStreak} days`,
+            leastActiveDayName ? `Least active day historically: ${leastActiveDayName}` : '',
+            `Last completed: ${lastCompleted || 'unknown'}`,
+            ``,
+            `Provide: 1) Encouragement, 2) Brief analysis of why it might have happened, 3) Simple recovery plan.`,
+        ].filter(Boolean).join('\n');
+
+        // Определяем язык (по умолчанию английский, так как нет названий привычек)
+        const detectedLang = 'en'; // Fallback на английский для streak recovery
+        const languageInstruction = getLanguageInstruction(detectedLang);
+        const systemPrompt = STREAK_RECOVERY_PROMPT.replace('{LANGUAGE_INSTRUCTION}', languageInstruction);
+
+        const chat = await aiClient.chat.completions.create({
             model,
             temperature: 0.7,
             messages: [
                 {
                     role: 'system',
-                    content: STREAK_RECOVERY_PROMPT,
+                    content: systemPrompt,
                 },
                 {
                     role: 'user',
-                    content: [
-                        `User lost their ${bestStreak}-day streak.`,
-                        `Current streak: ${currentStreak} days`,
-                        `Best streak: ${bestStreak} days`,
-                        leastActiveDayName ? `Least active day historically: ${leastActiveDayName}` : '',
-                        `Last completed: ${lastCompleted || 'unknown'}`,
-                        ``,
-                        `Provide: 1) Encouragement, 2) Brief analysis of why it might have happened, 3) Simple recovery plan.`,
-                    ].filter(Boolean).join('\n'),
+                    content: userMessage,
                 },
             ],
         });

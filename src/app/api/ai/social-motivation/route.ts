@@ -4,8 +4,9 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { SOCIAL_MOTIVATION_PROMPT } from '@/lib/aiPrompts';
+import { detectLanguageFromSources, getLanguageInstruction } from '@/lib/detectLanguage';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function POST(req: NextRequest) {
@@ -52,33 +53,45 @@ export async function POST(req: NextRequest) {
         const { data: stats } = await supa.rpc('get_habit_streak', { p_user: userId });
         const streakStats = Array.isArray(stats) ? stats[0] : { current_streak: 0, best_streak: 0 };
 
-        // Генерируем мотивационный текст для каста через AI
-        const openai = openaiClient();
-        const model = pickModel({ deep: false });
+        // Генерируем мотивационный текст для каста через AI (используем Gemma для легких задач)
+        const provider = pickAIProvider('light');
+        const aiClient = getAIClient(provider);
+        const model = getAIModel(provider);
 
-        const chat = await openai.chat.completions.create({
+        const userMessage = [
+            `User achieved: ${milestone}`,
+            `Current streak: ${streakStats.current_streak} days`,
+            `Best streak: ${streakStats.best_streak} days`,
+            context.habits ? `Active habits: ${context.habits}` : '',
+            context.goals ? `Active goals: ${context.goals}` : '',
+            ``,
+            `Generate a shareable cast text that:`,
+            `1. Celebrates the achievement`,
+            `2. Is authentic and relatable`,
+            `3. Inspires others`,
+            `4. Stays under 280 characters`,
+        ].filter(Boolean).join('\n');
+
+        // Определяем язык по milestone и контексту
+        const detectedLang = detectLanguageFromSources([
+            milestone,
+            context.habits || null,
+            context.goals || null,
+        ]);
+        const languageInstruction = getLanguageInstruction(detectedLang);
+        const systemPrompt = SOCIAL_MOTIVATION_PROMPT.replace('{LANGUAGE_INSTRUCTION}', languageInstruction);
+
+        const chat = await aiClient.chat.completions.create({
             model,
             temperature: 0.8,
             messages: [
                 {
                     role: 'system',
-                    content: SOCIAL_MOTIVATION_PROMPT,
+                    content: systemPrompt,
                 },
                 {
                     role: 'user',
-                    content: [
-                        `User achieved: ${milestone}`,
-                        `Current streak: ${streakStats.current_streak} days`,
-                        `Best streak: ${streakStats.best_streak} days`,
-                        context.habits ? `Active habits: ${context.habits}` : '',
-                        context.goals ? `Active goals: ${context.goals}` : '',
-                        ``,
-                        `Generate a shareable cast text that:`,
-                        `1. Celebrates the achievement`,
-                        `2. Is authentic and relatable`,
-                        `3. Inspires others`,
-                        `4. Stays under 280 characters`,
-                    ].filter(Boolean).join('\n'),
+                    content: userMessage,
                 },
             ],
         });

@@ -4,8 +4,9 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { HABIT_SUGGESTIONS_PROMPT } from '@/lib/aiPrompts';
+import { detectLanguage, getLanguageInstruction } from '@/lib/detectLanguage';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function GET(req: NextRequest) {
@@ -99,27 +100,35 @@ export async function GET(req: NextRequest) {
                 continue;
             }
 
-            // Генерируем предложение через AI
-            const openai = openaiClient();
-            const model = pickModel({ deep: false });
+            // Генерируем предложение через AI (используем Gemma для легких задач)
+            const provider = pickAIProvider('light');
+            const aiClient = getAIClient(provider);
+            const model = getAIModel(provider);
+
+            const userMessage = [
+                times.length > 0
+                    ? `User usually completes "${habit.title}" around ${optimalTime} (based on ${habitLogs.length} recent completions).`
+                    : `User has completed "${habit.title}" ${habitLogs.length} times in the last 30 days.`,
+                `Suggest: 1) Optimal time reminder, 2) If this habit should be combined with others.`,
+            ].join('\n');
+
+            // Определяем язык по названию привычки
+            const detectedLang = detectLanguage(habit.title);
+            const languageInstruction = getLanguageInstruction(detectedLang);
+            const systemPrompt = HABIT_SUGGESTIONS_PROMPT.replace('{LANGUAGE_INSTRUCTION}', languageInstruction);
 
             try {
-                const chat = await openai.chat.completions.create({
+                const chat = await aiClient.chat.completions.create({
                     model,
                     temperature: 0.7,
                     messages: [
                         {
                             role: 'system',
-                            content: HABIT_SUGGESTIONS_PROMPT,
+                            content: systemPrompt,
                         },
                         {
                             role: 'user',
-                            content: [
-                                times.length > 0
-                                    ? `User usually completes "${habit.title}" around ${optimalTime} (based on ${habitLogs.length} recent completions).`
-                                    : `User has completed "${habit.title}" ${habitLogs.length} times in the last 30 days.`,
-                                `Suggest: 1) Optimal time reminder, 2) If this habit should be combined with others.`,
-                            ].join('\n'),
+                            content: userMessage,
                         },
                     ],
                 });

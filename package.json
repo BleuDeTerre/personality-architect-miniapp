@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@farcaster/miniapp-sdk": "^0.1.8",
+    "@google/generative-ai": "^0.24.1",
     "@neynar/nodejs-sdk": "^3.34.0",
     "@neynar/react": "^1.2.22",
     "@pigment-css/react": "^0.0.30",

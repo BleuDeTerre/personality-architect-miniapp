@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { checkAndShowAILimitWarning, showAILimitReachedModal, type AILimitInfo } from '@/lib/aiLimitWarnings';
 import AILimitReachedModal from '@/components/AILimitReachedModal';
+import { toast } from 'sonner';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -56,6 +57,17 @@ export default function AIWheelInsights() {
                     if (res.status === 429) {
                         // Лимит достигнут
                         const errorData = await res.json().catch(() => ({}));
+                        
+                        // Глобальный лимит DeepSeek
+                        if (errorData.error === 'deepseek_limit_reached') {
+                            toast.error('AI service temporarily unavailable', {
+                                description: errorData.message || 'The AI service has reached its daily capacity. Please try again tomorrow.',
+                                duration: 8000,
+                            });
+                            return;
+                        }
+                        
+                        // Личный лимит пользователя
                         const currentPlan = userPlan || 'free';
                         const limitInfo: AILimitInfo = {
                             used: errorData.used || 0,

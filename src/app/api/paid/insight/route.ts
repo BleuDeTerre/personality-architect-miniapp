@@ -98,12 +98,15 @@ export async function POST(req: NextRequest) {
         const scores = (wheel ?? []).map((x) => Number(x.score) || 0);
         const avg_wheel_7d = scores.length ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)) : 0;
 
-        // AI summary
-        const { openaiClient, pickModel } = await import('@/lib/aiModel');
-        const openai = openaiClient();
-        const model = pickModel({ deep: false });
+        // AI summary (используем DeepSeek для сложных задач)
+        const { getDeepSeekWithLimitCheck } = await import('@/lib/deepseekHelper');
+        const deepseekResult = await getDeepSeekWithLimitCheck(db);
+        if (deepseekResult.error) {
+            return deepseekResult.error;
+        }
+        const { aiClient, model } = deepseekResult;
 
-        const chat = await openai.chat.completions.create({
+        const chat = await aiClient.chat.completions.create({
             model,
             temperature: 0.2,
             messages: [

@@ -1,4 +1,4 @@
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -56,10 +56,9 @@ export async function POST(req: NextRequest) {
         const inputHash = hashInput(key);
         const cachedUntil = new Date(Date.now() + CACHE_DAYS * 864e5).toISOString();
 
-        // AI init (опционально)
+        // AI init (опционально) - используем DeepSeek для сложных задач
         const deep = !!body?.deep;
-        const _openai = openaiClient();
-        const _model = pickModel({ deep });
+        // Note: DeepSeek limit check would be done when actually using AI (currently not used in this endpoint)
 
         {
             const { data: hit, error } = await supa

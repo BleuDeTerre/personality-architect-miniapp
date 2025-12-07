@@ -4,8 +4,9 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { CORRELATION_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
+import { detectLanguageFromSources, getLanguageInstruction } from '@/lib/detectLanguage';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function GET(req: NextRequest) {
@@ -40,9 +41,10 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ insights: [] });
         }
 
-        // Генерируем объяснения через AI
-        const openai = openaiClient();
-        const model = pickModel({ deep: false });
+        // Генерируем объяснения через AI (используем Gemma для легких задач)
+        const provider = pickAIProvider('light');
+        const aiClient = getAIClient(provider);
+        const model = getAIModel(provider);
 
         const insights: Array<{
             habitA: string;
@@ -68,22 +70,32 @@ export async function GET(req: NextRequest) {
                 continue;
             }
 
+            // Определяем язык по названиям привычек
+            const detectedLang = detectLanguageFromSources([
+                corr.habit_a,
+                corr.habit_b,
+            ]);
+            const languageInstruction = getLanguageInstruction(detectedLang);
+            const systemPrompt = CORRELATION_INSIGHTS_PROMPT.replace('{LANGUAGE_INSTRUCTION}', languageInstruction);
+
+            const userMessage = [
+                `Habits "${corr.habit_a}" and "${corr.habit_b}" have ${Math.round(corr.correlation * 100)}% correlation.`,
+                `Explain why they might be connected and suggest how to leverage this.`,
+                `Return JSON only.`,
+            ].join('\n');
+
             try {
-                const chat = await openai.chat.completions.create({
+                const chat = await aiClient.chat.completions.create({
                     model,
                     temperature: 0.7,
                     messages: [
                         {
                             role: 'system',
-                            content: CORRELATION_INSIGHTS_PROMPT,
+                            content: systemPrompt,
                         },
                         {
                             role: 'user',
-                            content: [
-                                `Habits "${corr.habit_a}" and "${corr.habit_b}" have ${Math.round(corr.correlation * 100)}% correlation.`,
-                                `Explain why they might be connected and suggest how to leverage this.`,
-                                `Return JSON only.`,
-                            ].join('\n'),
+                            content: userMessage,
                         },
                     ],
                     response_format: { type: 'json_object' },

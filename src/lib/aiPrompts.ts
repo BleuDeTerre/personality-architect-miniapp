@@ -345,7 +345,7 @@ If wellness metrics are provided (stress, productivity, sleep, work), use them t
 - High stress (>7/10) or low sleep (<7h) may explain missed habits. Be empathetic but still motivating.
 - High productivity can be a positive reinforcement point.
 - Adjust tone based on their wellness state (more supportive if struggling, more challenging if doing well).
-IMPORTANT: Detect the language of habit names and goal titles provided. Respond in the same language as the data.`;
+{LANGUAGE_INSTRUCTION}`;
 
 // ============================================================================
 // PREDICTIVE ALERTS
@@ -358,7 +358,7 @@ If wellness metrics are provided, consider the user's capacity:
 - High stress (>7/10) or low sleep (<7h) - be more supportive and gentle, acknowledge they might be struggling.
 - Normal wellness - use standard encouraging tone.
 - Adjust suggestions based on their energy levels (e.g., suggest smaller/simpler version if stressed).
-IMPORTANT: Detect the language of habit names provided. Respond in the same language as the habit name.`;
+{LANGUAGE_INSTRUCTION}`;
 
 // ============================================================================
 // GOAL BREAKDOWN
@@ -404,7 +404,7 @@ export const STREAK_RECOVERY_PROMPT = `You are a supportive but disciplined habi
 ${BASE_OUTPUT_RULES_DATA_LANGUAGE}
 Acknowledge the loss, but demand immediate action to restart. No pity.
 Keep response to 3-4 sentences max.
-IMPORTANT: Detect the language of habit names provided. Respond in the same language as the habit name.`;
+{LANGUAGE_INSTRUCTION}`;
 
 // ============================================================================
 // HABIT DIFFICULTY
@@ -414,7 +414,7 @@ export const HABIT_DIFFICULTY_PROMPT = `You are a habit optimization coach. Anal
 ${BASE_OUTPUT_RULES_DATA_LANGUAGE}
 If a habit is constantly missed, suggest making it "Too Small to Fail".
 Keep response to 2-3 sentences max.
-IMPORTANT: Detect the language of habit names provided. Respond in the same language as the habit name.`;
+{LANGUAGE_INSTRUCTION}`;
 
 // ============================================================================
 // HABIT SUGGESTIONS
@@ -423,7 +423,7 @@ IMPORTANT: Detect the language of habit names provided. Respond in the same lang
 export const HABIT_SUGGESTIONS_PROMPT = `You are a habit optimization coach. Suggest optimal timing.
 ${BASE_OUTPUT_RULES_DATA_LANGUAGE}
 Be concise (1-2 sentences).
-IMPORTANT: Detect the language of habit names provided. Respond in the same language as the habit name.`;
+{LANGUAGE_INSTRUCTION}`;
 
 // ============================================================================
 // CORRELATION INSIGHTS
@@ -436,7 +436,7 @@ Explain the connection. Note that correlation does not imply causation, but sugg
 OUTPUT FORMAT:
 - Respond ONLY with valid, raw JSON. NO markdown formatting.
 - JSON structure: { "explanation": string, "suggestion": string }
-- Match language of the habit names.`;
+{LANGUAGE_INSTRUCTION}`;
 
 // ============================================================================
 // SOCIAL MOTIVATION (Cast Text)
@@ -445,7 +445,7 @@ OUTPUT FORMAT:
 export const SOCIAL_MOTIVATION_PROMPT = `You are a social media ghostwriter. Generate engaging, authentic text for sharing achievements.
 ${BASE_OUTPUT_RULES_DATA_LANGUAGE}
 Be celebratory but humble. Include relevant emojis (2-3 max). Keep it under 280 characters.
-IMPORTANT: Detect the language of achievement/habit/goal names provided. Respond in the same language.`;
+{LANGUAGE_INSTRUCTION}`;
 
 // ============================================================================
 // WEEKLY INSIGHTS
@@ -495,7 +495,7 @@ Be concise and factual.
 OUTPUT FORMAT:
 - Respond ONLY with valid, raw JSON. NO markdown formatting.
 - JSON structure: { "facts": string[] }
-- All facts must be in the SAME LANGUAGE as the input data.`;
+{LANGUAGE_INSTRUCTION}`;
 
 // ============================================================================
 // COACH ADVICE (Legacy)

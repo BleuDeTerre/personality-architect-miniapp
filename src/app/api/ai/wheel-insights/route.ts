@@ -4,7 +4,8 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
+import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
 import { WHEEL_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
@@ -101,16 +102,19 @@ export async function GET(req: NextRequest) {
             return `Wellness (last 30 days): ${parts.join(', ')}. Use this to understand connections between well-being and life areas.`;
         })() : '';
 
-        // Генерируем инсайты через AI
-        const openai = openaiClient();
-        const model = pickModel({ deep: false });
+        // Генерируем инсайты через AI (используем DeepSeek для сложных задач)
+        const deepseekResult = await getDeepSeekWithLimitCheck(supa);
+        if (deepseekResult.error) {
+            return deepseekResult.error;
+        }
+        const { aiClient, model } = deepseekResult;
 
         // Подготавливаем данные для анализа
         const trendsCount = trends.length;
         const areasWithData = new Set(trends.map(t => t.area)).size;
         const hasEnoughData = trendsCount >= 4 && areasWithData >= 3; // Минимум для осмысленного анализа
 
-        const chat = await openai.chat.completions.create({
+        const chat = await aiClient.chat.completions.create({
             model,
             temperature: 0.7,
             messages: [
@@ -165,9 +169,9 @@ export async function GET(req: NextRequest) {
 
         const result = JSON.parse(chat.choices[0]?.message?.content || '{}');
 
-        // Логируем AI запрос в фоне
+        // Логируем AI запрос в фоне (помечаем как DeepSeek)
         (async () => {
-            await logAIRequest(supa, userId, userPlan, 'ai/wheel-insights');
+            await logAIRequest(supa, userId, userPlan, 'ai/wheel-insights', deepseekResult.markAsDeepSeek());
         })();
 
         return NextResponse.json({

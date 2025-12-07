@@ -54,6 +54,11 @@ export default function CoachBlock({ advice: externalAdvice }: CoachBlockProps) 
                     toast.error('Authentication failed', {
                         description: 'Please refresh the page and try again.',
                     });
+                } else if (r.status === 429 && errorData.error === 'deepseek_limit_reached') {
+                    toast.error('AI service temporarily unavailable', {
+                        description: errorData.message || 'The AI service has reached its daily capacity. Please try again tomorrow.',
+                        duration: 8000,
+                    });
                 } else {
                     toast.error('Failed to get coach advice', {
                         description: errorMessage,

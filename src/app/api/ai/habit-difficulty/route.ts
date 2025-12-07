@@ -4,8 +4,9 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { HABIT_DIFFICULTY_PROMPT } from '@/lib/aiPrompts';
+import { detectLanguage, getLanguageInstruction } from '@/lib/detectLanguage';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function POST(req: NextRequest) {
@@ -84,29 +85,37 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Генерируем рекомендацию через AI
-        const openai = openaiClient();
-        const model = pickModel({ deep: false });
+        // Генерируем рекомендацию через AI (используем Gemma для легких задач)
+        const provider = pickAIProvider('light');
+        const aiClient = getAIClient(provider);
+        const model = getAIModel(provider);
 
-        const chat = await openai.chat.completions.create({
+        const userMessage = [
+            `Analyze this habit: "${habit.title}"`,
+            `- Target: ${targetDays} days per week`,
+            `- Completed: ${completedDays} days in last 30 days (expected: ~${expectedDays})`,
+            `- Completion rate: ${completionRate.toFixed(0)}%`,
+            `- Current streak: ${currentStreak} days`,
+            ``,
+            `Suggest: Should we increase, decrease, or keep the target? Why? Be specific.`,
+        ].join('\n');
+
+        // Определяем язык по названию привычки
+        const detectedLang = detectLanguage(habit.title);
+        const languageInstruction = getLanguageInstruction(detectedLang);
+        const systemPrompt = HABIT_DIFFICULTY_PROMPT.replace('{LANGUAGE_INSTRUCTION}', languageInstruction);
+
+        const chat = await aiClient.chat.completions.create({
             model,
             temperature: 0.6,
             messages: [
                 {
                     role: 'system',
-                    content: HABIT_DIFFICULTY_PROMPT,
+                    content: systemPrompt,
                 },
                 {
                     role: 'user',
-                    content: [
-                        `Analyze this habit: "${habit.title}"`,
-                        `- Target: ${targetDays} days per week`,
-                        `- Completed: ${completedDays} days in last 30 days (expected: ~${expectedDays})`,
-                        `- Completion rate: ${completionRate.toFixed(0)}%`,
-                        `- Current streak: ${currentStreak} days`,
-                        ``,
-                        `Suggest: Should we increase, decrease, or keep the target? Why? Be specific.`,
-                    ].join('\n'),
+                    content: userMessage,
                 },
             ],
         });

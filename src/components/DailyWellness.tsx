@@ -179,7 +179,7 @@ export default function DailyWellness() {
                 {metrics.map((metric) => (
                     <div
                         key={metric.key}
-                        className="flex flex-col gap-2 p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
+                        className="flex flex-col gap-2 p-3 rounded-2xl border border-white/10 bg-[#1a1b2e] hover:bg-[#252640] transition-colors"
                     >
                         <div className="flex items-center gap-2">
                             <span className="text-xl">{metric.emoji}</span>
@@ -206,11 +206,11 @@ export default function DailyWellness() {
                                     }
                                 }}
                                 placeholder="—"
-                                className="bg-white/10 border-none outline-none text-lg font-semibold text-white px-3 py-2 rounded-xl placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:bg-white/15 hover:bg-white/12 transition-colors"
+                                className="bg-white/10 border-none outline-none text-lg font-semibold text-white px-3 py-2 rounded-xl placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:bg-white/15 hover:bg-white/12 transition-colors flex-1 min-w-0"
                                 disabled={saving}
                             />
                             {metric.suffix && (
-                                <span className="text-xs text-white/60">{metric.suffix}</span>
+                                <span className="text-xs text-white/60 flex-shrink-0">{metric.suffix}</span>
                             )}
                         </div>
                         {/* Visual slider indicator */}
@@ -220,7 +220,7 @@ export default function DailyWellness() {
                                 style={{ 
                                     width: metric.value 
                                         ? metric.key.includes('hours') 
-                                            ? `${Math.min(100, (metric.value / 12) * 100)}%` 
+                                            ? `${Math.min(100, (metric.value / 10) * 100)}%` 
                                             : `${((metric.value - 1) / 9) * 100}%` 
                                         : '0%' 
                                 }}

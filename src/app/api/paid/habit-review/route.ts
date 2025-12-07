@@ -1,4 +1,5 @@
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
+import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
 import { HABIT_REVIEW_PROMPT } from '@/lib/aiPrompts';
 // src/app/api/paid/habit-review/route.ts
 export const runtime = 'nodejs';
@@ -131,16 +132,18 @@ export async function POST(req: NextRequest) {
             }));
         }
 
-        // AI review
-        const deep = false;
-        const openai = openaiClient();
-        const model = pickModel({ deep });
+        // AI review (используем DeepSeek для сложных задач)
+        const deepseekResult = await getDeepSeekWithLimitCheck(supa);
+        if (deepseekResult.error) {
+            return deepseekResult.error;
+        }
+        const { aiClient, model } = deepseekResult;
 
         const habitDetails = perHabit.map(h =>
             `${h.title}: ${h.done_7d}/${h.target_days_per_week * 7} done (target: ${h.target_days_per_week}/week)`
         ).join('\n');
 
-        const chat = await openai.chat.completions.create({
+        const chat = await aiClient.chat.completions.create({
             model,
             temperature: 0.2,
             messages: [

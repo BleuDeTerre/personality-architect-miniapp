@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { monthBoundsUTC, loadMonthlyRows, rollupMonthly } from '@/lib/insightMonthly';
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { MONTHLY_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
 
 export async function GET(req: NextRequest) {
@@ -32,11 +32,15 @@ export async function GET(req: NextRequest) {
         const rows = await loadMonthlyRows(supa, userId, start, end);
         const { items, totals } = rollupMonthly(rows);
 
-        // генерация summary
-        const openai = openaiClient();
-        const model = pickModel({ deep });
+        // генерация summary (используем DeepSeek для сложных задач)
+        const { getDeepSeekWithLimitCheck } = await import('@/lib/deepseekHelper');
+        const deepseekResult = await getDeepSeekWithLimitCheck(supa);
+        if (deepseekResult.error) {
+            return deepseekResult.error;
+        }
+        const { aiClient, model } = deepseekResult;
 
-        const chat = await openai.chat.completions.create({
+        const chat = await aiClient.chat.completions.create({
             model,
             temperature: 0.2,
             messages: [

@@ -3,7 +3,8 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
+import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
 import { buildChatPrompt } from '@/lib/aiPrompts';
 import { calculateLevel, xpForNextLevel } from '@/lib/gamification';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
@@ -563,9 +564,12 @@ export async function POST(req: NextRequest) {
             wellnessMetrics: Array.isArray(wellnessMetricsRes.data) ? wellnessMetricsRes.data.slice(0, 30) : [],
         };
 
-        // AI ответ
-        const openai = openaiClient();
-        const model = pickModel({ deep: false });
+        // AI ответ (используем DeepSeek для сложных задач)
+        const deepseekResult = await getDeepSeekWithLimitCheck(supa);
+        if (deepseekResult.error) {
+            return deepseekResult.error;
+        }
+        const { aiClient, model } = deepseekResult;
 
         // Get user's main focus
         const { data: profileData } = await supa
@@ -622,7 +626,7 @@ export async function POST(req: NextRequest) {
         // Добавляем текущее сообщение
         messages.push({ role: 'user', content: userMessage });
 
-        const chat = await openai.chat.completions.create({
+        const chat = await aiClient.chat.completions.create({
             model,
             temperature: 0.7,
             messages,
@@ -641,11 +645,11 @@ export async function POST(req: NextRequest) {
             },
         };
 
-        // Логируем AI запрос в фоне (не блокируем ответ)
+        // Логируем AI запрос в фоне (не блокируем ответ, помечаем как DeepSeek)
         (async () => {
-            await logAIRequest(supa, userId, userPlan, 'chat/message', {
+            await logAIRequest(supa, userId, userPlan, 'chat/message', deepseekResult.markAsDeepSeek({
                 message_length: userMessage.length,
-            });
+            }));
         })();
 
         return NextResponse.json(responseData);

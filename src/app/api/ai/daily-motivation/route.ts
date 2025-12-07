@@ -4,8 +4,9 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { DAILY_MOTIVATION_PROMPT } from '@/lib/aiPrompts';
+import { detectLanguageFromSources, getLanguageInstruction } from '@/lib/detectLanguage';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function GET(req: NextRequest) {
@@ -251,8 +252,10 @@ export async function GET(req: NextRequest) {
         }).length;
 
         // Генерируем мотивационное сообщение через AI с динамическими инсайтами
-        const openai = openaiClient();
-        const model = pickModel({ deep: false });
+        // Используем Gemma для легких задач
+        const provider = pickAIProvider('light');
+        const aiClient = getAIClient(provider);
+        const model = getAIModel(provider);
 
         // Формируем контекст для AI
         const contextParts: string[] = [
@@ -262,14 +265,16 @@ export async function GET(req: NextRequest) {
         ];
 
         // Добавляем инсайты о лучших привычках
-        if (topHabits.length > 0) {
-            contextParts.push(`\nStrong habits (last 7 days): ${topHabits.map(h => `${h.title} (${Math.round(h.rate)}%)`).join(', ')}`);
-        }
+        const topHabitsText = topHabits.length > 0 
+            ? `\nStrong habits (last 7 days): ${topHabits.map(h => `${h.title} (${Math.round(h.rate)}%)`).join(', ')}`
+            : '';
+        if (topHabitsText) contextParts.push(topHabitsText);
 
         // Добавляем инсайты о проблемных привычках
-        if (strugglingHabits.length > 0) {
-            contextParts.push(`Habits needing attention: ${strugglingHabits.map(h => h.title).join(', ')}`);
-        }
+        const strugglingHabitsText = strugglingHabits.length > 0
+            ? `Habits needing attention: ${strugglingHabits.map(h => h.title).join(', ')}`
+            : '';
+        if (strugglingHabitsText) contextParts.push(strugglingHabitsText);
 
         // Добавляем информацию о целях
         if (goalsProgress.length > 0) {
@@ -304,37 +309,71 @@ export async function GET(req: NextRequest) {
             tone = 'celebratory, acknowledging consistency';
         }
 
-        const chat = await openai.chat.completions.create({
-            model,
-            temperature: 0.8,
-            messages: [
-                {
-                    role: 'system',
-                    content: DAILY_MOTIVATION_PROMPT,
-                },
-                {
-                    role: 'user',
-                    content: [
-                        `Generate a personalized daily motivation message based on these insights:`,
-                        ``,
-                        contextParts.join('\n'),
-                        ``,
-                        `Tone: ${tone}`,
-                        ``,
-                        `Guidelines:`,
-                        `- If they completed most habits today, celebrate it`,
-                        `- If they have strong habits, acknowledge their consistency`,
-                        `- If they have struggling habits, offer gentle encouragement without being pushy`,
-                        `- If streak is high, celebrate their consistency`,
-                        `- If streak is low or zero, encourage a fresh start`,
-                        `- If they completed quests recently, acknowledge their engagement`,
-                        `- If Wheel of Life improved, mention positive changes`,
-                        `- Make it feel personal and relevant to their actual data`,
-                        `- Keep it concise (2-3 sentences)`,
-                    ].join('\n'),
-                },
-            ],
-        });
+        // Формируем user message для определения языка
+        const userMessage = [
+            `Generate a personalized daily motivation message based on these insights:`,
+            ``,
+            contextParts.join('\n'),
+            ``,
+            `Tone: ${tone}`,
+            ``,
+            `Guidelines:`,
+            `- If they completed most habits today, celebrate it`,
+            `- If they have strong habits, acknowledge their consistency`,
+            `- If they have struggling habits, offer gentle encouragement without being pushy`,
+            `- If streak is high, celebrate their consistency`,
+            `- If streak is low or zero, encourage a fresh start`,
+            `- If they completed quests recently, acknowledge their engagement`,
+            `- If Wheel of Life improved, mention positive changes`,
+            `- Make it feel personal and relevant to their actual data`,
+            `- Keep it concise (2-3 sentences)`,
+        ].join('\n');
+
+        // Определяем язык по названиям привычек и целей
+        const habitNames = [
+            ...topHabits.map(h => h.title),
+            ...strugglingHabits.map(h => h.title),
+            ...goalsProgress.map(g => g.title),
+        ].filter(Boolean);
+        
+        const detectedLang = detectLanguageFromSources([
+            userMessage,
+            ...habitNames,
+            wellnessContext || null,
+        ]);
+        const languageInstruction = getLanguageInstruction(detectedLang);
+
+        // Заменяем {LANGUAGE_INSTRUCTION} в промпте
+        const systemPrompt = DAILY_MOTIVATION_PROMPT.replace('{LANGUAGE_INSTRUCTION}', languageInstruction);
+
+        console.log('[AI Daily Motivation] Using provider:', provider, 'model:', model);
+        
+        let chat;
+        try {
+            chat = await aiClient.chat.completions.create({
+                model,
+                temperature: 0.8,
+                messages: [
+                    {
+                        role: 'system',
+                        content: systemPrompt,
+                    },
+                    {
+                        role: 'user',
+                        content: userMessage,
+                    },
+                ],
+            });
+        } catch (aiError: any) {
+            console.error('[AI Daily Motivation] AI API Error:', {
+                error: aiError?.message,
+                code: aiError?.code,
+                status: aiError?.status,
+                provider,
+                model,
+            });
+            throw aiError;
+        }
 
         const message = chat.choices[0]?.message?.content || 'Start your day with intention. Every small step counts! 💪';
 
@@ -359,10 +398,17 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({ message });
     } catch (error: any) {
-        console.error('[AI Daily Motivation] Error:', error);
+        console.error('[AI Daily Motivation] Error:', {
+            message: error?.message,
+            stack: error?.stack,
+            code: error?.code,
+            status: error?.status,
+            response: error?.response?.data,
+        });
         // Fallback message
         return NextResponse.json({
             message: 'Start your day with intention. Every small step counts! 💪',
+            error: error?.message || 'Unknown error',
         });
     }
 }

@@ -4,9 +4,10 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { COACH_ADVICE_PROMPT } from '@/lib/aiPrompts';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
+import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
 
 export async function GET(req: NextRequest) {
     try {
@@ -131,11 +132,13 @@ export async function GET(req: NextRequest) {
             );
         }
 
-        const sp = new URL(req.url).searchParams;
-        const deep = sp.get('deep') === '1';
-        const openai = openaiClient();
-        const model = pickModel({ deep });
-        console.log('[Coach API] Using model:', model, 'deep:', deep);
+        // Используем DeepSeek для сложных задач (с проверкой лимита)
+        const deepseekResult = await getDeepSeekWithLimitCheck(supa);
+        if (deepseekResult.error) {
+            return deepseekResult.error;
+        }
+        const { aiClient, model, deepseekLimitCheck } = deepseekResult;
+        console.log('[Coach API] Using provider: deepseek, model:', model, `DeepSeek usage: ${deepseekLimitCheck.used}/980`);
 
         const sys = COACH_ADVICE_PROMPT;
         const userMsg = [
@@ -148,26 +151,27 @@ export async function GET(req: NextRequest) {
             wellnessContext || '',
         ].filter(Boolean).join('\n');
 
-        console.log('[Coach API] Sending request to OpenAI...');
-        const chat = await openai.chat.completions.create({
+        console.log('[Coach API] Sending request to AI...');
+        const chat = await aiClient.chat.completions.create({
             model,
             temperature: 0.2,
             messages: [{ role: 'system', content: sys }, { role: 'user', content: userMsg }],
         });
 
         const advice = chat.choices[0]?.message?.content ?? '';
-        console.log('[Coach API] OpenAI response received, length:', advice.length);
+        console.log('[Coach API] DeepSeek response received, length:', advice.length);
 
         if (!advice.trim()) {
-            console.warn('[Coach API] Empty advice received from OpenAI');
+            console.warn('[Coach API] Empty advice received from DeepSeek');
             return NextResponse.json({ error: 'empty_response', message: 'No advice generated. Please try again.' }, { status: 500 });
         }
 
-        // Логируем AI запрос в фоне
+        // Логируем AI запрос в фоне (помечаем как DeepSeek)
         (async () => {
-            await logAIRequest(supa, userId, userPlan, 'insight/coach', {
-                deep,
-            });
+            await logAIRequest(supa, userId, userPlan, 'insight/coach', deepseekResult.markAsDeepSeek({
+                provider: 'deepseek',
+                model,
+            }));
         })();
 
         return NextResponse.json({

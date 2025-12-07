@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withX402 } from '@/lib/x402Client';
 import { requireUserFromReq, createUserServerClient } from '@/lib/auth';
 import { monthBoundsUTC, loadMonthlyRows, rollupMonthly } from '@/lib/insightMonthly';
-import { openaiClient, pickModel } from '@/lib/aiModel';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { MONTHLY_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
 
 async function buildInsight(
@@ -18,9 +18,13 @@ async function buildInsight(
     const rows = await loadMonthlyRows(supa, userId, start, end);
     const { items, totals } = rollupMonthly(rows);
 
-    const openai = openaiClient();
-    const model = pickModel({ deep });
-    const chat = await openai.chat.completions.create({
+    const { getDeepSeekWithLimitCheck } = await import('@/lib/deepseekHelper');
+    const deepseekResult = await getDeepSeekWithLimitCheck(supa);
+    if (deepseekResult.error) {
+        throw new Error(deepseekResult.error.status === 429 ? 'DeepSeek limit reached' : 'AI error');
+    }
+    const { aiClient, model } = deepseekResult;
+    const chat = await aiClient.chat.completions.create({
         model,
         temperature: 0.2,
         messages: [
