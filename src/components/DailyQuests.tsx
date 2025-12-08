@@ -36,14 +36,14 @@ function QuestList({ quests }: { quests: Quest[] }) {
                         className={`rounded-2xl border p-3 sm:p-4 transition ${quest.completed ? 'border-[#22C55E]/40 bg-[#22C55E]/10' : 'border-white/10 bg-[#1a1b2e]'}`}
                     >
                         <div className="flex items-start gap-2.5">
-                            <div className="text-2xl flex-shrink-0">{quest.icon}</div>
+                            <div className="text-lg flex-shrink-0">{quest.icon}</div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-1.5">
                                     <div>
                                         <h4 className="text-sm font-semibold text-white">{quest.title}</h4>
                                         <p className="text-xs text-white/60 leading-snug">{quest.description}</p>
                                     </div>
-                                    {quest.completed && <div className="text-green-400 text-lg">✓</div>}
+                                    {quest.completed && <div className="text-green-400 text-sm">✓</div>}
                                 </div>
                             </div>
                         </div>

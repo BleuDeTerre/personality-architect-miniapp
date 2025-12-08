@@ -4,8 +4,9 @@
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { gemmaRateLimiter } from './gemmaRateLimiter';
 
-export type GemmaModel = 'gemma-3-27b' | 'gemma-2-9b-it' | 'gemma-2-27b-it';
+export type GemmaModel = 'gemma-3-27b-it' | 'gemma-3-27b' | 'gemma-2-27b-it' | 'gemma-2-9b-it';
 
 /** Gemma клиент через Google AI Studio. */
 export function gemmaClient() {
@@ -14,6 +15,7 @@ export function gemmaClient() {
         throw new Error('GEMMA_API_KEY must be set for Gemma (Google AI Studio)');
     }
     
+    // Создаем клиент без указания baseUrl - SDK сам выберет правильную версию API (v1 для Gemma 3)
     const genAI = new GoogleGenerativeAI(apiKey);
     
     // Возвращаем объект с методом chat.completions.create для единого интерфейса
@@ -55,6 +57,9 @@ export function gemmaClient() {
                         }
                     }
                     
+                    // Rate limiting: wait if needed before making request
+                    await gemmaRateLimiter.waitIfNeeded();
+                    
                     const generationConfig: any = {
                         temperature: params.temperature ?? 0.7,
                     };
@@ -92,6 +97,6 @@ export function gemmaClient() {
 /** Выбор модели Gemma для Google AI Studio. */
 export function pickGemmaModel(): GemmaModel {
     const model = process.env.GEMMA_MODEL as GemmaModel;
-    // По умолчанию используем gemma-3-27b
-    return model || 'gemma-3-27b';
+    // По умолчанию используем gemma-3-27b-it (Gemma 3)
+    return model || 'gemma-3-27b-it';
 }

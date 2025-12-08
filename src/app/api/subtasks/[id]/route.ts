@@ -89,6 +89,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
+        // Устанавливаем сессию явно для правильной работы RLS
+        // Это гарантирует, что auth.uid() будет работать в RLS политиках
+        const { data: { user }, error: userError } = await supa.auth.getUser();
+        if (userError || !user || user.id !== userId) {
+            console.error('[Subtasks DELETE] Auth error:', userError);
+            return NextResponse.json({ error: 'unauthorized', details: 'Failed to authenticate user' }, { status: 401 });
+        }
+
         // Handle both Promise and direct params (for Next.js 13/14/15 compatibility)
         const resolvedParams = params instanceof Promise ? await params : params;
         const subtaskId = Number(resolvedParams?.id);
@@ -104,7 +112,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
             .single();
 
         if (fetchError || !existingSubtask) {
-            return NextResponse.json({ error: 'subtask_not_found' }, { status: 404 });
+            console.error('[Subtasks DELETE] Fetch error:', fetchError);
+            return NextResponse.json({ error: 'subtask_not_found', details: fetchError?.message }, { status: 404 });
         }
 
         // Double check ownership via goal
@@ -125,8 +134,17 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
             .eq('id', subtaskId);
 
         if (error) {
-            console.error('[Subtasks DELETE] Error:', error);
-            return NextResponse.json({ error: 'Failed to delete subtask', details: error.message }, { status: 500 });
+            console.error('[Subtasks DELETE] Delete error:', error);
+            console.error('[Subtasks DELETE] Error code:', error.code);
+            console.error('[Subtasks DELETE] Error message:', error.message);
+            console.error('[Subtasks DELETE] Error details:', error.details);
+            console.error('[Subtasks DELETE] Error hint:', error.hint);
+            return NextResponse.json({ 
+                error: 'Failed to delete subtask', 
+                details: error.message,
+                code: error.code,
+                hint: error.hint 
+            }, { status: 500 });
         }
 
         return NextResponse.json({ success: true });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { AlertCircle, ChevronDown } from 'lucide-react';
 import { fetchJson } from '@/lib/http';
@@ -30,6 +30,7 @@ export default function AIPredictiveAlerts() {
     const [alerts, setAlerts] = useState<Alert[]>(cachedAlerts);
     const [loading, setLoading] = useState(!cachedAlerts.length);
     const [isExpanded, setIsExpanded] = useState(false);
+    const isLoadingRef = useRef(false); // Защита от одновременных запросов
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -41,6 +42,12 @@ export default function AIPredictiveAlerts() {
 
     useEffect(() => {
         async function loadAlerts(force = false) {
+            // Защита от одновременных запросов
+            if (isLoadingRef.current && !force) {
+                console.log('[AI Predictive Alerts] Request already in progress, skipping');
+                return;
+            }
+
             try {
                 // Check cache first (1 hour TTL)
                 if (!force) {
@@ -52,6 +59,7 @@ export default function AIPredictiveAlerts() {
                     }
                 }
 
+                isLoadingRef.current = true;
                 setLoading(true);
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session?.access_token) {
@@ -91,20 +99,27 @@ export default function AIPredictiveAlerts() {
                 }
             } finally {
                 setLoading(false);
+                isLoadingRef.current = false;
             }
         }
-        loadAlerts(false);
+        
+        // Debounce: ждем немного перед первым запросом, чтобы избежать дублирования при Strict Mode
+        const timeoutId = setTimeout(() => {
+            loadAlerts(false);
+        }, 150);
 
         // Слушаем изменения сессии
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             if (session?.access_token) {
-                loadAlerts(true); // Force reload on auth change
+                // Debounce для auth change тоже
+                setTimeout(() => loadAlerts(true), 250);
             }
         });
 
         // Проверяем обновления каждые 10 минут (кэш 1 час, но проверяем чаще)
         const interval = setInterval(() => loadAlerts(false), 10 * 60 * 1000);
         return () => {
+            clearTimeout(timeoutId);
             subscription.unsubscribe();
             clearInterval(interval);
         };

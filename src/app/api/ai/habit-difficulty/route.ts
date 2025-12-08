@@ -4,10 +4,6 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
-import { HABIT_DIFFICULTY_PROMPT } from '@/lib/aiPrompts';
-import { detectLanguage, getLanguageInstruction } from '@/lib/detectLanguage';
-import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function POST(req: NextRequest) {
     try {
@@ -63,81 +59,30 @@ export async function POST(req: NextRequest) {
         });
         const currentStreak = (streakData as number) || 0;
 
-        // Получаем план пользователя для проверки лимита
-        const { data: planData } = await supa
-            .from('user_plans')
-            .select('plan')
-            .eq('user_id', userId)
-            .maybeSingle();
-        const userPlan = (planData?.plan ?? 'free') as UserPlan;
-
-        // Проверяем лимит перед генерацией рекомендации
-        const limitCheck = await checkAILimit(supa, userId, userPlan);
-        if (!limitCheck.allowed) {
-            return NextResponse.json(
-                {
-                    error: 'daily_limit_reached',
-                    message: limitCheck.error || 'You have reached your daily AI request limit.',
-                    limit: limitCheck.limit,
-                    used: limitCheck.used,
-                },
-                { status: 429 }
-            );
-        }
-
-        // Генерируем рекомендацию через AI (используем Gemma для легких задач)
-        const provider = pickAIProvider('light');
-        const aiClient = getAIClient(provider);
-        const model = getAIModel(provider);
-
-        const userMessage = [
-            `Analyze this habit: "${habit.title}"`,
-            `- Target: ${targetDays} days per week`,
-            `- Completed: ${completedDays} days in last 30 days (expected: ~${expectedDays})`,
-            `- Completion rate: ${completionRate.toFixed(0)}%`,
-            `- Current streak: ${currentStreak} days`,
-            ``,
-            `Suggest: Should we increase, decrease, or keep the target? Why? Be specific.`,
-        ].join('\n');
-
-        // Определяем язык по названию привычки
-        const detectedLang = detectLanguage(habit.title);
-        const languageInstruction = getLanguageInstruction(detectedLang);
-        const systemPrompt = HABIT_DIFFICULTY_PROMPT.replace('{LANGUAGE_INSTRUCTION}', languageInstruction);
-
-        const chat = await aiClient.chat.completions.create({
-            model,
-            temperature: 0.6,
-            messages: [
-                {
-                    role: 'system',
-                    content: systemPrompt,
-                },
-                {
-                    role: 'user',
-                    content: userMessage,
-                },
-            ],
-        });
-
-        const suggestion = chat.choices[0]?.message?.content || 'Keep your current target and focus on consistency.';
-
-        // Определяем рекомендуемое изменение
+        // Генерируем рекомендацию через расчеты (без AI)
         let recommendedTarget = targetDays;
-        if (completionRate < 50) {
-            // Слишком сложно - уменьшаем
-            recommendedTarget = Math.max(1, Math.floor(targetDays * 0.7));
-        } else if (completionRate > 90 && currentStreak > 7) {
-            // Слишком легко - можно увеличить
-            recommendedTarget = Math.min(7, Math.ceil(targetDays * 1.3));
-        }
+        let suggestion = '';
+        let difficulty = 'medium';
 
-        // Логируем AI запрос в фоне
-        (async () => {
-            await logAIRequest(supa, userId, userPlan, 'ai/habit-difficulty', {
-                habit_id: habitId,
-            });
-        })();
+        if (completionRate < 30) {
+            // Высокая сложность
+            difficulty = 'high';
+            recommendedTarget = Math.max(1, Math.floor(targetDays * 0.7));
+            suggestion = `This habit seems too challenging. Your completion rate is ${completionRate.toFixed(0)}%. Consider reducing the target to ${recommendedTarget} days per week to build consistency.`;
+        } else if (completionRate < 60) {
+            // Средняя сложность
+            difficulty = 'medium';
+            suggestion = `Your completion rate is ${completionRate.toFixed(0)}%. Keep your current target of ${targetDays} days per week and focus on consistency.`;
+        } else if (completionRate > 90 && currentStreak > 7) {
+            // Низкая сложность - можно увеличить
+            difficulty = 'low';
+            recommendedTarget = Math.min(7, Math.ceil(targetDays * 1.3));
+            suggestion = `Great job! Your completion rate is ${completionRate.toFixed(0)}% and you have a ${currentStreak}-day streak. Consider increasing the target to ${recommendedTarget} days per week to challenge yourself.`;
+        } else {
+            // Оптимальная сложность
+            difficulty = 'optimal';
+            suggestion = `Your completion rate is ${completionRate.toFixed(0)}%. Your current target of ${targetDays} days per week seems perfect for maintaining consistency.`;
+        }
 
         return NextResponse.json({
             suggestion,
@@ -147,6 +92,7 @@ export async function POST(req: NextRequest) {
             completedDays,
             expectedDays,
             currentStreak,
+            difficulty,
         });
     } catch (error: any) {
         console.error('[AI Habit Difficulty] Error:', error);

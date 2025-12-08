@@ -4,10 +4,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
-import { STREAK_RECOVERY_PROMPT } from '@/lib/aiPrompts';
-import { detectLanguageFromSources, getLanguageInstruction } from '@/lib/detectLanguage';
-import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
+import { generateStreakRecoveryMessage } from '@/lib/streakRecoveryTemplates';
 
 export async function GET(req: NextRequest) {
     try {
@@ -55,25 +52,7 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ message: null, needsRecovery: false });
         }
 
-        // Получаем план пользователя для проверки лимита
-        const { data: planData } = await supa
-            .from('user_plans')
-            .select('plan')
-            .eq('user_id', userId)
-            .maybeSingle();
-        const userPlan = (planData?.plan ?? 'free') as UserPlan;
-
-        // Проверяем лимит перед генерацией сообщения восстановления
-        const limitCheck = await checkAILimit(supa, userId, userPlan);
-        if (!limitCheck.allowed) {
-            // Возвращаем fallback сообщение вместо ошибки
-            return NextResponse.json({
-                message: 'Streaks are about progress, not perfection. Every day is a new chance to start again! 💪',
-                needsRecovery: true,
-                bestStreak,
-                currentStreak,
-            });
-        }
+        // AI больше не используется - используем шаблоны
 
         // Анализируем паттерны пропусков
         const since30 = new Date();
@@ -101,50 +80,12 @@ export async function GET(req: NextRequest) {
             ? ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][leastActiveDay[0]]
             : null;
 
-        // Генерируем сообщение восстановления через AI (используем Gemma для легких задач)
-        const provider = pickAIProvider('light');
-        const aiClient = getAIClient(provider);
-        const model = getAIModel(provider);
-
-        const userMessage = [
-            `User lost their ${bestStreak}-day streak.`,
-            `Current streak: ${currentStreak} days`,
-            `Best streak: ${bestStreak} days`,
-            leastActiveDayName ? `Least active day historically: ${leastActiveDayName}` : '',
-            `Last completed: ${lastCompleted || 'unknown'}`,
-            ``,
-            `Provide: 1) Encouragement, 2) Brief analysis of why it might have happened, 3) Simple recovery plan.`,
-        ].filter(Boolean).join('\n');
-
-        // Определяем язык (по умолчанию английский, так как нет названий привычек)
-        const detectedLang = 'en'; // Fallback на английский для streak recovery
-        const languageInstruction = getLanguageInstruction(detectedLang);
-        const systemPrompt = STREAK_RECOVERY_PROMPT.replace('{LANGUAGE_INSTRUCTION}', languageInstruction);
-
-        const chat = await aiClient.chat.completions.create({
-            model,
-            temperature: 0.7,
-            messages: [
-                {
-                    role: 'system',
-                    content: systemPrompt,
-                },
-                {
-                    role: 'user',
-                    content: userMessage,
-                },
-            ],
-        });
-
-        const message = chat.choices[0]?.message?.content || 'Streaks are about progress, not perfection. Every day is a new chance to start again! 💪';
-
-        // Логируем AI запрос в фоне
-        (async () => {
-            await logAIRequest(supa, userId, userPlan, 'ai/streak-recovery', {
-                best_streak: bestStreak,
-                current_streak: currentStreak,
-            });
-        })();
+        // Генерируем сообщение восстановления через шаблоны (без AI)
+        const message = generateStreakRecoveryMessage(
+            bestStreak,
+            currentStreak,
+            leastActiveDayName
+        );
 
         return NextResponse.json({
             message,

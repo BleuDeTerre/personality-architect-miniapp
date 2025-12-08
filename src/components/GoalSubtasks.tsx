@@ -137,42 +137,35 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
     };
 
     const handleDeleteSubtask = async (subtaskId: number) => {
-        if (!isSDKLoaded) {
-            console.log('[GoalSubtasks] SDK not loaded');
-            return;
-        }
+        if (!isSDKLoaded) return;
         
-        console.log('[GoalSubtasks] Delete subtask clicked:', subtaskId);
-        
-        if (!confirm('Delete this subtask?')) {
-            console.log('[GoalSubtasks] Delete cancelled');
-            return;
-        }
+        if (!confirm('Delete this subtask?')) return;
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                console.log('[GoalSubtasks] No session');
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !session || !session.access_token) {
+                alert('Session expired. Please refresh the page.');
                 return;
             }
 
-            console.log('[GoalSubtasks] Deleting subtask:', subtaskId);
             const res = await fetch(`/api/subtasks/${subtaskId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json',
                 },
             });
 
+            const responseData = await res.json().catch(() => ({}));
+
             if (res.ok) {
-                console.log('[GoalSubtasks] Subtask deleted successfully');
                 setSubtasks(subtasks.filter(s => s.id !== subtaskId));
                 onSubtasksChange?.();
             } else {
-                console.error('[GoalSubtasks] Failed to delete subtask:', res.status);
+                alert(`Failed to delete subtask: ${responseData.error || responseData.details || 'Unknown error'}`);
             }
         } catch (error) {
-            console.error('[GoalSubtasks] Error deleting subtask:', error);
+            alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     };
 
@@ -220,8 +213,21 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
                         </span>
                         <button
                             type="button"
-                            onClick={() => handleDeleteSubtask(subtask.id)}
+                            data-subtask-id={subtask.id}
+                            onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.nativeEvent.stopImmediatePropagation();
+                                handleDeleteSubtask(subtask.id);
+                            }}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.nativeEvent.stopImmediatePropagation();
+                                handleDeleteSubtask(subtask.id);
+                            }}
                             className="text-xs text-red-400 hover:text-red-300 px-2 py-1 cursor-pointer flex-shrink-0"
+                            style={{ touchAction: 'manipulation' }}
                         >
                             ×
                         </button>

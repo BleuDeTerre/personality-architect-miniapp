@@ -8,6 +8,8 @@ import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
 import { GOAL_REVIEW_PROMPT } from '@/lib/aiPrompts';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
+import { getAICache, setAICache } from '@/lib/aiCacheHelper';
+import crypto from 'crypto';
 
 export async function GET(req: NextRequest) {
     try {
@@ -84,6 +86,32 @@ export async function GET(req: NextRequest) {
         })() : '';
 
         const today = new Date();
+        
+        // Создаем ключ для кеша на основе всех целей (если цели не изменились, результат тот же)
+        const goalsHash = goals.map(g => `${g.id}:${g.title}:${g.target || ''}:${g.due_date || ''}`).join('|');
+        const cacheKey = {
+            goals_hash: goalsHash,
+            wellness_hash: wellnessContext ? crypto.createHash('sha256').update(wellnessContext).digest('hex').slice(0, 8) : 'none',
+        };
+
+        // Проверяем кеш (24 часа)
+        const cached = await getAICache<{ reviews: Array<{
+            goalId: string;
+            goalTitle: string;
+            progress: number;
+            assessment: string;
+            recommendation: string;
+            isOnTrack: boolean;
+        }> }>(supa, userId, {
+            endpoint: 'ai/goal-review',
+            input: cacheKey,
+            cacheHours: 24,
+        });
+
+        if (cached?.reviews) {
+            return NextResponse.json({ reviews: cached.reviews, cached: true });
+        }
+
         const reviews: Array<{
             goalId: string;
             goalTitle: string;
@@ -190,6 +218,13 @@ export async function GET(req: NextRequest) {
                 });
             }
         }
+
+        // Сохраняем в кеш (24 часа)
+        await setAICache(supa, userId, {
+            endpoint: 'ai/goal-review',
+            input: cacheKey,
+            cacheHours: 24,
+        }, { reviews });
 
         return NextResponse.json({ reviews });
     } catch (error: any) {

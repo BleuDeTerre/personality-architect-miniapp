@@ -33,20 +33,44 @@ function weekToDate(weekStr: string): Date | null {
     return sundayLocal;
 }
 
-// Конвертирует дату в ISO неделю
+// Конвертирует дату в неделю (формат YYYY-Www, неделя начинается с воскресенья)
 function dateToWeek(date: Date): string {
-    const local = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const day = local.getDay(); // 0 = Sunday
-    const sunday = new Date(local);
-    sunday.setDate(local.getDate() - day);
-    const monday = new Date(sunday);
-    monday.setDate(sunday.getDate() + 1);
-
-    const d = new Date(Date.UTC(monday.getFullYear(), monday.getMonth(), monday.getDate()));
-    const dow = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dow);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const day = d.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    
+    // Move to Sunday of current week
+    d.setUTCDate(d.getUTCDate() - day);
+    
+    // Find January 1st of the year
+    const jan1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const jan1Day = jan1.getUTCDay(); // Day of week for Jan 1
+    
+    // Find the first Sunday of the year (or Jan 1 if it's Sunday)
+    const firstSunday = new Date(jan1);
+    if (jan1Day !== 0) {
+        firstSunday.setUTCDate(1 + (7 - jan1Day));
+    }
+    
+    // Calculate week number: how many weeks from first Sunday to current Sunday
+    const diffMs = d.getTime() - firstSunday.getTime();
+    const diffDays = Math.floor(diffMs / 86400000);
+    const weekNo = Math.floor(diffDays / 7) + 1;
+    
+    // Handle edge case: if current date is before first Sunday, it's week 1 of previous year
+    if (weekNo < 1) {
+        const prevYear = d.getUTCFullYear() - 1;
+        const prevJan1 = new Date(Date.UTC(prevYear, 0, 1));
+        const prevJan1Day = prevJan1.getUTCDay();
+        const prevFirstSunday = new Date(prevJan1);
+        if (prevJan1Day !== 0) {
+            prevFirstSunday.setUTCDate(1 + (7 - prevJan1Day));
+        }
+        const prevDiffMs = d.getTime() - prevFirstSunday.getTime();
+        const prevDiffDays = Math.floor(prevDiffMs / 86400000);
+        const prevWeekNo = Math.floor(prevDiffDays / 7) + 1;
+        return `${prevYear}-W${String(prevWeekNo).padStart(2, '0')}`;
+    }
+    
     return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 

@@ -68,6 +68,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
+        // Устанавливаем сессию явно для правильной работы RLS
+        const { data: { user }, error: userError } = await supa.auth.getUser();
+        if (userError || !user || user.id !== userId) {
+            console.error('[Goals DELETE] Auth error:', userError);
+            return NextResponse.json({ error: 'unauthorized', details: 'Failed to authenticate user' }, { status: 401 });
+        }
+
         // Handle both Promise and direct params (for Next.js 13/14/15 compatibility)
         const resolvedParams = params instanceof Promise ? await params : params;
         const goalId = resolvedParams?.id;

@@ -3,11 +3,9 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
-import { ANALYTICS_FACTS_PROMPT } from '@/lib/aiPrompts';
-import { detectLanguageFromSources, getLanguageInstruction } from '@/lib/detectLanguage';
 import { getCachedAnalytics, setCachedAnalytics } from '@/lib/analytics-cache';
-import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
+import { generateAnalyticsFacts } from '@/lib/analyticsFactsTemplates';
+import type { UserPlan } from '@/lib/aiLimits';
 
 export async function GET(req: NextRequest) {
     try {
@@ -36,17 +34,7 @@ export async function GET(req: NextRequest) {
             return response;
         }
 
-        // Если кэша нет - проверяем лимит перед генерацией фактов
-        const limitCheck = await checkAILimit(supa, userId, userPlan);
-        if (!limitCheck.allowed) {
-            // Возвращаем пустые факты вместо ошибки (чтобы не ломать UI)
-            return NextResponse.json({
-                facts: [],
-                top_habits: [],
-                day_stats: [],
-                limitReached: true,
-            });
-        }
+        // AI больше не используется - используем шаблоны
 
         // Получаем данные за последние 90 дней
         const since90 = new Date();
@@ -136,67 +124,10 @@ export async function GET(req: NextRequest) {
             });
         }
 
-        // Генерируем факты через AI (используем Gemma для легких задач)
-        const provider = pickAIProvider('light');
-        const aiClient = getAIClient(provider);
-        const model = getAIModel(provider);
-
-        console.log('[Analytics Facts] Generating facts with provider:', provider, 'model:', model);
-        console.log('[Analytics Facts] Data:', { topHabits, daysStats });
-
-        const userMessage = [
-            `Analyze the following habit data and generate 3-5 specific, factual insights:`,
-            ``,
-            `Habit frequency (last 90 days):`,
-            JSON.stringify(topHabits, null, 2),
-            ``,
-            `Activity by day of week:`,
-            JSON.stringify(daysStats, null, 2),
-            ``,
-            `Generate insights like:`,
-            `- Compare habits that were practiced equally`,
-            `- Identify peak activity days`,
-            `- Highlight least active days`,
-            `- Note health commitment patterns`,
-            ``,
-            `Return a JSON object with "facts" array containing 3-5 concise, factual insights.`,
-            `Example format: {"facts": ["Hydration and meditation were practiced equally, each with a frequency of 7 times in the last 90 days.", "Activity levels peaked on Saturdays with a total of 14 counts, suggesting weekends are the most active days."]}`,
-        ].join('\n');
-
-        // Определяем язык по названиям привычек
-        const habitNames = topHabits.map(h => h.habit).filter(Boolean);
-        const detectedLang = detectLanguageFromSources([
-            userMessage,
-            ...habitNames,
-        ]);
-        const languageInstruction = getLanguageInstruction(detectedLang);
-        const systemPrompt = ANALYTICS_FACTS_PROMPT.replace('{LANGUAGE_INSTRUCTION}', languageInstruction);
-
-        const chat = await aiClient.chat.completions.create({
-            model,
-            temperature: 0.2,
-            messages: [
-                {
-                    role: 'system',
-                    content: systemPrompt
-                },
-                {
-                    role: 'user',
-                    content: userMessage,
-                },
-            ],
-            response_format: { type: 'json_object' },
-        });
-
-        const aiResult = JSON.parse(chat.choices[0]?.message?.content || '{}');
-        const facts = Array.isArray(aiResult.facts) ? aiResult.facts : [];
+        // Генерируем факты через шаблоны (без AI)
+        const facts = generateAnalyticsFacts(topHabits, daysStats, logs.length);
 
         console.log('[Analytics Facts] Generated facts:', facts.length);
-
-        // Логируем AI запрос в фоне
-        (async () => {
-            await logAIRequest(supa, userId, userPlan, 'analytics/facts');
-        })();
 
         const result = { facts, top_habits: topHabits, day_stats: daysStats };
 

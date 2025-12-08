@@ -8,6 +8,8 @@ import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { COACH_ADVICE_PROMPT } from '@/lib/aiPrompts';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
+import { getAICache, setAICache } from '@/lib/aiCacheHelper';
+import crypto from 'crypto';
 
 export async function GET(req: NextRequest) {
     try {
@@ -118,6 +120,32 @@ export async function GET(req: NextRequest) {
             .maybeSingle();
         const userPlan = (planData?.plan ?? 'free') as UserPlan;
 
+        // Создаем ключ для кеша на основе всех данных (если данные не изменились, совет тот же)
+        const trendsHash = trends.map(t => `${t.area}:${t.score}:${t.week}`).join('|');
+        const goalsHash = (goals || []).map((g: any) => `${g.id}:${g.title}:${g.progress || 0}`).join('|');
+        const weeklySummaryHash = ws?.[0]?.summary ? crypto.createHash('sha256').update(ws[0].summary).digest('hex').slice(0, 8) : 'none';
+        const cacheKey = {
+            trends_hash: crypto.createHash('sha256').update(trendsHash).digest('hex').slice(0, 16),
+            goals_hash: goalsHash ? crypto.createHash('sha256').update(goalsHash).digest('hex').slice(0, 16) : 'none',
+            weekly_summary_hash: weeklySummaryHash,
+            wellness_hash: wellnessContext ? crypto.createHash('sha256').update(wellnessContext).digest('hex').slice(0, 8) : 'none',
+        };
+
+        // Проверяем кеш (6 часов - данные могут меняться чаще, чем wheel insights)
+        const cached = await getAICache<{
+            advice: string;
+            aiLimit: { used: number; limit: number; remaining: number };
+            plan: string;
+        }>(supa, userId, {
+            endpoint: 'insight/coach',
+            input: cacheKey,
+            cacheHours: 6,
+        });
+
+        if (cached) {
+            return NextResponse.json({ ...cached, cached: true });
+        }
+
         // Проверяем лимит перед генерацией совета
         const limitCheck = await checkAILimit(supa, userId, userPlan);
         if (!limitCheck.allowed) {
@@ -166,6 +194,23 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'empty_response', message: 'No advice generated. Please try again.' }, { status: 500 });
         }
 
+        const response = {
+            advice,
+            aiLimit: {
+                used: limitCheck.used + 1, // +1 потому что мы только что залогировали
+                limit: limitCheck.limit,
+                remaining: Math.max(0, limitCheck.remaining - 1),
+            },
+            plan: userPlan,
+        };
+
+        // Сохраняем в кеш (6 часов)
+        await setAICache(supa, userId, {
+            endpoint: 'insight/coach',
+            input: cacheKey,
+            cacheHours: 6,
+        }, response);
+
         // Логируем AI запрос в фоне (помечаем как DeepSeek)
         (async () => {
             await logAIRequest(supa, userId, userPlan, 'insight/coach', deepseekResult.markAsDeepSeek({
@@ -174,15 +219,7 @@ export async function GET(req: NextRequest) {
             }));
         })();
 
-        return NextResponse.json({
-            advice,
-            aiLimit: {
-                used: limitCheck.used + 1, // +1 потому что мы только что залогировали
-                limit: limitCheck.limit,
-                remaining: Math.max(0, limitCheck.remaining - 1),
-            },
-            plan: userPlan,
-        });
+        return NextResponse.json(response);
     } catch (e: any) {
         console.error('[Coach API] Unexpected error:', e);
         const status = e?.status || e?.statusCode || 500;

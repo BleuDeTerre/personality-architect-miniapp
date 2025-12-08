@@ -4,10 +4,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
-import { PREDICTIVE_ALERTS_PROMPT } from '@/lib/aiPrompts';
-import { detectLanguage, getLanguageInstruction } from '@/lib/detectLanguage';
-import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
+import { generatePredictiveAlert } from '@/lib/predictiveAlertsTemplates';
 
 export async function GET(req: NextRequest) {
     try {
@@ -19,20 +16,7 @@ export async function GET(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        // Получаем план пользователя для проверки лимита
-        const { data: planData } = await supa
-            .from('user_plans')
-            .select('plan')
-            .eq('user_id', userId)
-            .maybeSingle();
-        const userPlan = (planData?.plan ?? 'free') as UserPlan;
-
-        // Проверяем лимит перед генерацией алертов
-        const limitCheck = await checkAILimit(supa, userId, userPlan);
-        if (!limitCheck.allowed) {
-            // Возвращаем пустой массив вместо ошибки (чтобы не ломать UI)
-            return NextResponse.json({ alerts: [] });
-        }
+        // AI больше не используется - используем шаблоны
 
         // Using client local date
         const { getClientLocalDate } = await import('@/lib/time');
@@ -151,95 +135,23 @@ export async function GET(req: NextRequest) {
                 ? Math.max(0.6, (1 - todayCount / avgCount))
                 : (habitLogs.length > 0 ? 0.5 : 0.7); // Если есть история - средний риск, если нет - высокий
 
-            // Показываем алерт для ВСЕХ невыполненных привычек
-            // Проверяем лимит перед каждым AI запросом (может быть несколько алертов)
-            const currentLimitCheck = await checkAILimit(supa, userId, userPlan);
-            if (!currentLimitCheck.allowed) {
-                // Если лимит достигнут - используем fallback для оставшихся привычек
-                alerts.push({
-                    habitId: habit.id,
-                    habitTitle: habit.title,
-                    riskScore: Math.round(riskScore * 100),
-                    message: hasPattern 
-                        ? `You usually complete ${habit.title} on ${dayName}s. Don't forget it today!`
-                        : `Don't forget to complete ${habit.title} today!`,
-                    suggestion: hasPattern 
-                        ? `Consider setting a reminder for ${dayName}s`
-                        : `Try to complete this habit to build consistency.`,
-                });
-                continue;
-            }
+            // Генерируем предупреждение через шаблоны (без AI)
+            const alert = generatePredictiveAlert(
+                habit.title,
+                dayName,
+                hasPattern,
+                todayCount,
+                habitLogs.length,
+                riskScore
+            );
 
-            // Генерируем предупреждение через AI (используем Gemma для легких задач)
-            const provider = pickAIProvider('light');
-            const aiClient = getAIClient(provider);
-            const model = getAIModel(provider);
-
-            // Определяем язык по названию привычки
-            const detectedLang = detectLanguage(habit.title);
-            const languageInstruction = getLanguageInstruction(detectedLang);
-            const systemPrompt = PREDICTIVE_ALERTS_PROMPT.replace('{LANGUAGE_INSTRUCTION}', languageInstruction);
-
-            const userMessage = hasPattern
-                ? [
-                    `User usually completes "${habit.title}" on ${dayName}s (${todayCount} times in last 30 days).`,
-                    `Today is ${dayName} and they haven't completed it yet.`,
-                    wellnessContext || '',
-                    `Generate a friendly reminder with a suggestion to prevent missing it. Consider their wellness state when crafting the message.`,
-                  ].filter(Boolean).join('\n')
-                : [
-                    `User has an active habit "${habit.title}" that they haven't completed today.`,
-                    `Total completions in last 30 days: ${habitLogs.length}.`,
-                    wellnessContext || '',
-                    `Generate a friendly reminder to complete this habit today. Consider their wellness state when crafting the message.`,
-                  ].filter(Boolean).join('\n');
-
-            try {
-                const chat = await aiClient.chat.completions.create({
-                    model,
-                    temperature: 0.7,
-                    messages: [
-                        {
-                            role: 'system',
-                            content: systemPrompt,
-                        },
-                        {
-                            role: 'user',
-                            content: userMessage,
-                        },
-                    ],
-                });
-
-                const message = chat.choices[0]?.message?.content || `Don't forget ${habit.title} today!`;
-
-                alerts.push({
-                    habitId: habit.id,
-                    habitTitle: habit.title,
-                    riskScore: Math.round(riskScore * 100),
-                    message,
-                    suggestion: `Consider setting a reminder for ${dayName}s`,
-                });
-
-                // Логируем AI запрос в фоне
-                (async () => {
-                    await logAIRequest(supa, userId, userPlan, 'ai/predictive-alerts', {
-                        habit_id: habit.id,
-                    });
-                })();
-            } catch (_aiError) {
-                // Fallback
-                alerts.push({
-                    habitId: habit.id,
-                    habitTitle: habit.title,
-                    riskScore: Math.round(riskScore * 100),
-                    message: hasPattern 
-                        ? `You usually complete ${habit.title} on ${dayName}s. Don't forget it today!`
-                        : `Don't forget to complete ${habit.title} today!`,
-                    suggestion: hasPattern 
-                        ? `Consider setting a reminder for ${dayName}s`
-                        : `Try to complete this habit to build consistency.`,
-                });
-            }
+            alerts.push({
+                habitId: habit.id,
+                habitTitle: habit.title,
+                riskScore: Math.round(riskScore * 100),
+                message: alert.message,
+                suggestion: alert.suggestion,
+            });
         }
 
         // Сортируем по риску

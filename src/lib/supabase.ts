@@ -17,11 +17,24 @@ export const supabase = createClient(
 );
 
 // User-scoped server client via JWT from Authorization
+// Важно: Supabase автоматически распознает JWT токен из заголовка Authorization
+// и использует его для RLS политик (auth.uid() будет работать)
+// Вызов supa.auth.getUser() перед запросами гарантирует правильную установку контекста
 export function createUserServerClient(accessToken: string) {
     return createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
+        {
+            global: { 
+                headers: { 
+                    Authorization: `Bearer ${accessToken}`,
+                } 
+            },
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+            },
+        }
     );
 }
 

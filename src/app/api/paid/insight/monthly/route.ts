@@ -7,6 +7,11 @@ import { requireUserFromReq, createUserServerClient } from '@/lib/auth';
 import { monthBoundsUTC, loadMonthlyRows, rollupMonthly } from '@/lib/insightMonthly';
 import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { MONTHLY_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
+import crypto from 'crypto';
+
+function sha(x: unknown) {
+    return crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+}
 
 async function buildInsight(
     supa: ReturnType<typeof createUserServerClient>,
@@ -56,7 +61,41 @@ export const GET = withX402(async (req: NextRequest) => {
         const { id: userId, token } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        // жесткое списание кредита перед работой
+        const sp = new URL(req.url).searchParams;
+        const monthStr = sp.get('month');
+        const deep = sp.get('deep') === '1';
+        const base = monthStr ? new Date(`${monthStr}-01T00:00:00Z`) : undefined;
+        const { start, end } = monthBoundsUTC(base);
+
+        const endpoint = 'paid/insight/monthly';
+        const CACHE_DAYS = 7;
+        const key = { month: monthStr || 'current', deep };
+        const input_hash = sha(key);
+        const cached_until = new Date(Date.now() + CACHE_DAYS * 864e5).toISOString();
+
+        // Проверяем кеш перед генерацией
+        {
+            const { data: hit } = await supa
+                .from('ai_reports')
+                .select('content, cached_until')
+                .eq('user_id', userId)
+                .eq('endpoint', endpoint)
+                .eq('input_hash', input_hash)
+                .gt('cached_until', new Date().toISOString())
+                .maybeSingle();
+            if (hit?.content) {
+                // Помечаем оплату для savedUsd (но не списываем кредит, т.к. это кеш)
+                await supa
+                    .from('paid_events')
+                    .update({ endpoint: 'insight/monthly', meta: { used_credit: false, cached: true, cachedUntil: hit.cached_until } })
+                    .eq('user_id', userId)
+                    .eq('reason', 'insight_monthly')
+                    .gte('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+                return NextResponse.json({ ...(hit.content as object), cachedUntil: hit.cached_until, cached: true }, { status: 200 });
+            }
+        }
+
+        // жесткое списание кредита перед работой (только если нет кеша)
         const { error: rpcErr } = await supa.rpc('consume_credit', { reason: 'insight_monthly' });
         if (rpcErr) {
             const s = String(rpcErr.message || '');
@@ -64,13 +103,20 @@ export const GET = withX402(async (req: NextRequest) => {
             return NextResponse.json({ error: s, code: 'CREDIT_FAIL' }, { status });
         }
 
-        const sp = new URL(req.url).searchParams;
-        const monthStr = sp.get('month');
-        const deep = sp.get('deep') === '1';
-        const base = monthStr ? new Date(`${monthStr}-01T00:00:00Z`) : undefined;
-        const { start, end } = monthBoundsUTC(base);
-
         const payload = await buildInsight(supa, userId, start, end, deep);
+
+        // Сохраняем в кеш
+        await supa.from('ai_reports').upsert(
+            {
+                user_id: userId,
+                endpoint,
+                input: key,
+                input_hash,
+                content: payload,
+                cached_until,
+            },
+            { onConflict: 'user_id,endpoint,input_hash' }
+        );
 
         // помечаем оплату для savedUsd
         await supa

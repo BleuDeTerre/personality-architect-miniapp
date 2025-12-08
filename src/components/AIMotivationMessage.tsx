@@ -12,17 +12,40 @@ const FALLBACK_MESSAGES = [
 ];
 
 const CACHE_KEY = 'ai_motivation_message';
+const CACHE_DATE_KEY = 'ai_motivation_message_date';
 
 export default function AIMotivationMessage() {
-    // Initialize from cache if available
-    const cachedMessage = typeof window !== 'undefined' 
+    // Проверяем, изменился ли день - если да, очищаем кеш
+    const getTodayDate = () => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    };
+    
+    const checkAndClearCacheIfNewDay = () => {
+        if (typeof window === 'undefined') return false;
+        const cachedDate = localStorage.getItem(CACHE_DATE_KEY);
+        const todayDate = getTodayDate();
+        
+        if (cachedDate !== todayDate) {
+            // День изменился - очищаем кеш
+            localStorage.removeItem(`cache_${CACHE_KEY}`);
+            localStorage.setItem(CACHE_DATE_KEY, todayDate);
+            return true; // Новый день
+        }
+        return false; // Тот же день
+    };
+    
+    // Initialize from cache if available and same day
+    const isNewDay = typeof window !== 'undefined' ? checkAndClearCacheIfNewDay() : false;
+    const cachedMessage = !isNewDay && typeof window !== 'undefined'
         ? getCachedData<{ message: string }>(CACHE_KEY)?.message || null
         : null;
     
     const [message, setMessage] = useState<string | null>(cachedMessage);
-    const [loading, setLoading] = useState(!cachedMessage);
+    const [loading, setLoading] = useState(!cachedMessage || isNewDay);
     const [isOpen, setIsOpen] = useState(false);
     const lastFetchRef = useRef(0);
+    const isLoadingRef = useRef(false); // Защита от одновременных запросов
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -34,6 +57,10 @@ export default function AIMotivationMessage() {
 
     const persistMessage = useCallback((text: string) => {
         setCachedData(CACHE_KEY, { message: text }, CACHE_TTL.DAILY);
+        // Сохраняем дату для проверки смены дня
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(CACHE_DATE_KEY, getTodayDate());
+        }
     }, []);
 
     const loadMotivation = useCallback(async (force = false) => {
@@ -42,7 +69,14 @@ export default function AIMotivationMessage() {
             return;
         }
 
+        // Защита от одновременных запросов
+        if (isLoadingRef.current) {
+            console.log('[AI Motivation] Request already in progress, skipping');
+            return;
+        }
+
         try {
+            isLoadingRef.current = true;
             setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
             if (!session?.access_token) {
@@ -90,21 +124,30 @@ export default function AIMotivationMessage() {
             persistMessage(fallback);
         } finally {
             setLoading(false);
+            isLoadingRef.current = false;
             lastFetchRef.current = Date.now();
         }
     }, [authHeaders, persistMessage]);
 
     useEffect(() => {
-        loadMotivation();
+        // Debounce: ждем немного перед первым запросом, чтобы избежать дублирования при Strict Mode
+        const timeoutId = setTimeout(() => {
+            loadMotivation();
+        }, 100);
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (!session?.access_token) return;
-            if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-                loadMotivation(true);
+            // Только для SIGNED_IN, не для INITIAL_SESSION (чтобы избежать дублирования)
+            if (event === 'SIGNED_IN') {
+                // Debounce для auth change тоже
+                setTimeout(() => loadMotivation(true), 200);
             }
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            clearTimeout(timeoutId);
+            subscription.unsubscribe();
+        };
     }, [loadMotivation]);
 
     const content = message || FALLBACK_MESSAGES[0];

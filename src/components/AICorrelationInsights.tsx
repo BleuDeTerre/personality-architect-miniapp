@@ -19,7 +19,8 @@ type Insight = {
 
 export default function AICorrelationInsights() {
     const [insights, setInsights] = useState<Insight[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const [hasLoaded, setHasLoaded] = useState(false);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -29,28 +30,40 @@ export default function AICorrelationInsights() {
         };
     }, []);
 
-    useEffect(() => {
-        async function loadInsights() {
-            try {
-                setLoading(true);
-                const headers = await authHeaders();
-                const res = await fetch('/api/ai/correlation-insights', { headers });
-                if (res.ok) {
-                    const data = await res.json();
-                    setInsights(data.insights || []);
-                } else {
-                    console.error('[AI Correlation Insights] API error:', res.status, res.statusText);
-                    // Не устанавливаем пустой массив - оставляем текущее состояние
-                }
-            } catch (e) {
-                console.error('[AI Correlation Insights] Failed to load:', e);
-                // При ошибке не сбрасываем инсайты - возможно есть кешированные
-            } finally {
-                setLoading(false);
+    const loadInsights = useCallback(async () => {
+        if (loading || hasLoaded) return;
+        
+        try {
+            setLoading(true);
+            const headers = await authHeaders();
+            const res = await fetch('/api/ai/correlation-insights', { headers });
+            if (res.ok) {
+                const data = await res.json();
+                setInsights(data.insights || []);
+                setHasLoaded(true);
+            } else {
+                console.error('[AI Correlation Insights] API error:', res.status, res.statusText);
             }
+        } catch (e) {
+            console.error('[AI Correlation Insights] Failed to load:', e);
+        } finally {
+            setLoading(false);
         }
-        loadInsights();
-    }, [authHeaders]);
+    }, [authHeaders, loading, hasLoaded]);
+
+    if (!hasLoaded && !loading) {
+        return (
+            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
+                <button
+                    onClick={loadInsights}
+                    disabled={loading}
+                    className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/20 disabled:opacity-60"
+                >
+                    {loading ? 'Loading...' : '💡 Get Correlation Insights'}
+                </button>
+            </div>
+        );
+    }
 
     if (loading) {
         return (
@@ -61,7 +74,13 @@ export default function AICorrelationInsights() {
         );
     }
 
-    if (insights.length === 0) return null;
+    if (insights.length === 0) {
+        return (
+            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 text-center">
+                <p className="text-sm text-white/60">No correlation insights available</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-3">

@@ -4,10 +4,6 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
-import { HABIT_SUGGESTIONS_PROMPT } from '@/lib/aiPrompts';
-import { detectLanguage, getLanguageInstruction } from '@/lib/detectLanguage';
-import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function GET(req: NextRequest) {
     try {
@@ -19,13 +15,7 @@ export async function GET(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        // Получаем план пользователя для проверки лимита
-        const { data: planData } = await supa
-            .from('user_plans')
-            .select('plan')
-            .eq('user_id', userId)
-            .maybeSingle();
-        const userPlan = (planData?.plan ?? 'free') as UserPlan;
+        // AI больше не используется - используем расчеты
 
         // Получаем все активные привычки
         const { data: habits } = await supa
@@ -80,87 +70,37 @@ export async function GET(req: NextRequest) {
             });
 
             let optimalTime = 'morning'; // Fallback
+            let avgHour: number | null = null;
             if (times.length > 0) {
-                const avgHour = times.reduce((a, b) => a + b, 0) / times.length;
+                avgHour = times.reduce((a, b) => a + b, 0) / times.length;
                 optimalTime = `${Math.floor(avgHour)}:${Math.floor((avgHour % 1) * 60).toString().padStart(2, '0')}`;
             }
 
-            // Проверяем лимит перед каждым AI запросом (может быть несколько привычек)
-            const currentLimitCheck = await checkAILimit(supa, userId, userPlan);
-            if (!currentLimitCheck.allowed) {
-                // Если лимит достигнут - используем fallback для оставшихся привычек
-                suggestions.push({
-                    habitId: habit.id,
-                    habitTitle: habit.title,
-                    optimalTime: times.length > 0 ? optimalTime : 'morning',
-                    suggestion: times.length > 0
-                        ? `You usually complete this around ${optimalTime}. Consider setting a reminder.`
-                        : `You've completed this habit ${habitLogs.length} times recently. Consider setting a consistent reminder.`,
-                });
-                continue;
+            // Генерируем предложение через расчеты (без AI)
+            let suggestion = '';
+            if (times.length > 0 && avgHour !== null) {
+                const hour = Math.floor(avgHour);
+                const minute = Math.floor((avgHour % 1) * 60);
+                const timeStr = `${hour}:${minute.toString().padStart(2, '0')}`;
+                
+                // Определяем время суток
+                let timeOfDay = 'morning';
+                if (avgHour >= 5 && avgHour < 12) timeOfDay = 'morning';
+                else if (avgHour >= 12 && avgHour < 17) timeOfDay = 'afternoon';
+                else if (avgHour >= 17 && avgHour < 21) timeOfDay = 'evening';
+                else timeOfDay = 'night';
+                
+                suggestion = `You usually complete this habit around ${timeStr} (${timeOfDay}). Consider setting a reminder for this time to maintain consistency.`;
+            } else {
+                suggestion = `You've completed this habit ${habitLogs.length} times recently. Consider setting a consistent reminder to build a routine.`;
             }
 
-            // Генерируем предложение через AI (используем Gemma для легких задач)
-            const provider = pickAIProvider('light');
-            const aiClient = getAIClient(provider);
-            const model = getAIModel(provider);
-
-            const userMessage = [
-                times.length > 0
-                    ? `User usually completes "${habit.title}" around ${optimalTime} (based on ${habitLogs.length} recent completions).`
-                    : `User has completed "${habit.title}" ${habitLogs.length} times in the last 30 days.`,
-                `Suggest: 1) Optimal time reminder, 2) If this habit should be combined with others.`,
-            ].join('\n');
-
-            // Определяем язык по названию привычки
-            const detectedLang = detectLanguage(habit.title);
-            const languageInstruction = getLanguageInstruction(detectedLang);
-            const systemPrompt = HABIT_SUGGESTIONS_PROMPT.replace('{LANGUAGE_INSTRUCTION}', languageInstruction);
-
-            try {
-                const chat = await aiClient.chat.completions.create({
-                    model,
-                    temperature: 0.7,
-                    messages: [
-                        {
-                            role: 'system',
-                            content: systemPrompt,
-                        },
-                        {
-                            role: 'user',
-                            content: userMessage,
-                        },
-                    ],
-                });
-
-                const suggestion = chat.choices[0]?.message?.content || (times.length > 0
-                    ? `Consider setting a reminder for ${optimalTime}`
-                    : `Consider setting a consistent reminder for this habit.`);
-
-                suggestions.push({
-                    habitId: habit.id,
-                    habitTitle: habit.title,
-                    optimalTime: times.length > 0 ? optimalTime : 'morning',
-                    suggestion,
-                });
-
-                // Логируем AI запрос в фоне
-                (async () => {
-                    await logAIRequest(supa, userId, userPlan, 'ai/habit-suggestions', {
-                        habit_id: habit.id,
-                    });
-                })();
-            } catch (_aiError) {
-                // Fallback
-                suggestions.push({
-                    habitId: habit.id,
-                    habitTitle: habit.title,
-                    optimalTime: times.length > 0 ? optimalTime : 'morning',
-                    suggestion: times.length > 0
-                        ? `You usually complete this around ${optimalTime}. Consider setting a reminder.`
-                        : `You've completed this habit ${habitLogs.length} times recently. Consider setting a consistent reminder.`,
-                });
-            }
+            suggestions.push({
+                habitId: habit.id,
+                habitTitle: habit.title,
+                optimalTime: times.length > 0 ? optimalTime : 'morning',
+                suggestion,
+            });
         }
 
         return NextResponse.json({ suggestions: suggestions.slice(0, 3) });

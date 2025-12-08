@@ -329,18 +329,15 @@ export async function GET(req: NextRequest) {
             `- Keep it concise (2-3 sentences)`,
         ].join('\n');
 
-        // Определяем язык по названиям привычек и целей
+        // Определяем язык ТОЛЬКО по названиям привычек и целей (пользовательские данные)
+        // НЕ проверяем userMessage и wellnessContext - это системные сообщения на английском
         const habitNames = [
             ...topHabits.map(h => h.title),
             ...strugglingHabits.map(h => h.title),
             ...goalsProgress.map(g => g.title),
         ].filter(Boolean);
         
-        const detectedLang = detectLanguageFromSources([
-            userMessage,
-            ...habitNames,
-            wellnessContext || null,
-        ]);
+        const detectedLang = detectLanguageFromSources(habitNames);
         const languageInstruction = getLanguageInstruction(detectedLang);
 
         // Заменяем {LANGUAGE_INSTRUCTION} в промпте

@@ -482,6 +482,7 @@ export default function AnalyticsPage() {
     const [predictive, setPredictive] = useState<Predictive[]>([]);
     const [comparative, setComparative] = useState<Comparative | null>(null);
     const [facts, setFacts] = useState<Facts | null>(null);
+    const [factsLoading, setFactsLoading] = useState(false);
     const [goals, setGoals] = useState<Goal[]>([]);
     const [wheelTrends, setWheelTrends] = useState<WheelTrend[]>([]);
     const [stats, setStats] = useState<Stats>({ current_streak: 0, best_streak: 0, last_completed: null });
@@ -512,6 +513,21 @@ export default function AnalyticsPage() {
         };
     }, []);
 
+    const loadFacts = useCallback(async () => {
+        if (factsLoading || facts) return; // Не загружаем если уже загружено или загружается
+        
+        try {
+            setFactsLoading(true);
+            const hdrs = await authHeaders();
+            const factsRes = await fetch('/api/analytics/facts', { headers: hdrs }).then(r => r.json()).catch(() => null);
+            setFacts(factsRes);
+        } catch (e) {
+            console.error('[Analytics] Failed to load facts:', e);
+        } finally {
+            setFactsLoading(false);
+        }
+    }, [authHeaders, factsLoading, facts]);
+
     const [logsWithTime, setLogsWithTime] = useState<Array<{ habit_id: string; date: string; created_at?: string }>>([]);
 
     const fetchData = useCallback(async () => {
@@ -526,11 +542,8 @@ export default function AnalyticsPage() {
             sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
             const sevenDaysAgoStr = `${sevenDaysAgo.getFullYear()}-${String(sevenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysAgo.getDate()).padStart(2, '0')}`;
 
-            const [corrRes, predRes, compRes, factsRes, goalsRes, wheelRes, statsRes, habitsRes, logsRes, wellnessRes] = await Promise.all([
-                fetch('/api/analytics/correlations', { headers: hdrs }).then(r => r.json()).catch(() => ({ correlations: [] })),
-                fetch('/api/analytics/predictive', { headers: hdrs }).then(r => r.json()).catch(() => ({ insights: [] })),
-                fetch('/api/analytics/comparative', { headers: hdrs }).then(r => r.json()).catch(() => null),
-                fetch('/api/analytics/facts', { headers: hdrs }).then(r => r.json()).catch(() => null),
+            // Сначала загружаем не-AI данные (быстро)
+            const [goalsRes, wheelRes, statsRes, habitsRes, logsRes, wellnessRes] = await Promise.all([
                 fetch('/api/goals', { headers: hdrs }).then(r => r.json()).catch(() => ({ items: [] })),
                 fetch('/api/wheel/trends', { headers: hdrs }).then(r => r.json()).catch(() => ({ areas: [] })),
                 fetch('/api/habits/stats', { headers: hdrs }).then(r => r.json()).catch(() => ({ current_streak: 0, best_streak: 0, last_completed: null })),
@@ -539,10 +552,19 @@ export default function AnalyticsPage() {
                 fetch('/api/analytics/wellness?days=30', { headers: hdrs }).then(r => r.json()).catch(() => ({ trends: [], averages: null, correlations: [], insights: [], dataPoints: 0 })),
             ]);
 
+            // Затем загружаем не-AI данные (correlations и predictive уже без AI, только расчеты)
+            const [corrRes, predRes, compRes] = await Promise.all([
+                fetch('/api/analytics/correlations', { headers: hdrs }).then(r => r.json()).catch(() => ({ correlations: [] })),
+                fetch('/api/analytics/predictive', { headers: hdrs }).then(r => r.json()).catch(() => ({ insights: [] })),
+                fetch('/api/analytics/comparative', { headers: hdrs }).then(r => r.json()).catch(() => null),
+            ]);
+            
+            // Facts НЕ загружаем автоматически - только по кнопке
+
             setCorrelations(corrRes.correlations || []);
             setPredictive(predRes.insights || []);
             setComparative(compRes);
-            setFacts(factsRes);
+            // Facts не устанавливаем автоматически - только по кнопке
             setGoals(goalsRes.items || []);
             setWheelTrends(wheelRes.areas || []);
             setStats(statsRes);
@@ -2157,8 +2179,19 @@ export default function AnalyticsPage() {
                                 </div>
                             ))}
                         </div>
+                    ) : factsLoading ? (
+                        <div className="space-y-2 animate-pulse">
+                            <div className="h-4 w-full rounded bg-white/10" />
+                            <div className="h-4 w-3/4 rounded bg-white/10" />
+                        </div>
                     ) : (
-                        <p className="text-xs text-white/60">AI facts are being generated... Check back later!</p>
+                        <button
+                            onClick={loadFacts}
+                            disabled={factsLoading}
+                            className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/20 disabled:opacity-60"
+                        >
+                            {factsLoading ? 'Loading...' : '🤖 Generate AI Facts'}
+                        </button>
                     )}
                 </CollapsibleCard>
 

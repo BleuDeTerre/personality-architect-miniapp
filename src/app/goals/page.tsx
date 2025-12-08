@@ -504,7 +504,7 @@ export default function GoalsPage() {
                 const errorData = await res.json().catch(() => ({}));
                 const { toast } = await import('sonner');
                 toast.error('Failed to delete goal', {
-                    description: errorData.error || `Server error (${res.status})`,
+                    description: errorData.error || errorData.details || `Server error (${res.status})`,
                 });
             }
         } catch (error) {
@@ -515,43 +515,9 @@ export default function GoalsPage() {
         } finally {
             setMutatingGoal(false);
         }
-    }, [mutatingGoal, authHeaders, fetchGoals]);
+    }, [authHeaders, fetchGoals]);
 
-    // Добавляем прямые обработчики для кнопок Delete через DOM API
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-
-        const handleDeleteClick = (e: MouseEvent) => {
-            const target = e.target as HTMLElement;
-            if (!target) return;
-
-            const button = target.closest('button[data-goal-id]') as HTMLButtonElement;
-            if (!button) return;
-
-            const isDeleteButton = button.classList.contains('border-red-400');
-            if (!isDeleteButton) return;
-
-            const goalIdAttr = button.getAttribute('data-goal-id');
-            if (!goalIdAttr) return;
-
-            const goalId = parseInt(goalIdAttr, 10);
-            if (isNaN(goalId)) return;
-
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-
-            deleteGoal(goalId);
-        };
-
-        document.addEventListener('click', handleDeleteClick as EventListener, true);
-        document.addEventListener('mousedown', handleDeleteClick as EventListener, true);
-
-        return () => {
-            document.removeEventListener('click', handleDeleteClick as EventListener, true);
-            document.removeEventListener('mousedown', handleDeleteClick as EventListener, true);
-        };
-    }, [deleteGoal]);
+    // Убрали глобальный обработчик - используем только прямые onClick обработчики на кнопках
 
     async function toggleStatus(goal: Goal) {
         const nextStatus = goal.status === 'active' ? 'completed' : 'active';
@@ -828,7 +794,7 @@ export default function GoalsPage() {
                                 placeholder="Goal title"
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
+                                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50"
                                 required
                             />
                             {title && (
@@ -843,7 +809,7 @@ export default function GoalsPage() {
                             value={dueDate}
                             onChange={(date) => setDueDate(date)}
                             placeholder="Deadline"
-                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
+                            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50"
                         />
                         {/* Eisenhower Matrix Priority - Centered */}
                         <div className="flex items-center justify-center gap-6">
@@ -934,13 +900,13 @@ export default function GoalsPage() {
                                                 value={goal.title}
                                                 onChange={(e) => setGoals(goals.map(g => g.id === goal.id ? { ...g, title: e.target.value } : g))}
                                                 placeholder="Goal title"
-                                                className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-3 py-2 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
+                                                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50"
                                             />
                                             <DatePicker
                                                 value={goal.due_date || ''}
                                                 onChange={(date) => setGoals(goals.map(g => g.id === goal.id ? { ...g, due_date: date } : g))}
                                                 placeholder="Deadline"
-                                                className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-3 py-2 text-white placeholder:text-white/50 focus:border-white/30 focus:outline-none"
+                                                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50"
                                             />
                                             {/* Eisenhower Matrix Priority - Centered */}
                                             <div className="flex items-center justify-center gap-6">
@@ -1126,9 +1092,22 @@ export default function GoalsPage() {
                                                 )}
                                                 <button
                                                     type="button"
-                                                    onClick={() => deleteGoal(goal.id)}
+                                                    data-goal-id={goal.id}
+                                                    onMouseDown={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        e.nativeEvent.stopImmediatePropagation();
+                                                        deleteGoal(goal.id);
+                                                    }}
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        e.nativeEvent.stopImmediatePropagation();
+                                                        deleteGoal(goal.id);
+                                                    }}
                                                     className="rounded-2xl border border-red-400/30 bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/30 disabled:opacity-60 cursor-pointer flex-shrink-0"
                                                     disabled={mutatingGoal}
+                                                    style={{ touchAction: 'manipulation' }}
                                                 >
                                                     Delete
                                                 </button>

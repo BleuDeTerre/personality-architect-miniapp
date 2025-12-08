@@ -7,6 +7,11 @@ import { createUserServerClient } from '@/lib/supabase';
 import { monthBoundsUTC, loadMonthlyRows, rollupMonthly } from '@/lib/insightMonthly';
 import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { MONTHLY_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
+import crypto from 'crypto';
+
+function sha(x: unknown) {
+    return crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+}
 
 export async function GET(req: NextRequest) {
     try {
@@ -39,6 +44,38 @@ export async function GET(req: NextRequest) {
         const base: Date | undefined = monthStr ? new Date(`${monthStr}-01T00:00:00Z`) : undefined;
         const { start, end } = monthBoundsUTC(base);
 
+        const endpoint = 'pro/insight/monthly';
+        const CACHE_DAYS = 7;
+        const key = { month: monthStr || 'current', deep };
+        const input_hash = sha(key);
+        const cached_until = new Date(Date.now() + CACHE_DAYS * 864e5).toISOString();
+
+        // Проверяем кеш перед генерацией
+        {
+            const { data: hit } = await supa
+                .from('ai_reports')
+                .select('content, cached_until')
+                .eq('user_id', userId)
+                .eq('endpoint', endpoint)
+                .eq('input_hash', input_hash)
+                .gt('cached_until', new Date().toISOString())
+                .maybeSingle();
+            if (hit?.content) {
+                await supa.from('paid_events').insert({
+                    user_id: userId,
+                    endpoint,
+                    amount_usd: 0,
+                    status: 'settled',
+                    meta: { cachedUntil: hit.cached_until, used_credit: true, period: 'pro-monthly' },
+                });
+                return NextResponse.json({
+                    ...(hit.content as object),
+                    cachedUntil: hit.cached_until,
+                    usedCredit: true,
+                });
+            }
+        }
+
         // данные
         const rows = await loadMonthlyRows(supa, userId, start, end);
         const { items, totals } = rollupMonthly(rows);
@@ -68,13 +105,40 @@ export async function GET(req: NextRequest) {
             ],
         });
 
-        return NextResponse.json({
+        const report = {
             month_start: start.toISOString().slice(0, 10),
             totals,
             items,
             summary: chat.choices[0]?.message?.content ?? '',
             model,
-            cachedUntil: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
+        };
+
+        // Сохраняем в кеш
+        await supa.from('ai_reports').upsert(
+            {
+                user_id: userId,
+                endpoint,
+                input: key,
+                input_hash,
+                content: report,
+                cached_until,
+            },
+            { onConflict: 'user_id,endpoint,input_hash' }
+        );
+
+        // Лог оплаты
+        await supa.from('paid_events').insert({
+            user_id: userId,
+            endpoint,
+            amount_usd: 0,
+            status: 'settled',
+            meta: { cachedUntil: cached_until, used_credit: true, period: 'pro-monthly' },
+        });
+
+        return NextResponse.json({
+            ...report,
+            cachedUntil: cached_until,
+            usedCredit: true,
         });
     } catch (e: any) {
         return NextResponse.json({ error: e?.message || 'internal' }, { status: 500 });

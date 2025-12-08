@@ -20,7 +20,8 @@ type Review = {
 
 export default function AIGoalReview() {
     const [reviews, setReviews] = useState<Review[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const [hasLoaded, setHasLoaded] = useState(false);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -30,24 +31,38 @@ export default function AIGoalReview() {
         };
     }, []);
 
-    useEffect(() => {
-        async function loadReviews() {
-            try {
-                setLoading(true);
-                const headers = await authHeaders();
-                const res = await fetch('/api/ai/goal-review', { headers });
-                if (res.ok) {
-                    const data = await res.json();
-                    setReviews(data.reviews || []);
-                }
-            } catch (e) {
-                console.error('[AI Goal Review] Failed to load:', e);
-            } finally {
-                setLoading(false);
+    const loadReviews = useCallback(async () => {
+        if (loading || hasLoaded) return;
+        
+        try {
+            setLoading(true);
+            const headers = await authHeaders();
+            const res = await fetch('/api/ai/goal-review', { headers });
+            if (res.ok) {
+                const data = await res.json();
+                setReviews(data.reviews || []);
+                setHasLoaded(true);
             }
+        } catch (e) {
+            console.error('[AI Goal Review] Failed to load:', e);
+        } finally {
+            setLoading(false);
         }
-        loadReviews();
-    }, [authHeaders]);
+    }, [authHeaders, loading, hasLoaded]);
+
+    if (!hasLoaded && !loading) {
+        return (
+            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
+                <button
+                    onClick={loadReviews}
+                    disabled={loading}
+                    className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/20 disabled:opacity-60"
+                >
+                    {loading ? 'Loading...' : '🤖 Get AI Goal Review'}
+                </button>
+            </div>
+        );
+    }
 
     if (loading) {
         return (
@@ -58,7 +73,13 @@ export default function AIGoalReview() {
         );
     }
 
-    if (reviews.length === 0) return null;
+    if (reviews.length === 0) {
+        return (
+            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 text-center">
+                <p className="text-sm text-white/60">No active goals to review</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-3">

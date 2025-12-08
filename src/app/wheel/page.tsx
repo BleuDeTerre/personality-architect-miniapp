@@ -46,12 +46,44 @@ const AREAS = [
 
 const AREA_ORDER = ['Inner State', 'Spirituality', 'Career', 'Relationships', 'Health', 'Personal Growth', 'Joy & Leisure', 'Social', 'Finances', 'Environment'];
 
+// Week format: YYYY-Www where week starts on Sunday (US standard)
 function isoWeek(now = new Date()) {
     const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-    const day = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - day);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    const day = d.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    
+    // Move to Sunday of current week
+    d.setUTCDate(d.getUTCDate() - day);
+    
+    // Find January 1st of the year
+    const jan1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const jan1Day = jan1.getUTCDay(); // Day of week for Jan 1
+    
+    // Find the first Sunday of the year (or Jan 1 if it's Sunday)
+    const firstSunday = new Date(jan1);
+    if (jan1Day !== 0) {
+        firstSunday.setUTCDate(1 + (7 - jan1Day));
+    }
+    
+    // Calculate week number: how many weeks from first Sunday to current Sunday
+    const diffMs = d.getTime() - firstSunday.getTime();
+    const diffDays = Math.floor(diffMs / 86400000);
+    const weekNo = Math.floor(diffDays / 7) + 1;
+    
+    // Handle edge case: if current date is before first Sunday, it's week 1 of previous year
+    if (weekNo < 1) {
+        const prevYear = d.getUTCFullYear() - 1;
+        const prevJan1 = new Date(Date.UTC(prevYear, 0, 1));
+        const prevJan1Day = prevJan1.getUTCDay();
+        const prevFirstSunday = new Date(prevJan1);
+        if (prevJan1Day !== 0) {
+            prevFirstSunday.setUTCDate(1 + (7 - prevJan1Day));
+        }
+        const prevDiffMs = d.getTime() - prevFirstSunday.getTime();
+        const prevDiffDays = Math.floor(prevDiffMs / 86400000);
+        const prevWeekNo = Math.floor(prevDiffDays / 7) + 1;
+        return `${prevYear}-W${String(prevWeekNo).padStart(2, '0')}`;
+    }
+    
     return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
@@ -152,7 +184,28 @@ export default function WheelPage() {
                 });
                 setItems(base);
             } else {
-                setItems(AREAS.map(a => ({ area: a.name, score: 5 })));
+                // Если недели нет, создаем её с дефолтными значениями
+                const defaultItems = AREAS.map(a => ({ area: a.name, score: 5 }));
+                setItems(defaultItems);
+                
+                // Автоматически создаем запись для новой недели
+                try {
+                    await Promise.all(
+                        defaultItems.map(async (it) => {
+                            const createRes = await fetch('/api/wheel', {
+                                method: 'POST',
+                                headers,
+                                body: JSON.stringify({ week: w, area: it.area, score: it.score }),
+                            });
+                            if (!createRes.ok) {
+                                console.warn(`[WheelPage] Failed to auto-create week entry for ${it.area}:`, await createRes.json().catch(() => ({})));
+                            }
+                        })
+                    );
+                } catch (error) {
+                    console.error('[WheelPage] Failed to auto-create week:', error);
+                    // Не блокируем загрузку, если создание не удалось
+                }
             }
         } finally {
             setWeekLoading(false);
@@ -337,6 +390,15 @@ export default function WheelPage() {
             }
 
             if (!mounted) return;
+            
+            // Проверяем текущую неделю и обновляем, если нужно
+            const currentWeek = isoWeek();
+            if (currentWeek !== currentWeekRef.current) {
+                console.log('[WheelPage] New week detected, updating from', currentWeekRef.current, 'to', currentWeek);
+                currentWeekRef.current = currentWeek;
+                setWeek(currentWeek);
+            }
+            
             await loadWeek(currentWeekRef.current);
             await loadTrends();
         };
@@ -346,6 +408,13 @@ export default function WheelPage() {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!mounted) return;
             if (session?.user) {
+                // Проверяем текущую неделю и обновляем, если нужно
+                const currentWeek = isoWeek();
+                if (currentWeek !== currentWeekRef.current) {
+                    console.log('[WheelPage] New week detected on auth change, updating from', currentWeekRef.current, 'to', currentWeek);
+                    currentWeekRef.current = currentWeek;
+                    setWeek(currentWeek);
+                }
                 await loadWeek(currentWeekRef.current);
                 await loadTrends();
             } else {

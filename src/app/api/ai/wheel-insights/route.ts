@@ -8,6 +8,8 @@ import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
 import { WHEEL_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
+import { getAICache, setAICache } from '@/lib/aiCacheHelper';
+import crypto from 'crypto';
 
 export async function GET(req: NextRequest) {
     try {
@@ -26,12 +28,6 @@ export async function GET(req: NextRequest) {
             .eq('user_id', userId)
             .maybeSingle();
         const userPlan = (planData?.plan ?? 'free') as UserPlan;
-
-        // Проверяем лимит перед генерацией инсайтов
-        const limitCheck = await checkAILimit(supa, userId, userPlan);
-        if (!limitCheck.allowed) {
-            return NextResponse.json({ insights: [] });
-        }
 
         // Получаем тренды Wheel of Life напрямую из таблицы wheel_scores (как в /api/wheel/trends)
         const { data: wheelRows, error: trendsErr } = await supa
@@ -102,6 +98,31 @@ export async function GET(req: NextRequest) {
             return `Wellness (last 30 days): ${parts.join(', ')}. Use this to understand connections between well-being and life areas.`;
         })() : '';
 
+        // Создаем ключ для кеша на основе трендов wheel (если wheel не изменился, инсайты те же)
+        const trendsHash = trends.map(t => `${t.area}:${t.score}:${t.week}`).join('|');
+        const cacheKey = {
+            trends_hash: crypto.createHash('sha256').update(trendsHash).digest('hex').slice(0, 16),
+            habits_hash: habitsList ? crypto.createHash('sha256').update(habitsList).digest('hex').slice(0, 8) : 'none',
+            wellness_hash: wellnessContext ? crypto.createHash('sha256').update(wellnessContext).digest('hex').slice(0, 8) : 'none',
+        };
+
+        // Проверяем кеш (24 часа - wheel обновляется раз в неделю)
+        const cached = await getAICache<{ insights: any[] }>(supa, userId, {
+            endpoint: 'ai/wheel-insights',
+            input: cacheKey,
+            cacheHours: 24,
+        });
+
+        if (cached?.insights) {
+            return NextResponse.json({ insights: cached.insights, cached: true });
+        }
+
+        // Проверяем лимит перед генерацией инсайтов
+        const limitCheck = await checkAILimit(supa, userId, userPlan);
+        if (!limitCheck.allowed) {
+            return NextResponse.json({ insights: [] });
+        }
+
         // Генерируем инсайты через AI (используем DeepSeek для сложных задач)
         const deepseekResult = await getDeepSeekWithLimitCheck(supa);
         if (deepseekResult.error) {
@@ -169,12 +190,7 @@ export async function GET(req: NextRequest) {
 
         const result = JSON.parse(chat.choices[0]?.message?.content || '{}');
 
-        // Логируем AI запрос в фоне (помечаем как DeepSeek)
-        (async () => {
-            await logAIRequest(supa, userId, userPlan, 'ai/wheel-insights', deepseekResult.markAsDeepSeek());
-        })();
-
-        return NextResponse.json({
+        const response = {
             insights: result.insights || [],
             aiLimit: {
                 used: limitCheck.used + 1, // +1 потому что мы только что залогировали
@@ -182,7 +198,21 @@ export async function GET(req: NextRequest) {
                 remaining: Math.max(0, limitCheck.remaining - 1),
             },
             plan: userPlan,
-        });
+        };
+
+        // Сохраняем в кеш (24 часа)
+        await setAICache(supa, userId, {
+            endpoint: 'ai/wheel-insights',
+            input: cacheKey,
+            cacheHours: 24,
+        }, response);
+
+        // Логируем AI запрос в фоне (помечаем как DeepSeek)
+        (async () => {
+            await logAIRequest(supa, userId, userPlan, 'ai/wheel-insights', deepseekResult.markAsDeepSeek());
+        })();
+
+        return NextResponse.json(response);
     } catch (error: any) {
         console.error('[AI Wheel Insights] Error:', error);
         return NextResponse.json({ insights: [], error: error?.message });

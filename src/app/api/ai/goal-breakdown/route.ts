@@ -8,6 +8,8 @@ import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
 import { GOAL_BREAKDOWN_PROMPT } from '@/lib/aiPrompts';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
+import { getAICache, setAICache } from '@/lib/aiCacheHelper';
+import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
     try {
@@ -37,6 +39,30 @@ export async function POST(req: NextRequest) {
             .eq('user_id', userId)
             .maybeSingle();
         const userPlan = (planData?.plan ?? 'free') as UserPlan;
+
+        // Создаем ключ для кеша на основе цели (разбивка не меняется, если цель не изменилась)
+        const cacheKey = {
+            goal_title: goalTitle,
+            goal_description: goalDescription || '',
+            due_date: dueDate || '',
+            important: important,
+            urgent: urgent,
+        };
+
+        // Проверяем кеш (7 дней - разбивка цели не меняется часто)
+        const cached = await getAICache<{
+            steps: any[];
+            milestones: any[];
+            suggestedHabits: any[];
+        }>(supa, userId, {
+            endpoint: 'ai/goal-breakdown',
+            input: cacheKey,
+            cacheHours: 24 * 7, // 7 дней
+        });
+
+        if (cached) {
+            return NextResponse.json({ ...cached, cached: true });
+        }
 
         // Проверяем лимит перед генерацией плана
         const limitCheck = await checkAILimit(supa, userId, userPlan);
@@ -162,6 +188,19 @@ export async function POST(req: NextRequest) {
 
         const result = JSON.parse(chat.choices[0]?.message?.content || '{}');
 
+        const response = {
+            steps: result.steps || [],
+            milestones: result.milestones || [],
+            suggestedHabits: result.suggestedHabits || [],
+        };
+
+        // Сохраняем в кеш (7 дней)
+        await setAICache(supa, userId, {
+            endpoint: 'ai/goal-breakdown',
+            input: cacheKey,
+            cacheHours: 24 * 7, // 7 дней
+        }, response);
+
         // Логируем AI запрос в фоне (помечаем как DeepSeek)
         (async () => {
             await logAIRequest(supa, userId, userPlan, 'ai/goal-breakdown', deepseekResult.markAsDeepSeek({
@@ -169,11 +208,7 @@ export async function POST(req: NextRequest) {
             }));
         })();
 
-        return NextResponse.json({
-            steps: result.steps || [],
-            milestones: result.milestones || [],
-            suggestedHabits: result.suggestedHabits || [],
-        });
+        return NextResponse.json(response);
     } catch (error: any) {
         console.error('[AI Goal Breakdown] Error:', error);
         return NextResponse.json({ error: 'failed_to_generate_plan', message: error?.message }, { status: 500 });

@@ -206,7 +206,7 @@ export default function DailyWellness() {
                                     }
                                 }}
                                 placeholder="—"
-                                className="bg-white/10 border-none outline-none text-base font-semibold text-white px-2.5 py-1.5 rounded-xl placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:bg-white/15 hover:bg-white/12 transition-colors w-16 flex-shrink-0"
+                                className="text-base font-semibold text-white px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/5 placeholder:text-white/40 focus:outline-none focus:border-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-colors w-16 flex-shrink-0"
                                 disabled={saving}
                             />
                             {metric.suffix && (
