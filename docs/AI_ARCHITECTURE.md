@@ -13,20 +13,15 @@
 
 **Провайдер:** Google AI Studio (aistudio.google.com)  
 **Библиотека:** `@google/generative-ai`  
-**Модель:** `gemma-3-27b` (по умолчанию)  
+**Модель:** `gemma-3-27b-it` (по умолчанию)  
 **API ключ:** `GEMMA_API_KEY`
 
 **Используется для:**
 - Daily Motivation (ежедневные мотивационные сообщения)
-- Predictive Alerts (предсказательные предупреждения)
-- Social Motivation (сообщения для социальных сетей)
-- Streak Recovery (восстановление стриков)
-- Habit Difficulty (анализ сложности привычек)
-- Habit Suggestions (предложения по привычкам)
-- Correlation Insights (инсайты о корреляциях)
-- Analytics Facts (факты из аналитики)
 
-**Всего: 8 функций**
+**Всего: 1 функция**
+
+**Примечание:** Остальные функции (Predictive Alerts, Social Motivation, Streak Recovery, Habit Difficulty, Habit Suggestions, Correlation Insights, Analytics Facts) были заменены на шаблоны/расчеты и больше не используют AI.
 
 ### DeepSeek R1T2 Chimera (OpenRouter) - Сложные задачи
 
@@ -44,13 +39,11 @@
 - Coach Advice (советы коуча)
 - Weekly Insights (pro) (еженедельные инсайты)
 - Monthly Insights (pro) (ежемесячные инсайты)
-- Weekly Insights (paid) (платные еженедельные инсайты)
-- Monthly Insights (paid) (платные ежемесячные инсайты)
-- Habit Review (paid) (платные обзоры привычек)
-- Habit Insight (paid) (платные инсайты по привычкам)
-- General Insight (paid) (общие платные инсайты)
+- Habit Review (pro) (обзоры привычек)
 
-**Всего: 12 функций**
+**Всего: 8 функций**
+
+**Примечание:** Paid endpoints были удалены. Все функции теперь используют кредитную систему (pro/premium планы).
 
 ## Защита от превышения лимитов
 
@@ -81,7 +74,7 @@ DeepSeek работает через OpenRouter с использованием 
 3. **Формат запроса:** OpenAI Chat Completion формат
    ```json
    {
-     "model": "tng-ai/deepseek-r1t2-chimera:free",
+     "model": "tngtech/deepseek-r1t2-chimera:free",
      "messages": [
        { "role": "system", "content": "..." },
        { "role": "user", "content": "..." }
@@ -129,11 +122,11 @@ const provider = pickAIProvider('heavy'); // возвращает 'deepseek'
 ```env
 # Gemma (Google AI Studio)
 GEMMA_API_KEY=your_google_ai_studio_key
-GEMMA_MODEL=gemma-3-27b  # опционально, по умолчанию gemma-3-27b
+GEMMA_MODEL=gemma-3-27b-it  # опционально, по умолчанию gemma-3-27b-it
 
 # DeepSeek (OpenRouter)
 OPENROUTER_API_KEY=your_openrouter_key
-DEEPSEEK_MODEL=tng-ai/deepseek-r1t2-chimera:free  # опционально
+DEEPSEEK_MODEL=tngtech/deepseek-r1t2-chimera:free  # опционально
 OPENROUTER_REFERRER=https://personality-architect.com  # опционально
 ```
 
