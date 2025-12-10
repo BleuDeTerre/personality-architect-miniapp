@@ -48,8 +48,9 @@ export async function POST(req: NextRequest) {
             .gte('date', since30Str);
 
         const completedDays = logs?.length || 0;
-        const targetDays = habit.target_days_per_week || 3;
-        const expectedDays = Math.floor((targetDays / 7) * 30); // Примерно за 30 дней
+        const targetDays = habit.target_days_per_week || 7;
+        // Правильный расчет: за 30 дней ожидаем (target_days_per_week / 7) * 30 выполнений
+        const expectedDays = Math.floor((targetDays / 7) * 30);
         const completionRate = expectedDays > 0 ? (completedDays / expectedDays) * 100 : 0;
 
         // Получаем текущий streak

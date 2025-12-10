@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { getCachedAnalytics, setCachedAnalytics } from '@/lib/analytics-cache';
+import { isoWeek } from '@/lib/time';
 
 const DEV_UID =
     process.env.NODE_ENV !== 'production'
@@ -78,6 +79,41 @@ export async function GET(req: NextRequest) {
         points: { week: string; score: number }[];
     }> = [];
 
+    // Определяем реальную текущую неделю по календарю
+    const realCurrentWeek = isoWeek();
+    const realCurrentWeekKey = weekKey(realCurrentWeek);
+    
+    // Вычисляем предыдущую неделю (текущая - 1)
+    function getPreviousWeek(weekStr: string): string {
+        const match = weekStr.match(/^(\d{4})-W(\d{2})$/);
+        if (!match) return weekStr;
+        let year = parseInt(match[1], 10);
+        let week = parseInt(match[2], 10);
+        
+        week -= 1;
+        if (week < 1) {
+            year -= 1;
+            // Находим последнюю неделю предыдущего года
+            const prevJan1 = new Date(year, 0, 1);
+            const prevJan1Day = prevJan1.getDay();
+            const prevFirstSunday = new Date(prevJan1);
+            if (prevJan1Day !== 0) {
+                prevFirstSunday.setDate(1 + (7 - prevJan1Day));
+            }
+            const lastDay = new Date(year, 11, 31);
+            const lastSunday = new Date(lastDay);
+            lastSunday.setDate(lastDay.getDate() - lastDay.getDay());
+            const diffMs = lastSunday.getTime() - prevFirstSunday.getTime();
+            const diffDays = Math.floor(diffMs / 86400000);
+            week = Math.floor(diffDays / 7) + 1;
+        }
+        
+        return `${year}-W${String(week).padStart(2, '0')}`;
+    }
+    
+    const realPreviousWeek = getPreviousWeek(realCurrentWeek);
+    const realPreviousWeekKey = weekKey(realPreviousWeek);
+
     for (const [area, points] of byArea) {
         if (!points.length) continue;
         
@@ -89,24 +125,40 @@ export async function GET(req: NextRequest) {
         const uniquePoints = Array.from(uniqueByWeek.values()).sort((a, b) => weekKey(a.week) - weekKey(b.week));
         
         const scores = uniquePoints.map((p) => Math.max(0, Math.min(10, p.score))); // Clamp scores to 0-10
-        const lastScore = scores[scores.length - 1];
+        
+        // Находим данные для реальной текущей недели
+        const currentWeekData = uniquePoints.find(p => p.week === realCurrentWeek);
+        const currentWeekScore = currentWeekData ? Math.max(0, Math.min(10, currentWeekData.score)) : null;
+        
+        // Находим данные для реальной предыдущей недели
+        const previousWeekData = uniquePoints.find(p => p.week === realPreviousWeek);
+        const previousWeekScore = previousWeekData ? Math.max(0, Math.min(10, previousWeekData.score)) : null;
 
         // Calculate average for last 4 weeks (use available weeks if less)
         const last4 = scores.slice(-4);
-        const avg4 = last4.length > 0 ? Number(avg(last4).toFixed(1)) : Number(Math.max(0, Math.min(10, lastScore)).toFixed(1));
+        const avg4 = last4.length > 0 ? Number(avg(last4).toFixed(1)) : (currentWeekScore !== null ? Number(currentWeekScore.toFixed(1)) : 0);
 
-        // Last: current week value (clamp to 0-10)
-        const last = Number(Math.max(0, Math.min(10, lastScore)).toFixed(1));
+        // Last: current week value (реальная текущая неделя, если есть данные, иначе null)
+        const last = currentWeekScore !== null ? Number(currentWeekScore.toFixed(1)) : (scores.length > 0 ? Number(scores[scores.length - 1].toFixed(1)) : 0);
 
-        // Previous: previous week value (clamp to 0-10)
-        let previous: number | null = null;
+        // Previous: previous week value (реальная предыдущая неделя, если есть данные)
+        let previous: number | null = previousWeekScore !== null ? Number(previousWeekScore.toFixed(1)) : null;
         let deltaLast: number | null = null;
-        if (scores.length >= 2) {
-            const thisWeek = scores[scores.length - 1];
-            const lastWeek = scores[scores.length - 2];
-            previous = Number(Math.max(0, Math.min(10, lastWeek)).toFixed(1));
+        
+        // Сравниваем реальную текущую неделю с реальной предыдущей неделей
+        if (currentWeekScore !== null && previousWeekScore !== null) {
+            previous = Number(previousWeekScore.toFixed(1));
             // Округляем deltaLast до целого числа (для обычных строк), десятичные будут в Average строке на фронтенде
-            deltaLast = Math.round(thisWeek - lastWeek);
+            deltaLast = Math.round(currentWeekScore - previousWeekScore);
+        } else if (currentWeekScore !== null && previousWeekScore === null && scores.length >= 2) {
+            // Если нет данных для предыдущей недели, но есть данные для текущей, используем последнюю доступную неделю
+            const lastAvailableScore = scores[scores.length - 1];
+            const secondLastScore = scores[scores.length - 2];
+            // Проверяем, что последняя доступная неделя - это текущая
+            if (lastAvailableScore === currentWeekScore) {
+                previous = Number(secondLastScore.toFixed(1));
+                deltaLast = Math.round(currentWeekScore - secondLastScore);
+            }
         }
         
         // Debug logging

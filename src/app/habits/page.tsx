@@ -3,14 +3,13 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useMiniApp } from '@neynar/react';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, Pencil } from 'lucide-react';
 import LevelUpAnimation from '@/components/LevelUpAnimation';
 import AchievementAnimation from '@/components/AchievementAnimation';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import CollapsibleCard from '@/components/CollapsibleCard';
-import AIHabitSuggestions from '@/components/AIHabitSuggestions';
-import AIHabitDifficulty from '@/components/AIHabitDifficulty';
+import AIHabitInsights from '@/components/AIHabitInsights';
 import { getRandomVariant, topStreakHabitTexts, habitsSummaryTexts } from '@/lib/castTextVariants';
 
 // Используем централизованный клиент из lib/supabase с правильными настройками
@@ -648,6 +647,57 @@ export default function HabitsPage() {
         }
     }
 
+    const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
+    const [editTitle, setEditTitle] = useState('');
+    const [editTargetDays, setEditTargetDays] = useState(7);
+    const [editEmoji, setEditEmoji] = useState('');
+
+    async function updateHabit(id: string, newTitle: string, newTargetDays: number) {
+        try {
+            const headers = await authHeaders();
+            const res = await fetch('/api/habits', {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify({ id, title: newTitle, target_days_per_week: newTargetDays }),
+            });
+            if (res.ok) {
+                const { item } = await res.json();
+                setHabits(prev =>
+                    prev.map(h =>
+                        h.id === id ? { ...h, title: item.title, target_days_per_week: item.target_days_per_week } : h
+                    )
+                );
+                setEditingHabitId(null);
+                const { toast } = await import('sonner');
+                toast.success('Habit updated');
+            } else {
+                const { toast } = await import('sonner');
+                toast.error('Failed to update habit');
+            }
+        } catch (error) {
+            console.error('[HabitsPage] Failed to update habit:', error);
+            const { toast } = await import('sonner');
+            toast.error('Failed to update habit');
+        }
+    }
+
+    function startEditing(habit: Habit) {
+        const emojiMatch = habit.title?.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
+        const icon = emojiMatch ? emojiMatch[0] : '';
+        const titleText = habit.title?.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim() || habit.title || '';
+        setEditEmoji(icon);
+        setEditTitle(titleText);
+        setEditTargetDays(habit.target_days_per_week || 7);
+        setEditingHabitId(habit.id);
+    }
+
+    function cancelEditing() {
+        setEditingHabitId(null);
+        setEditTitle('');
+        setEditTargetDays(7);
+        setEditEmoji('');
+    }
+
     async function markComplete(id: string, current?: boolean) {
         if (current || updatingHabitId === id) return;
 
@@ -971,8 +1021,8 @@ export default function HabitsPage() {
                         </CollapsibleCard>
                     )}
 
-                    {/* AI Habit Suggestions */}
-                    {habits.length > 0 && <AIHabitSuggestions />}
+                    {/* AI Habit Insights */}
+                    {habits.length > 0 && <AIHabitInsights />}
 
                     {/* Habits Grid */}
                     {loadingHabits ? (
@@ -998,6 +1048,59 @@ export default function HabitsPage() {
                                 const emoji = emojiMatch ? emojiMatch[0] : '✅';
                                 const titleText = h.title.replace(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)\s*/u, '').trim();
 
+                                // Режим редактирования
+                                if (editingHabitId === h.id) {
+                                    return (
+                                        <div key={h.id} className="rounded-2xl border border-[#8B5CF6]/50 bg-[#1a1b2e] p-3 flex flex-col gap-2 overflow-hidden">
+                                            <div className="flex items-center gap-2 min-w-0 w-full">
+                                                <input
+                                                    type="text"
+                                                    value={editEmoji}
+                                                    onChange={(e) => setEditEmoji(e.target.value)}
+                                                    placeholder="Emoji"
+                                                    className="w-12 flex-shrink-0 rounded-xl border border-white/10 bg-[#1a1b2e] px-2 py-1.5 text-xl text-white placeholder:text-white/40 focus:border-[#8B5CF6] focus:outline-none"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={editTitle}
+                                                    onChange={(e) => setEditTitle(e.target.value)}
+                                                    placeholder="Habit title"
+                                                    className="flex-1 min-w-0 w-full rounded-xl border border-white/10 bg-[#1a1b2e] px-3 py-1.5 text-sm text-white placeholder:text-white/40 focus:border-[#8B5CF6] focus:outline-none"
+                                                    style={{ maxWidth: '100%' }}
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <label className="text-xs text-white/70 whitespace-nowrap">Days/week:</label>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    max={7}
+                                                    value={editTargetDays}
+                                                    onChange={(e) => setEditTargetDays(Number(e.target.value))}
+                                                    className="w-16 rounded-xl border border-white/10 bg-[#1a1b2e] px-2 py-1.5 text-sm text-white focus:border-[#8B5CF6] focus:outline-none"
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-auto">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => updateHabit(h.id, editEmoji ? `${editEmoji} ${editTitle}` : editTitle, editTargetDays)}
+                                                    className="flex-1 rounded-xl px-3 py-2 text-xs font-semibold bg-[#8B5CF6] text-white hover:bg-[#7c3aed] transition"
+                                                >
+                                                    Save
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={cancelEditing}
+                                                    className="flex-1 rounded-xl px-3 py-2 text-xs font-semibold border border-white/20 bg-[#1a1b2e] text-white hover:bg-white/10 transition"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
+                                // Обычный режим отображения
                                 return (
                                     <div key={h.id} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col gap-2">
                                         <div className="text-xl">{emoji}</div>
@@ -1022,6 +1125,18 @@ export default function HabitsPage() {
                                             </button>
                                             <button
                                                 type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    startEditing(h);
+                                                }}
+                                                className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-400/15 border border-blue-400/25 text-blue-300 transition hover:bg-blue-400/25 hover:border-blue-400/40"
+                                                aria-label="Edit habit"
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                type="button"
                                                 onClick={async (e) => {
                                                     e.preventDefault();
                                                     e.stopPropagation();
@@ -1037,14 +1152,6 @@ export default function HabitsPage() {
                                                     <X className="h-4 w-4" />
                                                 )}
                                             </button>
-                                        </div>
-                                        <div className="mt-2">
-                                            <AIHabitDifficulty
-                                                habitId={h.id}
-                                                habitTitle={titleText}
-                                                currentTarget={h.target_days_per_week}
-                                                onTargetUpdate={(newTarget) => updateHabitTarget(h.id, newTarget)}
-                                            />
                                         </div>
                                     </div>
                                 );

@@ -34,15 +34,31 @@ export async function PATCH(req: NextRequest) {
         const supa = createUserServerClient(token);
 
         const body = await req.json().catch(() => ({}));
-        const { id, target_days_per_week } = body;
+        const { id, target_days_per_week, title } = body;
 
-        if (!id || typeof target_days_per_week !== 'number') {
-            return NextResponse.json({ error: 'id and target_days_per_week required' }, { status: 400 });
+        if (!id) {
+            return NextResponse.json({ error: 'id required' }, { status: 400 });
+        }
+
+        // Строим объект обновлений только для переданных полей
+        const updates: Record<string, any> = {};
+        if (typeof target_days_per_week === 'number') {
+            if (target_days_per_week < 1 || target_days_per_week > 7) {
+                return NextResponse.json({ error: 'target_days_per_week must be between 1 and 7' }, { status: 400 });
+            }
+            updates.target_days_per_week = target_days_per_week;
+        }
+        if (typeof title === 'string' && title.trim()) {
+            updates.title = title.trim();
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return NextResponse.json({ error: 'no updates provided' }, { status: 400 });
         }
 
         const { data, error } = await supa
             .from('habits')
-            .update({ target_days_per_week })
+            .update(updates)
             .eq('id', id)
             .eq('user_id', userId)
             .select()

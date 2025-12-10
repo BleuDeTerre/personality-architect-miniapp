@@ -119,7 +119,7 @@ export default function WheelPage() {
     const [editingValues, setEditingValues] = useState(false);
     const [editItems, setEditItems] = useState<Item[]>([]);
     const [canRenderChart, setCanRenderChart] = useState(false);
-    const [showCoachInsights, setShowCoachInsights] = useState(false);
+    const [wheelAnalyticsTab, setWheelAnalyticsTab] = useState<'coach' | 'trends'>('trends');
 
     const currentWeekRef = useRef<string>(week);
 
@@ -169,10 +169,15 @@ export default function WheelPage() {
         }).filter(Boolean) as Array<Item & { icon: string; color: string }>;
     }, [items]);
 
-    const loadWeek = useCallback(async (w: string) => {
+    const loadWeek = useCallback(async (w: string, isEditing: boolean = editingValues) => {
         setWeekLoading(true);
         // Сбрасываем данные перед загрузкой новой недели
-        setItems(AREAS.map(a => ({ area: a.name, score: 0 })));
+        const resetItems = AREAS.map(a => ({ area: a.name, score: 0 }));
+        setItems(resetItems);
+        // Если режим редактирования открыт, также сбрасываем editItems
+        if (isEditing) {
+            setEditItems(resetItems);
+        }
         try {
             const headers = await authHeaders();
             const res = await fetch(`/api/wheel?week=${w}&t=${Date.now()}`, { 
@@ -195,6 +200,10 @@ export default function WheelPage() {
                     }
                 });
                 setItems(base);
+                // Обновляем editItems если режим редактирования открыт
+                if (isEditing) {
+                    setEditItems([...base]);
+                }
             } else {
                 // Если недели нет, проверяем - это текущая или будущая неделя?
                 const currentWeek = isoWeek();
@@ -204,6 +213,10 @@ export default function WheelPage() {
                     // Для текущей/будущей недели создаем с дефолтными значениями
                     const defaultItems = AREAS.map(a => ({ area: a.name, score: 5 }));
                     setItems(defaultItems);
+                    // Обновляем editItems если режим редактирования открыт
+                    if (isEditing) {
+                        setEditItems([...defaultItems]);
+                    }
                     
                     // Автоматически создаем запись для новой недели через batch запрос
                     const createBody = { 
@@ -232,6 +245,10 @@ export default function WheelPage() {
                                     }
                                 });
                                 setItems(base);
+                                // Обновляем editItems если режим редактирования открыт
+                                if (isEditing) {
+                                    setEditItems([...base]);
+                                }
                             }
                         }
                     } catch (error) {
@@ -239,13 +256,18 @@ export default function WheelPage() {
                     }
                 } else {
                     // Для прошлых недель показываем пустые значения (данных нет и не создаем)
-                    setItems(AREAS.map(a => ({ area: a.name, score: 0 })));
+                    const emptyItems = AREAS.map(a => ({ area: a.name, score: 0 }));
+                    setItems(emptyItems);
+                    // Обновляем editItems если режим редактирования открыт
+                    if (isEditing) {
+                        setEditItems([...emptyItems]);
+                    }
                 }
             }
         } finally {
             setWeekLoading(false);
         }
-    }, [authHeaders]);
+    }, [authHeaders, editingValues]);
 
     const loadTrends = useCallback(async () => {
         setTrendsLoading(true);
@@ -463,6 +485,20 @@ export default function WheelPage() {
         setCanRenderChart(true);
     }, []);
 
+    // Синхронизируем editItems с items при изменении недели (только когда открываем режим редактирования)
+    // НЕ синхронизируем при изменении items во время редактирования, чтобы не потерять изменения
+    useEffect(() => {
+        if (editingValues && items.length > 0) {
+            // Обновляем только если editItems пустые или если неделя изменилась
+            const currentWeekInEditItems = editItems.length > 0 ? editItems[0]?.area : null;
+            const currentWeekInItems = items.length > 0 ? items[0]?.area : null;
+            // Обновляем только если это новая неделя или editItems пустые
+            if (editItems.length === 0 || currentWeekInEditItems !== currentWeekInItems) {
+                setEditItems([...items]);
+            }
+        }
+    }, [week, editingValues]); // Убрали items из зависимостей, чтобы не сбрасывать изменения
+
     useEffect(() => {
         if (items.length > 0 && !editingValues) {
             setEditItems([...items]);
@@ -504,7 +540,11 @@ export default function WheelPage() {
             currentWeekRef.current = newWeek;
         }
         await loadWeek(newWeek);
-    }, [loadWeek, week]);
+        // Обновляем editItems после загрузки новой недели
+        if (editingValues) {
+            // editItems обновится через useEffect
+        }
+    }, [loadWeek, week, editingValues]);
 
     async function saveWeek() {
         setSaving(true);
@@ -817,49 +857,29 @@ export default function WheelPage() {
                                         Update the ratings for week {week}. Changes update the chart instantly.
                                     </p>
                                 </div>
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => {
-                                            setEditItems([...items]);
-                                            setEditingValues(false);
-                                        }}
-                                        className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-6 py-3 text-white font-semibold transition hover:bg-white/10"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={async () => {
-                                            setItems([...editItems]);
-                                            await saveWeek();
-                                            setEditingValues(false);
-                                        }}
-                                        disabled={weekLoading || saving}
-                                        className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-white font-semibold transition hover:opacity-90 disabled:opacity-60 shadow-lg shadow-[#8B5CF6]/40"
-                                    >
-                                        {saving ? 'Saving…' : 'Save changes'}
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={async () => {
+                                        // Просто закрываем режим редактирования, не сбрасываем изменения
+                                        // Данные уже сохранены через автосохранение
+                                        setEditingValues(false);
+                                        // Перезагружаем данные для текущей недели, чтобы убедиться, что все синхронизировано
+                                        await loadWeek(week);
+                                    }}
+                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-6 py-3 text-white font-semibold transition hover:bg-white/10"
+                                >
+                                    Close
+                                </button>
                             </div>
 
-                            {/* ISO Week and Average */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">ISO Week</label>
-                                    <WeekPicker
-                                        value={week}
-                                        onChange={handleWeekChange}
-                                        placeholder="Select week"
-                                        className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white focus:border-[#8B5CF6] focus:outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">Average this week</label>
-                                    <div className="text-3xl font-bold text-white">
-                                        {editItems.length > 0
-                                            ? (editItems.reduce((sum, item) => sum + item.score, 0) / editItems.length).toFixed(1)
-                                            : '0.0'}/10
-                                    </div>
-                                </div>
+                            {/* ISO Week */}
+                            <div>
+                                <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">ISO Week</label>
+                                <WeekPicker
+                                    value={week}
+                                    onChange={handleWeekChange}
+                                    placeholder="Select week"
+                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white focus:border-[#8B5CF6] focus:outline-none"
+                                />
                             </div>
 
                             {/* Category List */}
@@ -893,10 +913,27 @@ export default function WheelPage() {
                                                     min={0}
                                                     max={10}
                                                     value={it.score}
-                                                    onChange={(e) => {
+                                                    onChange={async (e) => {
                                                         const newItems = [...editItems];
                                                         newItems[idx].score = Number(e.target.value);
                                                         setEditItems(newItems);
+                                                        // Автосохранение при изменении
+                                                        setItems([...newItems]);
+                                                        // Сохраняем в фоне
+                                                        const saveBody = {
+                                                            week: week,
+                                                            items: newItems.map(it => ({ area: it.area, score: it.score }))
+                                                        };
+                                                        try {
+                                                            const headers = await authHeaders();
+                                                            await fetch('/api/wheel/save', {
+                                                                method: 'POST',
+                                                                headers,
+                                                                body: JSON.stringify(saveBody),
+                                                            });
+                                                        } catch (error) {
+                                                            console.error('[WheelPage] Auto-save failed:', error);
+                                                        }
                                                     }}
                                                     className="w-full"
                                                     style={{ accentColor: areaColor }}
@@ -912,16 +949,6 @@ export default function WheelPage() {
                             )}
                         </div>
                     </section>
-                )}
-
-                {/* Share Section */}
-                {shareTemplates.length > 0 && (
-                    <CollapsibleCard title="Share your wheel">
-                        <ShareCastComposer
-                            templates={shareTemplates}
-                            prepareHeaders={authHeaders}
-                        />
-                    </CollapsibleCard>
                 )}
 
                 {/* Radar Chart and Category Grid */}
@@ -1112,19 +1139,54 @@ export default function WheelPage() {
                     </div>
                 </section>
 
-                <div className="space-y-3">
-                    <button
-                        onClick={() => setShowCoachInsights(true)}
-                        className="w-full rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-3 text-white font-semibold transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40 flex items-center gap-2 justify-center"
-                    >
-                        <span>🤖</span>
-                        <span>Get Coach Advice</span>
-                    </button>
-                    {showCoachInsights && <AIWheelInsights />}
-                </div>
+                {/* Share Section */}
+                {shareTemplates.length > 0 && (
+                    <CollapsibleCard title="Share your wheel">
+                        <ShareCastComposer
+                            templates={shareTemplates}
+                            prepareHeaders={authHeaders}
+                        />
+                    </CollapsibleCard>
+                )}
 
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-2">
-                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Trends</h2>
+                {/* Wheel Analytics - объединенные */}
+                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
+                            🎡 Wheel Analytics
+                        </h2>
+                        <div className="flex gap-1.5">
+                            <button
+                                onClick={() => setWheelAnalyticsTab('coach')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                                    wheelAnalyticsTab === 'coach'
+                                        ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
+                                        : 'text-white/60 hover:text-white/80'
+                                }`}
+                            >
+                                🤖 Coach
+                            </button>
+                            <button
+                                onClick={() => setWheelAnalyticsTab('trends')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                                    wheelAnalyticsTab === 'trends'
+                                        ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
+                                        : 'text-white/60 hover:text-white/80'
+                                }`}
+                            >
+                                📊 Trends
+                            </button>
+                        </div>
+                    </div>
+
+                    {wheelAnalyticsTab === 'coach' && (
+                        <div>
+                            <AIWheelInsights />
+                        </div>
+                    )}
+
+                    {wheelAnalyticsTab === 'trends' && (
+                        <div className="space-y-2">
                     <div className="rounded-2xl border border-white/10 overflow-hidden">
                         <table className="w-full border-collapse text-xs text-white/80">
                             <thead className="bg-white/10 text-white/70">
@@ -1207,8 +1269,10 @@ export default function WheelPage() {
                                 )}
                             </tbody>
                         </table>
-                    </div>
-                    <p className="text-xs text-white/50">Current — current week value (change vs last week in parentheses, green for improvement, red for decline). 4w — average of last 4 weeks. Δ4w — change last 4 weeks vs previous 4 weeks (requires 5+ weeks). Average row shows arithmetic mean across all categories. Positive is improvement, negative is decline.</p>
+                            </div>
+                            <p className="text-xs text-white/50">Current — current week value (change vs last week in parentheses, green for improvement, red for decline). 4w — average of last 4 weeks. Δ4w — change last 4 weeks vs previous 4 weeks (requires 5+ weeks). Average row shows arithmetic mean across all categories. Positive is improvement, negative is decline.</p>
+                        </div>
+                    )}
                 </section>
             </div>
         </MiniAppPage>

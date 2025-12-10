@@ -83,3 +83,11 @@ export function getTimezoneOffset(): number {
     if (typeof window === 'undefined') return 0;
     return new Date().getTimezoneOffset();
 }
+
+// Get Sunday of current week (YYYY-MM-DD)
+export function sundayLocal(d = new Date()): string {
+    const day = d.getDay(); // 0 = Sunday, 6 = Saturday
+    const sunday = new Date(d);
+    sunday.setDate(d.getDate() - day);
+    return getLocalDateString(sunday);
+}

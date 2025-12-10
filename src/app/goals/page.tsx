@@ -6,8 +6,7 @@ import { useMiniApp } from '@neynar/react';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import CollapsibleCard from '@/components/CollapsibleCard';
-import AIGoalBreakdown from '@/components/AIGoalBreakdown';
-import AIGoalReview from '@/components/AIGoalReview';
+import AIGoalsAssistant from '@/components/AIGoalsAssistant';
 import EisenhowerMatrix from '@/components/EisenhowerMatrix';
 import GoalSubtasks from '@/components/GoalSubtasks';
 import DatePicker from '@/components/DatePicker';
@@ -656,10 +655,8 @@ export default function GoalsPage() {
                     />
                 </section>
 
-                {/* AI Goal Review */}
-                <CollapsibleCard title="AI goal review" subtitle="Weekly summary" defaultOpen={false}>
-                    <AIGoalReview />
-                </CollapsibleCard>
+                {/* AI Goals Assistant */}
+                <AIGoalsAssistant />
 
                 {/* Goal Creation Form */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
@@ -680,10 +677,12 @@ export default function GoalsPage() {
                                 required
                             />
                             {title && (
-                                <AIGoalBreakdown
+                                <AIGoalsAssistant
                                     goalTitle={title}
                                     goalDescription=""
                                     dueDate={dueDate}
+                                    important={important}
+                                    urgent={urgent}
                                 />
                             )}
                         </div>
@@ -886,7 +885,7 @@ export default function GoalsPage() {
                                                 )}
                                                 {goal.status === 'active' && (
                                                     <div className="mt-3 space-y-2">
-                                                        <AIGoalBreakdown
+                                                        <AIGoalsAssistant
                                                             goalTitle={goal.title}
                                                             goalId={goal.id}
                                                             important={goal.important}

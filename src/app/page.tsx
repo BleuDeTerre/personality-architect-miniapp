@@ -9,12 +9,12 @@ import AddMiniAppModal from '@/components/AddMiniAppModal';
 import WalletSelectionModal from '@/components/WalletSelectionModal';
 
 // Lazy load heavy components to improve initial page load
-const AIMotivationMessage = dynamic(() => import('@/components/AIMotivationMessage'), {
+const TodaysOverview = dynamic(() => import('@/components/TodaysOverview'), {
   ssr: false,
   loading: () => (
-    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 animate-pulse">
-      <div className="h-16 w-full rounded bg-white/10" />
-    </div>
+    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
+      <div className="h-48 w-full rounded bg-white/10" />
+    </section>
   ),
 });
 
@@ -23,31 +23,12 @@ const AIPredictiveAlerts = dynamic(() => import('@/components/AIPredictiveAlerts
   loading: () => null, // Don't show loading skeleton if no alerts
 });
 
-const DailyWellness = dynamic(() => import('@/components/DailyWellness'), {
-  ssr: false,
-  loading: () => (
-    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
-      <div className="h-24 w-full rounded bg-white/10" />
-    </section>
-  ),
-});
-
-const DailyQuests = dynamic(() => import('@/components/DailyQuests'), {
-  ssr: false,
-  loading: () => (
-    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 animate-pulse">
-      <div className="h-48 w-full rounded bg-white/10" />
-    </section>
-  ),
-});
-
 const NAVIGATION = [
   { href: '/habits', label: 'Habits', icon: '✅', desc: 'Track your daily habits' },
   { href: '/wheel', label: 'Wheel of Life', icon: '🎡', desc: 'Rate life areas' },
   { href: '/goals', label: 'Goals', icon: '🎯', desc: 'Set & track goals' },
   { href: '/streaks', label: 'Streaks', icon: '🔥', desc: 'View your streaks' },
   { href: '/analytics', label: 'Analytics', icon: '📊', desc: 'Advanced insights' },
-  { href: '/insight', label: 'AI Insights', icon: '💡', desc: 'Weekly, monthly & habit reviews' },
   { href: '/leaderboard', label: 'Leaderboard', icon: '🏅', desc: 'Top performers' },
   { href: '/chat', label: 'AI Coach', icon: '🤖', desc: 'Chat with your coach' },
   { href: '/profile', label: 'Profile', icon: '👤', desc: 'Account & badges' },
@@ -207,10 +188,8 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        <DailyWellness />
-        <AIMotivationMessage />
+        <TodaysOverview />
         <AIPredictiveAlerts />
-        <DailyQuests />
       </section>
       <AddMiniAppModal />
       <WalletSelectionModal />

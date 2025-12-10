@@ -28,6 +28,8 @@ export async function checkAILimit(
   userId: string,
   userPlan: UserPlan
 ): Promise<AILimitCheck> {
+  // Лимиты AI запросов работают (5 для free, 20 для pro/premium)
+  // Проверки платежей/кредитов отключены до реализации платежной системы
   const isPro = ['pro', 'premium'].includes(userPlan);
   const limit = isPro ? AI_LIMITS.PRO : AI_LIMITS.FREE;
 

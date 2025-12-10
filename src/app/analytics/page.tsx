@@ -501,6 +501,7 @@ export default function AnalyticsPage() {
     const [loadingTrend, setLoadingTrend] = useState(false);
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'core' | 'advanced'>('core');
+    const [wellnessTab, setWellnessTab] = useState<'deepdive' | 'correlations'>('deepdive');
     const [wellnessAnalytics, setWellnessAnalytics] = useState<WellnessAnalytics | null>(null);
 
     const authHeaders = useCallback(async () => {
@@ -898,7 +899,7 @@ export default function AnalyticsPage() {
         if (!comparative || habits.length === 0) return null;
 
         // Calculate completion rate considering target_days_per_week for each habit
-        const totalDays = 7; // Week
+        // За неделю (7 дней) ожидаем target_days_per_week выполнений для каждой привычки
         let totalPossibleLogs = 0;
 
         habits.forEach(habit => {
@@ -1363,20 +1364,6 @@ export default function AnalyticsPage() {
         return { hasData: true, riskLevel, message, suggestions };
     }, [habits, predictive, comparative]);
 
-    // Weekly momentum - тренд активности за неделю
-    const weeklyMomentum = useMemo(() => {
-        if (!comparative) return null;
-
-        const percentChange = comparative.comparison?.percent_change || 0;
-        const trend = comparative.comparison?.trend || 'neutral';
-
-        return {
-            trend,
-            percentChange: Math.abs(percentChange),
-            isPositive: percentChange > 0,
-            message: comparative.comparison?.message || null,
-        };
-    }, [comparative]);
 
     // Recovery suggestions - советы по восстановлению
     const recoverySuggestions = useMemo(() => {
@@ -1605,6 +1592,12 @@ export default function AnalyticsPage() {
                                     ))}
                                 </div>
                             ) : (
+                                <>
+                            {/* Performance Dashboard - объединенные Core Metrics */}
+                            <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4">
+                                <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
+                                    📊 Performance Dashboard
+                                </h2>
                                 <div className="grid grid-cols-2 gap-3">
                             {/* Completion rate */}
                             <div className={`rounded-2xl border p-4 space-y-2 ${completionRate !== null && completionRate.value !== undefined
@@ -1634,7 +1627,7 @@ export default function AnalyticsPage() {
                                     <>
                                         <p className="text-xl font-semibold text-[#8B5CF6]">{completionRate.value}%</p>
                                         <p className="text-xs text-white/70 leading-snug" title="Completion rate considers each habit's target days per week">
-                                            Share of tracked habits you finish each day. Helps you spot consistency gains or gaps.
+                                                    Share of tracked habits you finish each day.
                                         </p>
                                     </>
                                 ) : (
@@ -1659,38 +1652,11 @@ export default function AnalyticsPage() {
                                             <p className="text-sm font-semibold text-[#8B5CF6]">{goalProgress.avg}% avg</p>
                                         </div>
                                         <p className="text-xs text-white/70 leading-snug" title="Progress calculated based on actual metric values when available, otherwise time-based">
-                                            {goalProgress.completed}/{goalProgress.total} goals — number of completed goals out of total. {goalProgress.avg}% avg — average completion percentage of all active goals. Shows how close your goals are to completion.
+                                                    Average completion of all active goals.
                                         </p>
                                     </>
                                 ) : (
                                     <p className="text-xs text-white/60">No goals yet</p>
-                                )}
-                            </div>
-
-                            {/* Weekly momentum */}
-                            <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${weeklyMomentum
-                                ? weeklyMomentum.isPositive
-                                    ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
-                                    : 'border-red-400/50 bg-red-400/5'
-                                : 'border-white/10 bg-[#1a1b2e]'
-                                }`}>
-                                <h3 className="text-base font-semibold text-white">Weekly momentum</h3>
-                                {weeklyMomentum ? (
-                                    <div className="flex flex-col gap-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-lg ${weeklyMomentum.isPositive ? 'text-emerald-300' : 'text-red-400'}`}>
-                                                {weeklyMomentum.isPositive ? '↑' : '↓'}
-                                            </span>
-                                            <p className="text-sm text-white/70">
-                                                {weeklyMomentum.isPositive ? '+' : '-'}{weeklyMomentum.percentChange.toFixed(0)}% vs last week
-                                            </p>
-                                        </div>
-                                        {weeklyMomentum.message && (
-                                            <p className="text-xs text-white">{weeklyMomentum.message}</p>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-white/60">No data yet</p>
                                 )}
                             </div>
 
@@ -1706,7 +1672,7 @@ export default function AnalyticsPage() {
                                         <p className="text-sm text-[#8B5CF6] font-semibold">{consistencyScore.label}</p>
                                     </div>
                                     <p className="text-xs text-white/70 leading-snug" title="Measures variability in daily completion. Higher score = more consistent daily activity">
-                                        Measures how consistent your daily activity is. Lower variability = higher score.
+                                                Measures how consistent your daily activity is.
                                     </p>
                                 </div>
                             )}
@@ -1739,195 +1705,27 @@ export default function AnalyticsPage() {
                                     </p>
                                 </div>
                             )}
-
-                            {/* Fatigue alerts */}
-                            <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${fatigueAlerts.hasData
-                                ? fatigueAlerts.riskLevel === 'high' 
-                                    ? 'border-red-400/50 bg-red-400/5'
-                                    : fatigueAlerts.riskLevel === 'medium' 
-                                        ? 'border-yellow-400/50 bg-yellow-400/5'
-                                        : 'border-[#22C55E]/50 bg-[#22C55E]/5'
-                                : 'border-white/10 bg-[#1a1b2e]'
-                                }`}>
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-base font-semibold text-white">Fatigue alerts</h3>
                                 </div>
-                                {fatigueAlerts.hasData ? (
-                                    fatigueAlerts.message ? (
-                                        <div className="flex flex-col gap-1.5">
-                                            <p className="text-sm text-white/70">{fatigueAlerts.message}</p>
-                                            {fatigueAlerts.suggestions && fatigueAlerts.suggestions.length > 0 && (
-                                                <ul className="text-xs text-white/60 list-disc list-inside space-y-0.5">
-                                                    {fatigueAlerts.suggestions.map((s, idx) => (
-                                                        <li key={idx}>{s}</li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <p className="text-sm text-white/70">All good! No fatigue detected.</p>
-                                    )
-                                ) : (
-                                    <p className="text-sm text-white/70">Track more streaks to surface fatigue alerts.</p>
-                                )}
-                            </div>
+                            </section>
 
-                            {/* Wellness Deep Dive */}
-                            {wellnessAnalytics && wellnessAnalytics.dataPoints > 0 && (() => {
-                                // Count optimal metrics
-                                const optimalCount = wellnessAnalytics.trends?.filter(t => t.status === 'optimal').length || 0;
-                                const totalCount = wellnessAnalytics.trends?.filter(t => t.current !== null).length || 0;
-                                
-                                // Determine border and background color based on optimal count
-                                let borderColor = 'border-white/10';
-                                let bgColor = 'bg-[#1a1b2e]';
-                                
-                                if (totalCount > 0) {
-                                    if (optimalCount >= 3) {
-                                        // Green for 3+ optimal
-                                        borderColor = 'border-[#22C55E]/50';
-                                        bgColor = 'bg-[#22C55E]/5';
-                                    } else if (optimalCount === 2) {
-                                        // Yellow for 2 optimal
-                                        borderColor = 'border-yellow-400/50';
-                                        bgColor = 'bg-yellow-400/5';
-                                    } else {
-                                        // Red for 0-1 optimal
-                                        borderColor = 'border-red-400/50';
-                                        bgColor = 'bg-red-400/5';
-                                    }
-                                }
-                                
-                                return (
-                                <div className={`rounded-2xl border p-4 space-y-2 ${borderColor} ${bgColor}`}>
-                                    <h3 className="text-base font-semibold text-white">Wellness Deep Dive</h3>
-                                    {wellnessAnalytics.trends && wellnessAnalytics.trends.length > 0 ? (
-                                        <div className="space-y-2 text-sm">
-                                            {wellnessAnalytics.trends.map((trend) => {
-                                                if (trend.current === null) return null;
-                                                
-                                                const metricLabels: Record<string, string> = {
-                                                    stress_level: 'Stress',
-                                                    productivity_level: 'Productivity',
-                                                    sleep_hours: 'Sleep',
-                                                    work_hours: 'Work',
-                                                };
-                                                const metricLabel = metricLabels[trend.metric] || trend.metric;
-                                                
-                                                const isHours = trend.metric.includes('hours');
-                                                const displayValue = isHours ? `${trend.current.toFixed(1)}h` : `${trend.current.toFixed(1)}`;
-                                                
-                                                // Trend indicator (vs yesterday)
-                                                // Show ↑ (green), ↓ (red), or → (white/gray if no change)
-                                                let displayIcon = null;
-                                                let trendColor = 'text-white/60';
-                                                let valueColor = 'text-white'; // Color for the number itself
-                                                
-                                                if (trend.trend === 'improving') {
-                                                    // For stress: improving = lower (↓ green)
-                                                    // For others: improving = higher (↑ green)
-                                                    displayIcon = trend.metric === 'stress_level' ? '↓' : '↑';
-                                                    trendColor = 'text-green-400';
-                                                    valueColor = 'text-green-400'; // Green if improved
-                                                } else if (trend.trend === 'declining') {
-                                                    // For stress: declining = higher (↑ red)
-                                                    // For others: declining = lower (↓ red)
-                                                    displayIcon = trend.metric === 'stress_level' ? '↑' : '↓';
-                                                    trendColor = 'text-red-400';
-                                                    valueColor = 'text-red-400'; // Red if declined
-                                                } else if (trend.trend === 'stable') {
-                                                    // No change - show → in white/gray
-                                                    displayIcon = '→';
-                                                    trendColor = 'text-white/60';
-                                                    valueColor = 'text-white'; // Neutral if stable
-                                                }
-                                                
-                                                // Status
-                                                const statusText = trend.status === 'optimal' ? 'Optimal' : trend.status === 'below' ? 'Below optimal' : trend.status === 'above' ? 'Above optimal' : null;
-                                                const statusColor = trend.status === 'optimal' ? 'text-green-400' : trend.status === 'below' ? 'text-yellow-400' : trend.status === 'above' ? 'text-orange-400' : 'text-white/60';
-                                                
-                                                return (
-                                                    <div key={trend.metric} className="flex flex-col gap-0.5">
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-white/70">{metricLabel}:</span>
-                                                            <div className="flex items-center gap-1.5">
-                                                                <span className={`font-semibold ${valueColor}`}>{displayValue}</span>
-                                                                {displayIcon && (
-                                                                    <span className={`text-xs ${trendColor}`}>{displayIcon}</span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        {statusText && (
-                                                            <div className="flex items-center justify-between text-xs">
-                                                                <span className={`${statusColor} font-medium`}>{statusText}</span>
-                                                                {trend.change !== null && trend.change !== 0 && (
-                                                                    <span className="text-white/50">
-                                                                        {trend.change > 0 ? '+' : ''}{trend.change.toFixed(1)} vs yesterday
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-white/60">No data yet</p>
-                                    )}
-                                </div>
-                                );
-                            })()}
-                                </div>
-                            )}
-                        </>
-                    )}
-
-                    {/* Advanced Metrics */}
-                    {activeTab === 'advanced' && (
-                        <>
-                            {loading ? (
-                                <div className="grid grid-cols-2 gap-3">
-                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                                        <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse space-y-2">
-                                            <div className="h-6 bg-white/10 rounded w-32"></div>
-                                            <div className="h-6 bg-white/10 rounded w-20"></div>
-                                            <div className="h-4 bg-white/10 rounded w-full"></div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 gap-3">
-                                    {/* Streaks */}
-                                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
-                                        <h3 className="text-base font-semibold text-white">Streaks</h3>
-                                        <div className="space-y-1">
-                                            <p className="text-sm text-white/70">
-                                                <span className="text-[#8B5CF6] font-semibold">Current:</span> {stats.current_streak}d
-                                            </p>
-                                            <p className="text-sm text-white/70">
-                                                <span className="text-[#8B5CF6] font-semibold">Best:</span> {stats.best_streak}d
-                                            </p>
-                                        </div>
-                                        <p className="text-xs text-white/70 leading-snug" title="Current streak shows consecutive days with at least one completed habit">
-                                            Current and best streaks across your habits — the quickest way to see momentum.
-                                        </p>
-                                    </div>
-
-                                    {/* Wheel impact */}
-                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${wheelImpact
-                                        ? (wheelImpact.top && wheelImpact.top.delta > 2) || (wheelImpact.bottom && wheelImpact.bottom.delta < -2)
-                                            ? (wheelImpact.top && wheelImpact.top.delta > 2)
-                                                ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
-                                                : 'border-red-400/50 bg-red-400/5'
-                                            : (wheelImpact.top && wheelImpact.top.delta > 1) || (wheelImpact.bottom && wheelImpact.bottom.delta < -1)
-                                                ? (wheelImpact.top && wheelImpact.top.delta > 1)
-                                                    ? 'border-yellow-400/50 bg-yellow-400/5'
-                                                    : 'border-orange-400/50 bg-orange-400/5'
-                                                : 'border-white/10 bg-[#1a1b2e]'
-                                        : 'border-white/10 bg-[#1a1b2e]'
+                            {/* Wheel Impact */}
+                            {wheelImpact && (
+                                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4">
+                                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
+                                        🎡 Wheel Impact
+                                    </h2>
+                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${(wheelImpact.top && wheelImpact.top.delta > 2) || (wheelImpact.bottom && wheelImpact.bottom.delta < -2)
+                                        ? (wheelImpact.top && wheelImpact.top.delta > 2)
+                                            ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                            : 'border-red-400/50 bg-red-400/5'
+                                        : (wheelImpact.top && wheelImpact.top.delta > 1) || (wheelImpact.bottom && wheelImpact.bottom.delta < -1)
+                                            ? (wheelImpact.top && wheelImpact.top.delta > 1)
+                                                ? 'border-yellow-400/50 bg-yellow-400/5'
+                                                : 'border-orange-400/50 bg-orange-400/5'
+                                            : 'border-white/10 bg-[#1a1b2e]'
                                         }`}>
                                         <div className="flex items-center justify-between">
-                                            <h3 className="text-base font-semibold text-white">Wheel impact</h3>
+                                            <h3 className="text-base font-semibold text-white">Wheel Impact</h3>
                                             <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
                                         </div>
                                         {wheelImpact ? (
@@ -1955,11 +1753,38 @@ export default function AnalyticsPage() {
                                             <p className="text-sm text-white/60">No wheel data yet</p>
                                         )}
                                     </div>
+                                </section>
+                            )}
+                        </>
+                            )}
+                        </>
+                    )}
 
+                    {/* Advanced Metrics */}
+                    {activeTab === 'advanced' && (
+                        <>
+                            {loading ? (
+                                <div className="grid grid-cols-2 gap-3">
+                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                                        <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse space-y-2">
+                                            <div className="h-6 bg-white/10 rounded w-32"></div>
+                                            <div className="h-6 bg-white/10 rounded w-20"></div>
+                                            <div className="h-4 bg-white/10 rounded w-full"></div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-3">
+                                    {/* Time Patterns - объединенные */}
+                                    {(mostActiveDay || weakWindows) && (
+                                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4 col-span-2">
+                                            <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
+                                                ⏰ Time Patterns
+                                            </h2>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {/* Peak activity */}
-                                    <div className={`rounded-2xl border p-4 space-y-2 ${mostActiveDay
-                                        ? (() => {
-                                            // Calculate average count across all days for comparison
+                                                {mostActiveDay && (
+                                                    <div className={`rounded-2xl border p-4 space-y-2 ${(() => {
                                             const allDays = mostActiveDay.allDays || facts?.day_stats || [];
                                             const avgCount = allDays.length > 0 
                                                 ? allDays.reduce((sum, d) => sum + d.count, 0) / allDays.length
@@ -1968,12 +1793,8 @@ export default function AnalyticsPage() {
                                             if (ratio >= 1.5) return 'border-[#22C55E]/50 bg-[#22C55E]/5';
                                             if (ratio >= 1.2) return 'border-yellow-400/50 bg-yellow-400/5';
                                             return 'border-white/10 bg-[#1a1b2e]';
-                                        })()
-                                        : 'border-white/10 bg-[#1a1b2e]'
-                                        }`}>
+                                                    })()}`}>
                                         <h3 className="text-base font-semibold text-white">Peak activity</h3>
-                                        {mostActiveDay ? (
-                                            <>
                                                 <div className="space-y-1">
                                                     <p className="text-base font-semibold text-white">
                                                         Day: <span className="text-[#8B5CF6] font-semibold">{mostActiveDay.day}</span>
@@ -1986,18 +1807,14 @@ export default function AnalyticsPage() {
                                                     )}
                                                 </div>
                                                 <p className="text-xs text-white/70 leading-snug" title="Peak day shows the day of week with most completions. Time shows average completion time.">
-                                                    Typical time of day you complete habits. Useful to schedule around natural energy peaks.
+                                                            Typical time of day you complete habits.
                                                 </p>
-                                            </>
-                                        ) : (
-                                            <p className="text-xs text-white/60">No data yet</p>
-                                        )}
                                     </div>
+                                                )}
 
                                     {/* Weak windows */}
-                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${weakWindows
-                                        ? (() => {
-                                            // Calculate average count across all days for comparison
+                                                {weakWindows && (
+                                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${(() => {
                                             const allDays = weakWindows.allDays || facts?.day_stats || [];
                                             const avgCount = allDays.length > 0
                                                 ? allDays.reduce((sum, d) => sum + d.count, 0) / allDays.length
@@ -2007,36 +1824,34 @@ export default function AnalyticsPage() {
                                             if (ratio < 0.8) return 'border-orange-400/50 bg-orange-400/5';
                                             if (ratio >= 0.8) return 'border-yellow-400/50 bg-yellow-400/5';
                                             return 'border-white/10 bg-[#1a1b2e]';
-                                        })()
-                                        : 'border-white/10 bg-[#1a1b2e]'
-                                        }`}>
+                                                    })()}`}>
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-base font-semibold text-white">Weak windows</h3>
                                             <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
                                         </div>
-                                        {weakWindows ? (
                                             <p className="text-sm text-white/70">{weakWindows.day}: {weakWindows.count} check-ins</p>
-                                        ) : (
-                                            <p className="text-sm text-white/60">No data yet</p>
+                                                    </div>
                                         )}
                                     </div>
+                                        </section>
+                                    )}
 
-                                    {/* Goal forecast */}
-                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${goalForecast
-                                        ? goalForecast.onTrackPercent >= 70 
+                                    {/* Goals Status - объединенные */}
+                                    {goalForecast && (
+                                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4 col-span-2">
+                                            <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
+                                                🎯 Goals Status
+                                            </h2>
+                                            <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${goalForecast.onTrackPercent >= 70 
                                             ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
                                             : goalForecast.onTrackPercent >= 50
                                                 ? 'border-yellow-400/50 bg-yellow-400/5'
                                                 : 'border-red-400/50 bg-red-400/5'
-                                        : 'border-white/10 bg-[#1a1b2e]'
                                         }`}>
                                         <div className="flex items-center justify-between">
-                                            <h3 className="text-base font-semibold text-white">Goal forecast</h3>
-                                            <span className={`text-xs font-semibold uppercase ${goalForecast ? 'text-green-400' : 'text-orange-400'}`}>
-                                                {goalForecast ? 'LIVE' : 'NEED DATA'}
-                                            </span>
+                                                    <h3 className="text-base font-semibold text-white">Goal Forecast</h3>
+                                                    <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
                                         </div>
-                                        {goalForecast ? (
                                             <div className="flex flex-col gap-1.5">
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-sm text-white/70">{goalForecast.onTrack}/{goalForecast.total} on track</span>
@@ -2056,27 +1871,42 @@ export default function AnalyticsPage() {
                                                                 : `Nearest deadline: ${goalForecast.nearestDeadline.days} days`
                                                         }
                                                     </p>
-                                                )}
+                                                    )}
+                                                </div>
                                             </div>
-                                        ) : (
-                                            <p className="text-sm text-white/70">Set due dates to forecast goal completion.</p>
-                                        )}
-                                    </div>
+                                            {latestCompletedGoal && (
+                                                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
+                                                    <h3 className="text-base font-semibold text-white mb-2">Latest Completed Goal</h3>
+                                                    <p className="text-sm text-white/70">{latestCompletedGoal.title}</p>
+                                                    {latestCompletedGoal.due_date && (
+                                                        <p className="text-xs text-white/60 mt-1">
+                                                            Completed {new Date(latestCompletedGoal.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </section>
+                                    )}
 
-                                    {/* Habit recommendations */}
-                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${habitRecommendationsWithTemplates
-                                        ? Math.abs(habitRecommendationsWithTemplates.delta) >= 5
+                                    {/* Wheel Insights - Habit Recommendations */}
+                                    {habitRecommendationsWithTemplates && (
+                                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4 col-span-2">
+                                            <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
+                                                🎡 Wheel Insights
+                                            </h2>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                {/* Habit Recommendations */}
+                                                {habitRecommendationsWithTemplates && (
+                                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${Math.abs(habitRecommendationsWithTemplates.delta) >= 5
                                             ? 'border-red-400/50 bg-red-400/5'
                                             : Math.abs(habitRecommendationsWithTemplates.delta) >= 2
                                                 ? 'border-orange-400/50 bg-orange-400/5'
                                                 : 'border-yellow-400/50 bg-yellow-400/5'
-                                        : 'border-white/10 bg-[#1a1b2e]'
                                         }`}>
                                         <div className="flex items-center justify-between">
-                                            <h3 className="text-base font-semibold text-white">Habit Recommend</h3>
+                                                            <h3 className="text-base font-semibold text-white">Habit Recommendations</h3>
                                             <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
                                         </div>
-                                        {habitRecommendationsWithTemplates ? (
                                             <div className="flex flex-col gap-1.5">
                                                 <p className="text-sm text-white/70">
                                                     {habitRecommendationsWithTemplates.area} (down {Math.abs(habitRecommendationsWithTemplates.delta).toFixed(1)})
@@ -2094,8 +1924,47 @@ export default function AnalyticsPage() {
                                                     <p className="text-xs text-white/50">All recommended habits already added</p>
                                                 )}
                                             </div>
-                                        ) : (
-                                            <p className="text-sm text-white/60">All areas are improving</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </section>
+                                    )}
+
+                                    {/* Risk Alerts - объединенные */}
+                                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4 col-span-2">
+                                        <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
+                                            ⚠️ Risk Alerts
+                                        </h2>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {/* Fatigue alerts */}
+                                            <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${fatigueAlerts.hasData
+                                                ? fatigueAlerts.riskLevel === 'high' 
+                                                    ? 'border-red-400/50 bg-red-400/5'
+                                                    : fatigueAlerts.riskLevel === 'medium' 
+                                                        ? 'border-yellow-400/50 bg-yellow-400/5'
+                                                        : 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                                : 'border-white/10 bg-[#1a1b2e]'
+                                                }`}>
+                                                <div className="flex items-center justify-between">
+                                                    <h3 className="text-base font-semibold text-white">Fatigue alerts</h3>
+                                                </div>
+                                                {fatigueAlerts.hasData ? (
+                                                    fatigueAlerts.message ? (
+                                                        <div className="flex flex-col gap-1.5">
+                                                            <p className="text-sm text-white/70">{fatigueAlerts.message}</p>
+                                                            {fatigueAlerts.suggestions && fatigueAlerts.suggestions.length > 0 && (
+                                                                <ul className="text-xs text-white/60 list-disc list-inside space-y-0.5">
+                                                                    {fatigueAlerts.suggestions.map((s, idx) => (
+                                                                        <li key={idx}>{s}</li>
+                                                                    ))}
+                                                                </ul>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-sm text-white/70">All good! No fatigue detected.</p>
+                                                    )
+                                                ) : (
+                                                    <p className="text-sm text-white/70">Track more streaks to surface fatigue alerts.</p>
                                         )}
                                     </div>
 
@@ -2125,9 +1994,132 @@ export default function AnalyticsPage() {
                                             <p className="text-sm text-white/60">No recovery needed</p>
                                         )}
                                     </div>
+                                        </div>
+                                    </section>
 
-                                    {/* Wellness Correlations */}
-                                    {wellnessAnalytics && wellnessAnalytics.dataPoints > 0 && (
+                                    {/* Wellness Analytics - объединенные */}
+                                    {wellnessAnalytics && wellnessAnalytics.dataPoints > 0 && (() => {
+                                        const optimalCount = wellnessAnalytics.trends?.filter(t => t.status === 'optimal').length || 0;
+                                        const totalCount = wellnessAnalytics.trends?.filter(t => t.current !== null).length || 0;
+                                        
+                                        let borderColor = 'border-white/10';
+                                        let bgColor = 'bg-[#1a1b2e]';
+                                        
+                                        if (totalCount > 0) {
+                                            if (optimalCount >= 3) {
+                                                borderColor = 'border-[#22C55E]/50';
+                                                bgColor = 'bg-[#22C55E]/5';
+                                            } else if (optimalCount === 2) {
+                                                borderColor = 'border-yellow-400/50';
+                                                bgColor = 'bg-yellow-400/5';
+                                            } else {
+                                                borderColor = 'border-red-400/50';
+                                                bgColor = 'bg-red-400/5';
+                                            }
+                                        }
+                                        
+                                        return (
+                                            <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4 col-span-2">
+                                                <div className="flex items-center justify-between">
+                                                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
+                                                        💚 Wellness Analytics
+                                                    </h2>
+                                                    <div className="flex gap-1.5">
+                                                        <button
+                                                            onClick={() => setWellnessTab('deepdive')}
+                                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                                                                wellnessTab === 'deepdive'
+                                                                    ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
+                                                                    : 'text-white/60 hover:text-white/80'
+                                                            }`}
+                                                        >
+                                                            Deep Dive
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setWellnessTab('correlations')}
+                                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                                                                wellnessTab === 'correlations'
+                                                                    ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
+                                                                    : 'text-white/60 hover:text-white/80'
+                                                            }`}
+                                                        >
+                                                            Correlations
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                
+                                                {wellnessTab === 'deepdive' && (
+                                                    <div className={`rounded-2xl border p-4 space-y-2 ${borderColor} ${bgColor}`}>
+                                                        <h3 className="text-base font-semibold text-white">Wellness Deep Dive</h3>
+                                                        {wellnessAnalytics.trends && wellnessAnalytics.trends.length > 0 ? (
+                                                            <div className="space-y-2 text-sm">
+                                                                {wellnessAnalytics.trends.map((trend) => {
+                                                                    if (trend.current === null) return null;
+                                                                    
+                                                                    const metricLabels: Record<string, string> = {
+                                                                        stress_level: 'Stress',
+                                                                        productivity_level: 'Productivity',
+                                                                        sleep_hours: 'Sleep',
+                                                                        work_hours: 'Work',
+                                                                    };
+                                                                    const metricLabel = metricLabels[trend.metric] || trend.metric;
+                                                                    
+                                                                    const isHours = trend.metric.includes('hours');
+                                                                    const displayValue = isHours ? `${trend.current.toFixed(1)}h` : `${trend.current.toFixed(1)}`;
+                                                                    
+                                                                    let displayIcon = null;
+                                                                    let trendColor = 'text-white/60';
+                                                                    let valueColor = 'text-white';
+                                                                    
+                                                                    if (trend.trend === 'improving') {
+                                                                        displayIcon = trend.metric === 'stress_level' ? '↓' : '↑';
+                                                                        trendColor = 'text-green-400';
+                                                                        valueColor = 'text-green-400';
+                                                                    } else if (trend.trend === 'declining') {
+                                                                        displayIcon = trend.metric === 'stress_level' ? '↑' : '↓';
+                                                                        trendColor = 'text-red-400';
+                                                                        valueColor = 'text-red-400';
+                                                                    } else if (trend.trend === 'stable') {
+                                                                        displayIcon = '→';
+                                                                        trendColor = 'text-white/60';
+                                                                        valueColor = 'text-white';
+                                                                    }
+                                                                    
+                                                                    const statusText = trend.status === 'optimal' ? 'Optimal' : trend.status === 'below' ? 'Below optimal' : trend.status === 'above' ? 'Above optimal' : null;
+                                                                    const statusColor = trend.status === 'optimal' ? 'text-green-400' : trend.status === 'below' ? 'text-yellow-400' : trend.status === 'above' ? 'text-orange-400' : 'text-white/60';
+                                                                    
+                                                                    return (
+                                                                        <div key={trend.metric} className="flex flex-col gap-0.5">
+                                                                            <div className="flex items-center justify-between">
+                                                                                <span className="text-white/70">{metricLabel}:</span>
+                                                                                <div className="flex items-center gap-1.5">
+                                                                                    <span className={`font-semibold ${valueColor}`}>{displayValue}</span>
+                                                                                    {displayIcon && (
+                                                                                        <span className={`text-xs ${trendColor}`}>{displayIcon}</span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                            {statusText && (
+                                                                                <div className="flex items-center justify-between text-xs">
+                                                                                    <span className={`${statusColor} font-medium`}>{statusText}</span>
+                                                                                    {trend.change !== null && trend.change !== 0 && (
+                                                                                        <span className="text-white/50">
+                                                                                            {trend.change > 0 ? '+' : ''}{trend.change.toFixed(1)} vs yesterday
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-xs text-white/60">No data yet</p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                
+                                                {wellnessTab === 'correlations' && (
                                         <div className={`rounded-2xl border p-4 space-y-2 ${wellnessAnalytics.correlations && wellnessAnalytics.correlations.length > 0
                                             ? (() => {
                                                 const maxStrength = Math.max(...wellnessAnalytics.correlations.map(c => Math.abs(c.correlation)));
@@ -2162,6 +2154,9 @@ export default function AnalyticsPage() {
                                             )}
                                         </div>
                                     )}
+                                            </section>
+                                        );
+                                    })()}
                                 </div>
                             )}
                         </>
@@ -2179,7 +2174,7 @@ export default function AnalyticsPage() {
                     </button>
                 )}
                 {facts && facts.facts && facts.facts.length > 0 && (
-                    <CollapsibleCard title="🤖 AI facts" defaultOpen={true}>
+                <CollapsibleCard title="🤖 AI facts" defaultOpen={true}>
                         <div className="space-y-2">
                             {facts.facts.map((fact, idx) => (
                                 <div key={idx} className="flex items-start gap-2.5">
@@ -2192,9 +2187,9 @@ export default function AnalyticsPage() {
                 )}
                 {factsLoading && (
                     <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2 animate-pulse">
-                        <div className="h-4 w-full rounded bg-white/10" />
-                        <div className="h-4 w-3/4 rounded bg-white/10" />
-                    </div>
+                            <div className="h-4 w-full rounded bg-white/10" />
+                            <div className="h-4 w-3/4 rounded bg-white/10" />
+                        </div>
                 )}
 
                 {/* Week Comparison Section */}

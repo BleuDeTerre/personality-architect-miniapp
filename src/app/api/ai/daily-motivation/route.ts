@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
         const [habitsRes, logsTodayRes, logsWeekRes, statsRes, goalsRes, wheelRes, questEventsRes, wellnessRes] = await Promise.all([
             supa
                 .from('habits')
-                .select('id, title, category')
+                .select('id, title, category, target_days_per_week')
                 .eq('user_id', userId)
                 .eq('is_active', true),
             supa
@@ -193,12 +193,13 @@ export async function GET(req: NextRequest) {
             }
         });
 
-        // Подсчитываем общее количество дней для каждой привычки
-        const startDate = new Date(sevenDaysAgoStr);
-        const endDate = new Date(todayStr);
-        const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-        Object.keys(habitPerformance).forEach(hId => {
-            habitPerformance[hId].total = daysDiff;
+        // Подсчитываем общее количество дней для каждой привычки на основе target_days_per_week
+        // За последние 7 дней ожидаем target_days_per_week выполнений для каждой привычки
+        habits.forEach(habit => {
+            if (habitPerformance[habit.id]) {
+                const targetDays = habit.target_days_per_week || 7;
+                habitPerformance[habit.id].total = targetDays; // Используем target_days_per_week вместо всех 7 дней
+            }
         });
 
         // Находим лучшие и худшие привычки

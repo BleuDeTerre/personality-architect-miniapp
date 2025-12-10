@@ -28,10 +28,10 @@ export async function GET(req: NextRequest) {
         const dayOfWeek = clientNow.getDay();
         const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek];
 
-        // Получаем все активные привычки
+        // Получаем все активные привычки с target_days_per_week
         const { data: habits } = await supa
             .from('habits')
-            .select('id, title')
+            .select('id, title, target_days_per_week')
             .eq('user_id', userId)
             .eq('is_active', true);
 
@@ -129,10 +129,19 @@ export async function GET(req: NextRequest) {
             });
 
             const todayCount = dayPatterns.get(dayOfWeek) || 0;
-            const avgCount = habitLogs.length / 7; // Среднее за неделю
+            // Используем target_days_per_week вместо жестко закодированного 7
+            const targetDaysPerWeek = habit.target_days_per_week || 7;
+            // Рассчитываем среднее количество выполнений за неделю на основе target_days_per_week
+            // За 30 дней ожидаем (target_days_per_week / 7) * 30 выполнений
+            const expectedIn30Days = (targetDaysPerWeek / 7) * 30;
+            // Среднее выполнение за неделю = (выполнено за 30 дней / 30) * 7
+            const avgCountPerWeek = (habitLogs.length / 30) * 7;
             const hasPattern = todayCount > 0;
-            const riskScore = hasPattern && avgCount > 0 
-                ? Math.max(0.6, (1 - todayCount / avgCount))
+            // Риск рассчитываем: если среднее выполнение меньше целевого, то риск выше
+            // Нормализуем: avgCountPerWeek / targetDaysPerWeek (если < 1, то риск)
+            const completionRatio = expectedIn30Days > 0 ? habitLogs.length / expectedIn30Days : 0;
+            const riskScore = hasPattern && completionRatio < 1
+                ? Math.max(0.6, 1 - completionRatio) // Чем меньше completionRatio, тем выше риск
                 : (habitLogs.length > 0 ? 0.5 : 0.7); // Если есть история - средний риск, если нет - высокий
 
             // Генерируем предупреждение через шаблоны (без AI)
