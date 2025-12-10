@@ -4,7 +4,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { isoWeekUTC } from '@/lib/time';
+import { isoWeek, getClientLocalDate } from '@/lib/time';
 import { WEEKLY_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
 import crypto from 'crypto';
 
@@ -30,9 +30,9 @@ async function generateWeekly(
         .gte('date', startDate)
         .lte('date', endDateStr);
 
-    // Получаем Wheel данные за неделю (вычисляем ISO неделю из startDate)
-    const d = new Date(`${startDate}T00:00:00Z`);
-    const weekISO = isoWeekUTC(d);
+    // Получаем Wheel данные за неделю (вычисляем неделю из startDate)
+    const d = new Date(`${startDate}T00:00:00`);
+    const weekISO = isoWeek(d);
     const { data: wheel } = await supa
         .from('wheel_scores')
         .select('area, score')
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
 
         // 2) Входные
         const body = await req.json().catch(() => ({}));
-        const week_start = String(body?.week_start || new Date().toISOString().slice(0, 10));
+        const week_start = String(body?.week_start || getClientLocalDate(req));
         const highAccuracy = !!body?.highAccuracy;
 
         const endpoint = 'insight/weekly';

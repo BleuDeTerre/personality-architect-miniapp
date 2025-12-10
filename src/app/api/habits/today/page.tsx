@@ -2,17 +2,18 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import HabitLogButton from '@/app/api/habits/components/HabitLogButton';
+import { getLocalDateString } from '@/lib/time';
 
 type Habit = { id: string; title: string; target_days_per_week: number };
 type Log = { habit_id: string; date: string; value: boolean };
 
-// Returns today's date in UTC as YYYY-MM-DD
-function todayUTC() {
-    return new Date().toISOString().slice(0, 10);
+// Returns today's date in local time as YYYY-MM-DD
+function todayLocal() {
+    return getLocalDateString();
 }
 
 export default function TodayHabitsPage() {
-    const day = useMemo(() => todayUTC(), []);
+    const day = useMemo(() => todayLocal(), []);
     const [habits, setHabits] = useState<Habit[]>([]);
     const [logs, setLogs] = useState<Log[]>([]);
     const [loading, setLoading] = useState(true);

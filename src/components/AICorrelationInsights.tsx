@@ -53,15 +53,13 @@ export default function AICorrelationInsights() {
 
     if (!hasLoaded && !loading) {
         return (
-            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
-                <button
-                    onClick={loadInsights}
-                    disabled={loading}
-                    className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/20 disabled:opacity-60"
-                >
-                    {loading ? 'Loading...' : '💡 Get Correlation Insights'}
-                </button>
-            </div>
+            <button
+                onClick={loadInsights}
+                disabled={loading}
+                className="w-full rounded-2xl px-4 py-3 text-sm font-semibold text-white transition bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] shadow-lg shadow-[#8B5CF6]/40 hover:shadow-[#8B5CF6]/60 disabled:opacity-60"
+            >
+                {loading ? 'Loading...' : '💡 Get Correlation Insights'}
+            </button>
         );
     }
 

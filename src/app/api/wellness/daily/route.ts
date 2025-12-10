@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { getClientLocalDate, getLocalDateString } from '@/lib/time';
 
 // GET /api/wellness/daily - Get wellness metrics for date range
 export async function GET(req: NextRequest) {
@@ -31,10 +32,12 @@ export async function GET(req: NextRequest) {
         } else if (from && to) {
             query = query.gte('date', from).lte('date', to);
         } else {
-            // Default: last 30 days
-            const thirtyDaysAgo = new Date();
+            // Default: last 30 days (локальное время)
+            const today = getClientLocalDate(req);
+            const todayDate = new Date(today + 'T00:00:00');
+            const thirtyDaysAgo = new Date(todayDate);
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            const dateStr = thirtyDaysAgo.toISOString().split('T')[0];
+            const dateStr = getLocalDateString(thirtyDaysAgo);
             query = query.gte('date', dateStr);
         }
 
@@ -72,7 +75,7 @@ export async function POST(req: NextRequest) {
         const { date, stress_level, productivity_level, sleep_hours, work_hours } = body;
 
         // Use today's date if not provided (local timezone)
-        const targetDate = date || new Date().toISOString().split('T')[0];
+        const targetDate = date || getClientLocalDate(req);
 
         // Validate values (all 1-10)
         if (stress_level !== undefined && (stress_level < 1 || stress_level > 10)) {

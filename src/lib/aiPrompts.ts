@@ -388,13 +388,21 @@ ${BASE_OUTPUT_RULES_DATA_LANGUAGE}
 
 OUTPUT FORMAT:
 - Respond ONLY with valid, raw JSON. NO markdown formatting.
-- JSON structure: { "assessment": string, "recommendation": string }
+- When reviewing multiple goals, return a JSON object where each key is the goal ID (as string) and the value is an object with "assessment" and "recommendation" fields.
+- Example for multiple goals: { "123": { "assessment": "...", "recommendation": "..." }, "456": { "assessment": "...", "recommendation": "..." } }
+- Example for single goal: { "assessment": "...", "recommendation": "..." }
+- For each goal, provide personalized assessment and recommendation based on:
+  * Progress percentage (0% = not started, 100% = completed)
+  * Days remaining until deadline
+  * Eisenhower Matrix priority (Important/Urgent status)
+  * Wellness metrics (if provided)
 - If "Important & Urgent" goals are lagging, be strict in the recommendation.
 - If wellness metrics are provided, consider them when assessing capacity:
   * High stress (>7/10) or low sleep (<7h) may affect goal progress - suggest addressing wellness first.
   * Low productivity may indicate overcommitment - suggest prioritizing or adjusting scope.
   * High work hours with low productivity may suggest burnout - recommend rest or goal adjustment.
-- Match language of the goal title.`;
+- Match language of the goal title for each goal.
+- Provide specific, actionable recommendations for each goal individually.`;
 
 // ============================================================================
 // STREAK RECOVERY

@@ -138,8 +138,6 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
 
     const handleDeleteSubtask = async (subtaskId: number) => {
         if (!isSDKLoaded) return;
-        
-        if (!confirm('Delete this subtask?')) return;
 
         try {
             const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -214,20 +212,12 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
                         <button
                             type="button"
                             data-subtask-id={subtask.id}
-                            onMouseDown={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.nativeEvent.stopImmediatePropagation();
-                                handleDeleteSubtask(subtask.id);
-                            }}
                             onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                e.nativeEvent.stopImmediatePropagation();
                                 handleDeleteSubtask(subtask.id);
                             }}
                             className="text-xs text-red-400 hover:text-red-300 px-2 py-1 cursor-pointer flex-shrink-0"
-                            style={{ touchAction: 'manipulation' }}
                         >
                             ×
                         </button>
@@ -246,7 +236,7 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
                         }
                     }}
                     placeholder="Add subtask..."
-                    className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-white/10 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:border-purple-500/50"
+                    className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-white/10 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:border-[#8B5CF6]"
                     disabled={isAdding}
                 />
                 <button

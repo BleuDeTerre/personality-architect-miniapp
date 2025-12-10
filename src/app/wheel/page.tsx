@@ -47,21 +47,22 @@ const AREAS = [
 const AREA_ORDER = ['Inner State', 'Spirituality', 'Career', 'Relationships', 'Health', 'Personal Growth', 'Joy & Leisure', 'Social', 'Finances', 'Environment'];
 
 // Week format: YYYY-Www where week starts on Sunday (US standard)
+// Используем локальные даты, чтобы избежать проблем с часовыми поясами
 function isoWeek(now = new Date()) {
-    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-    const day = d.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const day = d.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     
     // Move to Sunday of current week
-    d.setUTCDate(d.getUTCDate() - day);
+    d.setDate(d.getDate() - day);
     
     // Find January 1st of the year
-    const jan1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    const jan1Day = jan1.getUTCDay(); // Day of week for Jan 1
+    const jan1 = new Date(d.getFullYear(), 0, 1);
+    const jan1Day = jan1.getDay(); // Day of week for Jan 1
     
     // Find the first Sunday of the year (or Jan 1 if it's Sunday)
     const firstSunday = new Date(jan1);
     if (jan1Day !== 0) {
-        firstSunday.setUTCDate(1 + (7 - jan1Day));
+        firstSunday.setDate(1 + (7 - jan1Day));
     }
     
     // Calculate week number: how many weeks from first Sunday to current Sunday
@@ -71,12 +72,12 @@ function isoWeek(now = new Date()) {
     
     // Handle edge case: if current date is before first Sunday, it's week 1 of previous year
     if (weekNo < 1) {
-        const prevYear = d.getUTCFullYear() - 1;
-        const prevJan1 = new Date(Date.UTC(prevYear, 0, 1));
-        const prevJan1Day = prevJan1.getUTCDay();
+        const prevYear = d.getFullYear() - 1;
+        const prevJan1 = new Date(prevYear, 0, 1);
+        const prevJan1Day = prevJan1.getDay();
         const prevFirstSunday = new Date(prevJan1);
         if (prevJan1Day !== 0) {
-            prevFirstSunday.setUTCDate(1 + (7 - prevJan1Day));
+            prevFirstSunday.setDate(1 + (7 - prevJan1Day));
         }
         const prevDiffMs = d.getTime() - prevFirstSunday.getTime();
         const prevDiffDays = Math.floor(prevDiffMs / 86400000);
@@ -84,7 +85,7 @@ function isoWeek(now = new Date()) {
         return `${prevYear}-W${String(prevWeekNo).padStart(2, '0')}`;
     }
     
-    return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+    return `${d.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
 function clamp010(n: number) {
@@ -170,10 +171,21 @@ export default function WheelPage() {
 
     const loadWeek = useCallback(async (w: string) => {
         setWeekLoading(true);
+        // Сбрасываем данные перед загрузкой новой недели
+        setItems(AREAS.map(a => ({ area: a.name, score: 0 })));
         try {
             const headers = await authHeaders();
-            const res = await fetch(`/api/wheel?week=${w}`, { headers, cache: 'no-store' });
+            const res = await fetch(`/api/wheel?week=${w}&t=${Date.now()}`, { 
+                headers, 
+                cache: 'no-store'
+            });
+            
+            if (!res.ok) {
+                throw new Error(`Failed to fetch week: ${res.status}`);
+            }
+            
             const js = await res.json();
+            
             if (Array.isArray(js.items) && js.items.length) {
                 const map = new Map<string, number>(js.items.map((x: any) => [x.area, x.score]));
                 const base = AREAS.map(a => ({ area: a.name, score: clamp010(map.get(a.name) ?? 0) }));
@@ -184,27 +196,50 @@ export default function WheelPage() {
                 });
                 setItems(base);
             } else {
-                // Если недели нет, создаем её с дефолтными значениями
-                const defaultItems = AREAS.map(a => ({ area: a.name, score: 5 }));
-                setItems(defaultItems);
+                // Если недели нет, проверяем - это текущая или будущая неделя?
+                const currentWeek = isoWeek();
+                const isCurrentOrFutureWeek = w >= currentWeek;
                 
-                // Автоматически создаем запись для новой недели
-                try {
-                    await Promise.all(
-                        defaultItems.map(async (it) => {
-                            const createRes = await fetch('/api/wheel', {
-                                method: 'POST',
-                                headers,
-                                body: JSON.stringify({ week: w, area: it.area, score: it.score }),
-                            });
-                            if (!createRes.ok) {
-                                console.warn(`[WheelPage] Failed to auto-create week entry for ${it.area}:`, await createRes.json().catch(() => ({})));
+                if (isCurrentOrFutureWeek) {
+                    // Для текущей/будущей недели создаем с дефолтными значениями
+                    const defaultItems = AREAS.map(a => ({ area: a.name, score: 5 }));
+                    setItems(defaultItems);
+                    
+                    // Автоматически создаем запись для новой недели через batch запрос
+                    const createBody = { 
+                        week: w, 
+                        items: defaultItems.map(it => ({ area: it.area, score: it.score }))
+                    };
+                    
+                    try {
+                        const createRes = await fetch('/api/wheel/save', {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify(createBody),
+                        });
+                        
+                        if (createRes.ok) {
+                            // После создания недели перезагружаем данные
+                            const reloadRes = await fetch(`/api/wheel?week=${w}`, { headers, cache: 'no-store' });
+                            const reloadJs = await reloadRes.json();
+                            
+                            if (Array.isArray(reloadJs.items) && reloadJs.items.length) {
+                                const map = new Map<string, number>(reloadJs.items.map((x: any) => [x.area, x.score]));
+                                const base = AREAS.map(a => ({ area: a.name, score: clamp010(map.get(a.name) ?? 0) }));
+                                reloadJs.items.forEach((x: any) => {
+                                    if (!AREAS.some(a => a.name === x.area)) {
+                                        base.push({ area: x.area, score: clamp010(x.score) });
+                                    }
+                                });
+                                setItems(base);
                             }
-                        })
-                    );
-                } catch (error) {
-                    console.error('[WheelPage] Failed to auto-create week:', error);
-                    // Не блокируем загрузку, если создание не удалось
+                        }
+                    } catch (error) {
+                        // Ошибка при создании недели - оставляем дефолтные значения
+                    }
+                } else {
+                    // Для прошлых недель показываем пустые значения (данных нет и не создаем)
+                    setItems(AREAS.map(a => ({ area: a.name, score: 0 })));
                 }
             }
         } finally {
@@ -391,15 +426,13 @@ export default function WheelPage() {
 
             if (!mounted) return;
             
-            // Проверяем текущую неделю и обновляем, если нужно
+            // Всегда используем текущую неделю при загрузке
             const currentWeek = isoWeek();
-            if (currentWeek !== currentWeekRef.current) {
-                console.log('[WheelPage] New week detected, updating from', currentWeekRef.current, 'to', currentWeek);
-                currentWeekRef.current = currentWeek;
-                setWeek(currentWeek);
-            }
+            console.log('[WheelPage] Loading with current week:', currentWeek);
+            currentWeekRef.current = currentWeek;
+            setWeek(currentWeek);
             
-            await loadWeek(currentWeekRef.current);
+            await loadWeek(currentWeek);
             await loadTrends();
         };
 
@@ -408,14 +441,12 @@ export default function WheelPage() {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!mounted) return;
             if (session?.user) {
-                // Проверяем текущую неделю и обновляем, если нужно
+                // Всегда используем текущую неделю при изменении авторизации
                 const currentWeek = isoWeek();
-                if (currentWeek !== currentWeekRef.current) {
-                    console.log('[WheelPage] New week detected on auth change, updating from', currentWeekRef.current, 'to', currentWeek);
-                    currentWeekRef.current = currentWeek;
-                    setWeek(currentWeek);
-                }
-                await loadWeek(currentWeekRef.current);
+                currentWeekRef.current = currentWeek;
+                setWeek(currentWeek);
+                
+                await loadWeek(currentWeek);
                 await loadTrends();
             } else {
                 setItems(AREAS.map(a => ({ area: a.name, score: 5 })));
@@ -438,11 +469,42 @@ export default function WheelPage() {
         }
     }, [items, editingValues]);
 
+    // Автоматически обновляем неделю на текущую при загрузке страницы и при смене недели
+    useEffect(() => {
+        if (!isSDKLoaded) return;
+        
+        const checkWeekChange = () => {
+            const currentWeek = isoWeek();
+            // Всегда обновляем на текущую неделю если она изменилась
+            if (currentWeek !== currentWeekRef.current) {
+                setWeek(currentWeek);
+                currentWeekRef.current = currentWeek;
+                loadWeek(currentWeek);
+            }
+        };
+
+        // Проверяем сразу
+        checkWeekChange();
+        
+        // Проверяем при возврате фокуса на окно
+        window.addEventListener('focus', checkWeekChange);
+        // Проверяем при видимости страницы
+        document.addEventListener('visibilitychange', checkWeekChange);
+
+        return () => {
+            window.removeEventListener('focus', checkWeekChange);
+            document.removeEventListener('visibilitychange', checkWeekChange);
+        };
+    }, [isSDKLoaded, loadWeek]);
+
     const handleWeekChange = useCallback(async (newWeek: string) => {
-        setWeek(newWeek);
-        currentWeekRef.current = newWeek;
+        // Всегда обновляем, даже если неделя та же
+        if (newWeek !== week) {
+            setWeek(newWeek);
+            currentWeekRef.current = newWeek;
+        }
         await loadWeek(newWeek);
-    }, [loadWeek]);
+    }, [loadWeek, week]);
 
     async function saveWeek() {
         setSaving(true);
@@ -787,7 +849,7 @@ export default function WheelPage() {
                                         value={week}
                                         onChange={handleWeekChange}
                                         placeholder="Select week"
-                                        className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white focus:border-white/40 focus:outline-none"
+                                        className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white focus:border-[#8B5CF6] focus:outline-none"
                                     />
                                 </div>
                                 <div>

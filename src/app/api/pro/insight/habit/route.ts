@@ -5,6 +5,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { getClientLocalDate } from '@/lib/time';
 import crypto from 'crypto';
 
 function sha(x: unknown) {
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
 
         // входные
         const body = await req.json().catch(() => ({}));
-        const date = String(body?.date || new Date().toISOString().slice(0, 10));
+        const date = String(body?.date || getClientLocalDate(req));
         const highAccuracy = !!body?.highAccuracy;
 
         const endpoint = 'insight/habit';

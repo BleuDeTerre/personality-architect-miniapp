@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { getClientLocalDate } from '@/lib/time';
 
 export async function GET(req: NextRequest) {
     try {
@@ -12,14 +13,8 @@ export async function GET(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        // Get timezone offset from client (same as daily quests)
-        const tzOffsetMinutesRaw = Number(req.headers.get('x-timezone-offset') ?? '0');
-        const timezoneOffsetMinutes = Number.isFinite(tzOffsetMinutesRaw) ? tzOffsetMinutesRaw : 0;
-        const timezoneOffsetMs = timezoneOffsetMinutes * 60 * 1000;
-
-        // Calculate today's date in client's timezone
-        const clientNow = new Date(Date.now() - timezoneOffsetMs);
-        const today = clientNow.toISOString().slice(0, 10);
+        // Get today's date in client's local timezone
+        const today = getClientLocalDate(req);
 
         const { data, error } = await supa
             .from('habits')

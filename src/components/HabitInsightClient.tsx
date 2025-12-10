@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useTransition, FormEvent } from "react";
 import { PRICES_USD } from "@/lib/pricing";
+import { getLocalDateString } from '@/lib/time';
 
 // API response type (cachedUntil is optional)
 type Resp = {
@@ -14,10 +15,10 @@ type Resp = {
 // Server action type, injected from the server page
 type ActionFn = (fd: FormData) => Promise<Resp>;
 
-function todayUTC() { return new Date().toISOString().slice(0, 10); }
+function todayLocal() { return getLocalDateString(); }
 
 export default function HabitInsightClient({ action }: { action: ActionFn }) {
-    const [date, setDate] = useState<string>(todayUTC());
+    const [date, setDate] = useState<string>(todayLocal());
     const [data, setData] = useState<Resp | null>(null);
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
@@ -78,7 +79,7 @@ export default function HabitInsightClient({ action }: { action: ActionFn }) {
                         className="px-4 py-2 rounded bg-indigo-600 text-white"
                         disabled={loading || pending}
                     >
-                        Buy paid report · ${PRICES_USD["/api/paid/insight/habit"].toFixed(2)}
+                        Buy paid report · $0.15
                     </button>
                 </form>
             </div>

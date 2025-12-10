@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { getLocalDateString } from '@/lib/time';
 
 interface DatePickerProps {
     value: string;
@@ -45,7 +46,7 @@ export default function DatePicker({ value, onChange, placeholder = 'MM/DD/YYYY'
 
     const handleDateSelect = (day: number) => {
         const newDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-        onChange(newDate.toISOString().split('T')[0]);
+        onChange(getLocalDateString(newDate));
         setIsOpen(false);
     };
 
@@ -58,8 +59,7 @@ export default function DatePicker({ value, onChange, placeholder = 'MM/DD/YYYY'
     };
 
     const handleToday = () => {
-        const today = new Date();
-        onChange(today.toISOString().split('T')[0]);
+        onChange(getLocalDateString());
         setIsOpen(false);
     };
 

@@ -157,7 +157,11 @@ export async function GET(req: NextRequest) {
         // Сортируем по риску
         alerts.sort((a, b) => b.riskScore - a.riskScore);
 
-        return NextResponse.json({ alerts: alerts.slice(0, 3) }); // Максимум 3 предупреждения
+        // Фильтруем только реальные риски (>= 50%)
+        const highRiskAlerts = alerts.filter(alert => alert.riskScore >= 50);
+
+        // Возвращаем максимум 3 предупреждения с риском >= 50%
+        return NextResponse.json({ alerts: highRiskAlerts.slice(0, 3) });
     } catch (error: any) {
         console.error('[AI Predictive Alerts] Error:', error);
         return NextResponse.json({ alerts: [], error: error?.message });

@@ -36,6 +36,38 @@ export default function ChatPage() {
         scrollToBottom();
     }, [messages]);
 
+    // Загружаем историю сообщений из базы данных при монтировании
+    useEffect(() => {
+        (async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session?.access_token) return;
+
+                const { data: messagesData, error } = await supabase
+                    .from('chat_messages')
+                    .select('role, content, created_at')
+                    .order('created_at', { ascending: true })
+                    .limit(50); // Загружаем последние 50 сообщений
+
+                if (error) {
+                    console.warn('[Chat] Failed to load message history:', error);
+                    return;
+                }
+
+                if (messagesData && messagesData.length > 0) {
+                    const loadedMessages: Message[] = messagesData.map(msg => ({
+                        role: msg.role as 'user' | 'assistant',
+                        content: msg.content,
+                        timestamp: new Date(msg.created_at),
+                    }));
+                    setMessages(loadedMessages);
+                }
+            } catch (e) {
+                console.warn('[Chat] Error loading message history:', e);
+            }
+        })();
+    }, []);
+
     const { isSDKLoaded, context: neynarContext } = useMiniApp();
 
     useEffect(() => {
@@ -289,7 +321,7 @@ export default function ChatPage() {
                             }
                         }}
                         placeholder="Ask me anything about your habits..."
-                        className="flex-1 rounded-2xl border border-white/10 bg-[#1a1b2e] text-white px-4 py-3 placeholder:text-white/40 focus:border-white/40 focus:outline-none disabled:opacity-50"
+                        className="flex-1 rounded-2xl border border-white/10 bg-[#1a1b2e] text-white px-4 py-3 placeholder:text-white/40 focus:border-[#8B5CF6] focus:outline-none disabled:opacity-50"
                         disabled={loading}
                     />
                     <button

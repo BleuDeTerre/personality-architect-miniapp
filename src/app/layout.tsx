@@ -6,6 +6,7 @@ import ClientToaster from "@/components/ClientToaster";
 import NeynarProvider from "@/components/NeynarProvider";
 import ErrorLogger from "@/components/ErrorLogger";
 import { escapeAttr } from "@/lib/shareOgHtml";
+import SessionRestore from "@/components/SessionRestore";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -88,6 +89,7 @@ export default function RootLayout({
           <ServiceWorkerRegistration />
           <ClientToaster />
           <ErrorLogger />
+          <SessionRestore />
           {children}
         </NeynarProvider>
       </body>

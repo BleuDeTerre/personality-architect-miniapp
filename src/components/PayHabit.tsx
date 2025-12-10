@@ -38,7 +38,7 @@ export default function PayHabit({ action }: { action: ActionFn }) {
                 className="px-4 py-2 rounded-xl bg-indigo-600 text-white"
                 disabled={pending}
             >
-                Buy Habit Insight · ${PRICES_USD["/api/paid/insight/habit"].toFixed(2)}
+                Buy Habit Insight · $0.15
             </button>
 
             <div className="text-sm">

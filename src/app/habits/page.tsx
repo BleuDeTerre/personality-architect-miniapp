@@ -9,6 +9,8 @@ import AchievementAnimation from '@/components/AchievementAnimation';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import CollapsibleCard from '@/components/CollapsibleCard';
+import AIHabitSuggestions from '@/components/AIHabitSuggestions';
+import AIHabitDifficulty from '@/components/AIHabitDifficulty';
 import { getRandomVariant, topStreakHabitTexts, habitsSummaryTexts } from '@/lib/castTextVariants';
 
 // Используем централизованный клиент из lib/supabase с правильными настройками
@@ -626,6 +628,26 @@ export default function HabitsPage() {
         }
     }
 
+    async function updateHabitTarget(id: string, newTarget: number) {
+        try {
+            const headers = await authHeaders();
+            const res = await fetch('/api/habits', {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify({ id, target_days_per_week: newTarget }),
+            });
+            if (res.ok) {
+                setHabits(prev =>
+                    prev.map(h =>
+                        h.id === id ? { ...h, target_days_per_week: newTarget } : h
+                    )
+                );
+            }
+        } catch (error) {
+            console.error('[HabitsPage] Failed to update habit target:', error);
+        }
+    }
+
     async function markComplete(id: string, current?: boolean) {
         if (current || updatingHabitId === id) return;
 
@@ -860,7 +882,7 @@ export default function HabitsPage() {
                                         onChange={(e) => setEmoji(e.target.value)}
                                         onClick={() => setShowEmojiPicker(true)}
                                         readOnly
-                                        className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                        className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-[#8B5CF6] focus:outline-none"
                                     />
                                     {showEmojiPicker && (
                                         <div ref={emojiPickerRef} className="absolute z-10 mt-2 w-full max-w-[240px] rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 backdrop-blur max-h-48 overflow-y-auto">
@@ -900,7 +922,7 @@ export default function HabitsPage() {
                                         max={7}
                                         value={targetDays}
                                         onChange={(e) => setTargetDays(Number(e.target.value))}
-                                        className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                        className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-[#8B5CF6] focus:outline-none"
                                     />
                                 </div>
                             </div>
@@ -911,7 +933,7 @@ export default function HabitsPage() {
                                     placeholder="Habit title"
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
-                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                                    className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-[#8B5CF6] focus:outline-none"
                                     required
                                     onInvalid={(e) => {
                                         e.currentTarget.setCustomValidity('Please fill in this field.');
@@ -948,6 +970,9 @@ export default function HabitsPage() {
                             />
                         </CollapsibleCard>
                     )}
+
+                    {/* AI Habit Suggestions */}
+                    {habits.length > 0 && <AIHabitSuggestions />}
 
                     {/* Habits Grid */}
                     {loadingHabits ? (
@@ -1012,6 +1037,14 @@ export default function HabitsPage() {
                                                     <X className="h-4 w-4" />
                                                 )}
                                             </button>
+                                        </div>
+                                        <div className="mt-2">
+                                            <AIHabitDifficulty
+                                                habitId={h.id}
+                                                habitTitle={titleText}
+                                                currentTarget={h.target_days_per_week}
+                                                onTargetUpdate={(newTarget) => updateHabitTarget(h.id, newTarget)}
+                                            />
                                         </div>
                                     </div>
                                 );

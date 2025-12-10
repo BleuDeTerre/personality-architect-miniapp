@@ -21,10 +21,10 @@ export async function GET(req: NextRequest) {
             return NextResponse.json(cached);
         }
 
-        // Получаем все логи за последние 90 дней
-        const since90 = new Date();
-        since90.setDate(since90.getDate() - 90);
-        const since90Str = since90.toISOString().slice(0, 10);
+        // Получаем все логи за последние 30 дней (или за весь доступный период, если меньше)
+        const since30 = new Date();
+        since30.setDate(since30.getDate() - 30);
+        const since30Str = since30.toISOString().slice(0, 10);
 
         // Оптимизация: получаем логи и привычки параллельно
         const [logsRes, habitsRes] = await Promise.all([
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
                 .select('habit_id, date, value')
                 .eq('user_id', userId)
                 .eq('value', true)
-                .gte('date', since90Str),
+                .gte('date', since30Str),
             supa
                 .from('habits')
                 .select('id, title')
@@ -94,10 +94,13 @@ export async function GET(req: NextRequest) {
                     : 0;
 
                 // Фильтруем: показываем только значимые корреляции
-                // Минимум 5 дней вместе И корреляция >30% ИЛИ корреляция >70% (сильная)
-                const minDaysTogether = 5;
-                const minCorrelation = 0.3;
-                const strongCorrelation = 0.7;
+                // Адаптивные пороги в зависимости от доступных данных
+                // Минимум 3 дня вместе И корреляция >25% ИЛИ корреляция >60% (сильная)
+                // Для меньших периодов (меньше 30 дней данных) пороги еще ниже
+                const totalDays = logsByDate.size; // Общее количество дней с данными
+                const minDaysTogether = totalDays < 14 ? 2 : totalDays < 30 ? 3 : 5; // Адаптивный порог
+                const minCorrelation = totalDays < 14 ? 0.2 : totalDays < 30 ? 0.25 : 0.3; // Адаптивный порог
+                const strongCorrelation = totalDays < 14 ? 0.5 : totalDays < 30 ? 0.6 : 0.7; // Адаптивный порог
 
                 if (correlation > 0 && 
                     ((daysBoth >= minDaysTogether && correlation >= minCorrelation) || 

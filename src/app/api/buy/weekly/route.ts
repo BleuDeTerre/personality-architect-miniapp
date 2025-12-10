@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { getClientLocalDate } from '@/lib/time';
 
 export async function POST(req: NextRequest) {
     try {
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
 
         // 2) Тело запроса
         const body = await req.json().catch(() => ({}));
-        const week_start = String(body?.week_start || new Date().toISOString().slice(0, 10));
+        const week_start = String(body?.week_start || getClientLocalDate(req));
         const highAccuracy = !!body?.highAccuracy;
 
         // 3) Проверка кредитов (RPC должен использовать auth.uid() внутри)
@@ -40,9 +41,9 @@ export async function POST(req: NextRequest) {
             return NextResponse.json(j);
         }
 
-        // 5) Если кредитов нет — возвращаем 402 для оплаты через клиент
+        // 5) Если кредитов нет — возвращаем 402 (оплата пока не реализована)
         return NextResponse.json(
-            { error: 'payment_required', sku: '/api/paid/insight/weekly' },
+            { error: 'payment_required', message: 'Credits required. Payment system not yet implemented.' },
             { status: 402 }
         );
     } catch (e: any) {

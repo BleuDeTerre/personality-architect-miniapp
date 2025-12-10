@@ -82,10 +82,16 @@ export default function MonthlyInsightPage() {
         try {
             const headers = await authHeaders();
             
-            // Use pro endpoint for pro/premium users
-            const endpoint = (userPlan === 'pro' || userPlan === 'premium')
-                ? '/api/pro/insight/monthly'
-                : '/api/paid/insight/monthly';
+            // Use pro endpoint for pro/premium users, show error for free users
+            if (userPlan === 'free') {
+                toast.error('Pro required', {
+                    description: 'Monthly insights are available for Pro and Premium users only',
+                });
+                setLoading(false);
+                return;
+            }
+            
+            const endpoint = '/api/pro/insight/monthly';
 
             const url = `${endpoint}?month=${month}`;
             const r = await fetch(url, { headers });
@@ -139,7 +145,7 @@ export default function MonthlyInsightPage() {
                     <label className="block text-sm font-semibold text-white mb-2">Month</label>
                     <input
                         type="month"
-                        className="w-full rounded-xl border border-white/10 bg-[#0c0f1a] px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
+                        className="w-full rounded-xl border border-white/10 bg-[#0c0f1a] px-3 py-2 text-sm text-white focus:border-[#8B5CF6] focus:outline-none"
                         value={month}
                         onChange={e => setMonth(e.target.value)}
                     />

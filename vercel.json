@@ -3,6 +3,10 @@
     {
       "path": "/api/notifications/cron",
       "schedule": "0 20 * * *"
+    },
+    {
+      "path": "/api/wheel/create-week",
+      "schedule": "0 0 * * 0"
     }
   ],
   "redirects": [

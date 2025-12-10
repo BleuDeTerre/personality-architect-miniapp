@@ -1,8 +1,5 @@
 // src/lib/pricing.ts
 export const PRICES_USD = {
-    "/api/paid/insight/weekly": 0.25,
-    "/api/paid/insight/habit": 0.15,
-    "/api/paid/insight/monthly": 0.35,
     "/api/paid/credits/pro-monthly": 4.99,
     "/api/mint": 0.19,
 } as const;

@@ -9,46 +9,49 @@ interface WeekPickerProps {
     className?: string;
 }
 
-// Конвертирует ISO неделю в дату начала недели (воскресенье)
+// Конвертирует неделю в дату начала недели (воскресенье)
+// Формат: YYYY-Www где неделя начинается с воскресенья
 function weekToDate(weekStr: string): Date | null {
     const match = weekStr.match(/^(\d{4})-W(\d{2})$/);
     if (!match) return null;
     const year = parseInt(match[1], 10);
     const week = parseInt(match[2], 10);
 
-    // Находим 4 января (всегда в первой неделе года)
-    const jan4 = new Date(Date.UTC(year, 0, 4));
-    const jan4Day = jan4.getUTCDay() || 7; // 1 = Monday, 7 = Sunday
-    const mondayOfWeek1 = new Date(Date.UTC(year, 0, 4 - jan4Day + 1));
-
-    // Добавляем недели
-    const targetMonday = new Date(mondayOfWeek1);
-    targetMonday.setUTCDate(mondayOfWeek1.getUTCDate() + (week - 1) * 7);
-
-    // Возвращаем воскресенье, предшествующее ISO-понедельнику
-    const targetSunday = new Date(targetMonday);
-    targetSunday.setUTCDate(targetMonday.getUTCDate() - 1);
-    const sundayLocal = new Date(targetSunday.getFullYear(), targetSunday.getMonth(), targetSunday.getDate());
-    sundayLocal.setHours(0, 0, 0, 0);
-    return sundayLocal;
+    // Находим 1 января
+    const jan1 = new Date(year, 0, 1);
+    const jan1Day = jan1.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    
+    // Находим первое воскресенье года (или 1 января, если оно воскресенье)
+    const firstSunday = new Date(jan1);
+    if (jan1Day !== 0) {
+        firstSunday.setDate(1 + (7 - jan1Day));
+    }
+    
+    // Добавляем недели (неделя 1 начинается с первого воскресенья)
+    const targetSunday = new Date(firstSunday);
+    targetSunday.setDate(firstSunday.getDate() + (week - 1) * 7);
+    targetSunday.setHours(0, 0, 0, 0);
+    
+    return targetSunday;
 }
 
 // Конвертирует дату в неделю (формат YYYY-Www, неделя начинается с воскресенья)
 function dateToWeek(date: Date): string {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const day = d.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    // Используем локальную дату, а не UTC, чтобы избежать проблем с часовыми поясами
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const day = d.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     
     // Move to Sunday of current week
-    d.setUTCDate(d.getUTCDate() - day);
+    d.setDate(d.getDate() - day);
     
     // Find January 1st of the year
-    const jan1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    const jan1Day = jan1.getUTCDay(); // Day of week for Jan 1
+    const jan1 = new Date(d.getFullYear(), 0, 1);
+    const jan1Day = jan1.getDay(); // Day of week for Jan 1
     
     // Find the first Sunday of the year (or Jan 1 if it's Sunday)
     const firstSunday = new Date(jan1);
     if (jan1Day !== 0) {
-        firstSunday.setUTCDate(1 + (7 - jan1Day));
+        firstSunday.setDate(1 + (7 - jan1Day));
     }
     
     // Calculate week number: how many weeks from first Sunday to current Sunday
@@ -58,12 +61,12 @@ function dateToWeek(date: Date): string {
     
     // Handle edge case: if current date is before first Sunday, it's week 1 of previous year
     if (weekNo < 1) {
-        const prevYear = d.getUTCFullYear() - 1;
-        const prevJan1 = new Date(Date.UTC(prevYear, 0, 1));
-        const prevJan1Day = prevJan1.getUTCDay();
+        const prevYear = d.getFullYear() - 1;
+        const prevJan1 = new Date(prevYear, 0, 1);
+        const prevJan1Day = prevJan1.getDay();
         const prevFirstSunday = new Date(prevJan1);
         if (prevJan1Day !== 0) {
-            prevFirstSunday.setUTCDate(1 + (7 - prevJan1Day));
+            prevFirstSunday.setDate(1 + (7 - prevJan1Day));
         }
         const prevDiffMs = d.getTime() - prevFirstSunday.getTime();
         const prevDiffDays = Math.floor(prevDiffMs / 86400000);
@@ -71,7 +74,7 @@ function dateToWeek(date: Date): string {
         return `${prevYear}-W${String(prevWeekNo).padStart(2, '0')}`;
     }
     
-    return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+    return `${d.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
 // Форматирует неделю для отображения
@@ -109,7 +112,11 @@ export default function WeekPicker({ value, onChange, placeholder = 'Select week
         if (value) {
             const weekDate = weekToDate(value);
             if (weekDate) {
-                setCurrentMonth(new Date(weekDate.getFullYear(), weekDate.getMonth(), 1));
+                const newMonth = new Date(weekDate.getFullYear(), weekDate.getMonth(), 1);
+                // Обновляем только если месяц действительно изменился
+                if (newMonth.getTime() !== currentMonth.getTime()) {
+                    setCurrentMonth(newMonth);
+                }
             }
         }
     }, [value]);
@@ -134,6 +141,7 @@ export default function WeekPicker({ value, onChange, placeholder = 'Select week
 
     const handleThisWeek = () => {
         const week = dateToWeek(new Date());
+        // Всегда вызываем onChange, даже если неделя та же
         onChange(week);
         setIsOpen(false);
     };
@@ -156,6 +164,18 @@ export default function WeekPicker({ value, onChange, placeholder = 'Select week
             days.push(day);
         }
 
+        // Заполняем до конца недели днями следующего месяца (чтобы сетка была полной)
+        const totalCells = days.length;
+        const remainingCells = 42 - totalCells; // 6 недель * 7 дней = 42
+        if (remainingCells > 0 && remainingCells < 7) {
+            // Добавляем дни следующего месяца только для завершения последней недели
+            const nextMonth = month === 11 ? 0 : month + 1;
+            const nextYear = month === 11 ? year + 1 : year;
+            for (let day = 1; day <= remainingCells; day++) {
+                days.push(day);
+            }
+        }
+
         return days;
     };
 
@@ -170,13 +190,26 @@ export default function WeekPicker({ value, onChange, placeholder = 'Select week
         return date.toDateString() === today.toDateString();
     };
 
-    const isInSelectedWeek = (day: number | null) => {
+    const isInSelectedWeek = (day: number | null, isNextMonth: boolean = false) => {
         if (day === null || !selectedWeekDate) return false;
-        const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        let date: Date;
+        if (isNextMonth) {
+            const nextMonth = month === 11 ? 0 : month + 1;
+            const nextYear = month === 11 ? year + 1 : year;
+            date = new Date(nextYear, nextMonth, day);
+        } else {
+            date = new Date(year, month, day);
+        }
         const sunday = new Date(date);
         sunday.setDate(date.getDate() - date.getDay());
         sunday.setHours(0, 0, 0, 0);
-        return sunday.getTime() === selectedWeekDate.getTime();
+        
+        const selectedSunday = new Date(selectedWeekDate);
+        selectedSunday.setHours(0, 0, 0, 0);
+        
+        return sunday.getTime() === selectedSunday.getTime();
     };
 
     return (
@@ -227,23 +260,49 @@ export default function WeekPicker({ value, onChange, placeholder = 'Select week
 
                     {/* Календарная сетка */}
                     <div className="grid grid-cols-7 gap-0.5">
-                        {days.map((day, idx) => (
-                            <button
-                                key={idx}
-                                type="button"
-                                onClick={() => day !== null && handleDateSelect(day)}
-                                disabled={day === null}
-                                className={`
-                                    h-7 w-7 rounded-lg text-[11px] font-medium transition
-                                    ${day === null ? 'cursor-default' : 'cursor-pointer hover:bg-white/10'}
-                                    ${isToday(day) ? 'bg-[#8B5CF6]/20 text-[#A78BFA] font-semibold' : 'text-white/90'}
-                                    ${isInSelectedWeek(day) ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white font-semibold' : ''}
-                                    ${day !== null && !isToday(day) && !isInSelectedWeek(day) ? 'hover:bg-white/10' : ''}
-                                `}
-                            >
-                                {day}
-                            </button>
-                        ))}
+                        {days.map((day, idx) => {
+                            const year = currentMonth.getFullYear();
+                            const month = currentMonth.getMonth();
+                            const firstDay = new Date(year, month, 1).getDay();
+                            const daysInMonth = new Date(year, month + 1, 0).getDate();
+                            
+                            // Определяем, является ли день частью текущего месяца
+                            const isCurrentMonth = day !== null && idx >= firstDay && idx < firstDay + daysInMonth;
+                            const isNextMonth = day !== null && !isCurrentMonth;
+                            
+                            return (
+                                <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => {
+                                        if (day !== null) {
+                                            if (isNextMonth) {
+                                                // Если день из следующего месяца, создаем дату следующего месяца
+                                                const nextMonth = month === 11 ? 0 : month + 1;
+                                                const nextYear = month === 11 ? year + 1 : year;
+                                                const selectedDate = new Date(nextYear, nextMonth, day);
+                                                const week = dateToWeek(selectedDate);
+                                                onChange(week);
+                                                setIsOpen(false);
+                                            } else {
+                                                handleDateSelect(day);
+                                            }
+                                        }
+                                    }}
+                                    disabled={day === null}
+                                    className={`
+                                        h-7 w-7 rounded-lg text-[11px] font-medium transition
+                                        ${day === null ? 'cursor-default' : 'cursor-pointer hover:bg-white/10'}
+                                        ${isNextMonth ? 'text-white/40' : ''}
+                                        ${isToday(day) && isCurrentMonth ? 'bg-[#8B5CF6]/20 text-[#A78BFA] font-semibold' : ''}
+                                        ${isInSelectedWeek(day, isNextMonth) ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white font-semibold' : ''}
+                                        ${day !== null && !isToday(day) && !isInSelectedWeek(day) && isCurrentMonth ? 'text-white/90 hover:bg-white/10' : ''}
+                                    `}
+                                >
+                                    {day}
+                                </button>
+                            );
+                        })}
                     </div>
 
                     {/* Кнопка "This Week" */}

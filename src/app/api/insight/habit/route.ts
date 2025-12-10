@@ -3,10 +3,11 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { getClientLocalDate } from '@/lib/time';
 
-function normDate(s?: string | null) {
+function normDate(s?: string | null, req?: NextRequest) {
     const d = (s || '').slice(0, 10);
-    return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : new Date().toISOString().slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : (req ? getClientLocalDate(req) : new Date().toISOString().slice(0, 10));
 }
 
 // GET /api/insight/habit?date=YYYY-MM-DD
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
         const supa = createUserServerClient(token);
 
         const { searchParams } = new URL(req.url);
-        const date = normDate(searchParams.get('date'));
+        const date = normDate(searchParams.get('date'), req);
 
         const { data: habits, error: hErr } = await supa
             .from('habits')
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
 
         const { data: logs, error: lErr } = await supa
             .from('habit_logs')
-            .select('habit_id, value, note')
+            .select('habit_id, value')
             .eq('user_id', userId)
             .eq('date', date);
         if (lErr) return NextResponse.json({ error: lErr.message }, { status: 500 });

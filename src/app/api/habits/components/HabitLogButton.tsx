@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { getLocalDateString } from '@/lib/time';
 
 /**
  * Кнопка "Отметить выполнено".
@@ -11,7 +12,7 @@ export default function HabitLogButton({ habitId, date }: { habitId: string; dat
     const [loading, setLoading] = useState(false);
     const [ok, setOk] = useState(false);
 
-    const day = date ?? new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
+    const day = date ?? getLocalDateString(); // YYYY-MM-DD (локальное время)
 
     async function markDone() {
         setLoading(true);

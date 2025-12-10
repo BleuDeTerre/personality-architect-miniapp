@@ -512,7 +512,7 @@ export default function ProfilePage() {
                                 value={mainFocusInput}
                                 onChange={(e) => setMainFocusInput(e.target.value)}
                                 placeholder="e.g., Career, Health, Family, Finance, or custom..."
-                                className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:border-purple-500/50"
+                                className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:border-[#8B5CF6]"
                                 onKeyPress={(e) => {
                                     if (e.key === 'Enter') {
                                         handleSaveMainFocus();

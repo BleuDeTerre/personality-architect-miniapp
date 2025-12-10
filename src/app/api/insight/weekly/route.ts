@@ -4,22 +4,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 
-function isoWeekToRange(week: string) {
-    const [y, w] = week.split('-W').map(Number);
-    if (!y || !w) throw new Error('bad_week_format');
-    const jan4 = new Date(Date.UTC(y, 0, 4));
-    const jan4Day = (jan4.getUTCDay() || 7);
-    const week1Mon = new Date(jan4);
-    week1Mon.setUTCDate(jan4.getUTCDate() - (jan4Day - 1));
-    const isoMonday = new Date(week1Mon);
-    isoMonday.setUTCDate(week1Mon.getUTCDate() + (w - 1) * 7);
-    const sundayStart = new Date(isoMonday);
-    sundayStart.setUTCDate(isoMonday.getUTCDate() - 1);
-    const end = new Date(sundayStart);
-    end.setUTCDate(sundayStart.getUTCDate() + 6);
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    return { start: fmt(sundayStart), end: fmt(end) };
-}
 
 export async function GET(req: NextRequest) {
     try {
@@ -30,12 +14,30 @@ export async function GET(req: NextRequest) {
         const supa = createUserServerClient(token);
 
         const { searchParams } = new URL(req.url);
-        const week = searchParams.get('week') || '';
-        if (!/^\d{4}-W\d{2}$/.test(week)) {
-            return NextResponse.json({ error: 'week_required' }, { status: 400 });
+        const weekStart = searchParams.get('week_start') || '';
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+            return NextResponse.json({ error: 'week_start_required', message: 'week_start parameter (YYYY-MM-DD) is required' }, { status: 400 });
         }
+        
+        // Convert week_start (Sunday date) to ISO week format
+        const startDate = new Date(weekStart + 'T00:00:00');
+        const year = startDate.getFullYear();
+        const jan1 = new Date(year, 0, 1);
+        const jan1Day = jan1.getDay();
+        const firstSunday = new Date(jan1);
+        if (jan1Day !== 0) {
+            firstSunday.setDate(1 + (7 - jan1Day));
+        }
+        const diffMs = startDate.getTime() - firstSunday.getTime();
+        const diffDays = Math.floor(diffMs / 86400000);
+        const weekNo = Math.floor(diffDays / 7) + 1;
+        const week = `${year}-W${String(weekNo).padStart(2, '0')}`;
 
-        const { start, end } = isoWeekToRange(week);
+        // Calculate end date (6 days after start)
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 6);
+        const start = weekStart;
+        const end = endDate.toISOString().slice(0, 10);
 
         // 1) Wheel
         const wheelQ = supa

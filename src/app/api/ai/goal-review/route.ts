@@ -112,6 +112,61 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ reviews: cached.reviews, cached: true });
         }
 
+        // Проверяем лимит один раз перед AI запросом
+        const limitCheck = await checkAILimit(supa, userId, userPlan);
+        if (!limitCheck.allowed) {
+            // Если лимит достигнут - используем fallback для всех целей
+            const fallbackReviews = goals.map(goal => {
+                const createdDate = new Date(goal.created_at);
+                const dueDate = goal.due_date ? new Date(goal.due_date) : null;
+                const daysSinceStart = Math.floor((today.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+                const totalDays = dueDate ? Math.floor((dueDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
+                const progress = totalDays ? Math.min(100, (daysSinceStart / totalDays) * 100) : 50;
+                const isOnTrack = progress <= 100 || !dueDate;
+
+                return {
+                    goalId: goal.id,
+                    goalTitle: goal.title,
+                    progress: Math.round(progress),
+                    assessment: isOnTrack ? 'You are on track!' : 'Consider adjusting your approach.',
+                    recommendation: 'Stay consistent and track your progress.',
+                    isOnTrack,
+                };
+            });
+            return NextResponse.json({ reviews: fallbackReviews });
+        }
+
+        // Подготавливаем данные для всех целей сразу
+        const goalsData = goals.map(goal => {
+            const createdDate = new Date(goal.created_at);
+            const dueDate = goal.due_date ? new Date(goal.due_date) : null;
+            const daysSinceStart = Math.floor((today.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+            const totalDays = dueDate ? Math.floor((dueDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
+            const progress = totalDays ? Math.min(100, (daysSinceStart / totalDays) * 100) : 50;
+            const isOnTrack = progress <= 100 || !dueDate;
+
+            return {
+                id: goal.id,
+                title: goal.title,
+                metric: goal.metric,
+                target: goal.target,
+                unit: goal.unit,
+                daysSinceStart,
+                dueInDays: dueDate ? Math.max(0, Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))) : null,
+                progress: Math.round(progress),
+                isOnTrack,
+                important: goal.important,
+                urgent: goal.urgent,
+            };
+        });
+
+        // Генерируем обзор через AI для ВСЕХ целей одним запросом
+        const deepseekResult = await getDeepSeekWithLimitCheck(supa);
+        if (deepseekResult.error) {
+            return deepseekResult.error;
+        }
+        const { aiClient, model } = deepseekResult;
+
         const reviews: Array<{
             goalId: string;
             goalTitle: string;
@@ -121,100 +176,86 @@ export async function GET(req: NextRequest) {
             isOnTrack: boolean;
         }> = [];
 
-        for (const goal of goals) {
-            // Проверяем лимит перед каждым AI запросом (может быть несколько целей)
-            const currentLimitCheck = await checkAILimit(supa, userId, userPlan);
-            if (!currentLimitCheck.allowed) {
-                // Если лимит достигнут - используем fallback для оставшихся целей
-                const createdDate = new Date(goal.created_at);
-                const dueDate = goal.due_date ? new Date(goal.due_date) : null;
-                const daysSinceStart = Math.floor((today.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
-                const totalDays = dueDate ? Math.floor((dueDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
-                const progress = totalDays ? Math.min(100, (daysSinceStart / totalDays) * 100) : 50;
-                const isOnTrack = progress <= 100 || !dueDate;
+        try {
+            // Формируем один большой запрос для всех целей
+            const goalsText = goalsData.map((g, idx) => {
+                return [
+                    `Goal ${idx + 1}: "${g.title}"`,
+                    g.metric ? `  Metric: ${g.metric}` : '',
+                    g.target ? `  Target: ${g.target} ${g.unit || ''}` : '',
+                    `  Created: ${g.daysSinceStart} days ago`,
+                    g.dueInDays !== null ? `  Due in: ${g.dueInDays} days` : '  No deadline',
+                    `  Progress: ${g.progress}%`,
+                    g.important !== undefined || g.urgent !== undefined 
+                        ? `  Eisenhower Matrix: ${g.important ? 'Important' : 'Not Important'} & ${g.urgent ? 'Urgent' : 'Not Urgent'}` 
+                        : '',
+                ].filter(Boolean).join('\n');
+            }).join('\n\n');
 
+            const chat = await aiClient.chat.completions.create({
+                model,
+                temperature: 0.6,
+                messages: [
+                    {
+                        role: 'system',
+                        content: GOAL_REVIEW_PROMPT,
+                    },
+                    {
+                        role: 'user',
+                        content: [
+                            `Review the following ${goalsData.length} goal(s). Provide a personalized assessment and recommendation for EACH goal individually:\n\n${goalsText}`,
+                            wellnessContext || '',
+                            ``,
+                            `CRITICAL REQUIREMENTS:`,
+                            `1. Return a JSON object where each key is the goal ID (as string)`,
+                            `2. Each value must be an object with "assessment" and "recommendation" fields`,
+                            `3. Assessment should be 2-3 sentences analyzing the goal's progress and status`,
+                            `4. Recommendation should be specific and actionable, considering:`,
+                            `   - Progress percentage (0% needs immediate action, 100% is completed)`,
+                            `   - Days remaining until deadline`,
+                            `   - Priority level (Important & Urgent goals need more attention)`,
+                            `   - Wellness capacity (if provided)`,
+                            `5. Match the language of each goal title`,
+                            `6. Be strict with Important & Urgent goals that are lagging`,
+                            ``,
+                            `JSON structure: { "${goalsData[0]?.id}": { "assessment": "...", "recommendation": "..." }, "${goalsData[1]?.id || 'next'}": { ... } }`,
+                        ].filter(Boolean).join('\n'),
+                    },
+                ],
+                response_format: { type: 'json_object' },
+            });
+
+            const result = JSON.parse(chat.choices[0]?.message?.content || '{}');
+
+            // Создаем reviews из результата AI
+            for (const goalData of goalsData) {
+                const goalResult = result[String(goalData.id)] || result[goalData.id] || {};
                 reviews.push({
-                    goalId: goal.id,
-                    goalTitle: goal.title,
-                    progress: Math.round(progress),
-                    assessment: isOnTrack ? 'You are on track!' : 'Consider adjusting your approach.',
-                    recommendation: 'Stay consistent and track your progress.',
-                    isOnTrack,
+                    goalId: goalData.id,
+                    goalTitle: goalData.title,
+                    progress: goalData.progress,
+                    assessment: goalResult.assessment || (goalData.isOnTrack ? 'You are on track!' : 'Consider adjusting your approach.'),
+                    recommendation: goalResult.recommendation || 'Stay consistent and track your progress.',
+                    isOnTrack: goalData.isOnTrack,
                 });
-                continue;
             }
 
-            const createdDate = new Date(goal.created_at);
-            const dueDate = goal.due_date ? new Date(goal.due_date) : null;
-            const daysSinceStart = Math.floor((today.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
-            const totalDays = dueDate ? Math.floor((dueDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
-
-            // Упрощенный расчет прогресса (можно улучшить с реальными метриками)
-            const progress = totalDays ? Math.min(100, (daysSinceStart / totalDays) * 100) : 50;
-            const isOnTrack = progress <= 100 || !dueDate;
-
-            // Генерируем обзор через AI (используем DeepSeek для сложных задач)
-            const deepseekResult = await getDeepSeekWithLimitCheck(supa);
-            if (deepseekResult.error) {
-                return deepseekResult.error;
-            }
-            const { aiClient, model } = deepseekResult;
-
-            try {
-                const chat = await aiClient.chat.completions.create({
-                    model,
-                    temperature: 0.6,
-                    messages: [
-                        {
-                            role: 'system',
-                            content: GOAL_REVIEW_PROMPT,
-                        },
-                        {
-                            role: 'user',
-                            content: [
-                                `Goal: "${goal.title}"`,
-                                goal.metric ? `Metric: ${goal.metric}` : '',
-                                goal.target ? `Target: ${goal.target} ${goal.unit || ''}` : '',
-                                `Created: ${daysSinceStart} days ago`,
-                                dueDate ? `Due in: ${Math.max(0, Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))} days` : 'No deadline',
-                                `Progress: ${progress.toFixed(0)}%`,
-                                goal.important !== undefined || goal.urgent !== undefined ? `Eisenhower Matrix: ${goal.important ? 'Important' : 'Not Important'} & ${goal.urgent ? 'Urgent' : 'Not Urgent'}` : '',
-                                wellnessContext || '',
-                                ``,
-                                `Assess if on track and provide recommendation considering the priority level and their wellness capacity.`,
-                                `Return JSON only.`,
-                            ].filter(Boolean).join('\n'),
-                        },
-                    ],
-                    response_format: { type: 'json_object' },
-                });
-
-                const result = JSON.parse(chat.choices[0]?.message?.content || '{}');
-
+            // Логируем AI запрос в фоне (помечаем как DeepSeek)
+            (async () => {
+                await logAIRequest(supa, userId, userPlan, 'ai/goal-review', deepseekResult.markAsDeepSeek({
+                    goals_count: goals.length,
+                }));
+            })();
+        } catch (_aiError) {
+            // Fallback для всех целей
+            for (const goalData of goalsData) {
                 reviews.push({
-                    goalId: goal.id,
-                    goalTitle: goal.title,
-                    progress: Math.round(progress),
-                    assessment: result.assessment || 'Keep working towards your goal!',
-                    recommendation: result.recommendation || 'Stay consistent and track your progress.',
-                    isOnTrack,
-                });
-
-                // Логируем AI запрос в фоне (помечаем как DeepSeek)
-                (async () => {
-                    await logAIRequest(supa, userId, userPlan, 'ai/goal-review', deepseekResult.markAsDeepSeek({
-                        goal_id: goal.id,
-                    }));
-                })();
-            } catch (_aiError) {
-                // Fallback
-                reviews.push({
-                    goalId: goal.id,
-                    goalTitle: goal.title,
-                    progress: Math.round(progress),
-                    assessment: isOnTrack ? 'You are on track!' : 'Consider adjusting your approach.',
+                    goalId: goalData.id,
+                    goalTitle: goalData.title,
+                    progress: goalData.progress,
+                    assessment: goalData.isOnTrack ? 'You are on track!' : 'Consider adjusting your approach.',
                     recommendation: 'Stay consistent and track your progress.',
-                    isOnTrack,
+                    isOnTrack: goalData.isOnTrack,
                 });
             }
         }

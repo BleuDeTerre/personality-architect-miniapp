@@ -46,9 +46,22 @@ export async function POST(req: NextRequest) {
 
         const body = await req.json();
         const userMessage = body.message as string;
-        const conversationHistory = body.history as Array<{ role: 'user' | 'assistant'; content: string }> || [];
+        const clientHistory = body.history as Array<{ role: 'user' | 'assistant'; content: string }> || [];
 
         if (!userMessage) return NextResponse.json({ error: 'message_required' }, { status: 400 });
+
+        // Загружаем историю сообщений из базы данных (более надежно, чем полагаться только на клиент)
+        const { data: dbHistory, error: historyError } = await supa
+            .from('chat_messages')
+            .select('role, content, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: true })
+            .limit(50); // Загружаем последние 50 сообщений
+
+        // Используем историю из БД, если она есть, иначе используем историю с клиента
+        const conversationHistory = (dbHistory && dbHistory.length > 0)
+            ? dbHistory.map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }))
+            : clientHistory;
 
         // Проверка плана пользователя
         const { data: planData } = await supa
@@ -617,8 +630,10 @@ export async function POST(req: NextRequest) {
             { role: 'system', content: systemPrompt },
         ];
 
-        // Добавляем историю разговора (последние 10 сообщений для экономии токенов)
-        const recentHistory = conversationHistory.slice(-10);
+        // Добавляем историю разговора (последние 20 сообщений для Pro/Premium, 10 для Free)
+        // Это позволяет AI лучше понимать контекст предыдущих сообщений
+        const historyLimit = isPro ? 20 : 10;
+        const recentHistory = conversationHistory.slice(-historyLimit);
         for (const msg of recentHistory) {
             messages.push({ role: msg.role, content: msg.content });
         }
@@ -633,6 +648,28 @@ export async function POST(req: NextRequest) {
         });
 
         const response = chat.choices[0]?.message?.content || 'I apologize, but I could not generate a response. Please try again.';
+
+        // Сохраняем сообщения в базу данных (в фоне, не блокируем ответ)
+        (async () => {
+            try {
+                // Сохраняем сообщение пользователя
+                await supa.from('chat_messages').insert({
+                    user_id: userId,
+                    role: 'user',
+                    content: userMessage,
+                });
+
+                // Сохраняем ответ AI
+                await supa.from('chat_messages').insert({
+                    user_id: userId,
+                    role: 'assistant',
+                    content: response,
+                });
+            } catch (error) {
+                console.error('[Chat] Failed to save messages to database:', error);
+                // Не блокируем ответ из-за ошибки сохранения
+            }
+        })();
 
         // Отправляем ответ пользователю сразу
         const responseData = {

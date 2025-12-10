@@ -423,6 +423,7 @@ export async function POST(req: NextRequest) {
 
         // 3) Generate access token using direct Supabase Auth API call
         let accessToken: string | null = null;
+        let signInData: any = null; // Объявляем вне блока try для доступа позже
         console.log('[Farcaster Login] Attempting to generate token for user:', userId, 'email:', email);
 
         try {
@@ -493,16 +494,17 @@ export async function POST(req: NextRequest) {
                         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
                     );
 
-                    const { data: signInData, error: signInError } = await tempClient.auth.signInWithPassword({
+                    const signInResult = await tempClient.auth.signInWithPassword({
                         email: userEmail,
                         password: tempPassword,
                     });
 
-                    if (!signInError && signInData?.session?.access_token) {
-                        accessToken = signInData.session.access_token;
-                        console.log('[Farcaster Login] Token from signInWithPassword fallback:', { hasToken: true, tokenLength: accessToken.length });
+                    if (!signInResult.error && signInResult.data?.session?.access_token) {
+                        accessToken = signInResult.data.session.access_token;
+                        signInData = signInResult.data; // Сохраняем для получения refresh_token
+                        console.log('[Farcaster Login] Token from signInWithPassword fallback:', { hasToken: true, tokenLength: accessToken.length, hasRefresh: !!signInResult.data.session.refresh_token });
                     } else {
-                        console.warn('[Farcaster Login] signInWithPassword fallback failed:', signInError);
+                        console.warn('[Farcaster Login] signInWithPassword fallback failed:', signInResult.error);
                     }
                 } catch (signInError) {
                     console.warn('[Farcaster Login] signInWithPassword fallback error:', signInError);
@@ -535,10 +537,16 @@ export async function POST(req: NextRequest) {
             timestamp: new Date().toISOString(),
         });
 
+        // Получаем refresh_token из signInData если он был создан через signInWithPassword
+        let refreshToken: string | null = null;
+        if (signInData?.session?.refresh_token) {
+            refreshToken = signInData.session.refresh_token;
+        }
+
         return NextResponse.json({
             user_id: userId,
             access_token: accessToken,
-            refresh_token: null, // generateLink не возвращает refresh_token
+            refresh_token: refreshToken || accessToken, // Используем access_token как fallback если нет refresh_token
             neynar_profile: neynarProfile,
         });
     } catch (err: any) {

@@ -6,11 +6,11 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/auth';
 import { PRICES_USD } from '@/lib/pricing';
 
-// Карта прайсинга (оставил как у тебя)
+// Карта прайсинга (используем примерные цены для расчета экономии)
 const PRICE_BY_ENDPOINT: Record<string, number> = {
-  'insight/habit': PRICES_USD['/api/paid/insight/habit'],
-  'insight/weekly': PRICES_USD['/api/paid/insight/weekly'],
-  'insight/monthly': PRICES_USD['/api/paid/insight/monthly'] ?? 0,
+  'insight/habit': 0.15, // Примерная цена (оплата пока не реализована)
+  'insight/weekly': 0.25, // Примерная цена (оплата пока не реализована)
+  'insight/monthly': 0.35, // Примерная цена (оплата пока не реализована)
 };
 
 export async function GET(req: NextRequest) {

@@ -21,20 +21,29 @@ export default function DailyWellness() {
         sleep_hours: null,
         work_hours: null,
     });
+    // Используем локальную дату, а не UTC
+    const getLocalDateString = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+    
+    const [today, setToday] = useState(() => getLocalDateString());
 
-    const today = new Date().toISOString().split('T')[0];
-
-    const fetchTodayMetrics = useCallback(async () => {
+    const fetchTodayMetrics = useCallback(async (date: string) => {
         if (!isSDKLoaded) return;
 
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) return;
 
-            const res = await fetch(`/api/wellness/daily?date=${today}`, {
+            const res = await fetch(`/api/wellness/daily?date=${date}&t=${Date.now()}`, {
                 headers: {
                     'Authorization': `Bearer ${session.access_token}`,
                 },
+                cache: 'no-store',
             });
 
             if (res.ok) {
@@ -46,6 +55,14 @@ export default function DailyWellness() {
                         sleep_hours: data.item.sleep_hours ?? null,
                         work_hours: data.item.work_hours ?? null,
                     });
+                } else {
+                    // Если данных нет, сбрасываем значения
+                    setValues({
+                        stress_level: null,
+                        productivity_level: null,
+                        sleep_hours: null,
+                        work_hours: null,
+                    });
                 }
             }
         } catch (error) {
@@ -53,15 +70,46 @@ export default function DailyWellness() {
         } finally {
             setLoading(false);
         }
-    }, [isSDKLoaded, today]);
+    }, [isSDKLoaded]);
+
+    // Проверяем смену дня при возврате фокуса на окно и периодически
+    useEffect(() => {
+        const checkDayChange = () => {
+            const currentDate = getLocalDateString();
+            if (currentDate !== today) {
+                setToday(currentDate);
+                setLoading(true);
+                setValues({
+                    stress_level: null,
+                    productivity_level: null,
+                    sleep_hours: null,
+                    work_hours: null,
+                });
+                fetchTodayMetrics(currentDate);
+            }
+        };
+
+        // Проверяем при возврате фокуса на окно
+        window.addEventListener('focus', checkDayChange);
+        // Проверяем при видимости страницы
+        document.addEventListener('visibilitychange', checkDayChange);
+        // Проверяем при загрузке страницы
+        checkDayChange();
+
+        return () => {
+            window.removeEventListener('focus', checkDayChange);
+            document.removeEventListener('visibilitychange', checkDayChange);
+        };
+    }, [today, fetchTodayMetrics]);
 
     useEffect(() => {
-        fetchTodayMetrics();
-    }, [fetchTodayMetrics]);
+        fetchTodayMetrics(today);
+    }, [fetchTodayMetrics, today]);
 
     const saveMetric = async (field: keyof WellnessData, value: number | null) => {
         if (!isSDKLoaded || saving) return;
 
+        const currentDate = getLocalDateString();
         const newValues = { ...values, [field]: value };
         setValues(newValues);
 
@@ -77,7 +125,7 @@ export default function DailyWellness() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    date: today,
+                    date: currentDate,
                     [field]: value,
                 }),
             });
@@ -206,7 +254,7 @@ export default function DailyWellness() {
                                     }
                                 }}
                                 placeholder="—"
-                                className="text-base font-semibold text-white px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/5 placeholder:text-white/40 focus:outline-none focus:border-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-colors w-16 flex-shrink-0"
+                                className="text-base font-semibold text-white px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/5 placeholder:text-white/40 focus:outline-none focus:border-[#8B5CF6] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-colors w-16 flex-shrink-0"
                                 disabled={saving}
                             />
                             {metric.suffix && (

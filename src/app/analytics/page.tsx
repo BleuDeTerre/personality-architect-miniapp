@@ -2169,8 +2169,17 @@ export default function AnalyticsPage() {
                 </section>
 
                 {/* AI Facts Section */}
-                <CollapsibleCard title="🤖 AI facts" defaultOpen={true}>
-                    {facts && facts.facts && facts.facts.length > 0 ? (
+                {!facts && !factsLoading && (
+                    <button
+                        onClick={loadFacts}
+                        disabled={factsLoading}
+                        className="w-full rounded-2xl px-4 py-3 text-sm font-semibold text-white transition bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] shadow-lg shadow-[#8B5CF6]/40 hover:shadow-[#8B5CF6]/60 disabled:opacity-60"
+                    >
+                        🤖 AI facts
+                    </button>
+                )}
+                {facts && facts.facts && facts.facts.length > 0 && (
+                    <CollapsibleCard title="🤖 AI facts" defaultOpen={true}>
                         <div className="space-y-2">
                             {facts.facts.map((fact, idx) => (
                                 <div key={idx} className="flex items-start gap-2.5">
@@ -2179,21 +2188,14 @@ export default function AnalyticsPage() {
                                 </div>
                             ))}
                         </div>
-                    ) : factsLoading ? (
-                        <div className="space-y-2 animate-pulse">
-                            <div className="h-4 w-full rounded bg-white/10" />
-                            <div className="h-4 w-3/4 rounded bg-white/10" />
-                        </div>
-                    ) : (
-                        <button
-                            onClick={loadFacts}
-                            disabled={factsLoading}
-                            className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/20 disabled:opacity-60"
-                        >
-                            {factsLoading ? 'Loading...' : '🤖 Generate AI Facts'}
-                        </button>
-                    )}
-                </CollapsibleCard>
+                    </CollapsibleCard>
+                )}
+                {factsLoading && (
+                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2 animate-pulse">
+                        <div className="h-4 w-full rounded bg-white/10" />
+                        <div className="h-4 w-3/4 rounded bg-white/10" />
+                    </div>
+                )}
 
                 {/* Week Comparison Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-3">
@@ -2251,7 +2253,7 @@ export default function AnalyticsPage() {
                                     <select
                                         value={selectedHabitId}
                                         onChange={(e) => setSelectedHabitId(e.target.value)}
-                                        className="w-full appearance-none rounded-2xl border border-white/10 bg-[#1a1b2e] px-3 py-2.5 pr-8 text-white text-sm focus:border-white/40 focus:outline-none"
+                                        className="w-full appearance-none rounded-2xl border border-white/10 bg-[#1a1b2e] px-3 py-2.5 pr-8 text-white text-sm focus:border-[#8B5CF6] focus:outline-none"
                                     >
                                         <option value="all">All habits</option>
                                         {habits.map(h => {
@@ -2415,7 +2417,7 @@ export default function AnalyticsPage() {
                                 const barWidth = Math.min(100, percentage);
 
                                 return (
-                                    <div key={idx} className={`flex items-start justify-between py-2.5 px-3 rounded-xl border ${correlationBg} hover:opacity-80 transition-all`}>
+                                    <div key={idx} className={`flex items-start justify-between py-2.5 px-3 rounded-xl border ${correlationBg} transition-all`}>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-1.5">
                                                 <span className="text-xs text-white">

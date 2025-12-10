@@ -44,6 +44,7 @@ type Goal = {
 export default function GoalsPage() {
     const { isSDKLoaded, context } = useMiniApp();
     const [goals, setGoals] = useState<Goal[]>([]);
+    const deleteButtonRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
     const [title, setTitle] = useState('');
     const [dueDate, setDueDate] = useState('');
     const [important, setImportant] = useState(false);
@@ -51,9 +52,6 @@ export default function GoalsPage() {
     const [loadingGoals, setLoadingGoals] = useState(true);
     const [mutatingGoal, setMutatingGoal] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [mainFocus, setMainFocus] = useState<string | null>(null);
-    const [mainFocusEditing, setMainFocusEditing] = useState(false);
-    const [mainFocusInput, setMainFocusInput] = useState('');
     const [filterStatus, setFilterStatus] = useState<'active' | 'completed'>(() => {
         if (typeof window !== 'undefined') {
             return (localStorage.getItem('goals_filterStatus') as 'active' | 'completed') || 'active';
@@ -250,19 +248,6 @@ export default function GoalsPage() {
 
             if (!mounted) return;
             await fetchGoals();
-
-            // Load main focus
-            try {
-                const headers = await authHeaders();
-                const focusRes = await fetch('/api/profile/main-focus', { headers });
-                if (focusRes.ok) {
-                    const focusData = await focusRes.json();
-                    setMainFocus(focusData.main_focus || null);
-                    setMainFocusInput(focusData.main_focus || '');
-                }
-            } catch (error) {
-                console.error('[GoalsPage] Failed to load main focus:', error);
-            }
         };
 
         ensureSessionAndLoad();
@@ -487,9 +472,6 @@ export default function GoalsPage() {
 
     const deleteGoal = useCallback(async (id: number) => {
         if (!id) return;
-
-        if (!confirm('Delete this goal?')) return;
-
         setMutatingGoal(true);
         try {
             const headers = await authHeaders();
@@ -523,24 +505,6 @@ export default function GoalsPage() {
         const nextStatus = goal.status === 'active' ? 'completed' : 'active';
         await updateGoal({ ...goal, status: nextStatus });
     }
-
-    const handleSaveMainFocus = async () => {
-        try {
-            const headers = await authHeaders();
-            const res = await fetch('/api/profile/main-focus', {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify({ main_focus: mainFocusInput.trim() || null }),
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setMainFocus(data.main_focus);
-                setMainFocusEditing(false);
-            }
-        } catch (error) {
-            console.error('[GoalsPage] Failed to save main focus:', error);
-        }
-    };
 
     const activeGoals = useMemo(() => goals.filter(g => g.status === 'active'), [goals]);
     const completedGoals = useMemo(() => goals.filter(g => g.status === 'completed'), [goals]);
@@ -655,88 +619,6 @@ export default function GoalsPage() {
                     </p>
                 </section>
 
-                {/* Main Life Focus */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
-                    <h2 className="text-lg font-semibold text-white mb-2">⭐ Main Life Focus</h2>
-                    <p className="text-xs text-white/60 mb-3">
-                        Your North Star - what you're focusing on for the next 3 months. This helps AI give you more personalized advice about your goals.
-                    </p>
-                    {mainFocusEditing ? (
-                        <div className="space-y-2">
-                            <input
-                                type="text"
-                                value={mainFocusInput}
-                                onChange={(e) => setMainFocusInput(e.target.value)}
-                                placeholder="e.g., Career, Health, Family, Finance, or custom..."
-                                className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:border-purple-500/50 text-sm"
-                                onKeyPress={(e) => {
-                                    if (e.key === 'Enter') {
-                                        handleSaveMainFocus();
-                                    } else if (e.key === 'Escape') {
-                                        setMainFocusEditing(false);
-                                        setMainFocusInput(mainFocus || '');
-                                    }
-                                }}
-                                autoFocus
-                            />
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={handleSaveMainFocus}
-                                    className="px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors text-xs font-semibold"
-                                >
-                                    Save
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setMainFocusEditing(false);
-                                        setMainFocusInput(mainFocus || '');
-                                    }}
-                                    className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 transition-colors text-xs"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div>
-                            {mainFocus ? (
-                                <div className="flex items-center justify-between">
-                                    <p className="text-white/90 font-medium text-sm">{mainFocus}</p>
-                                    <button
-                                        onClick={() => {
-                                            setMainFocusEditing(true);
-                                            setMainFocusInput(mainFocus);
-                                        }}
-                                        className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
-                                    >
-                                        Edit
-                                    </button>
-                                </div>
-                            ) : (
-                                <button
-                                    onClick={() => {
-                                        setMainFocusEditing(true);
-                                        setMainFocusInput('');
-                                    }}
-                                    className="w-full px-3 py-2 rounded-lg border border-dashed border-white/20 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80 transition-colors text-xs text-left"
-                                >
-                                    + Set your main focus (helps AI give personalized advice)
-                                </button>
-                            )}
-                        </div>
-                    )}
-                </section>
-
-                {/* Share Section */}
-                {goalShareTemplates.length > 0 && (
-                    <CollapsibleCard title="Share your goals">
-                        <ShareCastComposer
-                            templates={goalShareTemplates}
-                            prepareHeaders={authHeaders}
-                        />
-                    </CollapsibleCard>
-                )}
-
                 {/* Eisenhower Matrix */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
                     <div className="flex items-center justify-between mb-3">
@@ -794,7 +676,7 @@ export default function GoalsPage() {
                                 placeholder="Goal title"
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50"
+                                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-[#8B5CF6]"
                                 required
                             />
                             {title && (
@@ -809,7 +691,7 @@ export default function GoalsPage() {
                             value={dueDate}
                             onChange={(date) => setDueDate(date)}
                             placeholder="Deadline"
-                            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50"
+                            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-[#8B5CF6]"
                         />
                         {/* Eisenhower Matrix Priority - Centered */}
                         <div className="flex items-center justify-center gap-6">
@@ -868,6 +750,18 @@ export default function GoalsPage() {
                             Completed goals
                         </button>
                     </div>
+
+                    {/* Share Section */}
+                    {goalShareTemplates.length > 0 && (
+                        <div className="mt-4">
+                            <CollapsibleCard title="Share your goals">
+                                <ShareCastComposer
+                                    templates={goalShareTemplates}
+                                    prepareHeaders={authHeaders}
+                                />
+                            </CollapsibleCard>
+                        </div>
+                    )}
                 </section>
 
                 {loadingGoals && goals.length === 0 ? (
@@ -900,13 +794,13 @@ export default function GoalsPage() {
                                                 value={goal.title}
                                                 onChange={(e) => setGoals(goals.map(g => g.id === goal.id ? { ...g, title: e.target.value } : g))}
                                                 placeholder="Goal title"
-                                                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50"
+                                                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-[#8B5CF6]"
                                             />
                                             <DatePicker
                                                 value={goal.due_date || ''}
                                                 onChange={(date) => setGoals(goals.map(g => g.id === goal.id ? { ...g, due_date: date } : g))}
                                                 placeholder="Deadline"
-                                                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50"
+                                                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-[#8B5CF6]"
                                             />
                                             {/* Eisenhower Matrix Priority - Centered */}
                                             <div className="flex items-center justify-center gap-6">
@@ -959,7 +853,7 @@ export default function GoalsPage() {
                                         </div>
                                     ) : (
                                         <>
-                                            <div className="flex-1" style={{ pointerEvents: 'auto' }}>
+                                            <div className="flex-1">
                                                 <h3 className={`text-xl font-semibold ${goal.status === 'completed' ? 'text-white/50 line-through' : 'text-white'}`}>
                                                     {goal.title}
                                                 </h3>
@@ -1012,24 +906,7 @@ export default function GoalsPage() {
                                             <div className="flex items-center gap-2 mt-4">
                                                 <button
                                                     type="button"
-                                                    onMouseDown={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        console.log('[GoalsPage] Toggle status mousedown for goal:', goal.id);
-                                                        if (!mutatingGoal) {
-                                                            toggleStatus(goal);
-                                                        }
-                                                    }}
                                                     onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        console.log('[GoalsPage] Toggle status clicked for goal:', goal.id);
-                                                        if (!mutatingGoal) {
-                                                            toggleStatus(goal);
-                                                        }
-                                                    }}
-                                                    onTouchStart={(e) => {
-                                                        e.preventDefault();
                                                         e.stopPropagation();
                                                         if (!mutatingGoal) {
                                                             toggleStatus(goal);
@@ -1041,7 +918,6 @@ export default function GoalsPage() {
                                                         } ${mutatingGoal ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     disabled={mutatingGoal}
                                                     aria-label={goal.status === 'completed' ? 'Completed' : 'Mark done'}
-                                                    style={{ pointerEvents: mutatingGoal ? 'none' : 'auto' }}
                                                 >
                                                     <svg
                                                         className="h-5 w-5 pointer-events-none"
@@ -1060,24 +936,7 @@ export default function GoalsPage() {
                                                 {goal.status !== 'completed' && (
                                                     <button
                                                         type="button"
-                                                        onMouseDown={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            console.log('[GoalsPage] Edit mousedown for goal:', goal.id);
-                                                            if (!mutatingGoal) {
-                                                                setEditingId(goal.id);
-                                                            }
-                                                        }}
                                                         onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            console.log('[GoalsPage] Edit clicked for goal:', goal.id);
-                                                            if (!mutatingGoal) {
-                                                                setEditingId(goal.id);
-                                                            }
-                                                        }}
-                                                        onTouchStart={(e) => {
-                                                            e.preventDefault();
                                                             e.stopPropagation();
                                                             if (!mutatingGoal) {
                                                                 setEditingId(goal.id);
@@ -1085,7 +944,6 @@ export default function GoalsPage() {
                                                         }}
                                                         className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 cursor-pointer flex-shrink-0"
                                                         disabled={mutatingGoal}
-                                                        style={{ pointerEvents: mutatingGoal ? 'none' : 'auto' }}
                                                     >
                                                         Edit
                                                     </button>
@@ -1093,21 +951,15 @@ export default function GoalsPage() {
                                                 <button
                                                     type="button"
                                                     data-goal-id={goal.id}
-                                                    onMouseDown={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        e.nativeEvent.stopImmediatePropagation();
-                                                        deleteGoal(goal.id);
-                                                    }}
                                                     onClick={(e) => {
                                                         e.preventDefault();
                                                         e.stopPropagation();
-                                                        e.nativeEvent.stopImmediatePropagation();
-                                                        deleteGoal(goal.id);
+                                                        if (!mutatingGoal) {
+                                                            deleteGoal(goal.id);
+                                                        }
                                                     }}
                                                     className="rounded-2xl border border-red-400/30 bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/30 disabled:opacity-60 cursor-pointer flex-shrink-0"
                                                     disabled={mutatingGoal}
-                                                    style={{ touchAction: 'manipulation' }}
                                                 >
                                                     Delete
                                                 </button>

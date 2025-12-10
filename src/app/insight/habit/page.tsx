@@ -129,7 +129,7 @@ export default function HabitInsightPage() {
                         type="date"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-[#0c0f1a] px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
+                        className="w-full rounded-xl border border-white/10 bg-[#0c0f1a] px-3 py-2 text-sm text-white focus:border-[#8B5CF6] focus:outline-none"
                     />
                 </section>
 

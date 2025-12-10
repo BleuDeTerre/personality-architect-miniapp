@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { useMiniApp } from '@neynar/react';
 import MiniAppPage from '@/components/MiniAppPage';
 import { toast } from 'sonner';
+import { getLocalDateString } from '@/lib/time';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,15 +20,15 @@ type Resp = {
     cachedUntil?: string;
 };
 
-function sundayUTC(d = new Date()) {
-    const day = d.getUTCDay(); // 0 = Sunday
-    const m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day));
-    return m.toISOString().slice(0, 10);
+function sundayLocal(d = new Date()) {
+    const day = d.getDay(); // 0 = Sunday
+    const m = new Date(d.getFullYear(), d.getMonth(), d.getDate() - day);
+    return getLocalDateString(m);
 }
 
 export default function WeeklyInsightPage() {
     const { isSDKLoaded, context } = useMiniApp();
-    const [weekStart, setWeekStart] = useState<string>(sundayUTC());
+    const [weekStart, setWeekStart] = useState<string>(sundayLocal());
     const [data, setData] = useState<Resp | null>(null);
     const [loading, setLoading] = useState(false);
     const [userPlan, setUserPlan] = useState<'free' | 'pro' | 'premium'>('free');
@@ -149,7 +150,7 @@ export default function WeeklyInsightPage() {
                         type="date"
                         value={weekStart}
                         onChange={(e) => setWeekStart(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-[#0c0f1a] px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
+                        className="w-full rounded-xl border border-white/10 bg-[#0c0f1a] px-3 py-2 text-sm text-white focus:border-[#8B5CF6] focus:outline-none"
                     />
                     <div className="text-xs text-white/60 mt-1.5">Select the Sunday that starts the week</div>
                 </section>

@@ -24,3 +24,33 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     }
 }
+
+export async function PATCH(req: NextRequest) {
+    try {
+        const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+        if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+        const { id: userId } = await requireUserFromReq(req);
+        const supa = createUserServerClient(token);
+
+        const body = await req.json().catch(() => ({}));
+        const { id, target_days_per_week } = body;
+
+        if (!id || typeof target_days_per_week !== 'number') {
+            return NextResponse.json({ error: 'id and target_days_per_week required' }, { status: 400 });
+        }
+
+        const { data, error } = await supa
+            .from('habits')
+            .update({ target_days_per_week })
+            .eq('id', id)
+            .eq('user_id', userId)
+            .select()
+            .single();
+
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ item: data });
+    } catch {
+        return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    }
+}

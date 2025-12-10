@@ -761,7 +761,7 @@ export default function StreaksPage() {
                                 <select
                                     value={selectedHabitId || ''}
                                     onChange={(e) => setSelectedHabitId(e.target.value || null)}
-                                    className="w-full rounded-xl border border-white/10 bg-[#1a1b2e] px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none appearance-none pr-8 truncate"
+                                    className="w-full rounded-xl border border-white/10 bg-[#1a1b2e] px-3 py-2 text-sm text-white focus:border-[#8B5CF6] focus:outline-none appearance-none pr-8 truncate"
                                 >
                                     <option value="">Select a habit</option>
                                     {(() => {

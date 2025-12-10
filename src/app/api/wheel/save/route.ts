@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { getClientLocalDate } from '@/lib/time';
 
 // POST /api/wheel/save { week:'YYYY-Www', items:[{ area:'Health', score:0..10 }] }
 export async function POST(req: NextRequest) {
@@ -26,8 +27,10 @@ export async function POST(req: NextRequest) {
         }
 
         const rows = [];
+        const day = getClientLocalDate(req); // YYYY-MM-DD (локальное время пользователя)
         for (const it of items) {
             const area = String(it?.area ?? '').trim();
+            const domain = area; // domain equals area
             const score = Number(it?.score);
             if (!area) return NextResponse.json({ error: 'area_required' }, { status: 400 });
             if (!Number.isInteger(score) || score < 0 || score > 10) {
@@ -36,7 +39,9 @@ export async function POST(req: NextRequest) {
             rows.push({
                 user_id: userId,
                 week,
+                day,
                 area,
+                domain,
                 score,
                 updated_at: new Date().toISOString(),
             });
@@ -52,6 +57,8 @@ export async function POST(req: NextRequest) {
             console.error('[Wheel Save] Error:', error);
             return NextResponse.json({ error: 'Failed to save wheel scores', details: error.message }, { status: 500 });
         }
+
+        console.log(`[Wheel Save] Successfully saved ${data?.length || 0} items for week ${week}`);
 
         // Инвалидируем кеш аналитики (wheel_trends)
         try {

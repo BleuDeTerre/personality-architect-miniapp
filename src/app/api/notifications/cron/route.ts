@@ -29,8 +29,12 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
         }
 
-        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        // Для cron job используем UTC дату (серверное время)
+        const now = new Date();
+        const today = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+        const yesterdayDate = new Date(now);
+        yesterdayDate.setUTCDate(yesterdayDate.getUTCDate() - 1);
+        const yesterday = `${yesterdayDate.getUTCFullYear()}-${String(yesterdayDate.getUTCMonth() + 1).padStart(2, '0')}-${String(yesterdayDate.getUTCDate()).padStart(2, '0')}`;
 
         // Получаем всех пользователей с активными подписками
         const { data: subscriptions, error: subErr } = await supabaseAdmin

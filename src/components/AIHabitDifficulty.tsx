@@ -86,32 +86,30 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
     const shouldKeep = data.recommendedTarget === data.currentTarget;
 
     return (
-        <div className="rounded-xl border border-white/10 bg-[#1a1b2e] p-3 space-y-2">
-            <div className="flex items-start justify-between">
-                <div className="flex-1">
-                    <p className="text-xs text-white/90 mb-1">{data.suggestion}</p>
-                    <div className="flex items-center gap-3 text-xs text-white/70 mt-2">
-                        <span>Completion: {data.completionRate}%</span>
-                        <span>Current: {data.currentTarget}/week</span>
-                        {shouldIncrease && (
-                            <span className="text-green-400 flex items-center gap-1">
-                                <TrendingUp className="h-3 w-3" />
-                                Recommended: {data.recommendedTarget}/week
-                            </span>
-                        )}
-                        {shouldDecrease && (
-                            <span className="text-yellow-400 flex items-center gap-1">
-                                <TrendingDown className="h-3 w-3" />
-                                Recommended: {data.recommendedTarget}/week
-                            </span>
-                        )}
-                        {shouldKeep && (
-                            <span className="text-white/60 flex items-center gap-1">
-                                <Minus className="h-3 w-3" />
-                                Keep current
-                            </span>
-                        )}
-                    </div>
+        <div className="rounded-xl border border-white/10 bg-[#1a1b2e] p-3 space-y-2.5">
+            <div className="space-y-2">
+                <p className="text-xs text-white/90 leading-relaxed break-words">{data.suggestion}</p>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-white/70">
+                    <span className="whitespace-nowrap">Completion: {data.completionRate}%</span>
+                    <span className="whitespace-nowrap">Current: {data.currentTarget}/week</span>
+                    {shouldIncrease && (
+                        <span className="text-green-400 flex items-center gap-1 whitespace-nowrap">
+                            <TrendingUp className="h-3 w-3 flex-shrink-0" />
+                            <span>Recommended: {data.recommendedTarget}/week</span>
+                        </span>
+                    )}
+                    {shouldDecrease && (
+                        <span className="text-yellow-400 flex items-center gap-1 whitespace-nowrap">
+                            <TrendingDown className="h-3 w-3 flex-shrink-0" />
+                            <span>Recommended: {data.recommendedTarget}/week</span>
+                        </span>
+                    )}
+                    {shouldKeep && (
+                        <span className="text-white/60 flex items-center gap-1 whitespace-nowrap">
+                            <Minus className="h-3 w-3 flex-shrink-0" />
+                            <span>Keep current</span>
+                        </span>
+                    )}
                 </div>
             </div>
             {onTargetUpdate && data.recommendedTarget !== currentTarget && (
@@ -120,7 +118,7 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
                         onTargetUpdate(data.recommendedTarget);
                         setExpanded(false);
                     }}
-                    className="text-xs rounded-lg bg-purple-500/20 text-purple-300 px-3 py-1.5 hover:bg-purple-500/30 transition"
+                    className="w-full text-xs rounded-lg bg-purple-500/20 text-purple-300 px-3 py-1.5 hover:bg-purple-500/30 transition text-center"
                 >
                     Update to {data.recommendedTarget}/week
                 </button>
