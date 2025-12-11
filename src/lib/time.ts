@@ -59,6 +59,28 @@ export function isoWeek(d = new Date()): string {
     return `${dt.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
+// Преобразовать строку недели (YYYY-Www) в локальную дату воскресенья этой недели (YYYY-MM-DD)
+export function weekToLocalSunday(weekStr: string): string | null {
+    const m = /^(\d{4})-W(\d{2})$/.exec(weekStr);
+    if (!m) return null;
+    const year = Number(m[1]);
+    const week = Number(m[2]);
+    if (!Number.isInteger(year) || !Number.isInteger(week) || week < 1) return null;
+
+    // Найти первое воскресенье года
+    const jan1 = new Date(year, 0, 1);
+    const jan1Day = jan1.getDay(); // 0 = Sunday
+    const firstSunday = new Date(jan1);
+    if (jan1Day !== 0) {
+        firstSunday.setDate(1 + (7 - jan1Day));
+    }
+
+    // Смещение на (week - 1) недель
+    const target = new Date(firstSunday);
+    target.setDate(firstSunday.getDate() + (week - 1) * 7);
+    return getLocalDateString(target);
+}
+
 // Legacy functions (deprecated, use isoWeek and getLocalDateString instead)
 export function utcNow() { return new Date(Date.now()); }
 export function utcDate(d = utcNow()): string {

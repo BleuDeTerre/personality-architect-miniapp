@@ -3,7 +3,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { getClientLocalDate } from '@/lib/time';
+import { getClientLocalDate, weekToLocalSunday } from '@/lib/time';
 
 // POST /api/wheel { week:'YYYY-Www', area:'Health', score:0..10 }
 export async function POST(req: NextRequest) {
@@ -34,7 +34,8 @@ export async function POST(req: NextRequest) {
         const area = String(body?.area ?? '').trim();
         const domain = String(body?.domain ?? body?.area ?? '').trim();
         const score = Number(body?.score);
-        const day = body?.day ? String(body.day).slice(0, 10) : getClientLocalDate(req);
+        const day =
+            body?.day ? String(body.day).slice(0, 10) : weekToLocalSunday(week) ?? getClientLocalDate(req);
 
         if (!/^\d{4}-W\d{2}$/.test(week)) {
             return NextResponse.json({ error: 'bad_week' }, { status: 400 });
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
                     score,
                     updated_at: new Date().toISOString(),
                 },
-                { onConflict: 'user_id,week,area' }
+                { onConflict: 'user_id,day,domain' }
             )
             .select()
             .single();

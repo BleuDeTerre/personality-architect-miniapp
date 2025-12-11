@@ -4,7 +4,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { getClientLocalDate } from '@/lib/time';
+import { getClientLocalDate, weekToLocalSunday } from '@/lib/time';
 
 // POST /api/wheel/save { week:'YYYY-Www', items:[{ area:'Health', score:0..10 }] }
 export async function POST(req: NextRequest) {
@@ -26,8 +26,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'items_required' }, { status: 400 });
         }
 
+        // Дата должна соответствовать выбранной неделе: берем воскресенье этой недели
+        const weekDay = weekToLocalSunday(week) ?? getClientLocalDate(req);
+        
+        // Подготавливаем данные для вставки
         const rows = [];
-        const day = getClientLocalDate(req); // YYYY-MM-DD (локальное время пользователя)
         for (const it of items) {
             const area = String(it?.area ?? '').trim();
             const domain = area; // domain equals area
@@ -39,7 +42,7 @@ export async function POST(req: NextRequest) {
             rows.push({
                 user_id: userId,
                 week,
-                day,
+                day: weekDay,
                 area,
                 domain,
                 score,
@@ -47,9 +50,23 @@ export async function POST(req: NextRequest) {
             });
         }
 
+        // Используем upsert для обновления существующих записей или создания новых
+        // Уникальное ограничение: user_id, day, domain
+        // В Supabase для составного уникального ключа нужно указать колонки через запятую
+        // Сначала удаляем все записи для этой недели, чтобы избежать конфликтов
+        await supa
+            .from('wheel_scores')
+            .delete()
+            .eq('user_id', userId)
+            .eq('week', week);
+        
+        // Используем upsert для вставки/обновления записей
+        // Это защита на случай, если удаление не сработало полностью
         const { data, error } = await supa
             .from('wheel_scores')
-            .upsert(rows, { onConflict: 'user_id,week,area' })
+            .upsert(rows, { 
+                onConflict: 'user_id,day,domain'
+            })
             .select('id, area, score, week, updated_at')
             .order('area', { ascending: true });
 

@@ -122,6 +122,7 @@ export default function WheelPage() {
     const [wheelAnalyticsTab, setWheelAnalyticsTab] = useState<'coach' | 'trends'>('trends');
 
     const currentWeekRef = useRef<string>(week);
+    const initializedRef = useRef<boolean>(false);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -171,6 +172,7 @@ export default function WheelPage() {
 
     const loadWeek = useCallback(async (w: string, isEditing: boolean = editingValues) => {
         setWeekLoading(true);
+        console.log('[WheelPage] Loading week:', w, 'isEditing:', isEditing);
         // Сбрасываем данные перед загрузкой новой недели
         const resetItems = AREAS.map(a => ({ area: a.name, score: 0 }));
         setItems(resetItems);
@@ -186,12 +188,14 @@ export default function WheelPage() {
             });
             
             if (!res.ok) {
+                console.error('[WheelPage] Failed to fetch week:', w, res.status);
                 throw new Error(`Failed to fetch week: ${res.status}`);
             }
             
             const js = await res.json();
+            console.log('[WheelPage] Loaded data for week:', w, 'items:', js.items?.length || 0);
             
-            if (Array.isArray(js.items) && js.items.length) {
+            if (Array.isArray(js.items) && js.items.length > 0) {
                 const map = new Map<string, number>(js.items.map((x: any) => [x.area, x.score]));
                 const base = AREAS.map(a => ({ area: a.name, score: clamp010(map.get(a.name) ?? 0) }));
                 js.items.forEach((x: any) => {
@@ -211,8 +215,8 @@ export default function WheelPage() {
                 
                 if (isCurrentOrFutureWeek) {
                     // Для текущей/будущей недели создаем с дефолтными значениями
-                    const defaultItems = AREAS.map(a => ({ area: a.name, score: 5 }));
-                    setItems(defaultItems);
+                const defaultItems = AREAS.map(a => ({ area: a.name, score: 5 }));
+                setItems(defaultItems);
                     // Обновляем editItems если режим редактирования открыт
                     if (isEditing) {
                         setEditItems([...defaultItems]);
@@ -226,8 +230,8 @@ export default function WheelPage() {
                     
                     try {
                         const createRes = await fetch('/api/wheel/save', {
-                            method: 'POST',
-                            headers,
+                                method: 'POST',
+                                headers,
                             body: JSON.stringify(createBody),
                         });
                         
@@ -251,7 +255,7 @@ export default function WheelPage() {
                                 }
                             }
                         }
-                    } catch (error) {
+                } catch (error) {
                         // Ошибка при создании недели - оставляем дефолтные значения
                     }
                 } else {
@@ -448,14 +452,27 @@ export default function WheelPage() {
 
             if (!mounted) return;
             
-            // Всегда используем текущую неделю при загрузке
-            const currentWeek = isoWeek();
-            console.log('[WheelPage] Loading with current week:', currentWeek);
-            currentWeekRef.current = currentWeek;
-            setWeek(currentWeek);
-            
-            await loadWeek(currentWeek);
-            await loadTrends();
+            // Используем текущую неделю только при первой загрузке (если неделя еще не установлена)
+            if (!initializedRef.current) {
+                const currentWeek = isoWeek();
+                console.log('[WheelPage] Initializing with current week:', currentWeek);
+                currentWeekRef.current = currentWeek;
+                // Устанавливаем текущую неделю только если она еще не была изменена пользователем
+                if (week === currentWeekRef.current || !week) {
+                    setWeek(currentWeek);
+                    await loadWeek(currentWeek);
+                } else {
+                    // Если пользователь уже выбрал неделю, загружаем её
+                    await loadWeek(week);
+                }
+                await loadTrends();
+                initializedRef.current = true;
+            } else {
+                // Если уже инициализировано, не меняем неделю - пользователь мог выбрать другую
+                // Просто загружаем данные для выбранной недели
+                await loadWeek(week);
+                await loadTrends();
+            }
         };
 
         ensureSessionAndLoad();
@@ -463,13 +480,18 @@ export default function WheelPage() {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!mounted) return;
             if (session?.user) {
-                // Всегда используем текущую неделю при изменении авторизации
+                // Пропускаем обновление недели, если уже инициализировали страницу
+                // Не меняем неделю, которую выбрал пользователь
+                if (initializedRef.current) return;
+
+                // Используем текущую неделю только при первом входе
                 const currentWeek = isoWeek();
                 currentWeekRef.current = currentWeek;
                 setWeek(currentWeek);
                 
                 await loadWeek(currentWeek);
                 await loadTrends();
+                initializedRef.current = true;
             } else {
                 setItems(AREAS.map(a => ({ area: a.name, score: 5 })));
             }
@@ -485,66 +507,68 @@ export default function WheelPage() {
         setCanRenderChart(true);
     }, []);
 
-    // Синхронизируем editItems с items при изменении недели (только когда открываем режим редактирования)
+    // Синхронизируем editItems с items только при открытии режима редактирования или изменении недели
     // НЕ синхронизируем при изменении items во время редактирования, чтобы не потерять изменения
     useEffect(() => {
         if (editingValues && items.length > 0) {
             // Обновляем только если editItems пустые или если неделя изменилась
-            const currentWeekInEditItems = editItems.length > 0 ? editItems[0]?.area : null;
-            const currentWeekInItems = items.length > 0 ? items[0]?.area : null;
-            // Обновляем только если это новая неделя или editItems пустые
-            if (editItems.length === 0 || currentWeekInEditItems !== currentWeekInItems) {
-                setEditItems([...items]);
-            }
-        }
-    }, [week, editingValues]); // Убрали items из зависимостей, чтобы не сбрасывать изменения
-
-    useEffect(() => {
-        if (items.length > 0 && !editingValues) {
+            // Проверяем по количеству элементов и первой области
+            if (editItems.length === 0 || editItems.length !== items.length || editItems[0]?.area !== items[0]?.area) {
             setEditItems([...items]);
         }
-    }, [items, editingValues]);
+        }
+    }, [week, editingValues]); // Убрали items из зависимостей, чтобы не сбрасывать изменения во время редактирования
 
-    // Автоматически обновляем неделю на текущую при загрузке страницы и при смене недели
+    // Инициализируем editItems только при закрытии режима редактирования (данные уже синхронизированы через Close)
+    // Не обновляем автоматически, чтобы не сбрасывать изменения
+
+    // Автоматически обновляем неделю на текущую только при первой загрузке страницы
+    // НЕ меняем неделю, если она уже была установлена пользователем
     useEffect(() => {
         if (!isSDKLoaded) return;
+        if (initializedRef.current) return; // Не меняем неделю после инициализации
         
-        const checkWeekChange = () => {
-            const currentWeek = isoWeek();
-            // Всегда обновляем на текущую неделю если она изменилась
-            if (currentWeek !== currentWeekRef.current) {
-                setWeek(currentWeek);
-                currentWeekRef.current = currentWeek;
-                loadWeek(currentWeek);
-            }
-        };
-
-        // Проверяем сразу
-        checkWeekChange();
-        
-        // Проверяем при возврате фокуса на окно
-        window.addEventListener('focus', checkWeekChange);
-        // Проверяем при видимости страницы
-        document.addEventListener('visibilitychange', checkWeekChange);
-
-        return () => {
-            window.removeEventListener('focus', checkWeekChange);
-            document.removeEventListener('visibilitychange', checkWeekChange);
-        };
-    }, [isSDKLoaded, loadWeek]);
+        // Загружаем данные для текущей недели только при первой загрузке
+        // НЕ меняем неделю, если пользователь уже выбрал другую
+        const currentWeek = isoWeek();
+        if (!week || week === currentWeekRef.current) {
+            setWeek(currentWeek);
+            currentWeekRef.current = currentWeek;
+            loadWeek(currentWeek, false);
+        }
+        // Если week уже установлена и отличается от currentWeek, значит пользователь выбрал её - не меняем
+    }, [isSDKLoaded]); // Убрали week и loadWeek из зависимостей, чтобы не срабатывать при каждом изменении
 
     const handleWeekChange = useCallback(async (newWeek: string) => {
-        // Всегда обновляем, даже если неделя та же
+        // Если режим редактирования открыт и есть изменения, сохраняем перед сменой недели
+        if (editingValues && editItems.length > 0 && newWeek !== week) {
+            try {
+                const headers = await authHeaders();
+                const saveBody = {
+                    week: week,
+                    items: editItems.map(it => ({ area: it.area, score: it.score }))
+                };
+                const saveRes = await fetch('/api/wheel/save', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(saveBody),
+                });
+                if (!saveRes.ok) {
+                    console.error('[WheelPage] Save before week change failed:', saveRes.status);
+                }
+            } catch (error) {
+                console.error('[WheelPage] Save before week change error:', error);
+            }
+        }
+        // Обновляем неделю и загружаем данные
         if (newWeek !== week) {
-            setWeek(newWeek);
-            currentWeekRef.current = newWeek;
+        setWeek(newWeek);
+        currentWeekRef.current = newWeek;
+            // Закрываем режим редактирования при смене недели
+            setEditingValues(false);
         }
-        await loadWeek(newWeek);
-        // Обновляем editItems после загрузки новой недели
-        if (editingValues) {
-            // editItems обновится через useEffect
-        }
-    }, [loadWeek, week, editingValues]);
+        await loadWeek(newWeek, false); // Всегда загружаем в режиме просмотра
+    }, [loadWeek, week, editingValues, editItems, authHeaders]);
 
     async function saveWeek() {
         setSaving(true);
@@ -820,6 +844,7 @@ export default function WheelPage() {
             <div className="space-y-3">
                 {/* Header Card */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
+                    <div>
                     <p className="text-xs uppercase tracking-wide text-white/60 mb-1.5">WHEEL OF LIFE — WEEK {week}</p>
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">Life Balance Overview</h1>
                     <p className="text-sm text-white/80 mb-4">
@@ -840,57 +865,71 @@ export default function WheelPage() {
                                 }, 100);
                             }
                         }}
-                        className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white font-semibold transition hover:bg-white/10"
+                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
                     >
-                        Edit Values
+                            {editingValues ? 'Cancel Edit' : 'Edit Values'}
                     </button>
+                    </div>
                 </section>
 
                 {editingValues && (
                     <section data-wheel-section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
                         <div className="flex flex-col gap-6">
                             {/* Header */}
-                            <div className="flex items-start justify-between">
-                                <div>
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
                                     <h2 className="text-2xl font-semibold text-white mb-2">Adjust weekly scores</h2>
                                     <p className="text-sm text-white/70">
-                                        Update the ratings for week {week}. Changes update the chart instantly.
+                                        Update the ratings for week {week}. Changes are saved automatically.
                                     </p>
                                 </div>
-                                <button
-                                    onClick={async () => {
-                                        // Просто закрываем режим редактирования, не сбрасываем изменения
-                                        // Данные уже сохранены через автосохранение
-                                        setEditingValues(false);
-                                        // Перезагружаем данные для текущей недели, чтобы убедиться, что все синхронизировано
-                                        await loadWeek(week);
-                                    }}
-                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-6 py-3 text-white font-semibold transition hover:bg-white/10"
-                                >
+                                    <button
+                                        onClick={async () => {
+                                        // Финальное сохранение перед закрытием (на случай если автосохранение не успело)
+                                        try {
+                                            const headers = await authHeaders();
+                                            const saveBody = {
+                                                week: week,
+                                                items: editItems.map(it => ({ area: it.area, score: it.score }))
+                                            };
+                                            await fetch('/api/wheel/save', {
+                                                method: 'POST',
+                                                headers,
+                                                body: JSON.stringify(saveBody),
+                                            });
+                                        } catch (error) {
+                                            console.error('[WheelPage] Final save failed:', error);
+                                        }
+                                        // Синхронизируем items с editItems и закрываем
+                                            setItems([...editItems]);
+                                            setEditingValues(false);
+                                        }}
+                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-6 py-3 text-white font-semibold transition hover:bg-white/10 whitespace-nowrap flex-shrink-0"
+                                    >
                                     Close
-                                </button>
+                                    </button>
                             </div>
 
                             {/* ISO Week */}
-                            <div>
-                                <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">ISO Week</label>
-                                <WeekPicker
-                                    value={week}
-                                    onChange={handleWeekChange}
-                                    placeholder="Select week"
+                                <div>
+                                    <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">ISO Week</label>
+                                    <WeekPicker
+                                        value={week}
+                                        onChange={handleWeekChange}
+                                        placeholder="Select week"
                                     className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white focus:border-[#8B5CF6] focus:outline-none"
                                 />
                             </div>
 
-                            {/* Category List */}
+                            {/* Category List - 2 columns */}
                             {weekLoading ? (
-                                <div className="space-y-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {AREAS.map(area => (
                                         <div key={area.name} className="h-20 rounded-2xl border border-white/10 bg-[#1a1b2e] animate-pulse" />
                                     ))}
                                 </div>
                             ) : (
-                                <div className="space-y-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {editItems.map((it, idx) => {
                                         const areaInfo = AREAS.find(a => a.name === it.area);
                                         const areaColor = areaInfo?.color ?? '#8B5CF6';
@@ -914,25 +953,30 @@ export default function WheelPage() {
                                                     max={10}
                                                     value={it.score}
                                                     onChange={async (e) => {
+                                                        const newScore = Number(e.target.value);
                                                         const newItems = [...editItems];
-                                                        newItems[idx].score = Number(e.target.value);
+                                                        newItems[idx].score = newScore;
                                                         setEditItems(newItems);
-                                                        // Автосохранение при изменении
+                                                        // Обновляем items для мгновенного отображения в графике
                                                         setItems([...newItems]);
-                                                        // Сохраняем в фоне
+                                                        // Сохраняем в БД в фоне
                                                         const saveBody = {
                                                             week: week,
                                                             items: newItems.map(it => ({ area: it.area, score: it.score }))
                                                         };
                                                         try {
                                                             const headers = await authHeaders();
-                                                            await fetch('/api/wheel/save', {
+                                                            const saveRes = await fetch('/api/wheel/save', {
                                                                 method: 'POST',
                                                                 headers,
                                                                 body: JSON.stringify(saveBody),
                                                             });
+                                                            if (!saveRes.ok) {
+                                                                const errorData = await saveRes.json().catch(() => ({}));
+                                                                console.error('[WheelPage] Auto-save failed:', saveRes.status, errorData);
+                                                            }
                                                         } catch (error) {
-                                                            console.error('[WheelPage] Auto-save failed:', error);
+                                                            console.error('[WheelPage] Auto-save error:', error);
                                                         }
                                                     }}
                                                     className="w-full"
@@ -1156,7 +1200,7 @@ export default function WheelPage() {
                             🎡 Wheel Analytics
                         </h2>
                         <div className="flex gap-1.5">
-                            <button
+                    <button
                                 onClick={() => setWheelAnalyticsTab('coach')}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                                     wheelAnalyticsTab === 'coach'
@@ -1165,7 +1209,7 @@ export default function WheelPage() {
                                 }`}
                             >
                                 🤖 Coach
-                            </button>
+                    </button>
                             <button
                                 onClick={() => setWheelAnalyticsTab('trends')}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
@@ -1177,7 +1221,7 @@ export default function WheelPage() {
                                 📊 Trends
                             </button>
                         </div>
-                    </div>
+                </div>
 
                     {wheelAnalyticsTab === 'coach' && (
                         <div>
@@ -1269,8 +1313,8 @@ export default function WheelPage() {
                                 )}
                             </tbody>
                         </table>
-                            </div>
-                            <p className="text-xs text-white/50">Current — current week value (change vs last week in parentheses, green for improvement, red for decline). 4w — average of last 4 weeks. Δ4w — change last 4 weeks vs previous 4 weeks (requires 5+ weeks). Average row shows arithmetic mean across all categories. Positive is improvement, negative is decline.</p>
+                    </div>
+                    <p className="text-xs text-white/50">Current — current week value (change vs last week in parentheses, green for improvement, red for decline). 4w — average of last 4 weeks. Δ4w — change last 4 weeks vs previous 4 weeks (requires 5+ weeks). Average row shows arithmetic mean across all categories. Positive is improvement, negative is decline.</p>
                         </div>
                     )}
                 </section>

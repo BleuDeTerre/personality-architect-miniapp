@@ -4,7 +4,7 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { isoWeek, getLocalDateString } from '@/lib/time';
+import { isoWeek, getLocalDateString, weekToLocalSunday } from '@/lib/time';
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
         ];
 
         const defaultScore = 5;
-        const day = getLocalDateString(); // YYYY-MM-DD (локальное время)
+        const day = weekToLocalSunday(currentWeek) ?? getLocalDateString(); // YYYY-MM-DD (локальное время)
 
         let created = 0;
         const errors: string[] = [];
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
 
                 const { error: insertError } = await supabaseAdmin
                     .from('wheel_scores')
-                    .upsert(rows, { onConflict: 'user_id,week,area' });
+                    .upsert(rows, { onConflict: 'user_id,day,domain' });
 
                 if (insertError) {
                     errors.push(`User ${user.id}: ${insertError.message}`);
