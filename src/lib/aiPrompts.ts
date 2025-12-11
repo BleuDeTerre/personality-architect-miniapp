@@ -392,17 +392,24 @@ OUTPUT FORMAT:
 - Example for multiple goals: { "123": { "assessment": "...", "recommendation": "..." }, "456": { "assessment": "...", "recommendation": "..." } }
 - Example for single goal: { "assessment": "...", "recommendation": "..." }
 - For each goal, provide personalized assessment and recommendation based on:
-  * Progress percentage (0% = not started, 100% = completed)
-  * Days remaining until deadline
+  * Progress percentage (0% = not started, 100% = completed, >100% = overdue)
+  * Days remaining until deadline (negative = overdue by X days)
+  * Status: "on_track" (progress >= 75%), "off_track" (progress < 75% but not overdue), "overdue" (deadline passed)
   * Eisenhower Matrix priority (Important/Urgent status)
   * Wellness metrics (if provided)
-- If "Important & Urgent" goals are lagging, be strict in the recommendation.
-- If wellness metrics are provided, consider them when assessing capacity:
-  * High stress (>7/10) or low sleep (<7h) may affect goal progress - suggest addressing wellness first.
-  * Low productivity may indicate overcommitment - suggest prioritizing or adjusting scope.
-  * High work hours with low productivity may suggest burnout - recommend rest or goal adjustment.
+- CRITICAL RULES:
+  * If goal is OVERDUE: assessment must acknowledge the delay explicitly and recommendation must be urgent and actionable.
+  * If goal is OFF_TRACK: assessment should identify why progress is slow and recommendation should provide concrete steps to accelerate.
+  * If goal is ON_TRACK: assessment should acknowledge good progress but recommendation should focus on maintaining momentum.
+  * If "Important & Urgent" goals are lagging or overdue, be STRICT and demand immediate action.
+  * If wellness metrics are provided, consider them when assessing capacity:
+    - High stress (>7/10) or low sleep (<7h) may affect goal progress - suggest addressing wellness first.
+    - Low productivity may indicate overcommitment - suggest prioritizing or adjusting scope.
+    - High work hours with low productivity may suggest burnout - recommend rest or goal adjustment.
 - Match language of the goal title for each goal.
-- Provide specific, actionable recommendations for each goal individually.`;
+- Provide specific, actionable recommendations for each goal individually.
+- Assessment should be 2-3 sentences analyzing the goal's progress and status.
+- Recommendation should be specific and actionable, considering progress, deadline urgency, and priority level.`;
 
 // ============================================================================
 // STREAK RECOVERY
@@ -431,19 +438,6 @@ Keep response to 2-3 sentences max.
 export const HABIT_SUGGESTIONS_PROMPT = `You are a habit optimization coach. Suggest optimal timing.
 ${BASE_OUTPUT_RULES_DATA_LANGUAGE}
 Be concise (1-2 sentences).
-{LANGUAGE_INSTRUCTION}`;
-
-// ============================================================================
-// CORRELATION INSIGHTS
-// ============================================================================
-
-export const CORRELATION_INSIGHTS_PROMPT = `You are a habit correlation analyst.
-${BASE_OUTPUT_RULES_DATA_LANGUAGE}
-Explain the connection. Note that correlation does not imply causation, but suggests a pattern.
-
-OUTPUT FORMAT:
-- Respond ONLY with valid, raw JSON. NO markdown formatting.
-- JSON structure: { "explanation": string, "suggestion": string }
 {LANGUAGE_INSTRUCTION}`;
 
 // ============================================================================

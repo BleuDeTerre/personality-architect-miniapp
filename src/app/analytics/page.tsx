@@ -5,7 +5,6 @@ import { createClient } from '@supabase/supabase-js';
 import { useMiniApp } from '@neynar/react';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
-import AICorrelationInsights from '@/components/AICorrelationInsights';
 import CollapsibleCard from '@/components/CollapsibleCard';
 import { getRandomVariant, weeklySummaryTexts, topHabitTexts, aiInsightTexts } from '@/lib/castTextVariants';
 
@@ -926,27 +925,6 @@ export default function AnalyticsPage() {
     }, [comparative, habits]);
 
     const activeGoals = useMemo(() => goals.filter(g => g.status === 'active'), [goals]);
-    const completedGoals = useMemo(() => goals.filter(g => g.status === 'completed'), [goals]);
-    const latestCompletedGoal = useMemo(() => {
-        if (!completedGoals.length) return null;
-        return [...completedGoals].sort(
-            (a, b) => new Date(b.due_date ?? b.created_at ?? '').getTime() - new Date(a.due_date ?? a.created_at ?? '').getTime()
-        )[0];
-    }, [completedGoals]);
-    const highlightedGoal = useMemo(() => latestCompletedGoal ?? activeGoals[0] ?? null, [latestCompletedGoal, activeGoals]);
-    const highlightedStatus = useMemo(() => (latestCompletedGoal ? 'Last win' : 'In progress'), [latestCompletedGoal]);
-    const highlightedSummary = useMemo(() => {
-        if (!highlightedGoal) return 'Locking the next milestone';
-        if (highlightedGoal.metric && highlightedGoal.target !== undefined && highlightedGoal.target !== null) {
-            const unit = highlightedGoal.unit ? ` ${highlightedGoal.unit}` : '';
-            return `${highlightedGoal.metric}: ${highlightedGoal.target}${unit}`;
-        }
-        if (highlightedGoal.due_date) {
-            const dueLabel = new Date(highlightedGoal.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            return `Due ${dueLabel}`;
-        }
-        return 'Momentum locked in';
-    }, [highlightedGoal]);
     const goalProgress = useMemo(() => {
         if (goals.length === 0) return null;
         const completedCount = goals.filter(g => g.status === 'completed').length;
@@ -1163,66 +1141,6 @@ export default function AnalyticsPage() {
         return null;
     }, [wheelTrends]);
 
-    // Goal forecast: calculate probability of completion and risk status
-    const goalForecast = useMemo(() => {
-        const goalsWithDueDate = goals.filter(g => g.due_date && g.status === 'active');
-        if (goalsWithDueDate.length === 0) return null;
-
-        const now = new Date();
-        let onTrackCount = 0;
-        let atRiskCount = 0;
-        let totalProgress = 0;
-        let nearestDeadline: { days: number; goal: Goal } | null = null;
-
-        for (const goal of goalsWithDueDate) {
-            const dueDate = new Date(goal.due_date!);
-            const createdDate = goal.created_at ? new Date(goal.created_at) : now;
-            const totalDays = Math.max(1, Math.ceil((dueDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)));
-            const daysElapsed = Math.max(0, Math.ceil((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)));
-            const daysRemaining = Math.max(0, Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-            
-            // Calculate progress based on time elapsed vs total time
-            let progress = 0;
-            if (goal.target && goal.target > 0) {
-                // If goal has metric and target, we'd ideally use actual progress
-                // For now, estimate based on time (this could be improved with actual metric tracking)
-                progress = Math.min(100, (daysElapsed / totalDays) * 100);
-            } else {
-                // For goals without metric, use time-based progress
-                progress = Math.min(100, (daysElapsed / totalDays) * 100);
-            }
-
-            totalProgress += progress;
-
-            // Determine if on track (progress should be >= expected progress for time elapsed)
-            // If we're past due date or progress is significantly behind, it's at risk
-            const expectedProgress = Math.min(100, (daysElapsed / totalDays) * 100);
-            const isOnTrack = daysRemaining >= 0 && progress >= expectedProgress * 0.8; // 80% tolerance
-
-            if (isOnTrack) {
-                onTrackCount++;
-            } else {
-                atRiskCount++;
-            }
-
-            // Track nearest deadline
-            if (!nearestDeadline || daysRemaining < nearestDeadline.days) {
-                nearestDeadline = { days: daysRemaining, goal };
-            }
-        }
-
-        const avgProgress = totalProgress / goalsWithDueDate.length;
-        const onTrackPercent = Math.round((onTrackCount / goalsWithDueDate.length) * 100);
-
-        return {
-            total: goalsWithDueDate.length,
-            onTrack: onTrackCount,
-            atRisk: atRiskCount,
-            avgProgress: Math.round(avgProgress),
-            onTrackPercent,
-            nearestDeadline
-        };
-    }, [goals]);
 
     const habitRecommendations = useMemo(() => {
         if (!wheelTrends || wheelTrends.length === 0) return null;
@@ -1260,26 +1178,43 @@ export default function AnalyticsPage() {
             { title: 'Hydration', icon: '💧', category: 'Wellness' },
             { title: 'Sleep Before 23:00', icon: '🛏️', category: 'Wellness' },
             { title: 'Stretching', icon: '🤸', category: 'Wellness' },
+            { title: 'Morning Sunlight', icon: '☀️', category: 'Wellness' },
+            { title: 'Screen Curfew', icon: '📴', category: 'Wellness' },
+            { title: 'Vitamins', icon: '💊', category: 'Wellness' },
+            { title: 'Cold Shower', icon: '🚿', category: 'Wellness' },
             { title: 'Exercise', icon: '💪', category: 'Fitness' },
             { title: 'Strength Training', icon: '🏋️', category: 'Fitness' },
             { title: 'Walks', icon: '🚶', category: 'Fitness' },
             { title: 'Yoga Flow', icon: '🧘', category: 'Fitness' },
+            { title: '10K Steps', icon: '🚶', category: 'Fitness' },
+            { title: 'Mobility Work', icon: '🤸', category: 'Fitness' },
+            { title: 'Running', icon: '🏃', category: 'Fitness' },
+            { title: 'Swimming', icon: '🏊', category: 'Fitness' },
+            { title: 'Cycling', icon: '🚴', category: 'Fitness' },
             { title: 'Reading', icon: '📚', category: 'Mindset' },
             { title: 'Journaling', icon: '📝', category: 'Mindset' },
             { title: 'Gratitude', icon: '🙏', category: 'Mindset' },
             { title: 'Learning Session', icon: '🧠', category: 'Mindset' },
+            { title: 'Language Practice', icon: '🗣️', category: 'Mindset' },
+            { title: 'Skill Practice', icon: '🎯', category: 'Mindset' },
             { title: 'Code Practice', icon: '💻', category: 'Productivity' },
             { title: 'Daily Planning', icon: '🗂️', category: 'Productivity' },
             { title: 'Inbox Zero', icon: '📫', category: 'Productivity' },
             { title: 'Deep Work Block', icon: '⏱️', category: 'Productivity' },
+            { title: 'Focus Block', icon: '🎧', category: 'Productivity' },
+            { title: 'Pomodoro Session', icon: '⏱️', category: 'Productivity' },
             { title: 'No Phone AM', icon: '📵', category: 'Lifestyle' },
             { title: 'Meal Prep', icon: '🍱', category: 'Lifestyle' },
             { title: 'Home Reset', icon: '🧹', category: 'Lifestyle' },
             { title: 'Outdoor Time', icon: '🌳', category: 'Lifestyle' },
+            { title: 'Home Cooked Meal', icon: '🍱', category: 'Lifestyle' },
+            { title: 'Protein Meal', icon: '🥑', category: 'Lifestyle' },
             { title: 'No Smoking', icon: '🚭', category: 'Anti-harm' },
             { title: 'No Sugary Drinks', icon: '🥤', category: 'Anti-harm' },
             { title: 'No Alcohol', icon: '🍷', category: 'Anti-harm' },
             { title: 'Limit Junk Food', icon: '🍔', category: 'Anti-harm' },
+            { title: 'No Spend Day', icon: '💳', category: 'Anti-harm' },
+            { title: 'Social Detox', icon: '📵', category: 'Anti-harm' },
             { title: 'Budget Review', icon: '💸', category: 'Finance' },
             { title: 'Expense Tracking', icon: '🧾', category: 'Finance' },
             { title: 'Investing Check', icon: '📈', category: 'Finance' },
@@ -1287,10 +1222,10 @@ export default function AnalyticsPage() {
             { title: 'Gratitude Text', icon: '💬', category: 'Social' },
             { title: 'Call Family', icon: '📞', category: 'Social' },
             { title: 'Meet a Friend', icon: '🤝', category: 'Social' },
-            { title: 'Community Post', icon: '🗣️', category: 'Social' },
+            { title: 'Meaningful Connection', icon: '🤝', category: 'Social' },
             { title: 'Content Detox', icon: '📱', category: 'Digital' },
-            { title: 'Creator Session', icon: '🎥', category: 'Digital' },
-            { title: 'Learning Reel', icon: '🎬', category: 'Digital' },
+            { title: 'Content Creation', icon: '🎨', category: 'Digital' },
+            { title: 'Newsletter Write', icon: '✉️', category: 'Digital' },
         ];
 
         // Получаем существующие привычки пользователя
@@ -1595,8 +1530,9 @@ export default function AnalyticsPage() {
                                 <>
                             {/* Performance Dashboard - объединенные Core Metrics */}
                             <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4">
-                                <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
-                                    📊 Performance Dashboard
+                                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                                    <span>📊</span>
+                                    <span className="bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Performance Dashboard</span>
                                 </h2>
                                 <div className="grid grid-cols-2 gap-3">
                             {/* Completion rate */}
@@ -1612,10 +1548,10 @@ export default function AnalyticsPage() {
                                                 : 'border-red-400/50 bg-red-400/5'
                                 : 'border-white/10 bg-[#1a1b2e]'
                                 }`}>
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-base font-semibold text-white">Completion rate</h3>
+                                <div className="flex items-start justify-between gap-2 min-w-0">
+                                    <h3 className="text-sm font-semibold text-white flex-shrink-0">Completion rate</h3>
                                     {completionRate !== null && completionRate.change !== 0 && (
-                                        <span className={`text-xs font-semibold ml-2 ${completionRate.trend === 'up' ? 'text-[#22C55E]'
+                                        <span className={`text-xs font-semibold flex-shrink-0 whitespace-nowrap ${completionRate.trend === 'up' ? 'text-[#22C55E]'
                                             : completionRate.trend === 'down' ? 'text-red-400'
                                                 : 'text-white/60'
                                             }`}>
@@ -1625,7 +1561,7 @@ export default function AnalyticsPage() {
                                 </div>
                                 {completionRate !== null && completionRate.value !== undefined ? (
                                     <>
-                                        <p className="text-xl font-semibold text-[#8B5CF6]">{completionRate.value}%</p>
+                                        <p className="text-lg font-semibold text-[#8B5CF6] break-words">{completionRate.value.toFixed(1)}%</p>
                                         <p className="text-xs text-white/70 leading-snug" title="Completion rate considers each habit's target days per week">
                                                     Share of tracked habits you finish each day.
                                         </p>
@@ -1642,14 +1578,14 @@ export default function AnalyticsPage() {
                                         : 'border-red-400/50 bg-red-400/5'
                                 : 'border-white/10 bg-[#1a1b2e]'
                                 }`}>
-                                <h3 className="text-base font-semibold text-white">Goal progress</h3>
+                                <h3 className="text-sm font-semibold text-white">Goal progress</h3>
                                 {goalProgress ? (
                                     <>
-                                        <div className="space-y-1">
-                                            <p className="text-base font-semibold text-[#8B5CF6]">
+                                        <div className="space-y-1 min-w-0">
+                                            <p className="text-base font-semibold text-[#8B5CF6] break-words">
                                                 {goalProgress.completed}/{goalProgress.total} goals
                                             </p>
-                                            <p className="text-sm font-semibold text-[#8B5CF6]">{goalProgress.avg}% avg</p>
+                                            <p className="text-sm font-semibold text-[#8B5CF6] break-words">{goalProgress.avg.toFixed(0)}% avg</p>
                                         </div>
                                         <p className="text-xs text-white/70 leading-snug" title="Progress calculated based on actual metric values when available, otherwise time-based">
                                                     Average completion of all active goals.
@@ -1666,10 +1602,10 @@ export default function AnalyticsPage() {
                                     : consistencyScore.value >= 50 ? 'border-yellow-400/50 bg-yellow-400/5'
                                         : 'border-red-400/50 bg-red-400/5'
                                     }`}>
-                                    <h3 className="text-base font-semibold text-white">Consistency score</h3>
-                                    <div className="space-y-1">
-                                        <p className="text-xl font-semibold text-[#8B5CF6]">{consistencyScore.value}/100</p>
-                                        <p className="text-sm text-[#8B5CF6] font-semibold">{consistencyScore.label}</p>
+                                    <h3 className="text-sm font-semibold text-white">Consistency score</h3>
+                                    <div className="space-y-1 min-w-0">
+                                        <p className="text-lg font-semibold text-[#8B5CF6] break-words">{consistencyScore.value}/100</p>
+                                        <p className="text-xs text-[#8B5CF6] font-semibold break-words leading-tight">{consistencyScore.label}</p>
                                     </div>
                                     <p className="text-xs text-white/70 leading-snug" title="Measures variability in daily completion. Higher score = more consistent daily activity">
                                                 Measures how consistent your daily activity is.
@@ -1715,18 +1651,17 @@ export default function AnalyticsPage() {
                                         🎡 Wheel Impact
                                     </h2>
                                     <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${(wheelImpact.top && wheelImpact.top.delta > 2) || (wheelImpact.bottom && wheelImpact.bottom.delta < -2)
-                                        ? (wheelImpact.top && wheelImpact.top.delta > 2)
-                                            ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
-                                            : 'border-red-400/50 bg-red-400/5'
-                                        : (wheelImpact.top && wheelImpact.top.delta > 1) || (wheelImpact.bottom && wheelImpact.bottom.delta < -1)
-                                            ? (wheelImpact.top && wheelImpact.top.delta > 1)
-                                                ? 'border-yellow-400/50 bg-yellow-400/5'
-                                                : 'border-orange-400/50 bg-orange-400/5'
-                                            : 'border-white/10 bg-[#1a1b2e]'
+                                            ? (wheelImpact.top && wheelImpact.top.delta > 2)
+                                                ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                                : 'border-red-400/50 bg-red-400/5'
+                                            : (wheelImpact.top && wheelImpact.top.delta > 1) || (wheelImpact.bottom && wheelImpact.bottom.delta < -1)
+                                                ? (wheelImpact.top && wheelImpact.top.delta > 1)
+                                                    ? 'border-yellow-400/50 bg-yellow-400/5'
+                                                    : 'border-orange-400/50 bg-orange-400/5'
+                                        : 'border-white/10 bg-[#1a1b2e]'
                                         }`}>
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-base font-semibold text-white">Wheel Impact</h3>
-                                            <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
                                         </div>
                                         {wheelImpact ? (
                                             <div className="flex flex-col gap-1.5">
@@ -1827,64 +1762,11 @@ export default function AnalyticsPage() {
                                                     })()}`}>
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-base font-semibold text-white">Weak windows</h3>
-                                            <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
                                         </div>
                                             <p className="text-sm text-white/70">{weakWindows.day}: {weakWindows.count} check-ins</p>
                                                     </div>
                                         )}
                                     </div>
-                                        </section>
-                                    )}
-
-                                    {/* Goals Status - объединенные */}
-                                    {goalForecast && (
-                                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4 col-span-2">
-                                            <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
-                                                🎯 Goals Status
-                                            </h2>
-                                            <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${goalForecast.onTrackPercent >= 70 
-                                            ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
-                                            : goalForecast.onTrackPercent >= 50
-                                                ? 'border-yellow-400/50 bg-yellow-400/5'
-                                                : 'border-red-400/50 bg-red-400/5'
-                                        }`}>
-                                        <div className="flex items-center justify-between">
-                                                    <h3 className="text-base font-semibold text-white">Goal Forecast</h3>
-                                                    <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
-                                        </div>
-                                            <div className="flex flex-col gap-1.5">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-sm text-white/70">{goalForecast.onTrack}/{goalForecast.total} on track</span>
-                                                    <span className={`text-sm font-semibold ${goalForecast.onTrackPercent >= 70 ? 'text-[#22C55E]' : goalForecast.onTrackPercent >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
-                                                        {goalForecast.onTrackPercent}%
-                                                    </span>
-                                                </div>
-                                                {goalForecast.atRisk > 0 && (
-                                                    <p className="text-xs text-red-400/80">{goalForecast.atRisk} goal{goalForecast.atRisk === 1 ? '' : 's'} at risk</p>
-                                                )}
-                                                {goalForecast.nearestDeadline && (
-                                                    <p className="text-xs text-white/60">
-                                                        {goalForecast.nearestDeadline.days === 0 
-                                                            ? 'Nearest deadline: Today' 
-                                                            : goalForecast.nearestDeadline.days === 1
-                                                                ? 'Nearest deadline: Tomorrow'
-                                                                : `Nearest deadline: ${goalForecast.nearestDeadline.days} days`
-                                                        }
-                                                    </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            {latestCompletedGoal && (
-                                                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
-                                                    <h3 className="text-base font-semibold text-white mb-2">Latest Completed Goal</h3>
-                                                    <p className="text-sm text-white/70">{latestCompletedGoal.title}</p>
-                                                    {latestCompletedGoal.due_date && (
-                                                        <p className="text-xs text-white/60 mt-1">
-                                                            Completed {new Date(latestCompletedGoal.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
                                         </section>
                                     )}
 
@@ -1905,7 +1787,6 @@ export default function AnalyticsPage() {
                                         }`}>
                                         <div className="flex items-center justify-between">
                                                             <h3 className="text-base font-semibold text-white">Habit Recommendations</h3>
-                                            <span className="text-xs font-semibold text-green-400 uppercase">LIVE</span>
                                         </div>
                                             <div className="flex flex-col gap-1.5">
                                                 <p className="text-sm text-white/70">
@@ -1958,9 +1839,9 @@ export default function AnalyticsPage() {
                                                                         <li key={idx}>{s}</li>
                                                                     ))}
                                                                 </ul>
-                                                            )}
-                                                        </div>
-                                                    ) : (
+                                                )}
+                                            </div>
+                                        ) : (
                                                         <p className="text-sm text-white/70">All good! No fatigue detected.</p>
                                                     )
                                                 ) : (
@@ -1977,9 +1858,6 @@ export default function AnalyticsPage() {
                                         }`}>
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-base font-semibold text-white">Recovery suggestions</h3>
-                                            <span className={`text-xs font-semibold uppercase ${recoverySuggestions ? 'text-green-400' : 'text-orange-400'}`}>
-                                                {recoverySuggestions ? 'LIVE' : 'NEED DATA'}
-                                            </span>
                                         </div>
                                         {recoverySuggestions ? (
                                             <div className="flex flex-col gap-1">
@@ -2122,10 +2000,87 @@ export default function AnalyticsPage() {
                                                 {wellnessTab === 'correlations' && (
                                         <div className={`rounded-2xl border p-4 space-y-2 ${wellnessAnalytics.correlations && wellnessAnalytics.correlations.length > 0
                                             ? (() => {
-                                                const maxStrength = Math.max(...wellnessAnalytics.correlations.map(c => Math.abs(c.correlation)));
-                                                if (maxStrength >= 0.7) return 'border-[#8B5CF6]/50 bg-[#8B5CF6]/5';
-                                                if (maxStrength >= 0.5) return 'border-yellow-400/50 bg-yellow-400/5';
-                                                return 'border-white/10 bg-[#1a1b2e]';
+                                                // Определяем, является ли корреляция "хорошей" или "плохой"
+                                                const isGoodCorrelation = (metricA: string, metricB: string, correlation: number): boolean => {
+                                                    const isPositive = correlation > 0;
+                                                    
+                                                    // Хорошие корреляции (зеленый):
+                                                    // - stress уменьшается с sleep/productivity (отрицательная корреляция)
+                                                    // - productivity увеличивается с sleep (положительная корреляция)
+                                                    // - sleep увеличивается с productivity (положительная корреляция)
+                                                    
+                                                    if (metricA === 'stress_level') {
+                                                        if (metricB === 'sleep_hours' || metricB === 'productivity_level') {
+                                                            return !isPositive; // Отрицательная корреляция = хорошо (меньше стресса)
+                                                        }
+                                                        if (metricB === 'work_hours') {
+                                                            return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = меньше стресса)
+                                                        }
+                                                    }
+                                                    
+                                                    if (metricA === 'productivity_level') {
+                                                        if (metricB === 'sleep_hours') {
+                                                            return isPositive; // Положительная корреляция = хорошо (больше сна = больше продуктивности)
+                                                        }
+                                                        if (metricB === 'work_hours') {
+                                                            return isPositive; // Положительная корреляция = хорошо (больше работы = больше продуктивности, до определенного предела)
+                                                        }
+                                                        if (metricB === 'stress_level') {
+                                                            return !isPositive; // Отрицательная корреляция = хорошо (меньше стресса = больше продуктивности)
+                                                        }
+                                                    }
+                                                    
+                                                    if (metricA === 'sleep_hours') {
+                                                        if (metricB === 'productivity_level') {
+                                                            return isPositive; // Положительная корреляция = хорошо (больше продуктивности = больше сна)
+                                                        }
+                                                        if (metricB === 'stress_level') {
+                                                            return !isPositive; // Отрицательная корреляция = хорошо (меньше стресса = больше сна)
+                                                        }
+                                                        if (metricB === 'work_hours') {
+                                                            return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = больше сна)
+                                                        }
+                                                    }
+                                                    
+                                                    if (metricA === 'work_hours') {
+                                                        if (metricB === 'stress_level') {
+                                                            return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = меньше стресса)
+                                                        }
+                                                        if (metricB === 'sleep_hours') {
+                                                            return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = больше сна)
+                                                        }
+                                                        if (metricB === 'productivity_level') {
+                                                            return isPositive; // Положительная корреляция = хорошо (больше работы = больше продуктивности)
+                                                        }
+                                                    }
+                                                    
+                                                    // По умолчанию считаем нейтральным
+                                                    return false;
+                                                };
+                                                
+                                                // Подсчитываем хорошие и плохие корреляции (только сильные > 0.5)
+                                                let goodCount = 0;
+                                                let badCount = 0;
+                                                
+                                                wellnessAnalytics.correlations.forEach(corr => {
+                                                    const strength = Math.abs(corr.correlation);
+                                                    if (strength >= 0.5) {
+                                                        if (isGoodCorrelation(corr.metric_a, corr.metric_b, corr.correlation)) {
+                                                            goodCount++;
+                                                        } else {
+                                                            badCount++;
+                                                        }
+                                                    }
+                                                });
+                                                
+                                                // Определяем цвет контейнера
+                                                if (goodCount > badCount) {
+                                                    return 'border-[#22C55E]/50 bg-[#22C55E]/5'; // Зеленый - больше хороших корреляций
+                                                } else if (badCount > goodCount) {
+                                                    return 'border-red-400/50 bg-red-400/5'; // Красный - больше плохих корреляций
+                                                } else {
+                                                    return 'border-white/10 bg-[#1a1b2e]'; // Нейтральный - одинаково или слабые корреляции
+                                                }
                                             })()
                                             : 'border-white/10 bg-[#1a1b2e]'
                                             }`}>
@@ -2373,7 +2328,6 @@ export default function AnalyticsPage() {
                             </p>
                         </div>
                     </div>
-                    <AICorrelationInsights />
                     {correlations && correlations.length > 0 ? (
                         <div className="space-y-1.5">
                             {correlations.map((corr, idx) => {
