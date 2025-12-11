@@ -7,7 +7,7 @@ function cn(...parts: Array<string | false | null | undefined>) {
 }
 
 type CollapsibleCardProps = {
-    title: string;
+    title: string | ReactNode;
     subtitle?: string;
     children: ReactNode;
     defaultOpen?: boolean;
@@ -40,7 +40,7 @@ export default function CollapsibleCard({
                 aria-expanded={open}
             >
                 <div className="flex flex-col">
-                    <span className="text-sm font-semibold text-white">{title}</span>
+                    <div className="text-sm font-semibold text-white">{title}</div>
                     {subtitle && <span className="text-xs text-white/60">{subtitle}</span>}
                 </div>
                 <div className="flex items-center gap-2">

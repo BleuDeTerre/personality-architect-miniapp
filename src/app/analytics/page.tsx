@@ -499,7 +499,6 @@ export default function AnalyticsPage() {
     }>>([]);
     const [loadingTrend, setLoadingTrend] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState<'core' | 'advanced'>('core');
     const [wellnessTab, setWellnessTab] = useState<'deepdive' | 'correlations'>('deepdive');
     const [wellnessAnalytics, setWellnessAnalytics] = useState<WellnessAnalytics | null>(null);
 
@@ -1248,56 +1247,6 @@ export default function AnalyticsPage() {
         };
     }, [habitRecommendations, wheelTrends, habits]);
 
-    // Fatigue alerts - анализ усталости
-    const fatigueAlerts = useMemo(() => {
-        if (!habits || habits.length === 0 || !predictive || predictive.length === 0) {
-            return { hasData: false, riskLevel: null, message: null, suggestions: null };
-        }
-
-        // Анализируем паттерны потери серий
-        const habitsWithRisk = predictive.filter(p => p.risk_score > 0.5);
-        if (habitsWithRisk.length === 0) {
-            return { hasData: true, riskLevel: 'low', message: null, suggestions: null };
-        }
-
-        // Анализируем completion rate за последние дни
-        let completionRateDrop = 0;
-        if (comparative) {
-            const thisWeek = comparative.this_week?.completed_total || 0;
-            const lastWeek = comparative.last_week?.completed_total || 0;
-            if (lastWeek > 0) {
-                completionRateDrop = ((thisWeek - lastWeek) / lastWeek) * 100;
-            }
-        }
-
-        // Определяем уровень риска
-        let riskLevel: 'low' | 'medium' | 'high' = 'low';
-        let message: string | null = null;
-        let suggestions: string[] | null = null;
-
-        if (habitsWithRisk.length >= 3 || completionRateDrop < -20) {
-            riskLevel = 'high';
-            message = `You're showing signs of fatigue. ${habitsWithRisk.length} habits at risk, completion rate dropped ${Math.abs(completionRateDrop).toFixed(0)}%.`;
-            suggestions = [
-                'Take a rest day',
-                'Focus on 2-3 key habits',
-                'Reduce target days this week'
-            ];
-        } else if (habitsWithRisk.length >= 2 || completionRateDrop < -10) {
-            riskLevel = 'medium';
-            message = `Mild fatigue detected. ${habitsWithRisk.length} habits at risk.`;
-            suggestions = [
-                'Prioritize key habits',
-                'Take it easier this week'
-            ];
-        } else {
-            riskLevel = 'low';
-            message = null;
-            suggestions = null;
-        }
-
-        return { hasData: true, riskLevel, message, suggestions };
-    }, [habits, predictive, comparative]);
 
 
     // Recovery suggestions - советы по восстановлению
@@ -1487,36 +1436,9 @@ export default function AnalyticsPage() {
                     </CollapsibleCard>
                 )}
 
-                {/* Metrics Section with Tabs */}
+                {/* Metrics Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-4">
-                    {/* Tabs */}
-                    <div className="flex gap-2 border-b border-white/10 justify-between px-4">
-                        <button
-                            onClick={() => setActiveTab('core')}
-                            className={`px-4 py-2 text-lg font-semibold transition-colors ml-2 ${
-                                activeTab === 'core'
-                                    ? 'text-[#8B5CF6] border-b-2 border-[#8B5CF6]'
-                                    : 'text-white/60 hover:text-white/80'
-                            }`}
-                        >
-                            Core
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('advanced')}
-                            className={`px-4 py-2 text-lg font-semibold transition-colors ${
-                                activeTab === 'advanced'
-                                    ? 'text-[#8B5CF6] border-b-2 border-[#8B5CF6]'
-                                    : 'text-white/60 hover:text-white/80'
-                            }`}
-                        >
-                            Advanced
-                        </button>
-                    </div>
-
-                    {/* Core Metrics */}
-                    {activeTab === 'core' && (
-                        <>
-                            {loading ? (
+                    {loading ? (
                                 <div className="grid grid-cols-2 gap-3">
                                     {[1, 2, 3, 4, 5, 6].map(i => (
                                         <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse space-y-2">
@@ -1548,10 +1470,10 @@ export default function AnalyticsPage() {
                                                 : 'border-red-400/50 bg-red-400/5'
                                 : 'border-white/10 bg-[#1a1b2e]'
                                 }`}>
-                                <div className="flex items-start justify-between gap-2 min-w-0">
-                                    <h3 className="text-sm font-semibold text-white flex-shrink-0">Completion rate</h3>
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-semibold text-white">Completion rate</h3>
                                     {completionRate !== null && completionRate.change !== 0 && (
-                                        <span className={`text-xs font-semibold flex-shrink-0 whitespace-nowrap ${completionRate.trend === 'up' ? 'text-[#22C55E]'
+                                        <span className={`text-xs font-semibold ${completionRate.trend === 'up' ? 'text-[#22C55E]'
                                             : completionRate.trend === 'down' ? 'text-red-400'
                                                 : 'text-white/60'
                                             }`}>
@@ -1641,479 +1563,277 @@ export default function AnalyticsPage() {
                                     </p>
                                 </div>
                             )}
+
+                            {/* Peak activity */}
+                            {mostActiveDay && (
+                                <div className={`rounded-2xl border p-4 space-y-2 ${(() => {
+                                    const allDays = mostActiveDay.allDays || facts?.day_stats || [];
+                                    const avgCount = allDays.length > 0 
+                                        ? allDays.reduce((sum, d) => sum + d.count, 0) / allDays.length
+                                        : mostActiveDay.count;
+                                    const ratio = mostActiveDay.count / avgCount;
+                                    if (ratio >= 1.5) return 'border-[#22C55E]/50 bg-[#22C55E]/5';
+                                    if (ratio >= 1.2) return 'border-yellow-400/50 bg-yellow-400/5';
+                                    return 'border-white/10 bg-[#1a1b2e]';
+                                })()}`}>
+                                    <h3 className="text-sm font-semibold text-white">Peak activity</h3>
+                                    <div className="space-y-1">
+                                        <p className="text-base font-semibold text-white">
+                                            Day: <span className="text-[#8B5CF6] font-semibold">{mostActiveDay.day}</span>
+                                        </p>
+                                        {mostActiveDay.timeOfDay && (
+                                            <p className="text-sm font-semibold text-[#8B5CF6]">
+                                                {mostActiveDay.timeOfDay}
+                                                {mostActiveDay.avgHour !== null && ` (~${Math.floor(mostActiveDay.avgHour)}:${String(Math.round((mostActiveDay.avgHour % 1) * 60)).padStart(2, '0')})`}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-white/70 leading-snug" title="Peak day shows the day of week with most completions. Time shows average completion time.">
+                                        Typical time of day you complete habits.
+                                    </p>
+                                </div>
+                            )}
                                 </div>
                             </section>
 
-                            {/* Wheel Impact */}
-                            {wheelImpact && (
-                                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4">
-                                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
-                                        🎡 Wheel Impact
-                                    </h2>
-                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${(wheelImpact.top && wheelImpact.top.delta > 2) || (wheelImpact.bottom && wheelImpact.bottom.delta < -2)
-                                            ? (wheelImpact.top && wheelImpact.top.delta > 2)
-                                                ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
-                                                : 'border-red-400/50 bg-red-400/5'
-                                            : (wheelImpact.top && wheelImpact.top.delta > 1) || (wheelImpact.bottom && wheelImpact.bottom.delta < -1)
-                                                ? (wheelImpact.top && wheelImpact.top.delta > 1)
-                                                    ? 'border-yellow-400/50 bg-yellow-400/5'
-                                                    : 'border-orange-400/50 bg-orange-400/5'
-                                        : 'border-white/10 bg-[#1a1b2e]'
-                                        }`}>
+                            {/* Wellness Analytics */}
+                            {wellnessAnalytics && wellnessAnalytics.dataPoints > 0 && (() => {
+                                const optimalCount = wellnessAnalytics.trends?.filter(t => t.status === 'optimal').length || 0;
+                                const totalCount = wellnessAnalytics.trends?.filter(t => t.current !== null).length || 0;
+                                
+                                let borderColor = 'border-white/10';
+                                let bgColor = 'bg-[#1a1b2e]';
+                                
+                                if (totalCount > 0) {
+                                    if (optimalCount >= 3) {
+                                        borderColor = 'border-[#22C55E]/50';
+                                        bgColor = 'bg-[#22C55E]/5';
+                                    } else if (optimalCount === 2) {
+                                        borderColor = 'border-yellow-400/50';
+                                        bgColor = 'bg-yellow-400/5';
+                                    } else {
+                                        borderColor = 'border-red-400/50';
+                                        bgColor = 'bg-red-400/5';
+                                    }
+                                }
+                                
+                                return (
+                                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4">
                                         <div className="flex items-center justify-between">
-                                            <h3 className="text-base font-semibold text-white">Wheel Impact</h3>
-                                        </div>
-                                        {wheelImpact ? (
-                                            <div className="flex flex-col gap-1.5">
-                                                {wheelImpact.top && (
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-emerald-300">↑</span>
-                                                        <span className="text-sm text-white/70">{wheelImpact.top.area} +{Math.round(wheelImpact.top.delta)}</span>
-                                                    </div>
-                                                )}
-                                                {wheelImpact.bottom && (
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-red-400">↓</span>
-                                                        <span className="text-sm text-white/70">{wheelImpact.bottom.area} {Math.round(wheelImpact.bottom.delta)}</span>
-                                                    </div>
-                                                )}
-                                                {!wheelImpact.top && !wheelImpact.bottom && (
-                                                    <p className="text-sm text-white/60">Track wheel scores for 2+ weeks to see trends</p>
-                                                )}
-                                                {(wheelImpact.top || wheelImpact.bottom) && (
-                                                    <p className="text-xs text-white/50">Compared to last week</p>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <p className="text-sm text-white/60">No wheel data yet</p>
-                                        )}
-                                    </div>
-                                </section>
-                            )}
-                        </>
-                            )}
-                        </>
-                    )}
-
-                    {/* Advanced Metrics */}
-                    {activeTab === 'advanced' && (
-                        <>
-                            {loading ? (
-                                <div className="grid grid-cols-2 gap-3">
-                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                                        <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse space-y-2">
-                                            <div className="h-6 bg-white/10 rounded w-32"></div>
-                                            <div className="h-6 bg-white/10 rounded w-20"></div>
-                                            <div className="h-4 bg-white/10 rounded w-full"></div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 gap-3">
-                                    {/* Time Patterns - объединенные */}
-                                    {(mostActiveDay || weakWindows) && (
-                                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4 col-span-2">
-                                            <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
-                                                ⏰ Time Patterns
+                                            <h2 className="text-xl font-semibold">
+                                                <span>💚</span>{' '}
+                                                <span className="bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Wellness Analytics</span>
                                             </h2>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {/* Peak activity */}
-                                                {mostActiveDay && (
-                                                    <div className={`rounded-2xl border p-4 space-y-2 ${(() => {
-                                            const allDays = mostActiveDay.allDays || facts?.day_stats || [];
-                                            const avgCount = allDays.length > 0 
-                                                ? allDays.reduce((sum, d) => sum + d.count, 0) / allDays.length
-                                                : mostActiveDay.count;
-                                            const ratio = mostActiveDay.count / avgCount;
-                                            if (ratio >= 1.5) return 'border-[#22C55E]/50 bg-[#22C55E]/5';
-                                            if (ratio >= 1.2) return 'border-yellow-400/50 bg-yellow-400/5';
-                                            return 'border-white/10 bg-[#1a1b2e]';
-                                                    })()}`}>
-                                        <h3 className="text-base font-semibold text-white">Peak activity</h3>
-                                                <div className="space-y-1">
-                                                    <p className="text-base font-semibold text-white">
-                                                        Day: <span className="text-[#8B5CF6] font-semibold">{mostActiveDay.day}</span>
-                                                    </p>
-                                                    {mostActiveDay.timeOfDay && (
-                                                        <p className="text-sm font-semibold text-[#8B5CF6]">
-                                                            {mostActiveDay.timeOfDay}
-                                                            {mostActiveDay.avgHour !== null && ` (~${Math.floor(mostActiveDay.avgHour)}:${String(Math.round((mostActiveDay.avgHour % 1) * 60)).padStart(2, '0')})`}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <p className="text-xs text-white/70 leading-snug" title="Peak day shows the day of week with most completions. Time shows average completion time.">
-                                                            Typical time of day you complete habits.
-                                                </p>
-                                    </div>
-                                                )}
-
-                                    {/* Weak windows */}
-                                                {weakWindows && (
-                                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${(() => {
-                                            const allDays = weakWindows.allDays || facts?.day_stats || [];
-                                            const avgCount = allDays.length > 0
-                                                ? allDays.reduce((sum, d) => sum + d.count, 0) / allDays.length
-                                                : weakWindows.count;
-                                            const ratio = weakWindows.count / avgCount;
-                                            if (ratio < 0.5) return 'border-red-400/50 bg-red-400/5';
-                                            if (ratio < 0.8) return 'border-orange-400/50 bg-orange-400/5';
-                                            if (ratio >= 0.8) return 'border-yellow-400/50 bg-yellow-400/5';
-                                            return 'border-white/10 bg-[#1a1b2e]';
-                                                    })()}`}>
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-base font-semibold text-white">Weak windows</h3>
-                                        </div>
-                                            <p className="text-sm text-white/70">{weakWindows.day}: {weakWindows.count} check-ins</p>
-                                                    </div>
-                                        )}
-                                    </div>
-                                        </section>
-                                    )}
-
-                                    {/* Wheel Insights - Habit Recommendations */}
-                                    {habitRecommendationsWithTemplates && (
-                                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4 col-span-2">
-                                            <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
-                                                🎡 Wheel Insights
-                                            </h2>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                {/* Habit Recommendations */}
-                                                {habitRecommendationsWithTemplates && (
-                                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${Math.abs(habitRecommendationsWithTemplates.delta) >= 5
-                                            ? 'border-red-400/50 bg-red-400/5'
-                                            : Math.abs(habitRecommendationsWithTemplates.delta) >= 2
-                                                ? 'border-orange-400/50 bg-orange-400/5'
-                                                : 'border-yellow-400/50 bg-yellow-400/5'
-                                        }`}>
-                                        <div className="flex items-center justify-between">
-                                                            <h3 className="text-base font-semibold text-white">Habit Recommendations</h3>
-                                        </div>
-                                            <div className="flex flex-col gap-1.5">
-                                                <p className="text-sm text-white/70">
-                                                    {habitRecommendationsWithTemplates.area} (down {Math.abs(habitRecommendationsWithTemplates.delta).toFixed(1)})
-                                                </p>
-                                                {habitRecommendationsWithTemplates.templates.length > 0 ? (
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {habitRecommendationsWithTemplates.templates.map((t, idx) => (
-                                                            <span key={idx} className="text-xs text-white/60 flex items-center gap-1">
-                                                                <span>{t.icon}</span>
-                                                                <span>{t.title}</span>
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-xs text-white/50">All recommended habits already added</p>
-                                                )}
+                                            <div className="flex gap-1.5">
+                                                <button
+                                                    onClick={() => setWellnessTab('deepdive')}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                                                        wellnessTab === 'deepdive'
+                                                            ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
+                                                            : 'text-white/60 hover:text-white/80'
+                                                    }`}
+                                                >
+                                                    Deep Dive
+                                                </button>
+                                                <button
+                                                    onClick={() => setWellnessTab('correlations')}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                                                        wellnessTab === 'correlations'
+                                                            ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
+                                                            : 'text-white/60 hover:text-white/80'
+                                                    }`}
+                                                >
+                                                    Correlations
+                                                </button>
                                             </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </section>
-                                    )}
-
-                                    {/* Risk Alerts - объединенные */}
-                                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4 col-span-2">
-                                        <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
-                                            ⚠️ Risk Alerts
-                                        </h2>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            {/* Fatigue alerts */}
-                                            <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${fatigueAlerts.hasData
-                                                ? fatigueAlerts.riskLevel === 'high' 
-                                                    ? 'border-red-400/50 bg-red-400/5'
-                                                    : fatigueAlerts.riskLevel === 'medium' 
-                                                        ? 'border-yellow-400/50 bg-yellow-400/5'
-                                                        : 'border-[#22C55E]/50 bg-[#22C55E]/5'
-                                                : 'border-white/10 bg-[#1a1b2e]'
-                                                }`}>
-                                                <div className="flex items-center justify-between">
-                                                    <h3 className="text-base font-semibold text-white">Fatigue alerts</h3>
-                                                </div>
-                                                {fatigueAlerts.hasData ? (
-                                                    fatigueAlerts.message ? (
-                                                        <div className="flex flex-col gap-1.5">
-                                                            <p className="text-sm text-white/70">{fatigueAlerts.message}</p>
-                                                            {fatigueAlerts.suggestions && fatigueAlerts.suggestions.length > 0 && (
-                                                                <ul className="text-xs text-white/60 list-disc list-inside space-y-0.5">
-                                                                    {fatigueAlerts.suggestions.map((s, idx) => (
-                                                                        <li key={idx}>{s}</li>
-                                                                    ))}
-                                                                </ul>
-                                                )}
-                                            </div>
-                                        ) : (
-                                                        <p className="text-sm text-white/70">All good! No fatigue detected.</p>
-                                                    )
-                                                ) : (
-                                                    <p className="text-sm text-white/70">Track more streaks to surface fatigue alerts.</p>
-                                        )}
-                                    </div>
-
-                                    {/* Recovery suggestions */}
-                                    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${recoverySuggestions
-                                        ? recoverySuggestions.count >= 2
-                                            ? 'border-red-400/50 bg-red-400/5'
-                                            : 'border-orange-400/50 bg-orange-400/5'
-                                        : 'border-white/10 bg-[#1a1b2e]'
-                                        }`}>
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-base font-semibold text-white">Recovery suggestions</h3>
                                         </div>
-                                        {recoverySuggestions ? (
-                                            <div className="flex flex-col gap-1">
-                                                <p className="text-sm text-white/70">{recoverySuggestions.count} streak{recoverySuggestions.count === 1 ? '' : 's'} broken</p>
-                                                <ul className="text-xs text-white/60 list-disc list-inside space-y-0.5">
-                                                    {recoverySuggestions.suggestions.map((s, idx) => (
-                                                        <li key={idx}>{s}</li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        ) : (
-                                            <p className="text-sm text-white/60">No recovery needed</p>
-                                        )}
-                                    </div>
-                                        </div>
-                                    </section>
-
-                                    {/* Wellness Analytics - объединенные */}
-                                    {wellnessAnalytics && wellnessAnalytics.dataPoints > 0 && (() => {
-                                        const optimalCount = wellnessAnalytics.trends?.filter(t => t.status === 'optimal').length || 0;
-                                        const totalCount = wellnessAnalytics.trends?.filter(t => t.current !== null).length || 0;
                                         
-                                        let borderColor = 'border-white/10';
-                                        let bgColor = 'bg-[#1a1b2e]';
-                                        
-                                        if (totalCount > 0) {
-                                            if (optimalCount >= 3) {
-                                                borderColor = 'border-[#22C55E]/50';
-                                                bgColor = 'bg-[#22C55E]/5';
-                                            } else if (optimalCount === 2) {
-                                                borderColor = 'border-yellow-400/50';
-                                                bgColor = 'bg-yellow-400/5';
-                                            } else {
-                                                borderColor = 'border-red-400/50';
-                                                bgColor = 'bg-red-400/5';
-                                            }
-                                        }
-                                        
-                                        return (
-                                            <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4 col-span-2">
-                                                <div className="flex items-center justify-between">
-                                                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
-                                                        💚 Wellness Analytics
-                                                    </h2>
-                                                    <div className="flex gap-1.5">
-                                                        <button
-                                                            onClick={() => setWellnessTab('deepdive')}
-                                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                                                                wellnessTab === 'deepdive'
-                                                                    ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
-                                                                    : 'text-white/60 hover:text-white/80'
-                                                            }`}
-                                                        >
-                                                            Deep Dive
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setWellnessTab('correlations')}
-                                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                                                                wellnessTab === 'correlations'
-                                                                    ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
-                                                                    : 'text-white/60 hover:text-white/80'
-                                                            }`}
-                                                        >
-                                                            Correlations
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                
-                                                {wellnessTab === 'deepdive' && (
-                                                    <div className={`rounded-2xl border p-4 space-y-2 ${borderColor} ${bgColor}`}>
-                                                        <h3 className="text-base font-semibold text-white">Wellness Deep Dive</h3>
-                                                        {wellnessAnalytics.trends && wellnessAnalytics.trends.length > 0 ? (
-                                                            <div className="space-y-2 text-sm">
-                                                                {wellnessAnalytics.trends.map((trend) => {
-                                                                    if (trend.current === null) return null;
-                                                                    
-                                                                    const metricLabels: Record<string, string> = {
-                                                                        stress_level: 'Stress',
-                                                                        productivity_level: 'Productivity',
-                                                                        sleep_hours: 'Sleep',
-                                                                        work_hours: 'Work',
-                                                                    };
-                                                                    const metricLabel = metricLabels[trend.metric] || trend.metric;
-                                                                    
-                                                                    const isHours = trend.metric.includes('hours');
-                                                                    const displayValue = isHours ? `${trend.current.toFixed(1)}h` : `${trend.current.toFixed(1)}`;
-                                                                    
-                                                                    let displayIcon = null;
-                                                                    let trendColor = 'text-white/60';
-                                                                    let valueColor = 'text-white';
-                                                                    
-                                                                    if (trend.trend === 'improving') {
-                                                                        displayIcon = trend.metric === 'stress_level' ? '↓' : '↑';
-                                                                        trendColor = 'text-green-400';
-                                                                        valueColor = 'text-green-400';
-                                                                    } else if (trend.trend === 'declining') {
-                                                                        displayIcon = trend.metric === 'stress_level' ? '↑' : '↓';
-                                                                        trendColor = 'text-red-400';
-                                                                        valueColor = 'text-red-400';
-                                                                    } else if (trend.trend === 'stable') {
-                                                                        displayIcon = '→';
-                                                                        trendColor = 'text-white/60';
-                                                                        valueColor = 'text-white';
-                                                                    }
-                                                                    
-                                                                    const statusText = trend.status === 'optimal' ? 'Optimal' : trend.status === 'below' ? 'Below optimal' : trend.status === 'above' ? 'Above optimal' : null;
-                                                                    const statusColor = trend.status === 'optimal' ? 'text-green-400' : trend.status === 'below' ? 'text-yellow-400' : trend.status === 'above' ? 'text-orange-400' : 'text-white/60';
-                                                                    
-                                                                    return (
-                                                                        <div key={trend.metric} className="flex flex-col gap-0.5">
-                                                                            <div className="flex items-center justify-between">
-                                                                                <span className="text-white/70">{metricLabel}:</span>
-                                                                                <div className="flex items-center gap-1.5">
-                                                                                    <span className={`font-semibold ${valueColor}`}>{displayValue}</span>
-                                                                                    {displayIcon && (
-                                                                                        <span className={`text-xs ${trendColor}`}>{displayIcon}</span>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-                                                                            {statusText && (
-                                                                                <div className="flex items-center justify-between text-xs">
-                                                                                    <span className={`${statusColor} font-medium`}>{statusText}</span>
-                                                                                    {trend.change !== null && trend.change !== 0 && (
-                                                                                        <span className="text-white/50">
-                                                                                            {trend.change > 0 ? '+' : ''}{trend.change.toFixed(1)} vs yesterday
-                                                                                        </span>
-                                                                                    )}
-                                                                                </div>
+                                        {wellnessTab === 'deepdive' && (
+                                            <div className={`rounded-2xl border p-4 space-y-2 ${borderColor} ${bgColor}`}>
+                                                <h3 className="text-base font-semibold text-white">Wellness Deep Dive</h3>
+                                                {wellnessAnalytics.trends && wellnessAnalytics.trends.length > 0 ? (
+                                                    <div className="space-y-2 text-sm">
+                                                        {wellnessAnalytics.trends.map((trend) => {
+                                                            if (trend.current === null) return null;
+                                                            
+                                                            const metricLabels: Record<string, string> = {
+                                                                stress_level: 'Stress',
+                                                                productivity_level: 'Productivity',
+                                                                sleep_hours: 'Sleep',
+                                                                work_hours: 'Work',
+                                                            };
+                                                            const metricLabel = metricLabels[trend.metric] || trend.metric;
+                                                            
+                                                            const isHours = trend.metric.includes('hours');
+                                                            const displayValue = isHours ? `${trend.current.toFixed(1)}h` : `${trend.current.toFixed(1)}`;
+                                                            
+                                                            let displayIcon = null;
+                                                            let trendColor = 'text-white/60';
+                                                            let valueColor = 'text-white';
+                                                            
+                                                            if (trend.trend === 'improving') {
+                                                                displayIcon = trend.metric === 'stress_level' ? '↓' : '↑';
+                                                                trendColor = 'text-green-400';
+                                                                valueColor = 'text-green-400';
+                                                            } else if (trend.trend === 'declining') {
+                                                                displayIcon = trend.metric === 'stress_level' ? '↑' : '↓';
+                                                                trendColor = 'text-red-400';
+                                                                valueColor = 'text-red-400';
+                                                            } else if (trend.trend === 'stable') {
+                                                                displayIcon = '→';
+                                                                trendColor = 'text-white/60';
+                                                                valueColor = 'text-white';
+                                                            }
+                                                            
+                                                            const statusText = trend.status === 'optimal' ? 'Optimal' : trend.status === 'below' ? 'Below optimal' : trend.status === 'above' ? 'Above optimal' : null;
+                                                            const statusColor = trend.status === 'optimal' ? 'text-green-400' : trend.status === 'below' ? 'text-yellow-400' : trend.status === 'above' ? 'text-orange-400' : 'text-white/60';
+                                                            
+                                                            return (
+                                                                <div key={trend.metric} className="flex flex-col gap-0.5">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span className="text-white/70">{metricLabel}:</span>
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <span className={`font-semibold ${valueColor}`}>{displayValue}</span>
+                                                                            {displayIcon && (
+                                                                                <span className={`text-xs ${trendColor}`}>{displayIcon}</span>
                                                                             )}
                                                                         </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        ) : (
-                                                            <p className="text-xs text-white/60">No data yet</p>
-                                                        )}
+                                                                    </div>
+                                                                    {statusText && (
+                                                                        <div className="flex items-center justify-between text-xs">
+                                                                            <span className={`${statusColor} font-medium`}>{statusText}</span>
+                                                                            {trend.change !== null && trend.change !== 0 && (
+                                                                                <span className="text-white/50">
+                                                                                    {trend.change > 0 ? '+' : ''}{trend.change.toFixed(1)} vs yesterday
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
+                                                ) : (
+                                                    <p className="text-xs text-white/60">No data yet</p>
                                                 )}
-                                                
-                                                {wellnessTab === 'correlations' && (
-                                        <div className={`rounded-2xl border p-4 space-y-2 ${wellnessAnalytics.correlations && wellnessAnalytics.correlations.length > 0
-                                            ? (() => {
-                                                // Определяем, является ли корреляция "хорошей" или "плохой"
-                                                const isGoodCorrelation = (metricA: string, metricB: string, correlation: number): boolean => {
-                                                    const isPositive = correlation > 0;
+                                            </div>
+                                        )}
+                                        
+                                        {wellnessTab === 'correlations' && (
+                                            <div className={`rounded-2xl border p-4 space-y-2 ${wellnessAnalytics.correlations && wellnessAnalytics.correlations.length > 0
+                                                ? (() => {
+                                                    // Определяем, является ли корреляция "хорошей" или "плохой"
+                                                    const isGoodCorrelation = (metricA: string, metricB: string, correlation: number): boolean => {
+                                                        const isPositive = correlation > 0;
+                                                        
+                                                        // Хорошие корреляции (зеленый):
+                                                        // - stress уменьшается с sleep/productivity (отрицательная корреляция)
+                                                        // - productivity увеличивается с sleep (положительная корреляция)
+                                                        // - sleep увеличивается с productivity (положительная корреляция)
+                                                        
+                                                        if (metricA === 'stress_level') {
+                                                            if (metricB === 'sleep_hours' || metricB === 'productivity_level') {
+                                                                return !isPositive; // Отрицательная корреляция = хорошо (меньше стресса)
+                                                            }
+                                                            if (metricB === 'work_hours') {
+                                                                return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = меньше стресса)
+                                                            }
+                                                        }
+                                                        
+                                                        if (metricA === 'productivity_level') {
+                                                            if (metricB === 'sleep_hours') {
+                                                                return isPositive; // Положительная корреляция = хорошо (больше сна = больше продуктивности)
+                                                            }
+                                                            if (metricB === 'work_hours') {
+                                                                return isPositive; // Положительная корреляция = хорошо (больше работы = больше продуктивности, до определенного предела)
+                                                            }
+                                                            if (metricB === 'stress_level') {
+                                                                return !isPositive; // Отрицательная корреляция = хорошо (меньше стресса = больше продуктивности)
+                                                            }
+                                                        }
+                                                        
+                                                        if (metricA === 'sleep_hours') {
+                                                            if (metricB === 'productivity_level') {
+                                                                return isPositive; // Положительная корреляция = хорошо (больше продуктивности = больше сна)
+                                                            }
+                                                            if (metricB === 'stress_level') {
+                                                                return !isPositive; // Отрицательная корреляция = хорошо (меньше стресса = больше сна)
+                                                            }
+                                                            if (metricB === 'work_hours') {
+                                                                return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = больше сна)
+                                                            }
+                                                        }
+                                                        
+                                                        if (metricA === 'work_hours') {
+                                                            if (metricB === 'stress_level') {
+                                                                return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = меньше стресса)
+                                                            }
+                                                            if (metricB === 'sleep_hours') {
+                                                                return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = больше сна)
+                                                            }
+                                                            if (metricB === 'productivity_level') {
+                                                                return isPositive; // Положительная корреляция = хорошо (больше работы = больше продуктивности)
+                                                            }
+                                                        }
+                                                        
+                                                        // По умолчанию считаем нейтральным
+                                                        return false;
+                                                    };
                                                     
-                                                    // Хорошие корреляции (зеленый):
-                                                    // - stress уменьшается с sleep/productivity (отрицательная корреляция)
-                                                    // - productivity увеличивается с sleep (положительная корреляция)
-                                                    // - sleep увеличивается с productivity (положительная корреляция)
+                                                    // Подсчитываем хорошие и плохие корреляции (только сильные > 0.5)
+                                                    let goodCount = 0;
+                                                    let badCount = 0;
                                                     
-                                                    if (metricA === 'stress_level') {
-                                                        if (metricB === 'sleep_hours' || metricB === 'productivity_level') {
-                                                            return !isPositive; // Отрицательная корреляция = хорошо (меньше стресса)
-                                                        }
-                                                        if (metricB === 'work_hours') {
-                                                            return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = меньше стресса)
-                                                        }
-                                                    }
-                                                    
-                                                    if (metricA === 'productivity_level') {
-                                                        if (metricB === 'sleep_hours') {
-                                                            return isPositive; // Положительная корреляция = хорошо (больше сна = больше продуктивности)
-                                                        }
-                                                        if (metricB === 'work_hours') {
-                                                            return isPositive; // Положительная корреляция = хорошо (больше работы = больше продуктивности, до определенного предела)
-                                                        }
-                                                        if (metricB === 'stress_level') {
-                                                            return !isPositive; // Отрицательная корреляция = хорошо (меньше стресса = больше продуктивности)
-                                                        }
-                                                    }
-                                                    
-                                                    if (metricA === 'sleep_hours') {
-                                                        if (metricB === 'productivity_level') {
-                                                            return isPositive; // Положительная корреляция = хорошо (больше продуктивности = больше сна)
-                                                        }
-                                                        if (metricB === 'stress_level') {
-                                                            return !isPositive; // Отрицательная корреляция = хорошо (меньше стресса = больше сна)
-                                                        }
-                                                        if (metricB === 'work_hours') {
-                                                            return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = больше сна)
-                                                        }
-                                                    }
-                                                    
-                                                    if (metricA === 'work_hours') {
-                                                        if (metricB === 'stress_level') {
-                                                            return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = меньше стресса)
-                                                        }
-                                                        if (metricB === 'sleep_hours') {
-                                                            return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = больше сна)
-                                                        }
-                                                        if (metricB === 'productivity_level') {
-                                                            return isPositive; // Положительная корреляция = хорошо (больше работы = больше продуктивности)
-                                                        }
-                                                    }
-                                                    
-                                                    // По умолчанию считаем нейтральным
-                                                    return false;
-                                                };
-                                                
-                                                // Подсчитываем хорошие и плохие корреляции (только сильные > 0.5)
-                                                let goodCount = 0;
-                                                let badCount = 0;
-                                                
-                                                wellnessAnalytics.correlations.forEach(corr => {
-                                                    const strength = Math.abs(corr.correlation);
-                                                    if (strength >= 0.5) {
-                                                        if (isGoodCorrelation(corr.metric_a, corr.metric_b, corr.correlation)) {
-                                                            goodCount++;
-                                                        } else {
-                                                            badCount++;
-                                                        }
-                                                    }
-                                                });
-                                                
-                                                // Определяем цвет контейнера
-                                                if (goodCount > badCount) {
-                                                    return 'border-[#22C55E]/50 bg-[#22C55E]/5'; // Зеленый - больше хороших корреляций
-                                                } else if (badCount > goodCount) {
-                                                    return 'border-red-400/50 bg-red-400/5'; // Красный - больше плохих корреляций
-                                                } else {
-                                                    return 'border-white/10 bg-[#1a1b2e]'; // Нейтральный - одинаково или слабые корреляции
-                                                }
-                                            })()
-                                            : 'border-white/10 bg-[#1a1b2e]'
-                                            }`}>
-                                            <h3 className="text-base font-semibold text-white">Wellness Correlations</h3>
-                                            {wellnessAnalytics.correlations && wellnessAnalytics.correlations.length > 0 ? (
-                                                <div className="space-y-1.5">
-                                                    {wellnessAnalytics.correlations.slice(0, 3).map((corr, idx) => {
+                                                    wellnessAnalytics.correlations.forEach(corr => {
                                                         const strength = Math.abs(corr.correlation);
-                                                        const direction = corr.correlation > 0 ? 'increases with' : 'decreases with';
-                                                        const strengthLabel = strength > 0.7 ? 'Strong' : strength > 0.5 ? 'Moderate' : 'Weak';
-                                                        return (
-                                                            <div key={idx} className="text-xs text-white/70 leading-relaxed">
-                                                                <span className="text-white/90">{corr.metric_a.replace('_', ' ')}</span> {direction}{' '}
-                                                                <span className="text-white/90">{corr.metric_b.replace('_', ' ')}</span>{' '}
-                                                                <span className="text-purple-400">({strengthLabel}: {strength.toFixed(2)})</span>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            ) : (
-                                                <p className="text-xs text-white/60 leading-snug">
-                                                    {wellnessAnalytics.dataPoints < 5 
-                                                        ? `Need at least 5 data points to calculate correlations (currently ${wellnessAnalytics.dataPoints})`
-                                                        : 'No significant correlations found yet. Keep tracking your wellness metrics!'}
-                                                </p>
-                                            )}
-                                        </div>
-                                    )}
-                                            </section>
-                                        );
-                                    })()}
-                                </div>
-                            )}
+                                                        if (strength >= 0.5) {
+                                                            if (isGoodCorrelation(corr.metric_a, corr.metric_b, corr.correlation)) {
+                                                                goodCount++;
+                                                            } else {
+                                                                badCount++;
+                                                            }
+                                                        }
+                                                    });
+                                                    
+                                                    // Определяем цвет контейнера
+                                                    if (goodCount > badCount) {
+                                                        return 'border-[#22C55E]/50 bg-[#22C55E]/5'; // Зеленый - больше хороших корреляций
+                                                    } else if (badCount > goodCount) {
+                                                        return 'border-red-400/50 bg-red-400/5'; // Красный - больше плохих корреляций
+                                                    } else {
+                                                        return 'border-white/10 bg-[#1a1b2e]'; // Нейтральный - одинаково или слабые корреляции
+                                                    }
+                                                })()
+                                                : 'border-white/10 bg-[#1a1b2e]'
+                                                }`}>
+                                                <h3 className="text-base font-semibold text-white">Wellness Correlations</h3>
+                                                {wellnessAnalytics.correlations && wellnessAnalytics.correlations.length > 0 ? (
+                                                    <div className="space-y-1.5">
+                                                        {wellnessAnalytics.correlations.slice(0, 3).map((corr, idx) => {
+                                                            const strength = Math.abs(corr.correlation);
+                                                            const direction = corr.correlation > 0 ? 'increases with' : 'decreases with';
+                                                            const strengthLabel = strength > 0.7 ? 'Strong' : strength > 0.5 ? 'Moderate' : 'Weak';
+                                                            return (
+                                                                <div key={idx} className="text-xs text-white/70 leading-relaxed">
+                                                                    <span className="text-white/90">{corr.metric_a.replace('_', ' ')}</span> {direction}{' '}
+                                                                    <span className="text-white/90">{corr.metric_b.replace('_', ' ')}</span>{' '}
+                                                                    <span className="text-purple-400">({strengthLabel}: {strength.toFixed(2)})</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-xs text-white/60 leading-snug">
+                                                        {wellnessAnalytics.dataPoints < 5 
+                                                            ? `Need at least 5 data points to calculate correlations (currently ${wellnessAnalytics.dataPoints})`
+                                                            : 'No significant correlations found yet. Keep tracking your wellness metrics!'}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </section>
+                                );
+                            })()}
                         </>
                     )}
                 </section>

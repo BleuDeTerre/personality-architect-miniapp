@@ -151,7 +151,8 @@ export async function GET(req: NextRequest) {
                 hasPattern,
                 todayCount,
                 habitLogs.length,
-                riskScore
+                riskScore,
+                habit.id // Передаем habitId для уникальности сообщений
             );
 
             alerts.push({
@@ -169,8 +170,73 @@ export async function GET(req: NextRequest) {
         // Фильтруем только реальные риски (>= 50%)
         const highRiskAlerts = alerts.filter(alert => alert.riskScore >= 50);
 
-        // Возвращаем максимум 3 предупреждения с риском >= 50%
-        return NextResponse.json({ alerts: highRiskAlerts.slice(0, 3) });
+        // Вычисляем fatigue metrics
+        const habitsWithRisk = alerts.filter(a => a.riskScore >= 50);
+        
+        // Получаем данные для сравнения недель (используем client local date)
+        const daysFromSunday = dayOfWeek === 0 ? 0 : dayOfWeek;
+        const thisWeekStart = new Date(clientNow);
+        thisWeekStart.setDate(clientNow.getDate() - daysFromSunday);
+        thisWeekStart.setHours(0, 0, 0, 0);
+        const lastWeekStart = new Date(thisWeekStart);
+        lastWeekStart.setDate(thisWeekStart.getDate() - 7);
+        const thisWeekStartStr = thisWeekStart.toISOString().slice(0, 10);
+        const lastWeekStartStr = lastWeekStart.toISOString().slice(0, 10);
+
+        // Получаем логи для обеих недель
+        const { data: thisWeekLogs } = await supa
+            .from('habit_logs')
+            .select('habit_id')
+            .eq('user_id', userId)
+            .eq('value', true)
+            .gte('date', thisWeekStartStr)
+            .lt('date', todayStr);
+
+        const { data: lastWeekLogs } = await supa
+            .from('habit_logs')
+            .select('habit_id')
+            .eq('user_id', userId)
+            .eq('value', true)
+            .gte('date', lastWeekStartStr)
+            .lt('date', thisWeekStartStr);
+
+        const thisWeekCount = (thisWeekLogs || []).length;
+        const lastWeekCount = (lastWeekLogs || []).length;
+        
+        let completionRateDrop = 0;
+        if (lastWeekCount > 0) {
+            completionRateDrop = ((thisWeekCount - lastWeekCount) / lastWeekCount) * 100;
+        }
+
+        // Определяем уровень риска и советы
+        let riskLevel: 'low' | 'medium' | 'high' = 'low';
+        let suggestions: string[] | null = null;
+
+        if (habitsWithRisk.length >= 3 || completionRateDrop < -20) {
+            riskLevel = 'high';
+            suggestions = [
+                'Take a rest day',
+                'Focus on 2-3 key habits',
+                'Reduce target days this week'
+            ];
+        } else if (habitsWithRisk.length >= 2 || completionRateDrop < -10) {
+            riskLevel = 'medium';
+            suggestions = [
+                'Prioritize key habits',
+                'Take it easier this week'
+            ];
+        }
+
+        // Возвращаем максимум 3 предупреждения с риском >= 50% + fatigue info
+        return NextResponse.json({ 
+            alerts: highRiskAlerts.slice(0, 3),
+            fatigue: {
+                totalAtRisk: habitsWithRisk.length,
+                completionRateDrop: Math.round(completionRateDrop * 10) / 10,
+                riskLevel,
+                suggestions
+            }
+        });
     } catch (error: any) {
         console.error('[AI Predictive Alerts] Error:', error);
         return NextResponse.json({ alerts: [], error: error?.message });

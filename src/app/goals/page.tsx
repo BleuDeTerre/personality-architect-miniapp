@@ -7,6 +7,7 @@ import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCa
 import MiniAppPage from '@/components/MiniAppPage';
 import CollapsibleCard from '@/components/CollapsibleCard';
 import AIGoalsAssistant from '@/components/AIGoalsAssistant';
+import AIGoalBreakdown from '@/components/AIGoalBreakdown';
 import EisenhowerMatrix from '@/components/EisenhowerMatrix';
 import GoalSubtasks from '@/components/GoalSubtasks';
 import DatePicker from '@/components/DatePicker';
@@ -677,7 +678,7 @@ export default function GoalsPage() {
                                 required
                             />
                             {title && (
-                                <AIGoalsAssistant
+                                <AIGoalBreakdown
                                     goalTitle={title}
                                     goalDescription=""
                                     dueDate={dueDate}
@@ -885,7 +886,7 @@ export default function GoalsPage() {
                                                 )}
                                                 {goal.status === 'active' && (
                                                     <div className="mt-3 space-y-2">
-                                                        <AIGoalsAssistant
+                                                        <AIGoalBreakdown
                                                             goalTitle={goal.title}
                                                             goalId={goal.id}
                                                             important={goal.important}

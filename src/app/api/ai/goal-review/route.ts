@@ -11,6 +11,150 @@ import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 import { getAICache, setAICache } from '@/lib/aiCacheHelper';
 import crypto from 'crypto';
 
+// Типы для Review
+type ReviewStatus = 'on_track' | 'off_track' | 'overdue';
+
+interface GoalReviewData {
+    goalId: string;
+    goalTitle: string;
+    progress: number; // 0-120 (clamped)
+    progressRaw: number; // оригинальный прогресс без clamping
+    assessment: string;
+    recommendation: string;
+    isOnTrack: boolean;
+    status: ReviewStatus;
+    daysRemaining: number | null; // положительное число = дней до дедлайна, отрицательное = просрочено на X дней
+    overdueDays?: number; // сколько дней просрочено (если статус overdue)
+}
+
+// Генерация вариативных фолбэков на основе прогресса, дедлайна и приоритета
+function generateFallbackReview(
+    goalTitle: string,
+    progressRaw: number,
+    progressClamped: number,
+    daysRemaining: number | null,
+    important: boolean,
+    urgent: boolean,
+    daysSinceStart: number
+): { assessment: string; recommendation: string } {
+    const isOverdue = daysRemaining !== null && daysRemaining < 0;
+    const overdueDays = isOverdue ? Math.abs(daysRemaining) : 0;
+    const status: ReviewStatus = isOverdue ? 'overdue' : (progressClamped >= 75 ? 'on_track' : 'off_track');
+    
+    // Вариативные assessment тексты
+    const assessments: Record<ReviewStatus, string[]> = {
+        on_track: [
+            `Great progress on "${goalTitle}"! You're ${progressClamped}% through your timeline.`,
+            `"${goalTitle}" is moving forward well. You've completed ${progressClamped}% of the planned timeline.`,
+            `You're making steady progress on "${goalTitle}". Currently at ${progressClamped}% completion.`,
+            `"${goalTitle}" is on track! You're ${progressClamped}% of the way there.`,
+        ],
+        off_track: [
+            `"${goalTitle}" needs attention. You're at ${progressClamped}% progress${daysRemaining !== null ? ` with ${daysRemaining} days remaining` : ''}.`,
+            `Progress on "${goalTitle}" is ${progressClamped}%${daysRemaining !== null ? `, ${daysRemaining} days left` : ''}. Time to accelerate your efforts.`,
+            `"${goalTitle}" is behind schedule at ${progressClamped}%${daysRemaining !== null ? `. Only ${daysRemaining} days remain` : ''}.`,
+            `You're at ${progressClamped}% on "${goalTitle}"${daysRemaining !== null ? ` with ${daysRemaining} days to go` : ''}. Consider adjusting your approach.`,
+        ],
+        overdue: [
+            `"${goalTitle}" is overdue by ${overdueDays} day${overdueDays !== 1 ? 's' : ''}. You're at ${progressClamped}% progress. Immediate action needed.`,
+            `"${goalTitle}" has been overdue for ${overdueDays} day${overdueDays !== 1 ? 's' : ''}. Current progress: ${progressClamped}%.`,
+            `Overdue: "${goalTitle}" is ${overdueDays} day${overdueDays !== 1 ? 's' : ''} past deadline. Progress: ${progressClamped}%.`,
+            `"${goalTitle}" missed its deadline by ${overdueDays} day${overdueDays !== 1 ? 's' : ''}. You're at ${progressClamped}% completion.`,
+        ],
+    };
+
+    // Вариативные recommendation тексты
+    const getRecommendation = (): string => {
+        if (isOverdue) {
+            if (important && urgent) {
+                return `This is critical and urgent. Break down remaining work into daily tasks and commit to completing at least one task per day. Consider extending the deadline if needed.`;
+            }
+            return `Break the remaining work into smaller daily chunks. Focus on making progress every day, even if it's small. Consider if the deadline needs adjustment.`;
+        }
+        
+        if (progressClamped < 25) {
+            if (important && urgent) {
+                return `This requires immediate focus. Create a daily action plan and start executing today. Track progress daily.`;
+            }
+            return `Start with small daily actions. Break down the goal into weekly milestones and commit to consistent progress.`;
+        }
+        
+        if (progressClamped < 50) {
+            if (daysRemaining !== null && daysRemaining < 7) {
+                return `Time is running out. Increase your daily effort and focus on the most critical tasks. Consider what can be done today.`;
+            }
+            return `You're halfway there. Maintain momentum by setting weekly targets and reviewing progress regularly.`;
+        }
+        
+        if (progressClamped < 75) {
+            return `You're making good progress. Stay consistent with your current approach and finish strong.`;
+        }
+        
+        return `You're almost there! Maintain your current pace and focus on completing the final steps.`;
+    };
+
+    // Выбираем случайный assessment из подходящих
+    const statusAssessments = assessments[status];
+    const assessment = statusAssessments[Math.floor(Math.random() * statusAssessments.length)];
+
+    return {
+        assessment,
+        recommendation: getRecommendation(),
+    };
+}
+
+// Функция для расчета прогресса с clamping и статуса
+function calculateGoalProgress(
+    createdDate: Date,
+    dueDate: Date | null,
+    today: Date
+): {
+    progressRaw: number;
+    progressClamped: number;
+    status: ReviewStatus;
+    daysRemaining: number | null;
+    overdueDays?: number;
+    daysSinceStart: number;
+} {
+    const daysSinceStart = Math.floor((today.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+    const totalDays = dueDate ? Math.floor((dueDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
+    
+    let progressRaw: number;
+    let daysRemaining: number | null = null;
+    
+    if (dueDate === null || totalDays === null || totalDays <= 0) {
+        // Нет дедлайна или некорректный дедлайн
+        progressRaw = Math.min(100, (daysSinceStart / 30) * 100); // предполагаем 30 дней по умолчанию
+        daysRemaining = null;
+    } else {
+        // Есть дедлайн
+        progressRaw = (daysSinceStart / totalDays) * 100;
+        daysRemaining = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    }
+    
+    // Clamping прогресса: 0-120%
+    const progressClamped = Math.max(0, Math.min(120, Math.round(progressRaw)));
+    
+    // Определяем статус
+    let status: ReviewStatus;
+    if (daysRemaining !== null && daysRemaining < 0) {
+        status = 'overdue';
+    } else if (progressClamped >= 75) {
+        status = 'on_track';
+    } else {
+        status = 'off_track';
+    }
+    
+    return {
+        progressRaw: Math.round(progressRaw * 10) / 10, // округляем до 1 знака
+        progressClamped,
+        status,
+        daysRemaining,
+        overdueDays: daysRemaining !== null && daysRemaining < 0 ? Math.abs(daysRemaining) : undefined,
+        daysSinceStart,
+    };
+}
+
 export async function GET(req: NextRequest) {
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
@@ -95,14 +239,7 @@ export async function GET(req: NextRequest) {
         };
 
         // Проверяем кеш (24 часа)
-        const cached = await getAICache<{ reviews: Array<{
-            goalId: string;
-            goalTitle: string;
-            progress: number;
-            assessment: string;
-            recommendation: string;
-            isOnTrack: boolean;
-        }> }>(supa, userId, {
+        const cached = await getAICache<{ reviews: GoalReviewData[] }>(supa, userId, {
             endpoint: 'ai/goal-review',
             input: cacheKey,
             cacheHours: 24,
@@ -115,22 +252,33 @@ export async function GET(req: NextRequest) {
         // Проверяем лимит один раз перед AI запросом
         const limitCheck = await checkAILimit(supa, userId, userPlan);
         if (!limitCheck.allowed) {
-            // Если лимит достигнут - используем fallback для всех целей
-            const fallbackReviews = goals.map(goal => {
+            // Если лимит достигнут - используем вариативный fallback для всех целей
+            const fallbackReviews: GoalReviewData[] = goals.map(goal => {
                 const createdDate = new Date(goal.created_at);
                 const dueDate = goal.due_date ? new Date(goal.due_date) : null;
-                const daysSinceStart = Math.floor((today.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
-                const totalDays = dueDate ? Math.floor((dueDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
-                const progress = totalDays ? Math.min(100, (daysSinceStart / totalDays) * 100) : 50;
-                const isOnTrack = progress <= 100 || !dueDate;
+                
+                const progressData = calculateGoalProgress(createdDate, dueDate, today);
+                const fallback = generateFallbackReview(
+                    goal.title,
+                    progressData.progressRaw,
+                    progressData.progressClamped,
+                    progressData.daysRemaining,
+                    goal.important || false,
+                    goal.urgent || false,
+                    progressData.daysSinceStart
+                );
 
                 return {
                     goalId: goal.id,
                     goalTitle: goal.title,
-                    progress: Math.round(progress),
-                    assessment: isOnTrack ? 'You are on track!' : 'Consider adjusting your approach.',
-                    recommendation: 'Stay consistent and track your progress.',
-                    isOnTrack,
+                    progress: progressData.progressClamped,
+                    progressRaw: progressData.progressRaw,
+                    assessment: fallback.assessment,
+                    recommendation: fallback.recommendation,
+                    isOnTrack: progressData.status === 'on_track',
+                    status: progressData.status,
+                    daysRemaining: progressData.daysRemaining,
+                    overdueDays: progressData.overdueDays,
                 };
             });
             return NextResponse.json({ reviews: fallbackReviews });
@@ -140,10 +288,8 @@ export async function GET(req: NextRequest) {
         const goalsData = goals.map(goal => {
             const createdDate = new Date(goal.created_at);
             const dueDate = goal.due_date ? new Date(goal.due_date) : null;
-            const daysSinceStart = Math.floor((today.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
-            const totalDays = dueDate ? Math.floor((dueDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
-            const progress = totalDays ? Math.min(100, (daysSinceStart / totalDays) * 100) : 50;
-            const isOnTrack = progress <= 100 || !dueDate;
+            
+            const progressData = calculateGoalProgress(createdDate, dueDate, today);
 
             return {
                 id: goal.id,
@@ -151,12 +297,15 @@ export async function GET(req: NextRequest) {
                 metric: goal.metric,
                 target: goal.target,
                 unit: goal.unit,
-                daysSinceStart,
-                dueInDays: dueDate ? Math.max(0, Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))) : null,
-                progress: Math.round(progress),
-                isOnTrack,
+                daysSinceStart: progressData.daysSinceStart,
+                dueInDays: progressData.daysRemaining,
+                progressRaw: progressData.progressRaw,
+                progressClamped: progressData.progressClamped,
+                status: progressData.status,
+                isOnTrack: progressData.status === 'on_track',
                 important: goal.important,
                 urgent: goal.urgent,
+                overdueDays: progressData.overdueDays,
             };
         });
 
@@ -167,25 +316,31 @@ export async function GET(req: NextRequest) {
         }
         const { aiClient, model } = deepseekResult;
 
-        const reviews: Array<{
-            goalId: string;
-            goalTitle: string;
-            progress: number;
-            assessment: string;
-            recommendation: string;
-            isOnTrack: boolean;
-        }> = [];
+        const reviews: GoalReviewData[] = [];
 
         try {
             // Формируем один большой запрос для всех целей
             const goalsText = goalsData.map((g, idx) => {
+                const statusText = g.status === 'overdue' 
+                    ? `  Status: OVERDUE by ${g.overdueDays || 0} days`
+                    : g.status === 'off_track'
+                    ? `  Status: OFF TRACK`
+                    : `  Status: ON TRACK`;
+                
+                const deadlineText = g.dueInDays !== null 
+                    ? (g.dueInDays < 0 
+                        ? `  Overdue by: ${Math.abs(g.dueInDays)} days`
+                        : `  Due in: ${g.dueInDays} days`)
+                    : '  No deadline';
+                
                 return [
                     `Goal ${idx + 1}: "${g.title}"`,
                     g.metric ? `  Metric: ${g.metric}` : '',
                     g.target ? `  Target: ${g.target} ${g.unit || ''}` : '',
                     `  Created: ${g.daysSinceStart} days ago`,
-                    g.dueInDays !== null ? `  Due in: ${g.dueInDays} days` : '  No deadline',
-                    `  Progress: ${g.progress}%`,
+                    deadlineText,
+                    `  Progress: ${g.progressClamped}% (raw: ${g.progressRaw.toFixed(1)}%)`,
+                    statusText,
                     g.important !== undefined || g.urgent !== undefined 
                         ? `  Eisenhower Matrix: ${g.important ? 'Important' : 'Not Important'} & ${g.urgent ? 'Urgent' : 'Not Urgent'}` 
                         : '',
@@ -230,14 +385,46 @@ export async function GET(req: NextRequest) {
             // Создаем reviews из результата AI
             for (const goalData of goalsData) {
                 const goalResult = result[String(goalData.id)] || result[goalData.id] || {};
-                reviews.push({
-                    goalId: goalData.id,
-                    goalTitle: goalData.title,
-                    progress: goalData.progress,
-                    assessment: goalResult.assessment || (goalData.isOnTrack ? 'You are on track!' : 'Consider adjusting your approach.'),
-                    recommendation: goalResult.recommendation || 'Stay consistent and track your progress.',
-                    isOnTrack: goalData.isOnTrack,
-                });
+                
+                // Если AI не вернул результат, используем вариативный fallback
+                if (!goalResult.assessment || !goalResult.recommendation) {
+                    const fallback = generateFallbackReview(
+                        goalData.title,
+                        goalData.progressRaw,
+                        goalData.progressClamped,
+                        goalData.dueInDays,
+                        goalData.important || false,
+                        goalData.urgent || false,
+                        goalData.daysSinceStart
+                    );
+                    
+                    reviews.push({
+                        goalId: goalData.id,
+                        goalTitle: goalData.title,
+                        progress: goalData.progressClamped,
+                        progressRaw: goalData.progressRaw,
+                        assessment: goalResult.assessment || fallback.assessment,
+                        recommendation: goalResult.recommendation || fallback.recommendation,
+                        isOnTrack: goalData.isOnTrack,
+                        status: goalData.status,
+                        daysRemaining: goalData.dueInDays,
+                        overdueDays: goalData.overdueDays,
+                    });
+                } else {
+                    // AI вернул результат
+                    reviews.push({
+                        goalId: goalData.id,
+                        goalTitle: goalData.title,
+                        progress: goalData.progressClamped,
+                        progressRaw: goalData.progressRaw,
+                        assessment: goalResult.assessment,
+                        recommendation: goalResult.recommendation,
+                        isOnTrack: goalData.isOnTrack,
+                        status: goalData.status,
+                        daysRemaining: goalData.dueInDays,
+                        overdueDays: goalData.overdueDays,
+                    });
+                }
             }
 
             // Логируем AI запрос в фоне (помечаем как DeepSeek)
@@ -247,15 +434,29 @@ export async function GET(req: NextRequest) {
                 }));
             })();
         } catch (_aiError) {
-            // Fallback для всех целей
+            // Fallback для всех целей с вариативными текстами
             for (const goalData of goalsData) {
+                const fallback = generateFallbackReview(
+                    goalData.title,
+                    goalData.progressRaw,
+                    goalData.progressClamped,
+                    goalData.dueInDays,
+                    goalData.important || false,
+                    goalData.urgent || false,
+                    goalData.daysSinceStart
+                );
+                
                 reviews.push({
                     goalId: goalData.id,
                     goalTitle: goalData.title,
-                    progress: goalData.progress,
-                    assessment: goalData.isOnTrack ? 'You are on track!' : 'Consider adjusting your approach.',
-                    recommendation: 'Stay consistent and track your progress.',
+                    progress: goalData.progressClamped,
+                    progressRaw: goalData.progressRaw,
+                    assessment: fallback.assessment,
+                    recommendation: fallback.recommendation,
                     isOnTrack: goalData.isOnTrack,
+                    status: goalData.status,
+                    daysRemaining: goalData.dueInDays,
+                    overdueDays: goalData.overdueDays,
                 });
             }
         }

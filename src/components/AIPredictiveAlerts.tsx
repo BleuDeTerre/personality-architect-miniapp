@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { AlertCircle, ChevronDown } from 'lucide-react';
+import { AlertCircle, ChevronDown, Sparkles } from 'lucide-react';
 import { fetchJson } from '@/lib/http';
 import { getCachedData, setCachedData, CACHE_TTL } from '@/lib/clientCache';
 
@@ -19,16 +19,40 @@ type Alert = {
     suggestion: string;
 };
 
+type FatigueInfo = {
+    totalAtRisk: number;
+    completionRateDrop: number;
+    riskLevel: 'low' | 'medium' | 'high';
+    suggestions: string[] | null;
+};
+
+type PredictiveAlertsResponse = {
+    alerts: Alert[];
+    fatigue?: FatigueInfo;
+};
+
 const CACHE_KEY = 'ai_predictive_alerts';
 
-export default function AIPredictiveAlerts() {
-    // Initialize from cache if available
-    const cachedAlerts = typeof window !== 'undefined' 
-        ? getCachedData<{ alerts: Alert[] }>(CACHE_KEY)?.alerts || []
-        : [];
+type Props = {
+  onAlertsCountChange?: (count: number) => void;
+};
+
+export default function AIPredictiveAlerts({ onAlertsCountChange }: Props = {}) {
+            // Initialize from cache if available
+    const cachedData = typeof window !== 'undefined' 
+        ? getCachedData<PredictiveAlertsResponse>(CACHE_KEY)
+        : null;
     
-    const [alerts, setAlerts] = useState<Alert[]>(cachedAlerts);
-    const [loading, setLoading] = useState(!cachedAlerts.length);
+    const [alerts, setAlerts] = useState<Alert[]>(cachedData?.alerts || []);
+    const [fatigue, setFatigue] = useState<FatigueInfo | null>(cachedData?.fatigue || null);
+    
+    // Уведомляем родителя о количестве alerts при инициализации
+    useEffect(() => {
+        if (cachedData?.alerts && cachedData.alerts.length > 0) {
+            onAlertsCountChange?.(cachedData.alerts.length);
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const [loading, setLoading] = useState(!cachedData?.alerts || cachedData.alerts.length === 0);
     const [isExpanded, setIsExpanded] = useState(false);
     const isLoadingRef = useRef(false); // Защита от одновременных запросов
 
@@ -51,9 +75,11 @@ export default function AIPredictiveAlerts() {
             try {
                 // Check cache first (1 hour TTL)
                 if (!force) {
-                    const cached = getCachedData<{ alerts: Alert[] }>(CACHE_KEY);
+                    const cached = getCachedData<PredictiveAlertsResponse>(CACHE_KEY);
                     if (cached?.alerts) {
                         setAlerts(cached.alerts);
+                        setFatigue(cached.fatigue || null);
+                        onAlertsCountChange?.(cached.alerts.length);
                         setLoading(false);
                         return;
                     }
@@ -69,33 +95,43 @@ export default function AIPredictiveAlerts() {
                 }
                 const headers = await authHeaders();
                 try {
-                    const data = await fetchJson<{ alerts?: Alert[] }>('/api/ai/predictive-alerts', { 
+                    const data = await fetchJson<PredictiveAlertsResponse>('/api/ai/predictive-alerts', { 
                         headers,
                         timeoutMs: 10000, // 10 секунд таймаут
                     });
                     const alertsData = data.alerts || [];
                     setAlerts(alertsData);
+                    setFatigue(data.fatigue || null);
+                    onAlertsCountChange?.(alertsData.length);
                     
                     // Cache the result for 1 hour
-                    setCachedData(CACHE_KEY, { alerts: alertsData }, CACHE_TTL.HOURLY);
+                    setCachedData(CACHE_KEY, { alerts: alertsData, fatigue: data.fatigue }, CACHE_TTL.HOURLY);
                 } catch (e: any) {
                     // Если ошибка или таймаут - используем кэшированные данные как fallback
                     console.warn('[AI Predictive Alerts] Request failed or timed out:', e?.name || e?.message);
-                    const cached = getCachedData<{ alerts: Alert[] }>(CACHE_KEY);
+                    const cached = getCachedData<PredictiveAlertsResponse>(CACHE_KEY);
                     if (cached?.alerts) {
                         setAlerts(cached.alerts);
+                        setFatigue(cached.fatigue || null);
+                        onAlertsCountChange?.(cached.alerts.length);
                     } else {
                         setAlerts([]);
+                        setFatigue(null);
+                        onAlertsCountChange?.(0);
                     }
                 }
             } catch (e) {
                 console.error('[AI Predictive Alerts] Failed to load:', e);
                 // Try cached data as fallback
-                const cached = getCachedData<{ alerts: Alert[] }>(CACHE_KEY);
+                const cached = getCachedData<PredictiveAlertsResponse>(CACHE_KEY);
                 if (cached?.alerts) {
                     setAlerts(cached.alerts);
+                    setFatigue(cached.fatigue || null);
+                    onAlertsCountChange?.(cached.alerts.length);
                 } else {
                     setAlerts([]);
+                    setFatigue(null);
+                    onAlertsCountChange?.(0);
                 }
             } finally {
                 setLoading(false);
@@ -125,63 +161,85 @@ export default function AIPredictiveAlerts() {
         };
     }, [authHeaders]);
 
-    if (loading || alerts.length === 0) return null;
+    // Показываем компонент, если есть alerts или fatigue (даже если loading, потому что кешированные данные уже есть)
+    if (alerts.length === 0 && !fatigue) return null;
 
-    const topAlert = alerts[0]; // Самый важный алерт
-    const remainingCount = alerts.length - 1;
+    const hasFatigueInfo = fatigue && fatigue.riskLevel !== 'low' && fatigue.totalAtRisk > 0;
 
     return (
-        <div className="rounded-3xl border border-yellow-500/30 bg-yellow-500/10 overflow-hidden">
-            {/* Компактный заголовок - всегда видимый */}
-            <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="w-full flex items-center justify-between p-3 sm:p-4 text-left hover:bg-yellow-500/5 transition"
-            >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <AlertCircle className="h-5 w-5 text-yellow-400 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-semibold text-white">
-                                {alerts.length === 1 
-                                    ? 'Habit reminder'
-                                    : `${alerts.length} habits need attention`
-                                }
-                            </span>
-                            {alerts.length > 1 && (
-                                <span className="text-xs text-yellow-400 bg-yellow-500/20 px-2 py-0.5 rounded-full">
-                                    {alerts.length}
-                                </span>
-                            )}
-                        </div>
-                        {!isExpanded && (
-                            <p className="text-xs text-white/70 line-clamp-1">
-                                {topAlert.message}
-                            </p>
-                        )}
+        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-400 flex-shrink-0" />
+                    <AlertCircle className="h-5 w-5 text-white/60 flex-shrink-0" />
+                    <div>
+                        <p className="text-sm font-semibold text-white leading-tight">
+                            {alerts.length === 1 
+                                ? 'Habit reminder'
+                                : alerts.length > 1
+                                    ? `${alerts.length} habits need attention`
+                                    : hasFatigueInfo
+                                        ? 'Fatigue detected'
+                                        : 'Habit insights'
+                            }
+                        </p>
                     </div>
                 </div>
-                <ChevronDown 
-                    className={`h-4 w-4 text-yellow-400 flex-shrink-0 transition-transform ${
-                        isExpanded ? 'rotate-180' : ''
-                    }`}
-                />
-            </button>
-
-            {/* Развернутое содержимое */}
+                <button
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-white/80 hover:bg-white/10 transition"
+                >
+                    {isExpanded ? 'Hide' : 'Show'}
+                </button>
+            </div>
             {isExpanded && (
-                <div className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-2">
-                    {alerts.map((alert) => (
-                        <div
-                            key={alert.habitId}
-                            className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-3"
-                        >
-                            <p className="text-sm font-semibold text-white mb-1">{alert.message}</p>
-                            <p className="text-xs text-white/70 mb-2">{alert.suggestion}</p>
-                            <div className="text-xs text-yellow-400">
-                                Risk: {alert.riskScore}%
-                            </div>
+                <div className="mt-3 space-y-3">
+                    {/* Fatigue Overview */}
+                    {hasFatigueInfo && (
+                        <div className={`rounded-xl border p-3 ${
+                            fatigue.riskLevel === 'high' 
+                                ? 'border-red-400/50 bg-red-400/5'
+                                : fatigue.riskLevel === 'medium'
+                                    ? 'border-yellow-400/50 bg-yellow-400/5'
+                                    : 'border-white/10 bg-white/5'
+                        }`}>
+                            <h4 className="text-sm font-semibold text-white mb-2">⚠️ Fatigue Overview</h4>
+                            <p className="text-xs text-white/70 mb-2">
+                                {fatigue.totalAtRisk} {fatigue.totalAtRisk === 1 ? 'habit' : 'habits'} at risk
+                                {fatigue.completionRateDrop < 0 && (
+                                    <span className="ml-1">
+                                        • Completion rate dropped {Math.abs(fatigue.completionRateDrop).toFixed(0)}%
+                                    </span>
+                                )}
+                            </p>
+                            {fatigue.suggestions && fatigue.suggestions.length > 0 && (
+                                <ul className="text-xs text-white/60 list-disc list-inside space-y-0.5 mt-2">
+                                    {fatigue.suggestions.map((s, idx) => (
+                                        <li key={idx}>{s}</li>
+                                    ))}
+                                </ul>
+                            )}
                         </div>
-                    ))}
+                    )}
+                    
+                    {/* Individual Habit Alerts */}
+                    {alerts.length > 0 && (
+                        <div className="space-y-2">
+                            {alerts.map((alert) => (
+                                <div
+                                    key={alert.habitId}
+                                    className="rounded-xl border border-white/10 bg-white/5 p-3"
+                                >
+                                    <p className="text-sm font-semibold text-white mb-1">{alert.message}</p>
+                                    <p className="text-xs text-white/70 mb-2">{alert.suggestion}</p>
+                                    <div className="text-xs text-white/60">
+                                        Risk: {alert.riskScore}%
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
         </div>

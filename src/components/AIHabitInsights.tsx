@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Clock, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Clock, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
 import CollapsibleCard from './CollapsibleCard';
 
 const supabase = createClient(
@@ -116,16 +116,17 @@ export default function AIHabitInsights() {
 
     const handleTabChange = (tab: 'time' | 'difficulty') => {
         setActiveTab(tab);
-        if (tab === 'time' && !hasLoadedTime) {
-            loadTimeSuggestions();
-        } else if (tab === 'difficulty' && !hasLoadedDifficulty) {
-            loadDifficultyAnalysis();
-        }
+        // Не загружаем автоматически - пользователь должен нажать кнопку
     };
 
     return (
         <CollapsibleCard 
-            title="🤖 AI Habit Insights" 
+            title={
+                <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-purple-400" />
+                    <span>AI Habit Insights</span>
+                </div>
+            } 
             subtitle={activeTab === 'time' 
                 ? (hasLoadedTime && suggestions.length > 0 ? `${suggestions.length} time suggestion${suggestions.length > 1 ? 's' : ''} available` : 'Get personalized time suggestions')
                 : (hasLoadedDifficulty && difficulties.length > 0 ? `${difficulties.length} habit${difficulties.length > 1 ? 's' : ''} analyzed` : 'Analyze habit difficulty')

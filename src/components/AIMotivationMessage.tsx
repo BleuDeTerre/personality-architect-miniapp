@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchJson } from '@/lib/http';
 import { getCachedData, setCachedData, CACHE_TTL } from '@/lib/clientCache';
+import { Sparkles } from 'lucide-react';
 
 const FALLBACK_MESSAGES = [
     'Start your day with intention. Every small step counts! 💪',
@@ -156,6 +157,7 @@ export default function AIMotivationMessage() {
         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
             <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-400 flex-shrink-0" />
                     <span className="text-2xl">💬</span>
                     <div>
                         <p className="text-sm font-semibold text-white leading-tight">Daily AI tip</p>

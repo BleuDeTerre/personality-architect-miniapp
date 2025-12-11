@@ -17,6 +17,7 @@ import CollapsibleCard from '@/components/CollapsibleCard';
 import WeekPicker from '@/components/WeekPicker';
 import { toast } from 'sonner';
 import { getRandomVariant, wheelSnapshotTexts, focusAreaTexts, wheelShiftTexts, wheelSpotlightTexts } from '@/lib/castTextVariants';
+import { clearCachedData } from '@/lib/clientCache';
 
 type Item = { area: string; score: number };
 
@@ -454,18 +455,18 @@ export default function WheelPage() {
             
             // Используем текущую неделю только при первой загрузке (если неделя еще не установлена)
             if (!initializedRef.current) {
-                const currentWeek = isoWeek();
+            const currentWeek = isoWeek();
                 console.log('[WheelPage] Initializing with current week:', currentWeek);
                 currentWeekRef.current = currentWeek;
                 // Устанавливаем текущую неделю только если она еще не была изменена пользователем
                 if (week === currentWeekRef.current || !week) {
-                    setWeek(currentWeek);
+                setWeek(currentWeek);
                     await loadWeek(currentWeek);
                 } else {
                     // Если пользователь уже выбрал неделю, загружаем её
                     await loadWeek(week);
-                }
-                await loadTrends();
+            }
+            await loadTrends();
                 initializedRef.current = true;
             } else {
                 // Если уже инициализировано, не меняем неделю - пользователь мог выбрать другую
@@ -486,8 +487,8 @@ export default function WheelPage() {
 
                 // Используем текущую неделю только при первом входе
                 const currentWeek = isoWeek();
-                currentWeekRef.current = currentWeek;
-                setWeek(currentWeek);
+                    currentWeekRef.current = currentWeek;
+                    setWeek(currentWeek);
                 
                 await loadWeek(currentWeek);
                 await loadTrends();
@@ -892,11 +893,17 @@ export default function WheelPage() {
                                                 week: week,
                                                 items: editItems.map(it => ({ area: it.area, score: it.score }))
                                             };
-                                            await fetch('/api/wheel/save', {
+                                            const saveRes = await fetch('/api/wheel/save', {
                                                 method: 'POST',
                                                 headers,
                                                 body: JSON.stringify(saveBody),
                                             });
+                                        
+                                        if (saveRes.ok) {
+                                            // Инвалидируем кеш AI insights для этой недели, так как данные изменились
+                                            clearCachedData(`wheel-insights-${week}`);
+                                            console.log('[WheelPage] Cleared AI insights cache for week:', week);
+                                        }
                                         } catch (error) {
                                             console.error('[WheelPage] Final save failed:', error);
                                         }
@@ -971,7 +978,11 @@ export default function WheelPage() {
                                                                 headers,
                                                                 body: JSON.stringify(saveBody),
                                                             });
-                                                            if (!saveRes.ok) {
+                                                            if (saveRes.ok) {
+                                                                // Инвалидируем кеш AI insights для этой недели, так как данные изменились
+                                                                clearCachedData(`wheel-insights-${week}`);
+                                                                console.log('[WheelPage] Cleared AI insights cache after auto-save');
+                                                            } else {
                                                                 const errorData = await saveRes.json().catch(() => ({}));
                                                                 console.error('[WheelPage] Auto-save failed:', saveRes.status, errorData);
                                                             }
@@ -1225,7 +1236,7 @@ export default function WheelPage() {
 
                     {wheelAnalyticsTab === 'coach' && (
                         <div>
-                            <AIWheelInsights />
+                            <AIWheelInsights week={week} />
                         </div>
                     )}
 

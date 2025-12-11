@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -8,66 +8,32 @@ import { supabase } from '@/lib/supabase';
  * Решает проблему, когда пользователя выкидывает из аккаунта при переключении вкладок
  */
 export default function SessionRestore() {
+    const isRestoringRef = useRef(false);
+    const restoreTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
-        let isRestoring = false;
-
-        const restoreSession = async () => {
-            if (isRestoring) return;
+        const restoreFromFid = async (): Promise<boolean> => {
+            if (isRestoringRef.current) return false;
             
             try {
-                isRestoring = true;
+                isRestoringRef.current = true;
                 
-                // Проверяем текущую сессию
-                const { data: { session }, error } = await supabase.auth.getSession();
-                
-                if (error) {
-                    console.warn('[SessionRestore] Error getting session:', error);
-                    return;
-                }
-                
-                // Если сессия есть и токен валидный - все ок
-                if (session?.access_token) {
-                    // Проверяем, не истек ли токен (примерно, по времени создания)
-                    const expiresAt = session.expires_at;
-                    if (expiresAt) {
-                        const now = Math.floor(Date.now() / 1000);
-                        // Если токен истекает в течение 5 минут, обновляем его
-                        if (expiresAt - now < 300) {
-                            console.log('[SessionRestore] Token expiring soon, refreshing...');
-                            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-                            if (refreshError) {
-                                console.warn('[SessionRestore] Failed to refresh session:', refreshError);
-                                // Если refresh не удался, пробуем восстановить через FID
-                                await restoreFromFid();
-                            }
-                        }
-                    }
-                    return;
-                }
-                
-                // Если сессии нет, пробуем восстановить через FID
-                await restoreFromFid();
-            } catch (error) {
-                console.error('[SessionRestore] Error restoring session:', error);
-            } finally {
-                isRestoring = false;
-            }
-        };
-
-        const restoreFromFid = async () => {
-            try {
                 // Пробуем получить FID из localStorage
                 const savedFid = localStorage.getItem('user_fid');
                 if (!savedFid) {
-                    return; // Нет сохраненного FID, не можем восстановить
+                    console.log('[SessionRestore] No saved FID found');
+                    return false;
                 }
 
                 const fid = Number(savedFid);
                 if (!fid || isNaN(fid)) {
-                    return;
+                    console.warn('[SessionRestore] Invalid FID:', savedFid);
+                    return false;
                 }
+
+                console.log('[SessionRestore] Attempting to restore session from FID:', fid);
 
                 // Пробуем залогиниться через API
                 const res = await fetch('/api/auth/farcaster-login', {
@@ -78,60 +44,146 @@ export default function SessionRestore() {
 
                 if (!res.ok) {
                     console.warn('[SessionRestore] Failed to login via API:', res.status);
-                    return;
+                    return false;
                 }
 
                 const loginData = await res.json();
-                if (loginData.access_token) {
-                    const { error: sessionError } = await supabase.auth.setSession({
-                        access_token: loginData.access_token,
-                        refresh_token: loginData.refresh_token || loginData.access_token,
-                    });
+                if (!loginData.access_token) {
+                    console.warn('[SessionRestore] No access token in login response');
+                    return false;
+                }
 
-                    if (sessionError) {
-                        console.warn('[SessionRestore] Failed to set session:', sessionError);
-                    } else {
-                        console.log('[SessionRestore] Session restored successfully');
+                const { error: sessionError } = await supabase.auth.setSession({
+                    access_token: loginData.access_token,
+                    refresh_token: loginData.refresh_token || loginData.access_token,
+                });
+
+                if (sessionError) {
+                    console.warn('[SessionRestore] Failed to set session:', sessionError);
+                    return false;
+                }
+
+                // Проверяем, что сессия действительно установилась
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    console.warn('[SessionRestore] Session set but user not found');
+                    return false;
+                }
+
+                console.log('[SessionRestore] Session restored successfully for user:', user.id);
+                return true;
+            } catch (error) {
+                console.error('[SessionRestore] Error restoring from FID:', error);
+                return false;
+            } finally {
+                isRestoringRef.current = false;
+            }
+        };
+
+        const restoreSession = async () => {
+            if (isRestoringRef.current) return;
+            
+            try {
+                isRestoringRef.current = true;
+                
+                // Сначала проверяем валидность через getUser() - это более надежно
+                const { data: { user }, error: userError } = await supabase.auth.getUser();
+                
+                if (user && !userError) {
+                    // Пользователь есть, проверяем сессию
+                    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                    
+                    if (session?.access_token && !sessionError) {
+                        // Проверяем срок действия токена
+                        const expiresAt = session.expires_at;
+                        if (expiresAt) {
+                            const now = Math.floor(Date.now() / 1000);
+                            const timeUntilExpiry = expiresAt - now;
+                            
+                            // Если токен истекает в течение 10 минут, обновляем его
+                            if (timeUntilExpiry < 600) {
+                                console.log('[SessionRestore] Token expiring soon, refreshing...');
+                                const { error: refreshError } = await supabase.auth.refreshSession();
+                                if (refreshError) {
+                                    console.warn('[SessionRestore] Failed to refresh session:', refreshError);
+                                    // Если refresh не удался, пробуем восстановить через FID
+                                    await restoreFromFid();
+                                }
+                            }
+                        }
+                        return; // Сессия валидна
                     }
                 }
+                
+                // Если пользователя нет или сессия невалидна, пробуем восстановить через FID
+                console.log('[SessionRestore] No valid session found, attempting restore from FID');
+                await restoreFromFid();
             } catch (error) {
-                console.warn('[SessionRestore] Error restoring from FID:', error);
+                console.error('[SessionRestore] Error restoring session:', error);
+                // При ошибке тоже пробуем восстановить через FID
+                await restoreFromFid();
+            } finally {
+                isRestoringRef.current = false;
             }
         };
 
         // Восстанавливаем сессию при возврате на вкладку
         const handleVisibilityChange = async () => {
             if (document.visibilityState === 'visible') {
-                await restoreSession();
+                // Небольшая задержка, чтобы дать браузеру время восстановить состояние
+                if (restoreTimeoutRef.current) {
+                    clearTimeout(restoreTimeoutRef.current);
+                }
+                restoreTimeoutRef.current = setTimeout(() => {
+                    restoreSession();
+                }, 100);
             }
         };
         
         // Восстанавливаем сессию при фокусе на окно
         const handleFocus = async () => {
-            await restoreSession();
+            if (restoreTimeoutRef.current) {
+                clearTimeout(restoreTimeoutRef.current);
+            }
+            restoreTimeoutRef.current = setTimeout(() => {
+                restoreSession();
+            }, 100);
         };
+        
+        // Также слушаем изменения состояния авторизации Supabase
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('[SessionRestore] Auth state changed:', event, { hasSession: !!session });
+            
+            if (event === 'SIGNED_OUT') {
+                console.log('[SessionRestore] User signed out, trying to restore...');
+                // Пробуем восстановить сразу, без задержки
+                await restoreFromFid();
+            } else if (event === 'TOKEN_REFRESHED') {
+                console.log('[SessionRestore] Token refreshed successfully');
+            } else if (event === 'SIGNED_IN') {
+                console.log('[SessionRestore] User signed in');
+            }
+        });
         
         document.addEventListener('visibilitychange', handleVisibilityChange);
         window.addEventListener('focus', handleFocus);
         
-        // Также слушаем изменения состояния авторизации Supabase
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'SIGNED_OUT') {
-                console.log('[SessionRestore] User signed out, trying to restore...');
-                // Небольшая задержка перед восстановлением
-                setTimeout(() => restoreFromFid(), 500);
-            } else if (event === 'TOKEN_REFRESHED') {
-                console.log('[SessionRestore] Token refreshed successfully');
-            }
-        });
-        
         // Восстанавливаем сессию сразу при монтировании
         restoreSession();
+        
+        // Периодическая проверка сессии каждые 5 минут
+        const intervalId = setInterval(() => {
+            restoreSession();
+        }, 5 * 60 * 1000);
         
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('focus', handleFocus);
             subscription.unsubscribe();
+            clearInterval(intervalId);
+            if (restoreTimeoutRef.current) {
+                clearTimeout(restoreTimeoutRef.current);
+            }
         };
     }, []);
 

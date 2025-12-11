@@ -2,8 +2,18 @@
  * Templates for Predictive Alerts (replacing AI)
  */
 
-export function getRandomVariant<T>(variants: T[]): T {
+export function getRandomVariant<T>(variants: T[], seed?: string): T {
   if (variants.length === 0) return variants[0];
+  if (seed) {
+    // Используем seed для детерминированного выбора
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      const char = seed.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return variants[Math.abs(hash) % variants.length];
+  }
   return variants[Math.floor(Math.random() * variants.length)];
 }
 
@@ -13,7 +23,8 @@ export function generatePredictiveAlert(
   hasPattern: boolean,
   todayCount: number,
   totalCompletions: number,
-  riskScore: number
+  riskScore: number,
+  habitId?: string // Добавляем habitId для уникальности
 ): { message: string; suggestion: string } {
   if (hasPattern && todayCount > 0) {
     // Есть паттерн - пользователь обычно выполняет в этот день недели
@@ -39,8 +50,8 @@ export function generatePredictiveAlert(
     ];
     
     return {
-      message: getRandomVariant(messages),
-      suggestion: getRandomVariant(suggestions),
+      message: getRandomVariant(messages, habitId),
+      suggestion: getRandomVariant(suggestions, habitId ? `${habitId}-suggestion` : undefined),
     };
   } else if (totalCompletions > 0) {
     // Есть история выполнения, но нет четкого паттерна
@@ -66,8 +77,8 @@ export function generatePredictiveAlert(
     ];
     
     return {
-      message: getRandomVariant(messages),
-      suggestion: getRandomVariant(suggestions),
+      message: getRandomVariant(messages, habitId),
+      suggestion: getRandomVariant(suggestions, habitId ? `${habitId}-suggestion` : undefined),
     };
   } else {
     // Новая привычка или мало данных
@@ -93,8 +104,8 @@ export function generatePredictiveAlert(
     ];
     
     return {
-      message: getRandomVariant(messages),
-      suggestion: getRandomVariant(suggestions),
+      message: getRandomVariant(messages, habitId),
+      suggestion: getRandomVariant(suggestions, habitId ? `${habitId}-suggestion` : undefined),
     };
   }
 }

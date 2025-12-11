@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Sparkles, CheckCircle2 } from 'lucide-react';
 
@@ -56,33 +56,74 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
         try {
             setLoading(true);
             const headers = await authHeaders();
-            const res = await fetch('/api/ai/goal-breakdown', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                    goalTitle,
-                    goalDescription,
-                    dueDate,
-                    important,
-                    urgent,
-                }),
-            });
-            if (res.ok) {
-                const result = await res.json();
-                setBreakdown(result);
-                setExpanded(true);
-                // Предварительно выбираем все шаги
-                setSelectedSteps(new Set(result.steps?.map((_: any, idx: number) => idx) || []));
-                if (onBreakdownGenerated) {
-                    onBreakdownGenerated(result);
+            
+            // Создаем AbortController для таймаута
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 секунд таймаут
+            
+            try {
+                const res = await fetch('/api/ai/goal-breakdown', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        goalTitle,
+                        goalDescription,
+                        dueDate,
+                        important,
+                        urgent,
+                    }),
+                    signal: controller.signal,
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (res.ok) {
+                    const result = await res.json();
+                    console.log('[AI Goal Breakdown] Success:', result);
+                    // Проверяем, что результат валидный
+                    if (result && (result.steps || result.milestones || result.suggestedHabits)) {
+                        setBreakdown(result);
+                        setExpanded(true);
+                        // Предварительно выбираем все шаги
+                        setSelectedSteps(new Set(result.steps?.map((_: any, idx: number) => idx) || []));
+                        if (onBreakdownGenerated) {
+                            onBreakdownGenerated(result);
+                        }
+                    } else {
+                        console.error('[AI Goal Breakdown] Invalid result:', result);
+                        alert('Received invalid breakdown data. Please try again.');
+                    }
+                } else {
+                    // Обработка ошибок API
+                    const errorData = await res.json().catch(() => ({}));
+                    console.error('[AI Goal Breakdown] API error:', res.status, errorData);
+                    alert(errorData.message || `Error: ${res.status}. Please try again.`);
+                }
+            } catch (fetchError: any) {
+                clearTimeout(timeoutId);
+                if (fetchError.name === 'AbortError') {
+                    console.error('[AI Goal Breakdown] Request timeout');
+                    alert('Request timed out. Please try again.');
+                } else {
+                    throw fetchError;
                 }
             }
         } catch (e) {
             console.error('[AI Goal Breakdown] Failed to generate:', e);
+            alert('Failed to generate breakdown. Please try again.');
         } finally {
+            // Всегда сбрасываем loading в finally
             setLoading(false);
         }
-    }, [goalTitle, goalDescription, dueDate, important, urgent, authHeaders, loading, onBreakdownGenerated, goalId]);
+    }, [goalTitle, goalDescription, dueDate, important, urgent, authHeaders, loading, onBreakdownGenerated]);
+
+    // Сбрасываем состояние при изменении goalTitle
+    useEffect(() => {
+        setBreakdown(null);
+        setExpanded(false);
+        setLoading(false);
+        setSelectedSteps(new Set());
+    }, [goalTitle]);
 
     const createSubtasksFromBreakdown = useCallback(async (goalId: number, steps: Step[]) => {
         try {
@@ -107,7 +148,16 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
         }
     }, [authHeaders, onSubtasksCreated]);
 
-    if (!expanded) {
+    if (loading) {
+        return (
+            <div className="text-xs text-white/60 animate-pulse flex items-center gap-1">
+                <Sparkles className="h-3 w-3" />
+                Generating plan...
+            </div>
+        );
+    }
+
+    if (!breakdown) {
         return (
             <button
                 onClick={generateBreakdown}
@@ -115,18 +165,10 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
                 className="text-xs text-white/60 hover:text-white/80 transition flex items-center gap-1"
             >
                 <Sparkles className="h-3 w-3" />
-                {loading ? 'Generating plan...' : '🤖 AI: Break down goal'}
+                🔨 Break down goal
             </button>
         );
     }
-
-    if (loading) {
-        return (
-            <div className="text-xs text-white/60 animate-pulse">Generating breakdown...</div>
-        );
-    }
-
-    if (!breakdown) return null;
 
     return (
         <div className="rounded-xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4">

@@ -29,32 +29,48 @@ const HABIT_TEMPLATES = [
     { title: 'Hydration', icon: '💧', targetDays: 7, category: 'Wellness' },
     { title: 'Sleep Before 23:00', icon: '🛏️', targetDays: 7, category: 'Wellness' },
     { title: 'Stretching', icon: '🤸', targetDays: 7, category: 'Wellness' },
+    { title: 'Morning Sunlight', icon: '☀️', targetDays: 7, category: 'Wellness' },
+    { title: 'Screen Curfew', icon: '📴', targetDays: 7, category: 'Wellness' },
+    { title: 'Vitamins', icon: '💊', targetDays: 7, category: 'Wellness' },
+    { title: 'Cold Shower', icon: '🚿', targetDays: 7, category: 'Wellness' },
     // Fitness
     { title: 'Exercise', icon: '💪', targetDays: 7, category: 'Fitness' },
     { title: 'Strength Training', icon: '🏋️', targetDays: 7, category: 'Fitness' },
     { title: 'Walks', icon: '🚶', targetDays: 7, category: 'Fitness' },
     { title: 'Yoga Flow', icon: '🧘', targetDays: 7, category: 'Fitness' },
+    { title: '10K Steps', icon: '🚶', targetDays: 7, category: 'Fitness' },
+    { title: 'Mobility Work', icon: '🤸', targetDays: 7, category: 'Fitness' },
+    { title: 'Running', icon: '🏃', targetDays: 7, category: 'Fitness' },
+    { title: 'Swimming', icon: '🏊', targetDays: 7, category: 'Fitness' },
+    { title: 'Cycling', icon: '🚴', targetDays: 7, category: 'Fitness' },
     // Mindset
     { title: 'Reading', icon: '📚', targetDays: 7, category: 'Mindset' },
     { title: 'Journaling', icon: '📝', targetDays: 7, category: 'Mindset' },
     { title: 'Gratitude', icon: '🙏', targetDays: 7, category: 'Mindset' },
     { title: 'Learning Session', icon: '🧠', targetDays: 7, category: 'Mindset' },
+    { title: 'Language Practice', icon: '🗣️', targetDays: 7, category: 'Mindset' },
+    { title: 'Skill Practice', icon: '🎯', targetDays: 7, category: 'Mindset' },
     // Productivity
     { title: 'Code Practice', icon: '💻', targetDays: 7, category: 'Productivity' },
     { title: 'Daily Planning', icon: '🗂️', targetDays: 7, category: 'Productivity' },
     { title: 'Inbox Zero', icon: '📫', targetDays: 7, category: 'Productivity' },
     { title: 'Deep Work Block', icon: '⏱️', targetDays: 7, category: 'Productivity' },
+    { title: 'Focus Block', icon: '🎧', targetDays: 7, category: 'Productivity' },
+    { title: 'Pomodoro Session', icon: '⏱️', targetDays: 7, category: 'Productivity' },
     // Lifestyle
     { title: 'No Phone AM', icon: '📵', targetDays: 7, category: 'Lifestyle' },
     { title: 'Meal Prep', icon: '🍱', targetDays: 7, category: 'Lifestyle' },
     { title: 'Home Reset', icon: '🧹', targetDays: 7, category: 'Lifestyle' },
     { title: 'Outdoor Time', icon: '🌳', targetDays: 7, category: 'Lifestyle' },
+    { title: 'Home Cooked Meal', icon: '🍱', targetDays: 7, category: 'Lifestyle' },
+    { title: 'Protein Meal', icon: '🥑', targetDays: 7, category: 'Lifestyle' },
     // Anti-harm
     { title: 'No Smoking', icon: '🚭', targetDays: 7, category: 'Anti-harm' },
     { title: 'No Sugary Drinks', icon: '🥤', targetDays: 7, category: 'Anti-harm' },
     { title: 'No Alcohol', icon: '🍷', targetDays: 7, category: 'Anti-harm' },
     { title: 'Limit Junk Food', icon: '🍔', targetDays: 7, category: 'Anti-harm' },
-    { title: 'No Drugs', icon: '🚫', targetDays: 7, category: 'Anti-harm' },
+    { title: 'No Spend Day', icon: '💳', targetDays: 7, category: 'Anti-harm' },
+    { title: 'Social Detox', icon: '📵', targetDays: 7, category: 'Anti-harm' },
     // Finance
     { title: 'Budget Review', icon: '💸', targetDays: 7, category: 'Finance' },
     { title: 'Expense Tracking', icon: '🧾', targetDays: 7, category: 'Finance' },
@@ -64,11 +80,10 @@ const HABIT_TEMPLATES = [
     { title: 'Gratitude Text', icon: '💬', targetDays: 7, category: 'Social' },
     { title: 'Call Family', icon: '📞', targetDays: 7, category: 'Social' },
     { title: 'Meet a Friend', icon: '🤝', targetDays: 7, category: 'Social' },
-    { title: 'Community Post', icon: '🗣️', targetDays: 7, category: 'Social' },
+    { title: 'Meaningful Connection', icon: '🤝', targetDays: 7, category: 'Social' },
     // Digital
     { title: 'Content Detox', icon: '📱', targetDays: 7, category: 'Digital' },
-    { title: 'Creator Session', icon: '🎥', targetDays: 7, category: 'Digital' },
-    { title: 'Learning Reel', icon: '🎬', targetDays: 7, category: 'Digital' },
+    { title: 'Content Creation', icon: '🎨', targetDays: 7, category: 'Digital' },
     { title: 'Newsletter Write', icon: '✉️', targetDays: 7, category: 'Digital' },
 ];
 
@@ -103,24 +118,24 @@ const MAX_FREE_HABITS = 5;
 const POPULAR_EMOJIS = [
     // Page 1 - Wellness & Fitness
     '🧘', '🌬️', '💧', '🛏️', '🤸',
-    '💪', '🏋️', '🚶', '🧘‍♀️', '📚',
-    '📝', '🙏', '🧠', '💻', '📦',
-    '📫', '⏱️', '📵', '🍱', '🧹',
+    '💪', '🏋️', '🚶', '🏃', '🏊',
+    '🚴', '🤾', '🤸‍♀️', '🧘‍♀️', '🧘‍♂️',
+    '⏱️', '📵', '🍱', '🧹', '🌱',
     // Page 2 - Food & Health
     '🥦', '🚭', '🥤', '🍷', '🍔',
     '🚫', '💸', '🧾', '📈', '🏦',
     '💬', '📞', '🤝', '🗣️', '📱',
-    '🎬', '🎪', '✉️', '🔥', '🎯',
-    // Page 3 - Daily Activities
-    '✅', '🌙', '☀️', '💡', '🏃',
-    '🏊', '🚴', '🏋️', '🤾', '👊',
-    '🎵', '🧘', '🕉️', '🧴', '🧼',
-    '🪒', '🧽', '🛁', '🛁', '🪥',
-    // Page 4 - Nature & Food
-    '🫧', '🌿', '🥗', '🥦', '🍋',
+    '🎬', '🎨', '✉️', '🔥', '🎯',
+    // Page 3 - Daily Activities & Self-Care
+    '✅', '☀️', '💡', '🧴', '🧼',
+    '🪒', '🧽', '🛁', '🪥', '🚿',
+    '🎵', '🎤', '🎸', '🎹', '🎮',
+    '📖', '✒️', '📅', '📊', '🗂️',
+    // Page 4 - Food, Nature & Lifestyle
+    '🫧', '🌿', '🥗', '🍋', '🥑',
     '🥛', '☕', '🍵', '💊', '🚰',
-    '🚿', '📿', '📖', '✒️', '📅',
-    '🕐', '💰', '💳', '🪙', '🎉',
+    '🐕', '🐈', '🏠', '💰', '💳',
+    '🪙', '🎉',
 ];
 
 export default function HabitsPage() {

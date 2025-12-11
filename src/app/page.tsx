@@ -18,10 +18,6 @@ const TodaysOverview = dynamic(() => import('@/components/TodaysOverview'), {
   ),
 });
 
-const AIPredictiveAlerts = dynamic(() => import('@/components/AIPredictiveAlerts'), {
-  ssr: false,
-  loading: () => null, // Don't show loading skeleton if no alerts
-});
 
 const NAVIGATION = [
   { href: '/habits', label: 'Habits', icon: '✅', desc: 'Track your daily habits' },
@@ -189,7 +185,6 @@ export default function DashboardPage() {
         </div>
 
         <TodaysOverview />
-        <AIPredictiveAlerts />
       </section>
       <AddMiniAppModal />
       <WalletSelectionModal />

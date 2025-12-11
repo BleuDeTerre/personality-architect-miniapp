@@ -13,6 +13,11 @@ const DailyWellness = dynamic(() => import('@/components/DailyWellness'), {
   ),
 });
 
+const AIPredictiveAlerts = dynamic(() => import('@/components/AIPredictiveAlerts'), {
+  ssr: false,
+  loading: () => null,
+});
+
 const AIMotivationMessage = dynamic(() => import('@/components/AIMotivationMessage'), {
   ssr: false,
   loading: () => (
@@ -32,7 +37,7 @@ const DailyQuests = dynamic(() => import('@/components/DailyQuests'), {
 });
 
 export default function TodaysOverview() {
-  const [activeTab, setActiveTab] = useState<'wellness' | 'motivation' | 'quests'>('wellness');
+  const [activeTab, setActiveTab] = useState<'wellness' | 'insights' | 'quests'>('wellness');
 
   return (
     <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
@@ -44,7 +49,7 @@ export default function TodaysOverview() {
         <div className="flex gap-1.5">
           <button
             onClick={() => setActiveTab('wellness')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition min-w-[70px] ${
               activeTab === 'wellness'
                 ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
                 : 'text-white/60 hover:text-white/80'
@@ -53,18 +58,18 @@ export default function TodaysOverview() {
             💚 Wellness
           </button>
           <button
-            onClick={() => setActiveTab('motivation')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-              activeTab === 'motivation'
+            onClick={() => setActiveTab('insights')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition min-w-[70px] ${
+              activeTab === 'insights'
                 ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
                 : 'text-white/60 hover:text-white/80'
             }`}
           >
-            💬 Tip
+            💡 Insights
           </button>
           <button
             onClick={() => setActiveTab('quests')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition min-w-[70px] ${
               activeTab === 'quests'
                 ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
                 : 'text-white/60 hover:text-white/80'
@@ -77,21 +82,14 @@ export default function TodaysOverview() {
 
       {/* Content based on active tab */}
       <div className="mt-3">
-        {activeTab === 'wellness' && (
-          <div className="rounded-2xl border border-white/10 bg-[#0f1324] p-3">
-            <DailyWellness />
-          </div>
-        )}
-        {activeTab === 'motivation' && (
-          <div className="rounded-2xl border border-white/10 bg-[#0f1324] p-3">
+        {activeTab === 'wellness' && <DailyWellness />}
+        {activeTab === 'insights' && (
+          <div className="space-y-3">
+            <AIPredictiveAlerts />
             <AIMotivationMessage />
           </div>
         )}
-        {activeTab === 'quests' && (
-          <div className="rounded-2xl border border-white/10 bg-[#0f1324] p-3">
-            <DailyQuests />
-          </div>
-        )}
+        {activeTab === 'quests' && <DailyQuests />}
       </div>
     </section>
   );
