@@ -190,6 +190,8 @@ export async function GET(req: NextRequest) {
             } else if (kind === 'streaks') {
                 const highlight = searchParams.get('highlight');
                 const remaining = searchParams.get('remaining');
+                const current = searchParams.get('current');
+                const best = searchParams.get('best');
 
                 if (highlight === 'goal' && remaining) {
                     imageUrl.searchParams.set('variant', 'streaks:goal');
@@ -198,9 +200,14 @@ export async function GET(req: NextRequest) {
                     imageUrl.searchParams.set('variant', 'streaks:best');
                     const streak = searchParams.get('streak');
                     if (streak) imageUrl.searchParams.set('best', streak);
+                } else if (current && best) {
+                    // Если есть и current и best - это summary
+                    imageUrl.searchParams.set('variant', 'streaks:summary');
+                    imageUrl.searchParams.set('current', current);
+                    imageUrl.searchParams.set('best', best);
                 } else {
                     imageUrl.searchParams.set('variant', 'streaks:current');
-                    const streak = searchParams.get('streak');
+                    const streak = searchParams.get('streak') || current;
                     if (streak) imageUrl.searchParams.set('current', streak);
                 }
 
@@ -217,10 +224,61 @@ export async function GET(req: NextRequest) {
                 imageUrl.searchParams.set('variant', 'wheel:snapshot');
             } else if (kind === 'level') {
                 imageUrl.searchParams.set('variant', 'level:up');
+            } else if (kind === 'habits') {
+                // Для habits проверяем variant из previewParams
+                const habitsVariant = searchParams.get('variant');
+                if (habitsVariant === 'habits:summary') {
+                    imageUrl.searchParams.set('variant', 'habits:summary');
+                } else if (habitsVariant === 'streaks:current') {
+                    // Для habits с streaks:current оставляем как есть, но kind=habits
+                    imageUrl.searchParams.set('variant', 'streaks:current');
+                } else {
+                    // Fallback для habits
+                    imageUrl.searchParams.set('variant', 'habits:summary');
+                }
             }
         } else if (variant) {
             // Используем новый формат как есть - просто устанавливаем variant
             imageUrl.searchParams.set('variant', variant);
+            
+            // Дополнительная обработка для конкретных вариантов
+            if (variant === 'streaks:summary') {
+                // Убеждаемся, что current и best переданы
+                const current = searchParams.get('current');
+                const best = searchParams.get('best');
+                if (current) imageUrl.searchParams.set('current', current);
+                if (best) imageUrl.searchParams.set('best', best);
+            }
+            if (variant === 'goals:progress' || variant === 'goals') {
+                // Убеждаемся, что active и completed переданы
+                const active = searchParams.get('active');
+                const completed = searchParams.get('completed');
+                if (active) imageUrl.searchParams.set('active', active);
+                if (completed) imageUrl.searchParams.set('completed', completed);
+            }
+            if (variant === 'wheel:snapshot') {
+                // Убеждаемся, что avg, top, low и scores переданы
+                const avg = searchParams.get('avg');
+                const top = searchParams.get('top');
+                const low = searchParams.get('low');
+                const scores = searchParams.get('scores');
+                if (avg) imageUrl.searchParams.set('avg', avg);
+                if (top) imageUrl.searchParams.set('top', top);
+                if (low) imageUrl.searchParams.set('low', low);
+                if (scores) imageUrl.searchParams.set('scores', scores);
+            }
+            if (variant === 'level:up') {
+                // Убеждаемся, что level передан
+                const level = searchParams.get('level');
+                if (level) imageUrl.searchParams.set('level', level);
+            }
+            if (variant === 'habits:summary') {
+                // Убеждаемся, что total передан
+                const total = searchParams.get('total') || searchParams.get('statValue');
+                if (total) imageUrl.searchParams.set('total', total);
+                const description = searchParams.get('description');
+                if (description) imageUrl.searchParams.set('description', description);
+            }
         }
 
         // Передаем kind в OG генератор для правильного определения цвета

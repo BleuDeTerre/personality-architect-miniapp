@@ -56,31 +56,7 @@
 
 ---
 
-### 3. AI Habit Insight (AI инсайт о привычке)
-
-**Вариант 1:**
-```
-🤖 AI says my [habit name] habit might break. Risk is [X]%.
-```
-
-**Вариант 2:**
-```
-🤖 Heads up: [habit name] is at risk. AI puts it at [X]%.
-```
-
-**Вариант 3:**
-```
-🤖 AI warning: [habit name] could slip. [X]% risk. Need to get back on track!
-```
-
-**Вариант 4:**
-```
-🤖 Whoa, AI sees [habit name] is in the danger zone — [X]%. Time to reset!
-```
-
----
-
-### 4. Weekly Capsule (Недельная капсула)
+### 3. Weekly Capsule (Недельная капсула)
 
 **Вариант 1:**
 ```
@@ -462,9 +438,9 @@ import { getRandomVariant, weeklySummaryTexts } from '@/lib/castTextVariants';
 const text = getRandomVariant(weeklySummaryTexts(trend, thisWeek, message));
 ```
 
-### Всего кастов: 16
+### Всего кастов: 15
 
-- **Analytics**: 4 каста (Weekly Summary, Top Habit, AI Insight, Weekly Capsule)
+- **Analytics**: 3 каста (Weekly Summary, Top Habit, Weekly Capsule)
 - **Streaks**: 2 каста (Habit Streak, Next Badge)
 - **Wheel**: 4 каста (Snapshot, Focus Area, Shift, Spotlight)
 - **Habits**: 2 каста (Top Streak, Summary)

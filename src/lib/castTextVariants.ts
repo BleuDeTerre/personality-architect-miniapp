@@ -26,13 +26,6 @@ export const topHabitTexts = (habitName: string, count: number) => [
   `🔥 ${habitName} is leading for me — ${count} times this period. Nice!`,
 ];
 
-export const aiInsightTexts = (habitName: string, riskPercent: number) => [
-  `🤖 AI says my ${habitName} habit might break. Risk is ${riskPercent}%.`,
-  `🤖 Heads up: ${habitName} is at risk. AI puts it at ${riskPercent}%.`,
-  `🤖 AI warning: ${habitName} could slip. ${riskPercent}% risk. Need to get back on track!`,
-  `🤖 Whoa, AI sees ${habitName} is in the danger zone — ${riskPercent}%. Time to reset!`,
-];
-
 // Streaks
 export const habitStreakTexts = (current: number, best: number, nextBadgeDays: number | null) => {
   if (nextBadgeDays !== null) {

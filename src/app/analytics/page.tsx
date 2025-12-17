@@ -6,7 +6,7 @@ import { useMiniApp } from '@neynar/react';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import CollapsibleCard from '@/components/CollapsibleCard';
-import { getRandomVariant, weeklySummaryTexts, topHabitTexts, aiInsightTexts } from '@/lib/castTextVariants';
+import { getRandomVariant, weeklySummaryTexts, topHabitTexts } from '@/lib/castTextVariants';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -1368,38 +1368,7 @@ export default function AnalyticsPage() {
             });
         }
 
-        if (predictive?.length) {
-            const insight = predictive[0];
-            const riskPercent = Math.round((insight.risk_score ?? 0) * 100);
-            const action =
-                riskPercent >= 70 ? 'Immediate reset tonight' :
-                    riskPercent >= 40 ? 'Schedule a focused session' :
-                        'Stay consistent';
-            const summaryText = insight.risk_break
-                ? `${insight.habit_title} is at risk of breaking.`
-                : `${insight.habit_title} trending steady.`;
-            const confidence = riskPercent >= 70 ? 'High' : riskPercent >= 40 ? 'Medium' : 'Baseline';
-            templates.push({
-                key: `ai-${insight.habit_id}`,
-                label: `AI Insight: ${insight.habit_title}`,
-                title: 'AI Habit Insight',
-                kind: 'analytics',
-                text: getRandomVariant(aiInsightTexts(insight.habit_title, riskPercent)),
-                previewParams: {
-                    variant: 'analytics:insight',
-                    habit: insight.habit_title,
-                    risk: String(riskPercent),
-                    days: String(insight.days_since_last ?? 0),
-                    summary: summaryText,
-                    action,
-                    streak: String(insight.streak_days ?? 0),
-                    confidence,
-                },
-                targetPath: '/analytics',
-            });
-        }
-
-        // Убраны wheel касты (перенесены в Wheel)
+        // Убраны wheel касты (перенесены в Wheel) и AI Habit Insight (по запросу)
         // Weekly Capsule - убрано (не нужен в share)
 
         return templates;

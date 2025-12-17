@@ -888,10 +888,11 @@ export default function HabitsPage() {
                 kind: 'habits',
                 text: getRandomVariant(habitsSummaryTexts(habits.length, completedCount)),
                 previewParams: {
-                    variant: 'goals:summary',
+                    variant: 'habits:summary',
                     description: `${habits.length} habits tracked`,
                     statLabel: 'Total habits',
-                    statValue: `${habits.length}`,
+                    statValue: String(habits.length),
+                    total: String(habits.length),
                     tag: 'HABIT TRACKER',
                 },
                 targetPath: '/habits',
