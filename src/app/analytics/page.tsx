@@ -330,15 +330,15 @@ function SparklineChartV3({ data, maxStreak }: { data: TrendPoint[]; maxStreak: 
 }
 
 // Pie Chart Component for Goal Status Distribution
-function GoalStatusPieChart({ 
-    active, 
-    completed, 
-    paused, 
-    total 
-}: { 
-    active: number; 
-    completed: number; 
-    paused: number; 
+function GoalStatusPieChart({
+    active,
+    completed,
+    paused,
+    total
+}: {
+    active: number;
+    completed: number;
+    paused: number;
     total: number;
 }) {
     const size = 100;
@@ -375,7 +375,7 @@ function GoalStatusPieChart({
         const largeArcFlag = endAngle - startAngle > Math.PI ? 1 : 0;
 
         const path = `M ${centerX} ${centerY} L ${startX} ${startY} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
-        
+
         return (
             <path
                 key={index}
@@ -599,7 +599,7 @@ export default function AnalyticsPage() {
 
     const loadFacts = useCallback(async () => {
         if (factsLoading || facts) return; // Не загружаем если уже загружено или загружается
-        
+
         try {
             setFactsLoading(true);
             const hdrs = await authHeaders();
@@ -642,7 +642,7 @@ export default function AnalyticsPage() {
                 fetch('/api/analytics/predictive', { headers: hdrs }).then(r => r.json()).catch(() => ({ insights: [] })),
                 fetch('/api/analytics/comparative', { headers: hdrs }).then(r => r.json()).catch(() => null),
             ]);
-            
+
             // Facts НЕ загружаем автоматически - только по кнопке
 
             setCorrelations(corrRes.correlations || []);
@@ -805,11 +805,11 @@ export default function AnalyticsPage() {
                         const prevDateStr = sortedDates[j - 1].slice(0, 10);
                         const [prevYear, prevMonth, prevDay] = prevDateStr.split('-').map(Number);
                         const prevDate = new Date(prevYear, prevMonth - 1, prevDay);
-                        
+
                         const currDateStr = sortedDates[j].slice(0, 10);
                         const [currYear, currMonth, currDay] = currDateStr.split('-').map(Number);
                         const currDate = new Date(currYear, currMonth - 1, currDay);
-                        
+
                         const daysDiff = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
                         if (daysDiff === 1) {
                             currentRun++;
@@ -917,7 +917,7 @@ export default function AnalyticsPage() {
         // Try to use facts.day_stats first, but fallback to calculating from logsWithTime
         let peakDay: { day: string; count: number } | null = null;
         let allDays: Array<{ day: string; count: number }> | null = null;
-        
+
         if (facts?.day_stats?.length) {
             allDays = facts.day_stats;
             peakDay = [...facts.day_stats].sort((a, b) => b.count - a.count)[0];
@@ -929,7 +929,7 @@ export default function AnalyticsPage() {
                 const day = date.getDay();
                 dayOfWeekCount.set(day, (dayOfWeekCount.get(day) || 0) + 1);
             });
-            
+
             if (dayOfWeekCount.size > 0) {
                 allDays = Array.from(dayOfWeekCount.entries())
                     .map(([day, count]) => ({
@@ -939,7 +939,7 @@ export default function AnalyticsPage() {
                 peakDay = [...allDays].sort((a, b) => b.count - a.count)[0];
             }
         }
-        
+
         if (!peakDay || peakDay.count === 0) return null;
 
         // Calculate average time of day from logs with created_at
@@ -1100,7 +1100,7 @@ export default function AnalyticsPage() {
         // Тренд: больше активных = хорошо, больше завершенных = отлично
         let trend: 'up' | 'down' | 'stable' = 'stable';
         let trendMessage = '';
-        
+
         if (recentlyCompleted.length > 0) {
             trend = 'up';
             trendMessage = `${recentlyCompleted.length} completed recently`;
@@ -1205,11 +1205,11 @@ export default function AnalyticsPage() {
         // Using Gini coefficient approach (inverted)
         const percentages = distribution.map(d => d.percentage);
         if (percentages.length === 0) return null;
-        
+
         const sorted = [...percentages].sort((a, b) => a - b);
         const sum = sorted.reduce((a, b) => a + b, 0);
         if (sum === 0 || sorted.length === 0) return null;
-        
+
         let gini = 0;
         for (let i = 0; i < sorted.length; i++) {
             for (let j = 0; j < sorted.length; j++) {
@@ -1230,7 +1230,7 @@ export default function AnalyticsPage() {
     const weakWindows = useMemo(() => {
         // Try to use facts.day_stats first, but fallback to calculating from logsWithTime
         let dayStats: Array<{ day: string; count: number }> | null = null;
-        
+
         if (facts?.day_stats?.length) {
             dayStats = facts.day_stats;
         } else if (logsWithTime.length > 0) {
@@ -1241,7 +1241,7 @@ export default function AnalyticsPage() {
                 const day = date.getDay();
                 dayOfWeekCount.set(day, (dayOfWeekCount.get(day) || 0) + 1);
             });
-            
+
             if (dayOfWeekCount.size > 0) {
                 dayStats = Array.from(dayOfWeekCount.entries())
                     .map(([day, count]) => ({
@@ -1250,7 +1250,7 @@ export default function AnalyticsPage() {
                     }));
             }
         }
-        
+
         if (!dayStats || dayStats.length === 0) return null;
         const sorted = [...dayStats].sort((a, b) => a.count - b.count);
         const weakest = sorted[0];
@@ -1277,7 +1277,7 @@ export default function AnalyticsPage() {
         // Use deltaLast (this week vs last week) instead of delta4
         const top = wheelTrends.filter(t => t.deltaLast !== null && t.deltaLast > 0).sort((a, b) => (b.deltaLast ?? 0) - (a.deltaLast ?? 0))[0];
         const bottom = wheelTrends.filter(t => t.deltaLast !== null && t.deltaLast < 0).sort((a, b) => (a.deltaLast ?? 0) - (b.deltaLast ?? 0))[0];
-        
+
         // Return object if we have at least one change
         if (top || bottom) {
             return {
@@ -1560,17 +1560,17 @@ export default function AnalyticsPage() {
                 {/* Metrics Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-4">
                     {loading ? (
-                                <div className="grid grid-cols-2 gap-3">
-                                    {[1, 2, 3, 4, 5, 6].map(i => (
-                                        <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse space-y-2">
-                                            <div className="h-6 bg-white/10 rounded w-32"></div>
-                                            <div className="h-6 bg-white/10 rounded w-20"></div>
-                                            <div className="h-4 bg-white/10 rounded w-full"></div>
-                                        </div>
-                                    ))}
+                        <div className="grid grid-cols-2 gap-3">
+                            {[1, 2, 3, 4, 5, 6].map(i => (
+                                <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse space-y-2">
+                                    <div className="h-6 bg-white/10 rounded w-32"></div>
+                                    <div className="h-6 bg-white/10 rounded w-20"></div>
+                                    <div className="h-4 bg-white/10 rounded w-full"></div>
                                 </div>
-                            ) : (
-                                <>
+                            ))}
+                        </div>
+                    ) : (
+                        <>
                             {/* Performance Dashboard - объединенные Core Metrics */}
                             <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4">
                                 <h2 className="text-xl font-semibold text-white flex items-center gap-2">
@@ -1578,223 +1578,222 @@ export default function AnalyticsPage() {
                                     <span className="bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Performance Dashboard</span>
                                 </h2>
                                 <div className="grid grid-cols-2 gap-3">
-                            {/* Completion rate */}
-                            <div className={`rounded-2xl border p-4 space-y-2 ${completionRate !== null && completionRate.value !== undefined
-                                ? completionRate.trend === 'up' && completionRate.value >= 50
-                                    ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
-                                    : completionRate.trend === 'up' && completionRate.value < 50
-                                        ? 'border-yellow-400/50 bg-yellow-400/5'
-                                        : completionRate.value >= 70
+                                    {/* Completion rate */}
+                                    <div className={`rounded-2xl border p-4 space-y-2 ${completionRate !== null && completionRate.value !== undefined
+                                        ? completionRate.trend === 'up' && completionRate.value >= 50
                                             ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
-                                            : completionRate.value >= 50
+                                            : completionRate.trend === 'up' && completionRate.value < 50
                                                 ? 'border-yellow-400/50 bg-yellow-400/5'
-                                                : 'border-red-400/50 bg-red-400/5'
-                                : 'border-white/10 bg-[#1a1b2e]'
-                                }`}>
-                                <div className="space-y-1">
-                                    <h3 className="text-sm font-semibold text-white">Completion rate</h3>
-                                    {completionRate !== null && completionRate.change !== 0 && (
-                                        <span className={`text-xs font-semibold ${completionRate.trend === 'up' ? 'text-[#22C55E]'
-                                            : completionRate.trend === 'down' ? 'text-red-400'
-                                                : 'text-white/60'
-                                            }`}>
-                                            {completionRate.trend === 'up' ? '↑' : completionRate.trend === 'down' ? '↓' : '→'} {Math.abs(completionRate.change).toFixed(1)}%
-                                        </span>
-                                    )}
-                                </div>
-                                {completionRate !== null && completionRate.value !== undefined ? (
-                                    <>
-                                        <p className="text-lg font-semibold text-[#8B5CF6] break-words">{completionRate.value.toFixed(1)}%</p>
-                                        <p className="text-xs text-white/70 leading-snug" title="Completion rate considers each habit's target days per week">
-                                                    Share of tracked habits you finish each day.
-                                        </p>
-                                    </>
-                                ) : (
-                                    <p className="text-xs text-white/60">No data yet</p>
-                                )}
-                            </div>
-
-                            {/* Goal progress */}
-                            <div className={`rounded-2xl border p-4 space-y-2 ${goalProgress !== null && goalProgress.avg !== undefined
-                                ? goalProgress.avg >= 70 ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
-                                    : goalProgress.avg >= 50 ? 'border-yellow-400/50 bg-yellow-400/5'
-                                        : 'border-red-400/50 bg-red-400/5'
-                                : 'border-white/10 bg-[#1a1b2e]'
-                                }`}>
-                                <h3 className="text-sm font-semibold text-white">Goal progress</h3>
-                                {goalProgress ? (
-                                    <>
-                                        <div className="space-y-1 min-w-0">
-                                            <p className="text-base font-semibold text-[#8B5CF6] break-words">
-                                                {goalProgress.completed}/{goalProgress.total} goals
-                                            </p>
-                                            <p className="text-sm font-semibold text-[#8B5CF6] break-words">{goalProgress.avg.toFixed(0)}% avg</p>
-                                        </div>
-                                        <p className="text-xs text-white/70 leading-snug" title="Progress calculated based on actual metric values when available, otherwise time-based">
-                                                    Average completion of all active goals.
-                                        </p>
-                                    </>
-                                ) : (
-                                    <p className="text-xs text-white/60">No goals yet</p>
-                                )}
-                            </div>
-
-                            {/* Consistency score */}
-                            {consistencyScore && (
-                                <div className={`rounded-2xl border p-4 space-y-2 ${consistencyScore.value >= 70 ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
-                                    : consistencyScore.value >= 50 ? 'border-yellow-400/50 bg-yellow-400/5'
-                                        : 'border-red-400/50 bg-red-400/5'
-                                    }`}>
-                                    <h3 className="text-sm font-semibold text-white">Consistency score</h3>
-                                    <div className="space-y-1 min-w-0">
-                                        <p className="text-lg font-semibold text-[#8B5CF6] break-words">{consistencyScore.value}/100</p>
-                                        <p className="text-xs text-[#8B5CF6] font-semibold break-words leading-tight">{consistencyScore.label}</p>
-                                    </div>
-                                    <p className="text-xs text-white/70 leading-snug" title="Measures variability in daily completion. Higher score = more consistent daily activity">
-                                                Measures how consistent your daily activity is.
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Category balance */}
-                            {categoryBalance && (
-                                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-base font-semibold text-white">Category balance</h3>
-                                        <span className="text-xs font-semibold text-[#8B5CF6]">{categoryBalance.balanceScore}/100</span>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        {categoryBalance.distribution.slice(0, 3).map((item, idx) => (
-                                            <div key={idx} className="flex items-center justify-between gap-2">
-                                                <span className="text-sm text-white/80 flex-shrink-0 min-w-0 truncate">{item.category}</span>
-                                                <div className="flex items-center gap-2 flex-shrink-0">
-                                                    <div className="h-1.5 w-16 bg-white/10 rounded-full overflow-hidden flex-shrink-0">
-                                                        <div
-                                                            className="h-full bg-[#8B5CF6] rounded-full"
-                                                            style={{ width: `${Math.min(100, item.percentage)}%` }}
-                                                        />
-                                                    </div>
-                                                    <span className="text-sm text-[#8B5CF6] font-medium w-10 text-right flex-shrink-0">{item.percentage.toFixed(0)}%</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <p className="text-xs text-white/70 leading-snug" title="Distribution of activity across habit categories. Higher balance = more evenly spread">
-                                        {categoryBalance.label}
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Peak activity */}
-                            {mostActiveDay && (
-                                <div className={`rounded-2xl border p-4 space-y-2 ${(() => {
-                                    const allDays = mostActiveDay.allDays || facts?.day_stats || [];
-                                    const avgCount = allDays.length > 0 
-                                        ? allDays.reduce((sum, d) => sum + d.count, 0) / allDays.length
-                                        : mostActiveDay.count;
-                                    const ratio = mostActiveDay.count / avgCount;
-                                    if (ratio >= 1.5) return 'border-[#22C55E]/50 bg-[#22C55E]/5';
-                                    if (ratio >= 1.2) return 'border-yellow-400/50 bg-yellow-400/5';
-                                    return 'border-white/10 bg-[#1a1b2e]';
-                                })()}`}>
-                                    <h3 className="text-sm font-semibold text-white">Peak activity</h3>
-                                    <div className="space-y-1">
-                                        <p className="text-base font-semibold text-white">
-                                            Day: <span className="text-[#8B5CF6] font-semibold">{mostActiveDay.day}</span>
-                                        </p>
-                                        {mostActiveDay.timeOfDay && (
-                                            <p className="text-sm font-semibold text-[#8B5CF6]">
-                                                {mostActiveDay.timeOfDay}
-                                                {mostActiveDay.avgHour !== null && ` (~${Math.floor(mostActiveDay.avgHour)}:${String(Math.round((mostActiveDay.avgHour % 1) * 60)).padStart(2, '0')})`}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <p className="text-xs text-white/70 leading-snug" title="Peak day shows the day of week with most completions. Time shows average completion time.">
-                                        Typical time of day you complete habits.
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Goal Status Distribution */}
-                            {goalStatusDistribution && (
-                                <div className={`rounded-2xl border p-4 space-y-3 col-span-2 ${goalStatusDistribution.trend === 'up' 
-                                    ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
-                                    : goalStatusDistribution.trend === 'down'
-                                        ? 'border-yellow-400/50 bg-yellow-400/5'
+                                                : completionRate.value >= 70
+                                                    ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                                    : completionRate.value >= 50
+                                                        ? 'border-yellow-400/50 bg-yellow-400/5'
+                                                        : 'border-red-400/50 bg-red-400/5'
                                         : 'border-white/10 bg-[#1a1b2e]'
-                                }`}>
-                                    <div className="flex items-center justify-between flex-wrap gap-2">
-                                        <h3 className="text-sm font-semibold text-white">Goal Status Distribution</h3>
-                                        {goalStatusDistribution.trendMessage && (
-                                            <span className={`text-xs font-medium whitespace-nowrap ${
-                                                goalStatusDistribution.trend === 'up' ? 'text-[#22C55E]' 
-                                                : goalStatusDistribution.trend === 'down' ? 'text-yellow-400'
-                                                : 'text-white/60'
-                                            }`}>
-                                                {goalStatusDistribution.trend === 'up' ? '↑' : goalStatusDistribution.trend === 'down' ? '↓' : '→'} {goalStatusDistribution.trendMessage}
-                                            </span>
+                                        }`}>
+                                        <div className="space-y-1">
+                                            <h3 className="text-sm font-semibold text-white">Completion rate</h3>
+                                            {completionRate !== null && completionRate.change !== 0 && (
+                                                <span className={`text-xs font-semibold ${completionRate.trend === 'up' ? 'text-[#22C55E]'
+                                                    : completionRate.trend === 'down' ? 'text-red-400'
+                                                        : 'text-white/60'
+                                                    }`}>
+                                                    {completionRate.trend === 'up' ? '↑' : completionRate.trend === 'down' ? '↓' : '→'} {Math.abs(completionRate.change).toFixed(1)}%
+                                                </span>
+                                            )}
+                                        </div>
+                                        {completionRate !== null && completionRate.value !== undefined ? (
+                                            <>
+                                                <p className="text-lg font-semibold text-[#8B5CF6] break-words">{completionRate.value.toFixed(1)}%</p>
+                                                <p className="text-xs text-white/70 leading-snug" title="Completion rate considers each habit's target days per week">
+                                                    Share of tracked habits you finish each day.
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <p className="text-xs text-white/60">No data yet</p>
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
-                                        <div className="flex-shrink-0 mx-auto sm:mx-0">
-                                            <GoalStatusPieChart
-                                                active={goalStatusDistribution.counts.active}
-                                                completed={goalStatusDistribution.counts.completed}
-                                                paused={goalStatusDistribution.counts.paused}
-                                                total={goalStatusDistribution.total}
-                                            />
-                                        </div>
-                                        <div className="flex-1 space-y-2 min-w-0">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-[#8B5CF6] flex-shrink-0"></div>
-                                                    <span className="text-sm text-white/80">Active</span>
+
+                                    {/* Goal progress */}
+                                    <div className={`rounded-2xl border p-4 space-y-2 ${goalProgress !== null && goalProgress.avg !== undefined
+                                        ? goalProgress.avg >= 70 ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                            : goalProgress.avg >= 50 ? 'border-yellow-400/50 bg-yellow-400/5'
+                                                : 'border-red-400/50 bg-red-400/5'
+                                        : 'border-white/10 bg-[#1a1b2e]'
+                                        }`}>
+                                        <h3 className="text-sm font-semibold text-white">Goal progress</h3>
+                                        {goalProgress ? (
+                                            <>
+                                                <div className="space-y-1 min-w-0">
+                                                    <p className="text-base font-semibold text-[#8B5CF6] break-words">
+                                                        {goalProgress.completed}/{goalProgress.total} goals
+                                                    </p>
+                                                    <p className="text-sm font-semibold text-[#8B5CF6] break-words">{goalProgress.avg.toFixed(0)}% avg</p>
                                                 </div>
-                                                <div className="flex items-center gap-2 flex-shrink-0">
-                                                    <span className="text-sm font-semibold text-[#8B5CF6]">{goalStatusDistribution.counts.active}</span>
-                                                    <span className="text-xs text-white/60">({goalStatusDistribution.percentages.active.toFixed(0)}%)</span>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-[#22C55E] flex-shrink-0"></div>
-                                                    <span className="text-sm text-white/80">Completed</span>
-                                                </div>
-                                                <div className="flex items-center gap-2 flex-shrink-0">
-                                                    <span className="text-sm font-semibold text-[#22C55E]">{goalStatusDistribution.counts.completed}</span>
-                                                    <span className="text-xs text-white/60">({goalStatusDistribution.percentages.completed.toFixed(0)}%)</span>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-[#F59E0B] flex-shrink-0"></div>
-                                                    <span className="text-sm text-white/80">Paused</span>
-                                                </div>
-                                                <div className="flex items-center gap-2 flex-shrink-0">
-                                                    <span className="text-sm font-semibold text-[#F59E0B]">{goalStatusDistribution.counts.paused}</span>
-                                                    <span className="text-xs text-white/60">({goalStatusDistribution.percentages.paused.toFixed(0)}%)</span>
-                                                </div>
-                                            </div>
-                                        </div>
+                                                <p className="text-xs text-white/70 leading-snug" title="Progress calculated based on actual metric values when available, otherwise time-based">
+                                                    Average completion of all active goals.
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <p className="text-xs text-white/60">No goals yet</p>
+                                        )}
                                     </div>
-                                    <p className="text-xs text-white/70 leading-snug" title="Distribution of goals by status. Trend shows recent activity.">
-                                        {goalStatusDistribution.recentCompleted > 0 && `${goalStatusDistribution.recentCompleted} completed recently. `}
-                                        {goalStatusDistribution.recentCreated > 0 && `${goalStatusDistribution.recentCreated} created in last 30 days. `}
-                                        {goalStatusDistribution.recentCompleted === 0 && goalStatusDistribution.recentCreated === 0 && 'Track your goals to see trends.'}
-                                    </p>
-                                </div>
-                            )}
+
+                                    {/* Consistency score */}
+                                    {consistencyScore && (
+                                        <div className={`rounded-2xl border p-4 space-y-2 ${consistencyScore.value >= 70 ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                            : consistencyScore.value >= 50 ? 'border-yellow-400/50 bg-yellow-400/5'
+                                                : 'border-red-400/50 bg-red-400/5'
+                                            }`}>
+                                            <h3 className="text-sm font-semibold text-white">Consistency score</h3>
+                                            <div className="space-y-1 min-w-0">
+                                                <p className="text-lg font-semibold text-[#8B5CF6] break-words">{consistencyScore.value}/100</p>
+                                                <p className="text-xs text-[#8B5CF6] font-semibold break-words leading-tight">{consistencyScore.label}</p>
+                                            </div>
+                                            <p className="text-xs text-white/70 leading-snug" title="Measures variability in daily completion. Higher score = more consistent daily activity">
+                                                Measures how consistent your daily activity is.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Category balance */}
+                                    {categoryBalance && (
+                                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <h3 className="text-base font-semibold text-white">Category balance</h3>
+                                                <span className="text-xs font-semibold text-[#8B5CF6]">{categoryBalance.balanceScore}/100</span>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                {categoryBalance.distribution.slice(0, 3).map((item, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between gap-2">
+                                                        <span className="text-sm text-white/80 flex-shrink-0 min-w-0 truncate">{item.category}</span>
+                                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                                            <div className="h-1.5 w-16 bg-white/10 rounded-full overflow-hidden flex-shrink-0">
+                                                                <div
+                                                                    className="h-full bg-[#8B5CF6] rounded-full"
+                                                                    style={{ width: `${Math.min(100, item.percentage)}%` }}
+                                                                />
+                                                            </div>
+                                                            <span className="text-sm text-[#8B5CF6] font-medium w-10 text-right flex-shrink-0">{item.percentage.toFixed(0)}%</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <p className="text-xs text-white/70 leading-snug" title="Distribution of activity across habit categories. Higher balance = more evenly spread">
+                                                {categoryBalance.label}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Peak activity */}
+                                    {mostActiveDay && (
+                                        <div className={`rounded-2xl border p-4 space-y-2 ${(() => {
+                                            const allDays = mostActiveDay.allDays || facts?.day_stats || [];
+                                            const avgCount = allDays.length > 0
+                                                ? allDays.reduce((sum, d) => sum + d.count, 0) / allDays.length
+                                                : mostActiveDay.count;
+                                            const ratio = mostActiveDay.count / avgCount;
+                                            if (ratio >= 1.5) return 'border-[#22C55E]/50 bg-[#22C55E]/5';
+                                            if (ratio >= 1.2) return 'border-yellow-400/50 bg-yellow-400/5';
+                                            return 'border-white/10 bg-[#1a1b2e]';
+                                        })()}`}>
+                                            <h3 className="text-sm font-semibold text-white">Peak activity</h3>
+                                            <div className="space-y-1">
+                                                <p className="text-base font-semibold text-white">
+                                                    Day: <span className="text-[#8B5CF6] font-semibold">{mostActiveDay.day}</span>
+                                                </p>
+                                                {mostActiveDay.timeOfDay && (
+                                                    <p className="text-sm font-semibold text-[#8B5CF6]">
+                                                        {mostActiveDay.timeOfDay}
+                                                        {mostActiveDay.avgHour !== null && ` (~${Math.floor(mostActiveDay.avgHour)}:${String(Math.round((mostActiveDay.avgHour % 1) * 60)).padStart(2, '0')})`}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-white/70 leading-snug" title="Peak day shows the day of week with most completions. Time shows average completion time.">
+                                                Typical time of day you complete habits.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Goal Status Distribution */}
+                                    {goalStatusDistribution && (
+                                        <div className={`rounded-2xl border p-4 space-y-3 col-span-2 ${goalStatusDistribution.trend === 'up'
+                                            ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                            : goalStatusDistribution.trend === 'down'
+                                                ? 'border-yellow-400/50 bg-yellow-400/5'
+                                                : 'border-white/10 bg-[#1a1b2e]'
+                                            }`}>
+                                            <div className="flex items-center justify-between flex-wrap gap-2">
+                                                <h3 className="text-sm font-semibold text-white">Goal Status Distribution</h3>
+                                                {goalStatusDistribution.trendMessage && (
+                                                    <span className={`text-xs font-medium whitespace-nowrap ${goalStatusDistribution.trend === 'up' ? 'text-[#22C55E]'
+                                                            : goalStatusDistribution.trend === 'down' ? 'text-yellow-400'
+                                                                : 'text-white/60'
+                                                        }`}>
+                                                        {goalStatusDistribution.trend === 'up' ? '↑' : goalStatusDistribution.trend === 'down' ? '↓' : '→'} {goalStatusDistribution.trendMessage}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
+                                                <div className="flex-shrink-0 mx-auto sm:mx-0">
+                                                    <GoalStatusPieChart
+                                                        active={goalStatusDistribution.counts.active}
+                                                        completed={goalStatusDistribution.counts.completed}
+                                                        paused={goalStatusDistribution.counts.paused}
+                                                        total={goalStatusDistribution.total}
+                                                    />
+                                                </div>
+                                                <div className="flex-1 space-y-2 min-w-0">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-3 h-3 rounded-full bg-[#8B5CF6] flex-shrink-0"></div>
+                                                            <span className="text-sm text-white/80">Active</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                                            <span className="text-sm font-semibold text-[#8B5CF6]">{goalStatusDistribution.counts.active}</span>
+                                                            <span className="text-xs text-white/60">({goalStatusDistribution.percentages.active.toFixed(0)}%)</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-3 h-3 rounded-full bg-[#22C55E] flex-shrink-0"></div>
+                                                            <span className="text-sm text-white/80">Completed</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                                            <span className="text-sm font-semibold text-[#22C55E]">{goalStatusDistribution.counts.completed}</span>
+                                                            <span className="text-xs text-white/60">({goalStatusDistribution.percentages.completed.toFixed(0)}%)</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-3 h-3 rounded-full bg-[#F59E0B] flex-shrink-0"></div>
+                                                            <span className="text-sm text-white/80">Paused</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                                            <span className="text-sm font-semibold text-[#F59E0B]">{goalStatusDistribution.counts.paused}</span>
+                                                            <span className="text-xs text-white/60">({goalStatusDistribution.percentages.paused.toFixed(0)}%)</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p className="text-xs text-white/70 leading-snug" title="Distribution of goals by status. Trend shows recent activity.">
+                                                {goalStatusDistribution.recentCompleted > 0 && `${goalStatusDistribution.recentCompleted} completed recently. `}
+                                                {goalStatusDistribution.recentCreated > 0 && `${goalStatusDistribution.recentCreated} created in last 30 days. `}
+                                                {goalStatusDistribution.recentCompleted === 0 && goalStatusDistribution.recentCreated === 0 && 'Track your goals to see trends.'}
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </section>
 
                             {/* Wellness Analytics */}
-                            {wellnessAnalytics && wellnessAnalytics?.dataPoints > 0 && (() => {
+                            {wellnessAnalytics?.dataPoints && wellnessAnalytics?.dataPoints > 0 && (() => {
                                 const optimalCount = wellnessAnalytics?.trends?.filter(t => t.status === 'optimal').length || 0;
                                 const totalCount = wellnessAnalytics?.trends?.filter(t => t.current !== null).length || 0;
-                                
+
                                 let borderColor = 'border-white/10';
                                 let bgColor = 'bg-[#1a1b2e]';
-                                
+
                                 if (totalCount > 0) {
                                     if (optimalCount >= 3) {
                                         borderColor = 'border-[#22C55E]/50';
@@ -1807,7 +1806,7 @@ export default function AnalyticsPage() {
                                         bgColor = 'bg-red-400/5';
                                     }
                                 }
-                                
+
                                 return (
                                     <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4">
                                         <div className="flex items-center justify-between">
@@ -1818,35 +1817,33 @@ export default function AnalyticsPage() {
                                             <div className="flex gap-1.5">
                                                 <button
                                                     onClick={() => setWellnessTab('deepdive')}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                                                        wellnessTab === 'deepdive'
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${wellnessTab === 'deepdive'
                                                             ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
                                                             : 'text-white/60 hover:text-white/80'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     Deep Dive
                                                 </button>
                                                 <button
                                                     onClick={() => setWellnessTab('correlations')}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                                                        wellnessTab === 'correlations'
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${wellnessTab === 'correlations'
                                                             ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
                                                             : 'text-white/60 hover:text-white/80'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     Correlations
                                                 </button>
                                             </div>
                                         </div>
-                                        
+
                                         {wellnessTab === 'deepdive' && (
                                             <div className={`rounded-2xl border p-4 space-y-2 ${borderColor} ${bgColor}`}>
                                                 <h3 className="text-base font-semibold text-white">Wellness Deep Dive</h3>
                                                 {wellnessAnalytics?.trends && wellnessAnalytics?.trends.length > 0 ? (
                                                     <div className="space-y-2 text-sm">
                                                         {(wellnessAnalytics?.trends || []).map((trend) => {
-                                                            if (trend.current === null) return null;
-                                                            
+                                                            if (trend.current === null || trend.current === undefined) return null;
+
                                                             const metricLabels: Record<string, string> = {
                                                                 stress_level: 'Stress',
                                                                 productivity_level: 'Productivity',
@@ -1854,14 +1851,15 @@ export default function AnalyticsPage() {
                                                                 work_hours: 'Work',
                                                             };
                                                             const metricLabel = metricLabels[trend.metric] || trend.metric;
-                                                            
+
                                                             const isHours = trend.metric.includes('hours');
-                                                            const displayValue = isHours ? `${trend.current.toFixed(1)}h` : `${trend.current.toFixed(1)}`;
-                                                            
+                                                            const currentValue = trend.current ?? 0;
+                                                            const displayValue = isHours ? `${currentValue.toFixed(1)}h` : `${currentValue.toFixed(1)}`;
+
                                                             let displayIcon = null;
                                                             let trendColor = 'text-white/60';
                                                             let valueColor = 'text-white';
-                                                            
+
                                                             if (trend.trend === 'improving') {
                                                                 displayIcon = trend.metric === 'stress_level' ? '↓' : '↑';
                                                                 trendColor = 'text-green-400';
@@ -1875,10 +1873,10 @@ export default function AnalyticsPage() {
                                                                 trendColor = 'text-white/60';
                                                                 valueColor = 'text-white';
                                                             }
-                                                            
+
                                                             const statusText = trend.status === 'optimal' ? 'Optimal' : trend.status === 'below' ? 'Below optimal' : trend.status === 'above' ? 'Above optimal' : null;
                                                             const statusColor = trend.status === 'optimal' ? 'text-green-400' : trend.status === 'below' ? 'text-yellow-400' : trend.status === 'above' ? 'text-orange-400' : 'text-white/60';
-                                                            
+
                                                             return (
                                                                 <div key={trend.metric} className="flex flex-col gap-0.5">
                                                                     <div className="flex items-center justify-between">
@@ -1909,19 +1907,19 @@ export default function AnalyticsPage() {
                                                 )}
                                             </div>
                                         )}
-                                        
+
                                         {wellnessTab === 'correlations' && (
                                             <div className={`rounded-2xl border p-4 space-y-2 ${wellnessAnalytics?.correlations && wellnessAnalytics?.correlations.length > 0
                                                 ? (() => {
                                                     // Определяем, является ли корреляция "хорошей" или "плохой"
                                                     const isGoodCorrelation = (metricA: string, metricB: string, correlation: number): boolean => {
                                                         const isPositive = correlation > 0;
-                                                        
+
                                                         // Хорошие корреляции (зеленый):
                                                         // - stress уменьшается с sleep/productivity (отрицательная корреляция)
                                                         // - productivity увеличивается с sleep (положительная корреляция)
                                                         // - sleep увеличивается с productivity (положительная корреляция)
-                                                        
+
                                                         if (metricA === 'stress_level') {
                                                             if (metricB === 'sleep_hours' || metricB === 'productivity_level') {
                                                                 return !isPositive; // Отрицательная корреляция = хорошо (меньше стресса)
@@ -1930,7 +1928,7 @@ export default function AnalyticsPage() {
                                                                 return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = меньше стресса)
                                                             }
                                                         }
-                                                        
+
                                                         if (metricA === 'productivity_level') {
                                                             if (metricB === 'sleep_hours') {
                                                                 return isPositive; // Положительная корреляция = хорошо (больше сна = больше продуктивности)
@@ -1942,7 +1940,7 @@ export default function AnalyticsPage() {
                                                                 return !isPositive; // Отрицательная корреляция = хорошо (меньше стресса = больше продуктивности)
                                                             }
                                                         }
-                                                        
+
                                                         if (metricA === 'sleep_hours') {
                                                             if (metricB === 'productivity_level') {
                                                                 return isPositive; // Положительная корреляция = хорошо (больше продуктивности = больше сна)
@@ -1954,7 +1952,7 @@ export default function AnalyticsPage() {
                                                                 return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = больше сна)
                                                             }
                                                         }
-                                                        
+
                                                         if (metricA === 'work_hours') {
                                                             if (metricB === 'stress_level') {
                                                                 return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = меньше стресса)
@@ -1966,15 +1964,15 @@ export default function AnalyticsPage() {
                                                                 return isPositive; // Положительная корреляция = хорошо (больше работы = больше продуктивности)
                                                             }
                                                         }
-                                                        
+
                                                         // По умолчанию считаем нейтральным
                                                         return false;
                                                     };
-                                                    
+
                                                     // Подсчитываем хорошие и плохие корреляции (только сильные > 0.5)
                                                     let goodCount = 0;
                                                     let badCount = 0;
-                                                    
+
                                                     (wellnessAnalytics?.correlations || []).forEach(corr => {
                                                         const strength = Math.abs(corr.correlation);
                                                         if (strength >= 0.5) {
@@ -1985,7 +1983,7 @@ export default function AnalyticsPage() {
                                                             }
                                                         }
                                                     });
-                                                    
+
                                                     // Определяем цвет контейнера
                                                     if (goodCount > badCount) {
                                                         return 'border-[#22C55E]/50 bg-[#22C55E]/5'; // Зеленый - больше хороших корреляций
@@ -2015,7 +2013,7 @@ export default function AnalyticsPage() {
                                                     </div>
                                                 ) : (
                                                     <p className="text-xs text-white/60 leading-snug">
-                                                        {wellnessAnalytics?.dataPoints && wellnessAnalytics?.dataPoints < 5 
+                                                        {wellnessAnalytics?.dataPoints && wellnessAnalytics?.dataPoints < 5
                                                             ? `Need at least 5 data points to calculate correlations (currently ${wellnessAnalytics?.dataPoints || 0})`
                                                             : 'No significant correlations found yet. Keep tracking your wellness metrics!'}
                                                     </p>
@@ -2040,7 +2038,7 @@ export default function AnalyticsPage() {
                     </button>
                 )}
                 {facts && facts.facts && facts.facts.length > 0 && (
-                <CollapsibleCard title="🤖 AI facts" defaultOpen={true}>
+                    <CollapsibleCard title="🤖 AI facts" defaultOpen={true}>
                         <div className="space-y-2">
                             {facts.facts.map((fact, idx) => (
                                 <div key={idx} className="flex items-start gap-2.5">
@@ -2053,9 +2051,9 @@ export default function AnalyticsPage() {
                 )}
                 {factsLoading && (
                     <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 space-y-2 animate-pulse">
-                            <div className="h-4 w-full rounded bg-white/10" />
-                            <div className="h-4 w-3/4 rounded bg-white/10" />
-                        </div>
+                        <div className="h-4 w-full rounded bg-white/10" />
+                        <div className="h-4 w-3/4 rounded bg-white/10" />
+                    </div>
                 )}
 
                 {/* Week Comparison Section */}
