@@ -12,6 +12,7 @@ import EisenhowerMatrix from '@/components/EisenhowerMatrix';
 import GoalSubtasks from '@/components/GoalSubtasks';
 import DatePicker from '@/components/DatePicker';
 import { getRandomVariant, goalProgressTexts, goalCompletedTexts, upcomingGoalTexts } from '@/lib/castTextVariants';
+import { IconDisplay } from '@/lib/iconMapper';
 
 // Используем централизованный клиент из lib/supabase с правильными настройками
 
@@ -610,19 +611,19 @@ export default function GoalsPage() {
 
     return (
         <MiniAppPage>
-            <div className="space-y-3">
+            <div className="space-y-1.5">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">My Goals</h1>
-                    <p className="text-sm text-white/70">
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
+                    <h1 className="text-xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-0.5">My Goals</h1>
+                    <p className="text-xs text-white/70">
                         Capture targets, track completions, and celebrate the finish line.
                     </p>
                 </section>
 
                 {/* Eisenhower Matrix */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
-                    <div className="flex items-center justify-between mb-3">
-                        <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
+                    <div className="flex items-center justify-between mb-1.5">
+                        <h2 className="text-lg font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
                             Eisenhower Matrix
                         </h2>
                         {selectedQuadrant && (
@@ -660,15 +661,15 @@ export default function GoalsPage() {
                 <AIGoalsAssistant />
 
                 {/* Goal Creation Form */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
                     <form
                         onSubmit={(e) => {
                             e.preventDefault();
                             addGoal();
                         }}
-                        className="flex flex-col gap-3"
+                        className="flex flex-col gap-2"
                     >
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             <input
                                 type="text"
                                 placeholder="Goal title"
@@ -714,8 +715,9 @@ export default function GoalsPage() {
                                 <span className="text-sm text-white/80">Urgent</span>
                             </label>
                         </div>
-                        <p className="text-xs text-white/50 text-center">
-                            💡 After creating a goal, you can break it down into subtasks using AI or add them manually
+                        <p className="text-xs text-white/50 text-center flex items-center justify-center gap-1">
+                            <IconDisplay emoji="💡" size="text-xs" />
+                            <span>After creating a goal, you can break it down into subtasks using AI or add them manually</span>
                         </p>
                         <button
                             type="submit"
@@ -728,7 +730,7 @@ export default function GoalsPage() {
                 </section>
 
                 {/* Filter */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
                     {/* Segmented Control */}
                     <div className="flex gap-2">
                         <button
@@ -753,7 +755,7 @@ export default function GoalsPage() {
 
                     {/* Share Section */}
                     {goalShareTemplates.length > 0 && (
-                        <div className="mt-4">
+                        <div className="mt-2">
                             <CollapsibleCard title="Share your goals">
                                 <ShareCastComposer
                                     templates={goalShareTemplates}
@@ -767,25 +769,25 @@ export default function GoalsPage() {
                 {loadingGoals && goals.length === 0 ? (
                     <div className="space-y-3">
                         {[1, 2, 3].map(i => (
-                            <div key={i} className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 animate-pulse">
+                            <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 animate-pulse">
                                 <div className="h-6 w-2/3 rounded bg-white/10" />
                                 <div className="mt-3 h-3 w-1/3 rounded bg-white/10" />
                             </div>
                         ))}
                     </div>
                 ) : filteredGoals.length === 0 ? (
-                    <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 text-center text-white/60 text-sm">
+                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 text-center text-white/60 text-xs">
                         No goals yet. Add your first goal above!
                     </div>
                 ) : (
-                    <div className="space-y-2.5">
+                    <div className="space-y-1.5">
                         {filteredGoals.map(goal => {
                             const editing = editingId === goal.id;
                             const _dueLabel = goal.due_date ? new Date(goal.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Flexible';
                             return (
                                 <div
                                     key={goal.id}
-                                    className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-4"
+                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2 flex flex-col gap-2"
                                 >
                                     {editing ? (
                                         <div className="flex-1 space-y-3">
@@ -857,18 +859,28 @@ export default function GoalsPage() {
                                                 <h3 className={`text-xl font-semibold ${goal.status === 'completed' ? 'text-white/50 line-through' : 'text-white'}`}>
                                                     {goal.title}
                                                 </h3>
-                                                {(goal.target || goal.unit) && (
-                                                    <div className="mt-2 text-sm text-white/70">
-                                                        {goal.target || ''} {goal.unit || ''}
+                                                {((goal.target || goal.unit) || goal.due_date || goal.status) && (
+                                                    <div className="mt-1.5 flex items-center gap-2 text-sm text-white/60 flex-wrap">
+                                                        {(goal.target || goal.unit) && (
+                                                            <span className="text-white/70">
+                                                                {goal.target || ''} {goal.unit || ''}
+                                                            </span>
+                                                        )}
+                                                        {goal.due_date && (
+                                                            <>
+                                                                {(goal.target || goal.unit) && <span className="text-white/40">•</span>}
+                                                                <span>
+                                                                    {new Date(goal.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                        {goal.status && (
+                                                            <>
+                                                                {((goal.target || goal.unit) || goal.due_date) && <span className="text-white/40">•</span>}
+                                                                <span>{goal.status}</span>
+                                                            </>
+                                                        )}
                                                     </div>
-                                                )}
-                                                {goal.due_date && (
-                                                    <div className="mt-1 text-sm text-white/60">
-                                                        {new Date(goal.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                                    </div>
-                                                )}
-                                                {goal.status && (
-                                                    <div className="mt-1 text-sm text-white/60">{goal.status}</div>
                                                 )}
                                                 {goal.progress !== undefined && goal.progress !== null && (
                                                     <div className="mt-2">
@@ -903,7 +915,7 @@ export default function GoalsPage() {
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="flex items-center gap-2 mt-4">
+                                            <div className="flex items-center justify-between mt-2">
                                                 <button
                                                     type="button"
                                                     onClick={(e) => {
@@ -933,21 +945,23 @@ export default function GoalsPage() {
                                                         />
                                                     </svg>
                                                 </button>
-                                                {goal.status !== 'completed' && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (!mutatingGoal) {
-                                                                setEditingId(goal.id);
-                                                            }
-                                                        }}
-                                                        className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 cursor-pointer flex-shrink-0"
-                                                        disabled={mutatingGoal}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                )}
+                                                <div className="flex-1 flex justify-center">
+                                                    {goal.status !== 'completed' && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (!mutatingGoal) {
+                                                                    setEditingId(goal.id);
+                                                                }
+                                                            }}
+                                                            className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 cursor-pointer"
+                                                            disabled={mutatingGoal}
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                    )}
+                                                </div>
                                                 <button
                                                     type="button"
                                                     data-goal-id={goal.id}

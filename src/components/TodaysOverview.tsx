@@ -2,96 +2,71 @@
 
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
+import AIPredictiveAlerts from '@/components/AIPredictiveAlerts';
+import AIMotivationMessage from '@/components/AIMotivationMessage';
+import { IconDisplay } from '@/lib/iconMapper';
 
 // Lazy load components
 const DailyWellness = dynamic(() => import('@/components/DailyWellness'), {
   ssr: false,
   loading: () => (
-    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
-      <div className="h-24 w-full rounded bg-white/10" />
-    </div>
-  ),
-});
-
-const AIPredictiveAlerts = dynamic(() => import('@/components/AIPredictiveAlerts'), {
-  ssr: false,
-  loading: () => null,
-});
-
-const AIMotivationMessage = dynamic(() => import('@/components/AIMotivationMessage'), {
-  ssr: false,
-  loading: () => (
-    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 animate-pulse">
-      <div className="h-16 w-full rounded bg-white/10" />
-    </div>
-  ),
-});
-
-const DailyQuests = dynamic(() => import('@/components/DailyQuests'), {
-  ssr: false,
-  loading: () => (
-    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 animate-pulse">
+    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-5 animate-pulse">
       <div className="h-48 w-full rounded bg-white/10" />
     </div>
   ),
 });
 
 export default function TodaysOverview() {
-  const [activeTab, setActiveTab] = useState<'wellness' | 'insights' | 'quests'>('wellness');
+  const [insightModalOpen, setInsightModalOpen] = useState(false);
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
-          Today's Overview
-        </h2>
-        {/* Tabs */}
-        <div className="flex gap-1.5">
-          <button
-            onClick={() => setActiveTab('wellness')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition min-w-[70px] ${
-              activeTab === 'wellness'
-                ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
-                : 'text-white/60 hover:text-white/80'
-            }`}
-          >
-            💚 Wellness
-          </button>
-          <button
-            onClick={() => setActiveTab('insights')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition min-w-[70px] ${
-              activeTab === 'insights'
-                ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
-                : 'text-white/60 hover:text-white/80'
-            }`}
-          >
-            💡 Insights
-          </button>
-          <button
-            onClick={() => setActiveTab('quests')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition min-w-[70px] ${
-              activeTab === 'quests'
-                ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
-                : 'text-white/60 hover:text-white/80'
-            }`}
-          >
-            🎯 Quests
-          </button>
-        </div>
-      </div>
-
-      {/* Content based on active tab */}
-      <div className="mt-3">
-        {activeTab === 'wellness' && <DailyWellness />}
-        {activeTab === 'insights' && (
-          <div className="space-y-3">
-            <AIPredictiveAlerts />
-            <AIMotivationMessage />
+    <>
+      <section className="mb-1.5">
+        <div className="bg-[#1a1b2e] rounded-2xl p-2 sm:p-3 min-h-fit">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-base font-semibold text-white">Today's Overview</h2>
+            <button
+              onClick={() => setInsightModalOpen(true)}
+              className="rounded-2xl bg-[#1a1b2e] px-2.5 py-1.5 flex items-center gap-1.5 text-white hover:bg-[#252640] transition text-left border border-white/10"
+            >
+              <IconDisplay emoji="💡" size="text-lg" />
+              <span className="text-xs font-semibold">Insight</span>
+            </button>
           </div>
-        )}
-        {activeTab === 'quests' && <DailyQuests />}
-      </div>
-    </section>
+          <DailyWellness />
+        </div>
+      </section>
+
+      {/* Insight Modal */}
+      {insightModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+          onClick={() => setInsightModalOpen(false)}
+        >
+          <div 
+            className="bg-white dark:bg-[#15151E] w-full max-w-sm max-h-[85vh] rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-6 pb-4 flex-shrink-0">
+              <div className="flex items-center space-x-2">
+                <IconDisplay emoji="💡" size="text-xl" color="text-[#8B5CF6]" />
+                <h3 className="font-bold text-lg dark:text-white">AI Insight</h3>
+              </div>
+              <button 
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                onClick={() => setInsightModalOpen(false)}
+              >
+                <span className="text-2xl">×</span>
+              </button>
+            </div>
+            <div className="px-6 pb-6 space-y-3 overflow-y-auto flex-1">
+              <AIPredictiveAlerts />
+              <AIMotivationMessage />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

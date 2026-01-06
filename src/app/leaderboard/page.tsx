@@ -4,6 +4,7 @@ import { useMiniApp } from '@neynar/react';
 import { createClient } from '@supabase/supabase-js';
 import Image from 'next/image';
 import MiniAppPage from '@/components/MiniAppPage';
+import { IconDisplay } from '@/lib/iconMapper';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -103,31 +104,30 @@ export default function LeaderboardPage() {
 
     return (
         <MiniAppPage>
-            <div className="space-y-4">
+            <div className="space-y-1.5">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-6">
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">Leaderboard</h1>
-                    <p className="text-sm text-white/80">
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
+                    <h1 className="text-xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">Leaderboard</h1>
+                    <p className="text-xs text-white/80">
                         Ranked by XP
                     </p>
                 </section>
 
                 {/* Top 50 Leaderboard List */}
                 {!loading && entries.length > 0 && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-                        <h2 className="text-lg font-semibold text-white mb-4">Top 50</h2>
-                        <div className="space-y-2">
+                    <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
+                        <h2 className="text-base font-semibold text-white mb-2">Top 50</h2>
+                        <div className="space-y-1.5">
                             {entries.map((entry, index) => {
                                 const position = index + 1;
                                 const isMe = entry.user_id === myUserId;
                                 const medal = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : null;
-                                
+
                                 return (
                                     <div
                                         key={entry.user_id}
-                                        className={`rounded-2xl border ${
-                                            isMe ? 'border-yellow-400/40 bg-yellow-400/5' : 'border-white/10 bg-[#101327]'
-                                        } p-3 flex items-center gap-3`}
+                                        className={`rounded-2xl border ${isMe ? 'border-yellow-400/40 bg-yellow-400/5' : 'border-white/10 bg-[#101327]'
+                                            } p-3 flex items-center gap-3`}
                                     >
                                         {/* Position */}
                                         <div className="flex-shrink-0 w-8 text-center">
@@ -163,7 +163,7 @@ export default function LeaderboardPage() {
                                         {/* Name */}
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
-                                                {isMe && <span className="text-yellow-400 text-xs">⭐</span>}
+                                                {isMe && <IconDisplay emoji="⭐" size="text-xs" color="text-yellow-400" />}
                                                 <span className="text-sm font-semibold text-white truncate">
                                                     {entry.neynar_profile?.display_name || entry.neynar_profile?.username || `User ${entry.fid || ''}`}
                                                 </span>
@@ -184,12 +184,12 @@ export default function LeaderboardPage() {
 
                 {/* User Card (если пользователь не в топ-50) */}
                 {!loading && myEntry && myPosition && myPosition > 50 && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
+                    <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
                         <div className="flex items-start gap-3">
                             {/* Medal */}
                             <div className="relative flex-shrink-0">
                                 <div className="text-2xl">
-                                    🎯
+                                    <IconDisplay emoji="🎯" size="text-2xl" />
                                 </div>
                                 <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 text-xs font-semibold text-white/70">
                                     #{myPosition}
@@ -224,7 +224,7 @@ export default function LeaderboardPage() {
                                     {/* Name and FID */}
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-yellow-400">⭐</span>
+                                            <IconDisplay emoji="⭐" size="text-base" color="text-yellow-400" />
                                             <span className="text-base font-semibold text-white">You</span>
                                         </div>
                                         {myEntry.neynar_profile?.display_name && (
@@ -245,14 +245,13 @@ export default function LeaderboardPage() {
                     </section>
                 )}
 
-                {/* Loading State */}
                 {loading ? (
-                    <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 animate-pulse">
-                        <div className="h-6 bg-white/10 rounded w-3/4 mb-4"></div>
+                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 animate-pulse">
+                        <div className="h-6 bg-white/10 rounded w-3/4 mb-2"></div>
                         <div className="h-4 bg-white/10 rounded w-1/2"></div>
                     </div>
                 ) : entries.length === 0 ? (
-                    <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-8 text-center text-white/60">
+                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 text-center text-white/60">
                         <div className="text-lg mb-2">No leaderboard data yet</div>
                         <div className="text-sm">Complete some habits to appear on the leaderboard!</div>
                     </div>

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, Suspense } from "react";
+import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMiniApp } from '@neynar/react';
@@ -20,14 +20,14 @@ const TodaysOverview = dynamic(() => import('@/components/TodaysOverview'), {
 
 
 const NAVIGATION = [
-  { href: '/habits', label: 'Habits', icon: '✅', desc: 'Track your daily habits' },
-  { href: '/wheel', label: 'Wheel of Life', icon: '🎡', desc: 'Rate life areas' },
-  { href: '/goals', label: 'Goals', icon: '🎯', desc: 'Set & track goals' },
-  { href: '/streaks', label: 'Streaks', icon: '🔥', desc: 'View your streaks' },
-  { href: '/analytics', label: 'Analytics', icon: '📊', desc: 'Advanced insights' },
-  { href: '/leaderboard', label: 'Leaderboard', icon: '🏅', desc: 'Top performers' },
-  { href: '/chat', label: 'AI Coach', icon: '🤖', desc: 'Chat with your coach' },
-  { href: '/profile', label: 'Profile', icon: '👤', desc: 'Account & badges' },
+  { href: '/habits', label: 'Habits', icon: 'check_box', iconColor: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-500/10', desc: 'Track daily habits' },
+  { href: '/wheel', label: 'Wheel of Life', icon: 'attractions', iconColor: 'text-pink-600 dark:text-pink-400', bgColor: 'bg-pink-100 dark:bg-pink-500/10', desc: 'Rate life areas' },
+  { href: '/goals', label: 'Goals', icon: 'track_changes', iconColor: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-100 dark:bg-red-500/10', desc: 'Set & track goals' },
+  { href: '/streaks', label: 'Streaks', icon: 'local_fire_department', iconColor: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-100 dark:bg-orange-500/10', desc: 'View your streaks' },
+  { href: '/analytics', label: 'Analytics', icon: 'bar_chart', iconColor: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-100 dark:bg-blue-500/10', desc: 'Advanced insights' },
+  { href: '/leaderboard', label: 'Leaderboard', icon: 'emoji_events', iconColor: 'text-yellow-600 dark:text-yellow-400', bgColor: 'bg-yellow-100 dark:bg-yellow-500/10', desc: 'Top performers' },
+  { href: '/chat', label: 'AI Coach', icon: 'smart_toy', iconColor: 'text-teal-600 dark:text-teal-400', bgColor: 'bg-teal-100 dark:bg-teal-500/10', desc: 'Chat with your coach' },
+  { href: '/profile', label: 'Profile', icon: 'person', iconColor: 'text-indigo-600 dark:text-indigo-400', bgColor: 'bg-indigo-100 dark:bg-indigo-500/10', desc: 'Account & badges' },
 ];
 
 export default function DashboardPage() {
@@ -158,34 +158,37 @@ export default function DashboardPage() {
   }, [isSDKLoaded, context]);
 
   return (
-    <MiniAppPage className="pt-1.5">
-      <section className="space-y-2.5">
-        <div className="p-3 sm:p-4">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Personality Architect</h1>
-          <div className="mt-1 max-w-3xl ml-auto space-y-1.5">
-            <p className="text-[#c3c8d4] italic text-sm leading-relaxed">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
-            <p className="text-[#8d92a3] text-xs italic text-right">— Aristotle</p>
+    <MiniAppPage className="pt-1">
+      <section className="space-y-1.5">
+        <div className="p-1.5 sm:p-2">
+          <h1 className="text-xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-0.5">Personality Architect</h1>
+          <div className="mt-0.5 max-w-3xl ml-auto space-y-0.5">
+            <p className="text-[#c3c8d4] italic text-xs leading-relaxed">&quot;We are what we repeatedly do. Excellence, then, is not an act, but a habit.&quot;</p>
+            <p className="text-[#8d92a3] text-[10px] italic text-right">— Aristotle</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-1.5">
+        <TodaysOverview />
+
+        <div className="grid grid-cols-2 gap-2">
           {NAVIGATION.map(item => (
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-3xl bg-[#1a1b2e] p-3 flex items-start gap-2.5 text-white hover:bg-[#252640] transition"
+              className="group flex flex-col p-2.5 rounded-2xl bg-[#1a1b2e] hover:bg-[#252640] transition-all border border-transparent hover:border-white/10 shadow-sm text-left"
             >
-              <div className="text-2xl">{item.icon}</div>
-              <div>
-                <div className="text-base font-semibold text-white">{item.label}</div>
-                <p className="text-xs text-white/70 leading-snug">{item.desc}</p>
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className={`w-7 h-7 rounded-lg ${item.bgColor} flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0`}>
+                  <span className={`material-symbols-rounded ${item.iconColor} text-lg`}>{item.icon}</span>
+                </div>
+                <h3 className="text-sm font-semibold text-white">{item.label}</h3>
               </div>
+              <p className="text-xs text-white/60">{item.desc}</p>
             </Link>
           ))}
         </div>
-
-        <TodaysOverview />
       </section>
+      
       <AddMiniAppModal />
       <WalletSelectionModal />
     </MiniAppPage>

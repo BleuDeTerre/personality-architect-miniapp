@@ -49,16 +49,16 @@ function QuestList({ quests }: { quests: Quest[] }) {
                         </div>
                         <div className="w-full mt-3">
                             <div className="text-[11px] text-white/80 tracking-wide mb-1 text-left w-full">
-                                    {quest.current}/{quest.target}
-                                </div>
-                                <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-                                    <div
-                                        className={`h-full transition-all duration-300 ease-out ${quest.completed ? 'bg-[#22C55E]' : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9]'}`}
-                                        style={{ width: `${Math.min(100, progress)}%` }}
-                                    />
-                                </div>
-                                <div className="text-[10px] text-white/60 mt-1 text-left">
-                                    +{quest.xpReward} XP
+                                {quest.current}/{quest.target}
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                                <div
+                                    className={`h-full transition-all duration-300 ease-out ${quest.completed ? 'bg-[#22C55E]' : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9]'}`}
+                                    style={{ width: `${Math.min(100, progress)}%` }}
+                                />
+                            </div>
+                            <div className="text-[10px] text-white/60 mt-1 text-left">
+                                +{quest.xpReward} XP
                             </div>
                         </div>
                     </div>
@@ -72,10 +72,10 @@ const CACHE_KEY = 'daily_quests';
 
 export default function DailyQuests() {
     // Initialize from cache if available
-    const cachedBuckets = typeof window !== 'undefined' 
+    const cachedBuckets = typeof window !== 'undefined'
         ? getCachedData<QuestBuckets>(CACHE_KEY)
         : null;
-    
+
     const [buckets, setBuckets] = useState<QuestBuckets | null>(cachedBuckets);
     const [loading, setLoading] = useState(!cachedBuckets);
     const tzOffsetRef = useRef<number>(typeof window !== 'undefined' ? new Date().getTimezoneOffset() : 0);
@@ -125,7 +125,7 @@ export default function DailyQuests() {
                 totalDaily: data.totalDaily ?? (data.daily?.length ?? 0),
             };
             setBuckets(bucketsData);
-            
+
             // Cache the result for 1 hour
             setCachedData(CACHE_KEY, bucketsData, CACHE_TTL.HOURLY);
         } catch (e) {
@@ -173,8 +173,8 @@ export default function DailyQuests() {
     const weeklyContent = loading ? skeleton : <QuestList quests={buckets?.weekly?.slice(0, 3) ?? []} />;
 
     return (
-        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-            <div className="grid gap-4 grid-cols-2 max-[320px]:grid-cols-1 items-start">
+        <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 sm:p-3">
+            <div className="grid gap-3 grid-cols-2 max-[320px]:grid-cols-1 items-start">
                 <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                         <div>

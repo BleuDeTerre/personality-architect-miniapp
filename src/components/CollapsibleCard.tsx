@@ -28,8 +28,8 @@ export default function CollapsibleCard({
     return (
         <section
             className={cn(
-                'rounded-3xl border border-white/10 bg-[#1a1b2e]',
-                open ? 'p-3 sm:p-4' : 'p-2 sm:p-3',
+                'rounded-2xl border border-white/10 bg-[#1a1b2e]',
+                open ? 'p-1.5 sm:p-2' : 'p-1.5 sm:p-2',
                 className
             )}
         >
@@ -63,7 +63,7 @@ export default function CollapsibleCard({
                     </span>
                 </div>
             </button>
-            <div className={cn('transition-all', open ? 'mt-3 space-y-3' : 'h-0 overflow-hidden')}>
+            <div className={cn('transition-all', open ? 'mt-2 space-y-1.5' : 'h-0 overflow-hidden')}>
                 {open && children}
             </div>
         </section>

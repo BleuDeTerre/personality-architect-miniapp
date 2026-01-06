@@ -89,7 +89,6 @@ export default function QuestBoard({ className }: QuestBoardProps) {
             title: 'Quest Summary',
             kind: 'quests',
             text: `🛡️ Daily ${quests.completedDaily}/${quests.totalDaily}, Weekly ${weeklyCompleted}/${quests.weekly.length}, Monthly ${monthlyCompleted}/${quests.monthly.length}.`,
-            publishMode: 'auto',
             previewParams: {
                 variant: 'quests:summary',
                 dCompleted: String(quests.completedDaily),

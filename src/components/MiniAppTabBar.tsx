@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { memo, useMemo, useRef, useEffect } from "react";
+import { emojiToMaterialIcon } from "@/lib/iconMapper";
 
 type NavItem = {
     href: string;
@@ -100,14 +101,32 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
                                 backgroundColor: `${item.color}20`, // 20% прозрачности для фона
                             } : undefined}
                         >
-                            <span
-                                className="text-lg leading-none"
-                                style={isActive ? {
-                                    filter: `drop-shadow(0 0 8px ${item.color}60)`, // Свечение вокруг иконки
-                                } : undefined}
-                            >
-                                {item.icon}
-                            </span>
+                            {(() => {
+                                const materialIcon = emojiToMaterialIcon(item.icon);
+                                if (materialIcon) {
+                                    return (
+                                        <span
+                                            className={`material-symbols-rounded text-lg leading-none ${isActive ? '' : 'opacity-70'}`}
+                                            style={isActive ? {
+                                                filter: `drop-shadow(0 0 8px ${item.color}60)`, // Свечение вокруг иконки
+                                                color: item.color,
+                                            } : undefined}
+                                        >
+                                            {materialIcon}
+                                        </span>
+                                    );
+                                }
+                                return (
+                                    <span
+                                        className="text-lg leading-none"
+                                        style={isActive ? {
+                                            filter: `drop-shadow(0 0 8px ${item.color}60)`, // Свечение вокруг иконки
+                                        } : undefined}
+                                    >
+                                        {item.icon}
+                                    </span>
+                                );
+                            })()}
                             <span
                                 className="font-medium"
                                 style={isActive ? {

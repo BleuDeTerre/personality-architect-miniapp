@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Clock, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
 import CollapsibleCard from './CollapsibleCard';
+import { IconDisplay } from '@/lib/iconMapper';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -147,13 +148,14 @@ export default function AIHabitInsights() {
                 </button>
                 <button
                     onClick={() => handleTabChange('difficulty')}
-                    className={`px-4 py-2 text-sm font-medium transition ${
+                    className={`px-4 py-2 text-sm font-medium transition flex items-center gap-1 ${
                         activeTab === 'difficulty'
                             ? 'text-[#8B5CF6] border-b-2 border-[#8B5CF6]'
                             : 'text-white/60 hover:text-white/80'
                     }`}
                 >
-                    📊 Difficulty
+                    <IconDisplay emoji="📊" size="text-sm" />
+                    <span>Difficulty</span>
                 </button>
             </div>
 
@@ -164,9 +166,14 @@ export default function AIHabitInsights() {
                         <button
                             onClick={loadTimeSuggestions}
                             disabled={loading}
-                            className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/20 disabled:opacity-60"
+                            className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/20 disabled:opacity-60 flex items-center justify-center gap-1"
                         >
-                            {loading ? 'Loading...' : '💡 Get Time Suggestions'}
+                            {loading ? 'Loading...' : (
+                                <>
+                                    <IconDisplay emoji="💡" size="text-sm" />
+                                    <span>Get Time Suggestions</span>
+                                </>
+                            )}
                         </button>
                     )}
 
@@ -220,9 +227,14 @@ export default function AIHabitInsights() {
                         <button
                             onClick={loadDifficultyAnalysis}
                             disabled={loading}
-                            className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/20 disabled:opacity-60"
+                            className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/20 disabled:opacity-60 flex items-center justify-center gap-1"
                         >
-                            {loading ? 'Analyzing...' : '📊 Analyze All Habits'}
+                            {loading ? 'Analyzing...' : (
+                                <>
+                                    <IconDisplay emoji="📊" size="text-sm" />
+                                    <span>Analyze All Habits</span>
+                                </>
+                            )}
                         </button>
                     )}
 

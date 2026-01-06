@@ -98,7 +98,7 @@ export default function ChatPage() {
                         'Content-Type': 'application/json',
                         Authorization: `Bearer ${session?.access_token ?? ''}`,
                     };
-                    
+
                     // Загружаем план
                     const planRes = await fetch('/api/plan', { headers: hdrs });
                     if (planRes.ok) {
@@ -138,12 +138,12 @@ export default function ChatPage() {
 
         try {
             const hdrs = await authHeaders();
-            const data = await fetchJson<{ 
-                response: string; 
-                plan?: string; 
+            const data = await fetchJson<{
+                response: string;
+                plan?: string;
                 aiLimit?: { used: number; limit: number; remaining: number };
-                error?: string; 
-                message?: string; 
+                error?: string;
+                message?: string;
                 limit?: number;
                 used?: number;
             }>('/api/chat/message', {
@@ -168,7 +168,7 @@ export default function ChatPage() {
                     };
                     showAILimitReachedModal(limitInfo);
                     setShowLimitModal(true);
-                    
+
                     const errorMsg: Message = {
                         role: 'assistant',
                         content: `${data.message || 'You have reached your daily AI request limit'}\n\n${userPlan === 'free' ? 'Upgrade to Pro for 20 AI requests per day!' : 'Please try again tomorrow.'}`,
@@ -178,14 +178,14 @@ export default function ChatPage() {
                     setLoading(false);
                     return;
                 }
-                
+
                 // Обработка глобального лимита DeepSeek
                 if (data.error === 'deepseek_limit_reached') {
                     toast.error('AI service temporarily unavailable', {
                         description: data.message || 'The AI service has reached its daily capacity. Please try again tomorrow.',
                         duration: 8000,
                     });
-                    
+
                     const errorMsg: Message = {
                         role: 'assistant',
                         content: data.message || 'The AI service is temporarily unavailable due to high demand. Please try again tomorrow.',
@@ -195,15 +195,15 @@ export default function ChatPage() {
                     setLoading(false);
                     return;
                 }
-                
+
                 throw new Error(data.error);
             }
 
             const { response, plan, aiLimit } = data;
-            
+
             // Сохраняем информацию о плане
             if (plan) setUserPlan(plan);
-            
+
             // Показываем предупреждения о лимите
             if (aiLimit) {
                 const limitInfo: AILimitInfo = {
@@ -225,7 +225,7 @@ export default function ChatPage() {
         } catch (e: any) {
             console.error('Failed to send message:', e);
             let errorMessage = 'Sorry, I encountered an error. Please try again.';
-            
+
             // Обработка таймаута
             if (e?.name === 'AbortError' || e?.code === 'TIMEOUT') {
                 errorMessage = 'Request timed out. The AI is taking too long to respond. Please try again.';
@@ -236,7 +236,7 @@ export default function ChatPage() {
             } else if (e?.message) {
                 errorMessage = `Error: ${e.message}`;
             }
-            
+
             const errorMsg: Message = {
                 role: 'assistant',
                 content: errorMessage,
@@ -250,19 +250,19 @@ export default function ChatPage() {
 
     return (
         <MiniAppPage>
-            <div className="flex flex-col h-full space-y-4">
+            <div className="flex flex-col h-full space-y-1.5">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5">
-                    <div className="flex items-start justify-between mb-1.5">
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
+                    <div className="flex items-start justify-between mb-0.5">
                         <div className="flex-1">
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">AI Coach Chat</h1>
-                            <p className="text-sm text-white/80">Ask about your habits, goals, or progress. Your coach is here 24/7.</p>
+                            <h1 className="text-xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-0.5">AI Coach Chat</h1>
+                            <p className="text-xs text-white/80">Ask about your habits, goals, or progress. Your coach is here 24/7.</p>
                         </div>
                     </div>
                 </section>
 
                 {/* Chat Area */}
-                <div className="flex-1 min-h-[260px] overflow-y-auto rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 space-y-4">
+                <div className="flex-1 min-h-[260px] overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2 space-y-1.5">
                     {messages.length === 0 ? (
                         <div className="flex items-start justify-center h-full pt-4">
                             <div className="text-center space-y-1.5">
@@ -333,7 +333,7 @@ export default function ChatPage() {
                     </button>
                 </div>
             </div>
-            
+
             {/* Limit Reached Modal */}
             {showLimitModal && (
                 <AILimitReachedModal

@@ -231,7 +231,7 @@ export default function StreaksPage() {
                     .map((l: Log) => l.date?.slice(0, 10))
                     .filter(Boolean)
                     .sort() as string[];
-                
+
                 if (habitLogs.length > 0) {
                     console.log(`[Streaks] Habit ${habit.title} (${habit.id}): ${habitLogs.length} completed logs, dates:`, habitLogs.slice(0, 5), '...');
                 }
@@ -244,7 +244,7 @@ export default function StreaksPage() {
                     // Нормализуем даты (убираем время, если есть)
                     const normalizedDates = habitLogs.map(d => d?.slice(0, 10)).filter(Boolean) as string[];
                     const uniqueDates = [...new Set(normalizedDates)].sort();
-                    
+
                     // Находим последний выполненный день
                     const lastCompletedDate = uniqueDates[uniqueDates.length - 1];
                     if (lastCompletedDate === today || uniqueDates.includes(today)) {
@@ -274,7 +274,7 @@ export default function StreaksPage() {
                         const month = String(yesterday.getMonth() + 1).padStart(2, '0');
                         const day = String(yesterday.getDate()).padStart(2, '0');
                         const yesterdayStr = `${year}-${month}-${day}`;
-                        
+
                         if (lastCompletedDate === yesterdayStr || uniqueDates.includes(yesterdayStr)) {
                             // Если вчера выполнено, считаем streak от вчера назад
                             let streakCount = 0;
@@ -302,7 +302,7 @@ export default function StreaksPage() {
                     // Нормализуем даты
                     const normalizedDates = habitLogs.map(d => d?.slice(0, 10)).filter(Boolean) as string[];
                     const uniqueDates = [...new Set(normalizedDates)].sort();
-                    
+
                     if (uniqueDates.length > 0) {
                         let currentRun = 1;
                         let maxRun = 1;
@@ -581,7 +581,7 @@ export default function StreaksPage() {
             setSelectedHabitId(habitsWithStats[0].id);
         }
     }, [selectedHabitId, habitsWithStats]);
-    
+
     // Логируем состояние для отладки
     useEffect(() => {
         console.log('[Streaks] State update:', {
@@ -598,7 +598,7 @@ export default function StreaksPage() {
         const templates: CastTemplate[] = [];
         const currentStreak = stats.current_streak ?? 0;
         const bestStreak = stats.best_streak ?? currentStreak;
-        
+
         if (currentStreak > 0 || bestStreak > 0) {
             templates.push({
                 key: 'streak-summary',
@@ -617,7 +617,7 @@ export default function StreaksPage() {
                 targetPath: '/streaks',
             });
         }
-        
+
         if (nextBadgeDays !== null) {
             templates.push({
                 key: 'next-badge',
@@ -635,18 +635,18 @@ export default function StreaksPage() {
                 targetPath: '/streaks',
             });
         }
-        
+
         return templates;
     }, [nextBadgeDays, stats.best_streak, stats.current_streak]);
 
     return (
         <MiniAppPage>
-            <div className="space-y-3">
+            <div className="space-y-1.5">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">Streaks Analytics</h1>
-                    <p className="text-sm text-white/70">
-                        Track consecutive wins, discover weak spots, and plan the next badge.
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
+                    <h1 className="text-xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">Streaks Analytics</h1>
+                    <p className="text-xs text-white/70">
+                        Track consecutive wins, discover weak spots, and plan the next goal.
                     </p>
                 </section>
 
@@ -662,9 +662,9 @@ export default function StreaksPage() {
                 )}
 
                 {/* Statistics Cards and Progress */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
                     {/* 2x2 Grid of Statistics Cards */}
-                    <div className="grid grid-cols-2 gap-2 mb-4">
+                    <div className="grid grid-cols-2 gap-2 mb-2">
                         {/* Current Streak */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3">
                             <div className="text-xs font-semibold text-white/80 mb-1.5">Current Streak</div>
@@ -723,7 +723,7 @@ export default function StreaksPage() {
                                     {currentStreak} / {nextMilestone} days
                                 </div>
                                 {/* Progress Bar */}
-                                <div className="relative w-full h-2 bg-white/10 rounded-full mb-4 overflow-hidden">
+                                <div className="relative w-full h-2 bg-white/10 rounded-full mb-2 overflow-hidden">
                                     <div
                                         className="h-full rounded-full bg-gradient-to-r from-[#EC4899] via-[#8B5CF6] to-[#2BD4A4]"
                                         style={{ width: `${Math.min(100, progressPercent)}%` }}
@@ -746,12 +746,12 @@ export default function StreaksPage() {
                 <AIStreakRecovery />
 
                 {/* Habit spotlight */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-3">Habit spotlight</h2>
-                    <p className="text-sm text-white/70 mb-4">Deep dive into all habits performance over time.</p>
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
+                    <h2 className="text-lg font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Habit spotlight</h2>
+                    <p className="text-xs text-white/70 mb-3">Deep dive into all habits performance over time.</p>
 
                     {/* Habit Selector - Moved to top */}
-                    <div className="mb-6">
+                    <div className="mb-3">
                         <div className="flex items-center justify-between mb-2">
                             <label className="text-xs uppercase tracking-wide text-white/60">HABIT</label>
                             <label className="text-xs uppercase tracking-wide text-white/60">TODAY ON THE RIGHT</label>
@@ -777,14 +777,14 @@ export default function StreaksPage() {
                                         });
 
                                         return uniqueForSelector.map((habit) => {
-                                        const displayText = habit.icon && habit.title
-                                            ? `${habit.icon} ${habit.title}`
-                                            : habit.title || 'Untitled';
-                                        return (
-                                            <option key={habit.id} value={habit.id}>
-                                                {displayText}
-                                            </option>
-                                        );
+                                            const displayText = habit.icon && habit.title
+                                                ? `${habit.icon} ${habit.title}`
+                                                : habit.title || 'Untitled';
+                                            return (
+                                                <option key={habit.id} value={habit.id}>
+                                                    {displayText}
+                                                </option>
+                                            );
                                         });
                                     })()}
                                 </select>
@@ -801,7 +801,7 @@ export default function StreaksPage() {
                     </div>
 
                     {/* Statistics Cards 3 in a row */}
-                    <div className="grid grid-cols-3 gap-3 mb-6">
+                    <div className="grid grid-cols-3 gap-2 mb-3">
                         {/* CURRENT STREAK */}
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col">
                             <div className="text-[10px] uppercase tracking-wide text-white/60 mb-1.5">CURRENT STREAK</div>
@@ -844,8 +844,8 @@ export default function StreaksPage() {
                 </section>
 
                 {/* Habit focus */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-3">Habit focus</h2>
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
+                    <h2 className="text-lg font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Habit focus</h2>
                     {loading ? (
                         <div className="grid grid-cols-2 gap-3">
                             {[1, 2, 3, 4, 5, 6].map(i => (
@@ -882,44 +882,44 @@ export default function StreaksPage() {
                         }
 
                         return (
-                        <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-3">
                                 {uniqueForRender.map((habit) => (
-                                <div
-                                    key={habit.id}
-                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col gap-2 min-h-[140px]"
-                                >
-                                    <div className="flex items-center gap-1.5">
-                                        {habit.icon && <span className="text-xl">{habit.icon}</span>}
-                                        <h3 className="text-base font-semibold text-white leading-tight">{habit.title}</h3>
-                                    </div>
-                                    <div className="text-xs text-white/70 space-y-0.5 leading-tight">
-                                        <div>Current streak: {habit.current_streak}d</div>
-                                        <div>Best {habit.best_streak}d</div>
-                                    </div>
-                                    <div className="text-xs text-white/70 leading-tight">
-                                        {habit.completedDays} / 7 days completed
-                                    </div>
-                                    <div className="flex gap-1 mt-auto">
+                                    <div
+                                        key={habit.id}
+                                        className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col gap-2 min-h-[140px]"
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            {habit.icon && <span className="text-xl">{habit.icon}</span>}
+                                            <h3 className="text-base font-semibold text-white leading-tight">{habit.title}</h3>
+                                        </div>
+                                        <div className="text-xs text-white/70 space-y-0.5 leading-tight">
+                                            <div>Current streak: {habit.current_streak}d</div>
+                                            <div>Best {habit.best_streak}d</div>
+                                        </div>
+                                        <div className="text-xs text-white/70 leading-tight">
+                                            {habit.completedDays} / 7 days completed
+                                        </div>
+                                        <div className="flex gap-1 mt-auto">
                                             {[...habit.weekProgress].reverse().map((completed, idx) => (
-                                            <div
+                                                <div
                                                     key={`${habit.id}-dot-${idx}`}
-                                                className={`h-2.5 w-2.5 rounded flex-shrink-0 ${completed ? 'bg-[#2BD4A4]' : 'bg-white/10'
-                                                    }`}
-                                            />
-                                        ))}
+                                                    className={`h-2.5 w-2.5 rounded flex-shrink-0 ${completed ? 'bg-[#2BD4A4]' : 'bg-white/10'
+                                                        }`}
+                                                />
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
                         );
                     })()}
                 </section>
 
                 {/* Momentum Timeline */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-                    <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-4">Momentum timeline</h2>
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
+                    <h2 className="text-lg font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-3">Momentum timeline</h2>
                     {loading ? (
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(i => (
                                 <div key={i} className="flex items-start gap-3 animate-pulse">
                                     <div className="h-2.5 w-2.5 rounded-full bg-white/10 mt-0.5"></div>
@@ -935,7 +935,7 @@ export default function StreaksPage() {
                             No week data available yet.
                         </div>
                     ) : (
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             {weekStats.map((week, idx) => {
                                 const startStr = week.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                                 const endStr = week.weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -948,15 +948,14 @@ export default function StreaksPage() {
                                 return (
                                     <div key={idx} className="flex items-start gap-3 leading-tight">
                                         <div
-                                            className={`h-2.5 w-2.5 rounded-full flex-shrink-0 mt-0.5 ${
-                                                week.color === 'green'
+                                            className={`h-2.5 w-2.5 rounded-full flex-shrink-0 mt-0.5 ${week.color === 'green'
                                                     ? 'bg-[#22C55E]'
                                                     : week.color === 'yellow'
                                                         ? 'bg-yellow-400'
                                                         : week.color === 'orange'
                                                             ? 'bg-orange-400'
                                                             : 'bg-red-400'
-                                            }`}
+                                                }`}
                                         />
                                         <div className="flex-1 min-w-0">
                                             <div className="text-sm font-semibold text-white mb-0.5 leading-tight">

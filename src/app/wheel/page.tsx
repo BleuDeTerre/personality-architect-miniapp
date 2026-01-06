@@ -18,6 +18,7 @@ import WeekPicker from '@/components/WeekPicker';
 import { toast } from 'sonner';
 import { getRandomVariant, wheelSnapshotTexts, focusAreaTexts, wheelShiftTexts, wheelSpotlightTexts } from '@/lib/castTextVariants';
 import { clearCachedData } from '@/lib/clientCache';
+import { IconDisplay } from '@/lib/iconMapper';
 
 type Item = { area: string; score: number };
 
@@ -52,25 +53,25 @@ const AREA_ORDER = ['Inner State', 'Spirituality', 'Career', 'Relationships', 'H
 function isoWeek(now = new Date()) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const day = d.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-    
+
     // Move to Sunday of current week
     d.setDate(d.getDate() - day);
-    
+
     // Find January 1st of the year
     const jan1 = new Date(d.getFullYear(), 0, 1);
     const jan1Day = jan1.getDay(); // Day of week for Jan 1
-    
+
     // Find the first Sunday of the year (or Jan 1 if it's Sunday)
     const firstSunday = new Date(jan1);
     if (jan1Day !== 0) {
         firstSunday.setDate(1 + (7 - jan1Day));
     }
-    
+
     // Calculate week number: how many weeks from first Sunday to current Sunday
     const diffMs = d.getTime() - firstSunday.getTime();
     const diffDays = Math.floor(diffMs / 86400000);
     const weekNo = Math.floor(diffDays / 7) + 1;
-    
+
     // Handle edge case: if current date is before first Sunday, it's week 1 of previous year
     if (weekNo < 1) {
         const prevYear = d.getFullYear() - 1;
@@ -85,7 +86,7 @@ function isoWeek(now = new Date()) {
         const prevWeekNo = Math.floor(prevDiffDays / 7) + 1;
         return `${prevYear}-W${String(prevWeekNo).padStart(2, '0')}`;
     }
-    
+
     return `${d.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
@@ -183,19 +184,19 @@ export default function WheelPage() {
         }
         try {
             const headers = await authHeaders();
-            const res = await fetch(`/api/wheel?week=${w}&t=${Date.now()}`, { 
-                headers, 
+            const res = await fetch(`/api/wheel?week=${w}&t=${Date.now()}`, {
+                headers,
                 cache: 'no-store'
             });
-            
+
             if (!res.ok) {
                 console.error('[WheelPage] Failed to fetch week:', w, res.status);
                 throw new Error(`Failed to fetch week: ${res.status}`);
             }
-            
+
             const js = await res.json();
             console.log('[WheelPage] Loaded data for week:', w, 'items:', js.items?.length || 0);
-            
+
             if (Array.isArray(js.items) && js.items.length > 0) {
                 const map = new Map<string, number>(js.items.map((x: any) => [x.area, x.score]));
                 const base = AREAS.map(a => ({ area: a.name, score: clamp010(map.get(a.name) ?? 0) }));
@@ -213,34 +214,34 @@ export default function WheelPage() {
                 // Если недели нет, проверяем - это текущая или будущая неделя?
                 const currentWeek = isoWeek();
                 const isCurrentOrFutureWeek = w >= currentWeek;
-                
+
                 if (isCurrentOrFutureWeek) {
                     // Для текущей/будущей недели создаем с дефолтными значениями
-                const defaultItems = AREAS.map(a => ({ area: a.name, score: 5 }));
-                setItems(defaultItems);
+                    const defaultItems = AREAS.map(a => ({ area: a.name, score: 5 }));
+                    setItems(defaultItems);
                     // Обновляем editItems если режим редактирования открыт
                     if (isEditing) {
                         setEditItems([...defaultItems]);
                     }
-                    
+
                     // Автоматически создаем запись для новой недели через batch запрос
-                    const createBody = { 
-                        week: w, 
+                    const createBody = {
+                        week: w,
                         items: defaultItems.map(it => ({ area: it.area, score: it.score }))
                     };
-                    
+
                     try {
                         const createRes = await fetch('/api/wheel/save', {
-                                method: 'POST',
-                                headers,
+                            method: 'POST',
+                            headers,
                             body: JSON.stringify(createBody),
                         });
-                        
+
                         if (createRes.ok) {
                             // После создания недели перезагружаем данные
                             const reloadRes = await fetch(`/api/wheel?week=${w}`, { headers, cache: 'no-store' });
                             const reloadJs = await reloadRes.json();
-                            
+
                             if (Array.isArray(reloadJs.items) && reloadJs.items.length) {
                                 const map = new Map<string, number>(reloadJs.items.map((x: any) => [x.area, x.score]));
                                 const base = AREAS.map(a => ({ area: a.name, score: clamp010(map.get(a.name) ?? 0) }));
@@ -256,7 +257,7 @@ export default function WheelPage() {
                                 }
                             }
                         }
-                } catch (error) {
+                    } catch (error) {
                         // Ошибка при создании недели - оставляем дефолтные значения
                     }
                 } else {
@@ -452,21 +453,21 @@ export default function WheelPage() {
             }
 
             if (!mounted) return;
-            
+
             // Используем текущую неделю только при первой загрузке (если неделя еще не установлена)
             if (!initializedRef.current) {
-            const currentWeek = isoWeek();
+                const currentWeek = isoWeek();
                 console.log('[WheelPage] Initializing with current week:', currentWeek);
                 currentWeekRef.current = currentWeek;
                 // Устанавливаем текущую неделю только если она еще не была изменена пользователем
                 if (week === currentWeekRef.current || !week) {
-                setWeek(currentWeek);
+                    setWeek(currentWeek);
                     await loadWeek(currentWeek);
                 } else {
                     // Если пользователь уже выбрал неделю, загружаем её
                     await loadWeek(week);
-            }
-            await loadTrends();
+                }
+                await loadTrends();
                 initializedRef.current = true;
             } else {
                 // Если уже инициализировано, не меняем неделю - пользователь мог выбрать другую
@@ -487,9 +488,9 @@ export default function WheelPage() {
 
                 // Используем текущую неделю только при первом входе
                 const currentWeek = isoWeek();
-                    currentWeekRef.current = currentWeek;
-                    setWeek(currentWeek);
-                
+                currentWeekRef.current = currentWeek;
+                setWeek(currentWeek);
+
                 await loadWeek(currentWeek);
                 await loadTrends();
                 initializedRef.current = true;
@@ -515,8 +516,8 @@ export default function WheelPage() {
             // Обновляем только если editItems пустые или если неделя изменилась
             // Проверяем по количеству элементов и первой области
             if (editItems.length === 0 || editItems.length !== items.length || editItems[0]?.area !== items[0]?.area) {
-            setEditItems([...items]);
-        }
+                setEditItems([...items]);
+            }
         }
     }, [week, editingValues]); // Убрали items из зависимостей, чтобы не сбрасывать изменения во время редактирования
 
@@ -528,7 +529,7 @@ export default function WheelPage() {
     useEffect(() => {
         if (!isSDKLoaded) return;
         if (initializedRef.current) return; // Не меняем неделю после инициализации
-        
+
         // Загружаем данные для текущей недели только при первой загрузке
         // НЕ меняем неделю, если пользователь уже выбрал другую
         const currentWeek = isoWeek();
@@ -563,8 +564,8 @@ export default function WheelPage() {
         }
         // Обновляем неделю и загружаем данные
         if (newWeek !== week) {
-        setWeek(newWeek);
-        currentWeekRef.current = newWeek;
+            setWeek(newWeek);
+            currentWeekRef.current = newWeek;
             // Закрываем режим редактирования при смене недели
             setEditingValues(false);
         }
@@ -842,40 +843,40 @@ export default function WheelPage() {
 
     return (
         <MiniAppPage>
-            <div className="space-y-3">
+            <div className="space-y-1.5">
                 {/* Header Card */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
                     <div>
-                    <p className="text-xs uppercase tracking-wide text-white/60 mb-1.5">WHEEL OF LIFE — WEEK {week}</p>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">Life Balance Overview</h1>
-                    <p className="text-sm text-white/80 mb-4">
-                        Rate each area of your life from 1-10 to visualize your overall balance.
-                    </p>
-                    <button
-                        onClick={() => {
-                            if (!editingValues) {
-                                setEditItems([...items]);
-                            }
-                            setEditingValues(!editingValues);
-                            if (!editingValues) {
-                                setTimeout(() => {
-                                    const wheelSection = document.querySelector('[data-wheel-section]');
-                                    if (wheelSection) {
-                                        wheelSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                    }
-                                }, 100);
-                            }
-                        }}
-                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
-                    >
+                        <p className="text-[10px] uppercase tracking-wide text-white/60 mb-1">WHEEL OF LIFE — WEEK {week}</p>
+                        <h1 className="text-xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1">Life Balance Overview</h1>
+                        <p className="text-xs text-white/80 mb-2">
+                            Rate each area of your life from 1-10 to visualize your overall balance.
+                        </p>
+                        <button
+                            onClick={() => {
+                                if (!editingValues) {
+                                    setEditItems([...items]);
+                                }
+                                setEditingValues(!editingValues);
+                                if (!editingValues) {
+                                    setTimeout(() => {
+                                        const wheelSection = document.querySelector('[data-wheel-section]');
+                                        if (wheelSection) {
+                                            wheelSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                        }
+                                    }, 100);
+                                }
+                            }}
+                            className="w-full rounded-xl border border-white/10 bg-[#1a1b2e] px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+                        >
                             {editingValues ? 'Cancel Edit' : 'Edit Values'}
-                    </button>
+                        </button>
                     </div>
                 </section>
 
                 {editingValues && (
-                    <section data-wheel-section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
-                        <div className="flex flex-col gap-6">
+                    <section data-wheel-section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 sm:p-3">
+                        <div className="flex flex-col gap-2">
                             {/* Header */}
                             <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1">
@@ -884,8 +885,8 @@ export default function WheelPage() {
                                         Update the ratings for week {week}. Changes are saved automatically.
                                     </p>
                                 </div>
-                                    <button
-                                        onClick={async () => {
+                                <button
+                                    onClick={async () => {
                                         // Финальное сохранение перед закрытием (на случай если автосохранение не успело)
                                         try {
                                             const headers = await authHeaders();
@@ -898,50 +899,50 @@ export default function WheelPage() {
                                                 headers,
                                                 body: JSON.stringify(saveBody),
                                             });
-                                        
-                                        if (saveRes.ok) {
-                                            // Инвалидируем кеш AI insights для этой недели, так как данные изменились
-                                            clearCachedData(`wheel-insights-${week}`);
-                                            console.log('[WheelPage] Cleared AI insights cache for week:', week);
-                                        }
+
+                                            if (saveRes.ok) {
+                                                // Инвалидируем кеш AI insights для этой недели, так как данные изменились
+                                                clearCachedData(`wheel-insights-${week}`);
+                                                console.log('[WheelPage] Cleared AI insights cache for week:', week);
+                                            }
                                         } catch (error) {
                                             console.error('[WheelPage] Final save failed:', error);
                                         }
                                         // Синхронизируем items с editItems и закрываем
-                                            setItems([...editItems]);
-                                            setEditingValues(false);
-                                        }}
+                                        setItems([...editItems]);
+                                        setEditingValues(false);
+                                    }}
                                     className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-6 py-3 text-white font-semibold transition hover:bg-white/10 whitespace-nowrap flex-shrink-0"
-                                    >
+                                >
                                     Close
-                                    </button>
+                                </button>
                             </div>
 
                             {/* ISO Week */}
-                                <div>
-                                    <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">ISO Week</label>
-                                    <WeekPicker
-                                        value={week}
-                                        onChange={handleWeekChange}
-                                        placeholder="Select week"
+                            <div>
+                                <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">ISO Week</label>
+                                <WeekPicker
+                                    value={week}
+                                    onChange={handleWeekChange}
+                                    placeholder="Select week"
                                     className="rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white focus:border-[#8B5CF6] focus:outline-none"
                                 />
                             </div>
 
                             {/* Category List - 2 columns */}
                             {weekLoading ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {AREAS.map(area => (
                                         <div key={area.name} className="h-20 rounded-2xl border border-white/10 bg-[#1a1b2e] animate-pulse" />
                                     ))}
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {editItems.map((it, idx) => {
                                         const areaInfo = AREAS.find(a => a.name === it.area);
                                         const areaColor = areaInfo?.color ?? '#8B5CF6';
                                         return (
-                                            <div key={it.area} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col gap-3">
+                                            <div key={it.area} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col gap-2">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-xl">{areaInfo?.icon ?? '•'}</span>
@@ -1007,9 +1008,9 @@ export default function WheelPage() {
                 )}
 
                 {/* Radar Chart and Category Grid */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-6">
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2 space-y-2">
                     {/* Radar Chart - First */}
-                    <div className="relative h-[360px] rounded-[32px] border border-white/10 bg-[#0f1324] p-4">
+                    <div className="relative h-[360px] rounded-2xl border border-white/10 bg-[#0f1324] p-2">
                         {weekLoading || !canRenderChart ? (
                             <div className="flex h-full items-center justify-center text-white/60">
                                 {weekLoading ? 'Loading chart…' : 'Preparing chart…'}
@@ -1205,34 +1206,33 @@ export default function WheelPage() {
                 )}
 
                 {/* Wheel Analytics - объединенные */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-4">
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2 space-y-2">
                     <div className="flex items-center justify-between">
                         <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
                             🎡 Wheel Analytics
                         </h2>
                         <div className="flex gap-1.5">
-                    <button
+                            <button
                                 onClick={() => setWheelAnalyticsTab('coach')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                                    wheelAnalyticsTab === 'coach'
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${wheelAnalyticsTab === 'coach'
                                         ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
                                         : 'text-white/60 hover:text-white/80'
-                                }`}
+                                    }`}
                             >
                                 🤖 Coach
-                    </button>
+                            </button>
                             <button
                                 onClick={() => setWheelAnalyticsTab('trends')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                                    wheelAnalyticsTab === 'trends'
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 ${wheelAnalyticsTab === 'trends'
                                         ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
                                         : 'text-white/60 hover:text-white/80'
-                                }`}
+                                    }`}
                             >
-                                📊 Trends
+                                <IconDisplay emoji="📊" size="text-xs" />
+                                <span>Trends</span>
                             </button>
                         </div>
-                </div>
+                    </div>
 
                     {wheelAnalyticsTab === 'coach' && (
                         <div>
@@ -1241,91 +1241,91 @@ export default function WheelPage() {
                     )}
 
                     {wheelAnalyticsTab === 'trends' && (
-                        <div className="space-y-2">
-                    <div className="rounded-2xl border border-white/10 overflow-hidden">
-                        <table className="w-full border-collapse text-xs text-white/80">
-                            <thead className="bg-white/10 text-white/70">
-                                <tr>
-                                    <th className="px-1.5 py-1 text-left">Area</th>
-                                    <th className="px-1.5 py-1 text-right">Current</th>
-                                    <th className="px-1.5 py-1 text-center">Previous</th>
-                                    <th className="px-1.5 py-1 text-right">4w</th>
-                                    <th className="px-1.5 py-1 text-right">Δ4w</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {trends.map((area) => (
-                                    <tr key={area.area} className="border-t border-white/5">
-                                        <td className="px-1.5 py-1">{formatAreaName(area.area)}</td>
-                                        <td className={`px-1.5 py-1 text-right ${area.deltaLast !== null && area.deltaLast !== undefined && area.deltaLast !== 0
-                                            ? (area.deltaLast > 0 ? 'text-emerald-300' : 'text-red-400')
-                                            : 'text-white'
-                                            }`}>
-                                            {area.last ? Math.round(area.last) : 0}
-                                            {area.deltaLast !== null && area.deltaLast !== undefined && area.deltaLast !== 0 && (
-                                                <span className="ml-1.5">
-                                                    ({area.deltaLast > 0 ? '+' : ''}{Math.round(Number(area.deltaLast))})
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-1.5 py-1 text-center text-white/60">
-                                            {area.previous !== null && area.previous !== undefined ? Math.round(area.previous) : '—'}
-                                        </td>
-                                        <td className="px-1.5 py-1 text-right">{area.avg4?.toFixed?.(1) ?? area.avg4}</td>
-                                        <td className={`px-1.5 py-1 text-right ${area.delta4 !== null && area.delta4 !== undefined ? (area.delta4 < 0 ? 'text-red-400' : area.delta4 > 0 ? 'text-emerald-300' : 'text-white/60') : 'text-white/60'}`}>
-                                            {area.delta4 !== null && area.delta4 !== undefined ? (area.delta4 > 0 ? '+' : '') + (area.delta4?.toFixed?.(1) ?? area.delta4) : '—'}
-                                        </td>
-                                    </tr>
-                                ))}
-                                {trends.length > 0 && (() => {
-                                    // Calculate averages across all categories
-                                    const avgCurrent = trends.reduce((sum, a) => sum + (a.last || 0), 0) / trends.length;
-                                    const avgPrevious = trends.filter(a => a.previous !== null).length > 0
-                                        ? trends.filter(a => a.previous !== null).reduce((sum, a) => sum + (a.previous || 0), 0) / trends.filter(a => a.previous !== null).length
-                                        : null;
-                                    const avgDeltaLast = trends.filter(a => a.deltaLast !== null).length > 0
-                                        ? trends.filter(a => a.deltaLast !== null).reduce((sum, a) => sum + (a.deltaLast || 0), 0) / trends.filter(a => a.deltaLast !== null).length
-                                        : null;
-                                    const avg4w = trends.reduce((sum, a) => sum + (a.avg4 || 0), 0) / trends.length;
-                                    const avgDelta4 = trends.filter(a => a.delta4 !== null).length > 0
-                                        ? trends.filter(a => a.delta4 !== null).reduce((sum, a) => sum + (a.delta4 || 0), 0) / trends.filter(a => a.delta4 !== null).length
-                                        : null;
-
-                                    return (
-                                        <tr className="border-t-2 border-white/20 bg-white/5 font-semibold">
-                                            <td className="px-1.5 py-1 text-left">Average</td>
-                                            <td className={`px-1.5 py-1 text-right ${avgDeltaLast !== null && avgDeltaLast !== 0
-                                                ? (avgDeltaLast > 0 ? 'text-emerald-300' : 'text-red-400')
-                                                : 'text-white'
-                                                }`}>
-                                                {avgCurrent.toFixed(1)}
-                                                {avgDeltaLast !== null && avgDeltaLast !== 0 && (
-                                                    <span className="ml-1.5">
-                                                        ({avgDeltaLast > 0 ? '+' : ''}{avgDeltaLast.toFixed(1)})
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="px-1.5 py-1 text-center text-white/60">
-                                                {avgPrevious !== null ? avgPrevious.toFixed(1) : '—'}
-                                            </td>
-                                            <td className="px-1.5 py-1 text-right">{avg4w.toFixed(1)}</td>
-                                            <td className={`px-1.5 py-1 text-right ${avgDelta4 !== null ? (avgDelta4 < 0 ? 'text-red-400' : avgDelta4 > 0 ? 'text-emerald-300' : 'text-white/60') : 'text-white/60'}`}>
-                                                {avgDelta4 !== null ? (avgDelta4 > 0 ? '+' : '') + avgDelta4.toFixed(1) : '—'}
-                                            </td>
+                        <div className="space-y-1.5">
+                            <div className="rounded-2xl border border-white/10 overflow-hidden">
+                                <table className="w-full border-collapse text-xs text-white/80">
+                                    <thead className="bg-white/10 text-white/70">
+                                        <tr>
+                                            <th className="px-1.5 py-1 text-left">Area</th>
+                                            <th className="px-1.5 py-1 text-right">Current</th>
+                                            <th className="px-1.5 py-1 text-center">Previous</th>
+                                            <th className="px-1.5 py-1 text-right">4w</th>
+                                            <th className="px-1.5 py-1 text-right">Δ4w</th>
                                         </tr>
-                                    );
-                                })()}
-                                {!trends.length && (
-                                    <tr>
-                                        <td colSpan={5} className="px-1.5 py-1 text-center text-white/50">
-                                            No trend data yet.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                    <p className="text-xs text-white/50">Current — current week value (change vs last week in parentheses, green for improvement, red for decline). 4w — average of last 4 weeks. Δ4w — change last 4 weeks vs previous 4 weeks (requires 5+ weeks). Average row shows arithmetic mean across all categories. Positive is improvement, negative is decline.</p>
+                                    </thead>
+                                    <tbody>
+                                        {trends.map((area) => (
+                                            <tr key={area.area} className="border-t border-white/5">
+                                                <td className="px-1.5 py-1">{formatAreaName(area.area)}</td>
+                                                <td className={`px-1.5 py-1 text-right ${area.deltaLast !== null && area.deltaLast !== undefined && area.deltaLast !== 0
+                                                    ? (area.deltaLast > 0 ? 'text-emerald-300' : 'text-red-400')
+                                                    : 'text-white'
+                                                    }`}>
+                                                    {area.last ? Math.round(area.last) : 0}
+                                                    {area.deltaLast !== null && area.deltaLast !== undefined && area.deltaLast !== 0 && (
+                                                        <span className="ml-1.5">
+                                                            ({area.deltaLast > 0 ? '+' : ''}{Math.round(Number(area.deltaLast))})
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-1.5 py-1 text-center text-white/60">
+                                                    {area.previous !== null && area.previous !== undefined ? Math.round(area.previous) : '—'}
+                                                </td>
+                                                <td className="px-1.5 py-1 text-right">{area.avg4?.toFixed?.(1) ?? area.avg4}</td>
+                                                <td className={`px-1.5 py-1 text-right ${area.delta4 !== null && area.delta4 !== undefined ? (area.delta4 < 0 ? 'text-red-400' : area.delta4 > 0 ? 'text-emerald-300' : 'text-white/60') : 'text-white/60'}`}>
+                                                    {area.delta4 !== null && area.delta4 !== undefined ? (area.delta4 > 0 ? '+' : '') + (area.delta4?.toFixed?.(1) ?? area.delta4) : '—'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {trends.length > 0 && (() => {
+                                            // Calculate averages across all categories
+                                            const avgCurrent = trends.reduce((sum, a) => sum + (a.last || 0), 0) / trends.length;
+                                            const avgPrevious = trends.filter(a => a.previous !== null).length > 0
+                                                ? trends.filter(a => a.previous !== null).reduce((sum, a) => sum + (a.previous || 0), 0) / trends.filter(a => a.previous !== null).length
+                                                : null;
+                                            const avgDeltaLast = trends.filter(a => a.deltaLast !== null).length > 0
+                                                ? trends.filter(a => a.deltaLast !== null).reduce((sum, a) => sum + (a.deltaLast || 0), 0) / trends.filter(a => a.deltaLast !== null).length
+                                                : null;
+                                            const avg4w = trends.reduce((sum, a) => sum + (a.avg4 || 0), 0) / trends.length;
+                                            const avgDelta4 = trends.filter(a => a.delta4 !== null).length > 0
+                                                ? trends.filter(a => a.delta4 !== null).reduce((sum, a) => sum + (a.delta4 || 0), 0) / trends.filter(a => a.delta4 !== null).length
+                                                : null;
+
+                                            return (
+                                                <tr className="border-t-2 border-white/20 bg-white/5 font-semibold">
+                                                    <td className="px-1.5 py-1 text-left">Average</td>
+                                                    <td className={`px-1.5 py-1 text-right ${avgDeltaLast !== null && avgDeltaLast !== 0
+                                                        ? (avgDeltaLast > 0 ? 'text-emerald-300' : 'text-red-400')
+                                                        : 'text-white'
+                                                        }`}>
+                                                        {avgCurrent.toFixed(1)}
+                                                        {avgDeltaLast !== null && avgDeltaLast !== 0 && (
+                                                            <span className="ml-1.5">
+                                                                ({avgDeltaLast > 0 ? '+' : ''}{avgDeltaLast.toFixed(1)})
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-1.5 py-1 text-center text-white/60">
+                                                        {avgPrevious !== null ? avgPrevious.toFixed(1) : '—'}
+                                                    </td>
+                                                    <td className="px-1.5 py-1 text-right">{avg4w.toFixed(1)}</td>
+                                                    <td className={`px-1.5 py-1 text-right ${avgDelta4 !== null ? (avgDelta4 < 0 ? 'text-red-400' : avgDelta4 > 0 ? 'text-emerald-300' : 'text-white/60') : 'text-white/60'}`}>
+                                                        {avgDelta4 !== null ? (avgDelta4 > 0 ? '+' : '') + avgDelta4.toFixed(1) : '—'}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })()}
+                                        {!trends.length && (
+                                            <tr>
+                                                <td colSpan={5} className="px-1.5 py-1 text-center text-white/50">
+                                                    No trend data yet.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p className="text-xs text-white/50">Current — current week value (change vs last week in parentheses, green for improvement, red for decline). 4w — average of last 4 weeks. Δ4w — change last 4 weeks vs previous 4 weeks (requires 5+ weeks). Average row shows arithmetic mean across all categories. Positive is improvement, negative is decline.</p>
                         </div>
                     )}
                 </section>

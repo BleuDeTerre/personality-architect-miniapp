@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { fetchJson } from '@/lib/http';
 import { getCachedData, setCachedData, CACHE_TTL } from '@/lib/clientCache';
 import { Sparkles } from 'lucide-react';
+import { IconDisplay } from '@/lib/iconMapper';
 
 const FALLBACK_MESSAGES = [
     'Start your day with intention. Every small step counts! 💪',
@@ -158,7 +159,7 @@ export default function AIMotivationMessage() {
             <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-purple-400 flex-shrink-0" />
-                    <span className="text-2xl">💬</span>
+                    <IconDisplay emoji="💬" size="text-2xl" />
                     <div>
                         <p className="text-sm font-semibold text-white leading-tight">Daily AI tip</p>
                         {!isOpen && (

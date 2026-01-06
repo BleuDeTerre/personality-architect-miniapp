@@ -8,6 +8,7 @@ import LevelUpAnimation from '@/components/LevelUpAnimation';
 import AchievementAnimation from '@/components/AchievementAnimation';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
+import { IconDisplay } from '@/lib/iconMapper';
 import CollapsibleCard from '@/components/CollapsibleCard';
 import AIHabitInsights from '@/components/AIHabitInsights';
 import { getRandomVariant, topStreakHabitTexts, habitsSummaryTexts } from '@/lib/castTextVariants';
@@ -723,7 +724,7 @@ export default function HabitsPage() {
             // Get local date string
             const now = new Date();
             const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-            
+
             const res = await fetch('/api/habits/logs', {
                 method: 'POST',
                 headers: await authHeaders(),
@@ -926,19 +927,19 @@ export default function HabitsPage() {
             )}
 
             <MiniAppPage>
-                <div className="space-y-3">
+                <div className="space-y-1.5">
                     {/* Header Card */}
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
-                        <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">My Habits</h1>
-                        <p className="text-sm text-white/80">
+                    <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
+                        <h1 className="text-xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-0.5">My Habits</h1>
+                        <p className="text-xs text-white/80">
                             Build routines faster, track completions, and unlock streak rewards.
                         </p>
                     </section>
 
                     {/* Add Habit Form */}
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
-                        <form onSubmit={addHabit} className="flex flex-col gap-3">
-                            <div className="grid grid-cols-2 gap-3">
+                    <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
+                        <form onSubmit={addHabit} className="flex flex-col gap-2">
+                            <div className="grid grid-cols-2 gap-2">
                                 <div className="relative">
                                     <label className="text-xs uppercase tracking-wide text-white/60 mb-1 block">EMOJI</label>
                                     <input
@@ -1042,7 +1043,7 @@ export default function HabitsPage() {
 
                     {/* Habits Grid */}
                     {loadingHabits ? (
-                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
+                        <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 sm:p-3">
                             <div className="grid grid-cols-2 gap-3">
                                 {[1, 2, 3, 4, 5, 6].map(i => (
                                     <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
@@ -1053,7 +1054,7 @@ export default function HabitsPage() {
                             </div>
                         </section>
                     ) : filteredHabits.length === 0 ? (
-                        <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 text-center text-white/70 text-sm">
+                        <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 text-center text-white/70 text-xs">
                             No habits match your filters.
                         </section>
                     ) : (
@@ -1118,11 +1119,16 @@ export default function HabitsPage() {
 
                                 // Обычный режим отображения
                                 return (
-                                    <div key={h.id} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col gap-2">
-                                        <div className="text-xl">{emoji}</div>
-                                        <div className="text-sm font-semibold text-white">{titleText}</div>
+                                    <div key={h.id} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2.5 flex flex-col gap-1.5">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-lg">{emoji}</span>
+                                            <div className="text-sm font-semibold text-white flex-1 min-w-0">{titleText}</div>
+                                        </div>
                                         <div className="text-xs text-white/70">{h.target_days_per_week} days/week</div>
-                                        <div className="text-xs text-white/70">🔥 {h.streak ?? 0}d streak</div>
+                                        <div className="text-xs text-white/70 flex items-center gap-1">
+                                            <IconDisplay emoji="🔥" size="text-xs" color="text-orange-400" />
+                                            <span>{h.streak ?? 0}d streak</span>
+                                        </div>
                                         <div className="flex items-center gap-2 mt-auto">
                                             <button
                                                 type="button"

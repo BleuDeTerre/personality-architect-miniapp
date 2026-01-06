@@ -23,13 +23,6 @@ interface ShareCastComposerProps {
     prepareHeaders?: () => Promise<Record<string, string>>;
 }
 
-type ShareResponse = {
-    hash?: string;
-    castUrl?: string;
-    previewUrl?: string;
-    error?: string;
-    fallback?: string;
-};
 
 export default function ShareCastComposer({
     templates,
@@ -40,8 +33,6 @@ export default function ShareCastComposer({
     const [selectedKey, setSelectedKey] = useState<string>(() => templates[0]?.key ?? "");
     const [origin, setOrigin] = useState<string>("");
     const [loading, setLoading] = useState(false);
-    const [confirmTemplate, setConfirmTemplate] = useState<CastTemplate | null>(null);
-    const [confirmLoading, setConfirmLoading] = useState(false);
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -87,98 +78,78 @@ export default function ShareCastComposer({
     );
 
     const ogImageUrl = useMemo(() => buildPreviewUrl(selected), [buildPreviewUrl, selected]);
-    const confirmPreviewUrl = useMemo(() => buildPreviewUrl(confirmTemplate), [buildPreviewUrl, confirmTemplate]);
 
-    async function publishCast(template: CastTemplate) {
+    function openComposer(template: CastTemplate) {
+        if (!origin) {
+            toast.error("Unable to open composer", {
+                description: "Origin not available",
+            });
+            return;
+        }
+
         setLoading(true);
 
-        const previewUrl = buildPreviewUrl(template);
-        // Для Farcaster передаем HTML-страницу с OG-тегами
-        const embedUrl = previewUrl ? previewUrl.replace('/api/share/og', '/api/share/preview') : null;
-
-        console.log('[ShareCastComposer] Publishing cast via API:', {
-            previewUrl,
-            embedUrl,
-            template: {
-                key: template.key,
-                kind: template.kind,
-                previewParams: template.previewParams,
-            },
-                });
-
         try {
-            // ВСЕГДА используем серверный API для публикации кастов через Managed Signer
-            // Это гарантирует правильное списание кредитов Neynar (150 кредитов за каст)
-            // actions.composeCast открывает композер Farcaster, но не использует Managed Signer API,
-            // поэтому кредиты не списываются или списываются минимально
-            const headers = {
-                "Content-Type": "application/json",
-                ...(prepareHeaders ? await prepareHeaders() : {}),
-            };
-            const res = await fetch("/api/share/cast", {
-                method: "POST",
-                headers,
-                body: JSON.stringify({
-                    kind: template.kind,
-                    title: template.title,
-                    text: template.text,
-                    previewParams: template.previewParams,
-                    embedUrl: embedUrl,
-                    targetUrl: template.targetPath ? `${origin}${template.targetPath}` : undefined,
-                }),
-            });
-            const data = (await res.json()) as ShareResponse;
-
-            // Логируем использование API метода
-            try {
-                await fetch('/api/share/log', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(prepareHeaders ? await prepareHeaders() : {}),
-                    },
-                    body: JSON.stringify({
-                        method: 'api_publishCast',
-                        success: res.ok,
-                        kind: template.kind,
-                        error: res.ok ? undefined : (data.error ?? 'Unknown error'),
-                    }),
-                });
-            } catch (logError) {
-                console.warn('[ShareCastComposer] Failed to log API share:', logError);
+            // Строим preview URL для эмбеда
+            const previewUrl = buildPreviewUrl(template);
+            if (!previewUrl) {
+                throw new Error("Failed to build preview URL");
             }
 
-            if (!res.ok) {
-                if (data.fallback) {
-                    toast.error("Auto cast failed. Open composer to share manually.", {
-                        description: data.error ?? "Try again later.",
-                        action: {
-                            label: "Open",
-                            onClick: () => {
-                                if (actions?.openUrl) {
-                                    actions.openUrl({ url: data.fallback! });
-                                } else {
-                                    window.open(data.fallback!, '_blank');
-                                }
-                            },
+            // Для Farcaster передаем HTML-страницу с OG-тегами
+            let embedUrl = previewUrl.replace('/api/share/og', '/api/share/preview');
+            
+            // Добавляем targetPath в preview URL, если он указан
+            if (template.targetPath) {
+                const embedUrlObj = new URL(embedUrl);
+                embedUrlObj.searchParams.set('targetPath', template.targetPath);
+                embedUrl = embedUrlObj.toString();
+            }
+
+            // Строим URL композера Warpcast
+            const compose = new URL('https://warpcast.com/~/compose');
+            compose.searchParams.set('text', template.text);
+            compose.searchParams.append('embeds[]', embedUrl);
+
+            const composeUrl = compose.toString();
+
+            console.log('[ShareCastComposer] Opening Farcaster composer:', {
+                composeUrl,
+                text: template.text,
+                embedUrl,
+            });
+
+            // Открываем композер Farcaster
+            if (actions?.openUrl) {
+                actions.openUrl({ url: composeUrl });
+            } else {
+                window.open(composeUrl, '_blank');
+            }
+
+            // Логируем открытие композера
+            if (prepareHeaders) {
+                prepareHeaders().then(headers => {
+                    fetch('/api/share/log', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...headers,
                         },
+                        body: JSON.stringify({
+                            method: 'open_composer',
+                            success: true,
+                            kind: template.kind,
+                        }),
+                    }).catch(err => {
+                        console.warn('[ShareCastComposer] Failed to log composer open:', err);
                     });
-                    return;
-                }
-                throw new Error(data.error ?? "Failed to publish");
-            }
-            toast.success("Cast published 🎉", {
-                description: "Check Warpcast feed for your update.",
-            });
-            if (data.castUrl) {
-                if (actions?.openUrl) {
-                    await actions.openUrl({ url: data.castUrl });
-                } else {
-                    window.open(data.castUrl, '_blank');
-                }
+                }).catch(err => {
+                    console.warn('[ShareCastComposer] Failed to prepare headers for log:', err);
+                });
             }
         } catch (error: any) {
-            toast.error("Unable to publish cast", {
+            console.error('[ShareCastComposer] Failed to open composer:', error);
+            toast.error("Unable to open composer", {
                 description: error?.message ?? "Unknown error",
             });
         } finally {
@@ -188,28 +159,8 @@ export default function ShareCastComposer({
 
     function handleShareRequest() {
         if (!selected) return;
-        const mode = selected.publishMode ?? 'confirm';
-        if (mode === 'confirm') {
-            setConfirmTemplate(selected);
-            return;
-        }
-        void publishCast(selected);
-    }
-
-    async function confirmPublish() {
-        if (!confirmTemplate) return;
-        setConfirmLoading(true);
-        try {
-            await publishCast(confirmTemplate);
-            setConfirmTemplate(null);
-        } finally {
-            setConfirmLoading(false);
-        }
-    }
-
-    function closeConfirm() {
-        if (confirmLoading) return;
-        setConfirmTemplate(null);
+        // Всегда открываем композер Farcaster с готовым текстом и картинкой
+        openComposer(selected);
     }
 
     if (templates.length === 0 || !selected) {
@@ -254,7 +205,7 @@ export default function ShareCastComposer({
                     disabled={loading}
                     className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-center text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40"
                 >
-                    {loading ? "Publishing…" : "Share to Farcaster"}
+                    {loading ? "Opening…" : "Share to Farcaster"}
                 </button>
             </div>
 
@@ -275,53 +226,6 @@ export default function ShareCastComposer({
                 </div>
             )}
 
-            {confirmTemplate && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-                    <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-[#101123] p-6 space-y-4 shadow-2xl">
-                        <div className="flex items-start justify-between gap-4">
-                            <div>
-                                <p className="text-sm uppercase tracking-widest text-white/60">Confirm share</p>
-                                <h3 className="text-2xl font-semibold text-white">{confirmTemplate.title}</h3>
-                                <p className="text-white/70 mt-1">{confirmTemplate.text}</p>
-                            </div>
-                            <button
-                                onClick={closeConfirm}
-                                className="text-white/60 hover:text-white"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                        {confirmPreviewUrl && (
-                            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3">
-                                <Image
-                                    src={confirmPreviewUrl}
-                                    alt="Confirm preview"
-                                    width={520}
-                                    height={273}
-                                    className="w-full rounded-xl"
-                                    unoptimized
-                                />
-                            </div>
-                        )}
-                        <div className="flex justify-end gap-3">
-                            <button
-                                onClick={closeConfirm}
-                                className="rounded-2xl border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 hover:text-white"
-                                disabled={confirmLoading}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={confirmPublish}
-                                disabled={confirmLoading}
-                                className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-[#8B5CF6]/40 disabled:opacity-60"
-                            >
-                                {confirmLoading ? 'Publishing…' : 'Publish'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

@@ -6,6 +6,7 @@ import type { AchievementCheck } from '@/lib/achievements';
 import { calculateQuestProgress, type Quest } from '@/lib/daily-quests';
 import { BADGES, type Badge } from '@/lib/badges';
 import BadgeImage from '@/components/BadgeImage';
+import { IconDisplay } from '@/lib/iconMapper';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -203,7 +204,7 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
             return (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {[1, 2].map(i => (
-                        <div key={i} className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
+                        <div key={i} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 animate-pulse">
                             <div className="flex items-start gap-4">
                                 <div className="w-16 h-16 bg-white/20 rounded-2xl"></div>
                                 <div className="flex-1 space-y-2">
@@ -220,7 +221,7 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
 
         if (!BADGES.length) {
             return (
-                <div className="rounded-3xl border border-white/10 bg-[#1a1b2e]/60 p-4 text-center text-white/60">
+                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e]/60 p-3 text-center text-white/60">
                     No badges available yet.
                 </div>
             );
@@ -233,7 +234,7 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
                     const elig = badgePanel.eligibility[badge.slug] ?? { eligible: false, reason: '' };
                     const disabled = !badgePanel.wallet || st === 'pending' || badgePanel.busyCode === badge.slug;
                     return (
-                        <div key={badge.slug} className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 flex flex-col">
+                        <div key={badge.slug} className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 flex flex-col">
                             <div className="flex items-start gap-4 mb-4">
                                 <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white/5 flex items-center justify-center">
                                     <BadgeImage src={badge.image} alt={badge.title} className="w-16 h-16 object-cover" />
@@ -258,8 +259,8 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
                                         await badgePanel.onMint(badge.slug);
                                     }}
                                     className={`w-full rounded-2xl px-4 py-2 text-sm font-semibold transition ${st === 'success'
-                                            ? 'bg-white/10 text-white cursor-default'
-                                            : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white hover:opacity-90 disabled:opacity-50'
+                                        ? 'bg-white/10 text-white cursor-default'
+                                        : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white hover:opacity-90 disabled:opacity-50'
                                         }`}
                                 >
                                     {badgePanel.busyCode === badge.slug
@@ -267,7 +268,12 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
                                         : !badgePanel.wallet
                                             ? 'Add wallet'
                                             : st === 'success'
-                                                ? '✅ Minted'
+                                                ? (
+                                                    <span className="flex items-center gap-1">
+                                                        <IconDisplay emoji="✅" size="text-sm" />
+                                                        <span>Minted</span>
+                                                    </span>
+                                                )
                                                 : 'Mint'}
                                 </button>
                             </div>
@@ -279,7 +285,7 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
     };
 
     return (
-        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 space-y-6">
+        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 sm:p-3 space-y-3">
             {/* Achievements accordion */}
             <div>
                 <button
@@ -395,7 +401,7 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
             </div>
 
             {badgePanel && (
-                <div className="border-t border-white/10 pt-4 relative overflow-hidden rounded-3xl">
+                <div className="border-t border-white/10 pt-3 relative overflow-hidden rounded-2xl">
                     <div className="pointer-events-none opacity-70">
                         <button
                             type="button"

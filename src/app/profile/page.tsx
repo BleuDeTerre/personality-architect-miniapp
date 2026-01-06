@@ -422,21 +422,21 @@ export default function ProfilePage() {
         <MiniAppPage>
             <div>
                 {/* Profile Section */}
-                <section className="space-y-3 mb-6">
-                    <h1 className="text-2xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-4">Profile</h1>
+                <section className="space-y-1 mb-2">
+                    <h1 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Profile</h1>
 
                     {neynarLoading ? (
-                        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 animate-pulse">
-                            <div className="flex items-center gap-4">
-                                <div className="w-16 h-16 rounded-full bg-white/10"></div>
-                                <div className="flex-1 space-y-2">
-                                    <div className="h-6 bg-white/10 rounded w-32"></div>
-                                    <div className="h-4 bg-white/10 rounded w-24"></div>
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2 animate-pulse">
+                            <div className="flex items-center gap-3">
+                                <div className="w-14 h-14 rounded-full bg-white/10"></div>
+                                <div className="flex-1 space-y-1.5">
+                                    <div className="h-5 bg-white/10 rounded w-28"></div>
+                                    <div className="h-4 bg-white/10 rounded w-20"></div>
                                 </div>
                             </div>
                         </div>
                     ) : neynarProfile ? (
-                        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
                             <div className="flex items-start gap-4">
                                 {/* Profile Picture */}
                                 <div className="w-16 h-16 rounded-full overflow-hidden bg-white/10 flex items-center justify-center text-2xl font-semibold text-white/80 relative flex-shrink-0">
@@ -482,7 +482,7 @@ export default function ProfilePage() {
                             </div>
                         </div>
                     ) : (
-                        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5">
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">
                             <div className="flex items-start gap-4">
                                 <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-2xl text-white/60">
                                     🧑‍🚀
@@ -500,9 +500,9 @@ export default function ProfilePage() {
                 </section>
 
                 {/* Main Focus Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 mb-6">
-                    <h2 className="text-lg font-semibold text-white mb-3">Main Life Focus</h2>
-                    <p className="text-sm text-white/60 mb-3">
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 sm:p-3 mb-3">
+                    <h2 className="text-base font-semibold text-white mb-2">Main Life Focus</h2>
+                    <p className="text-xs text-white/60 mb-2">
                         Your North Star - what you're focusing on for the next 3 months. This helps AI give you more personalized advice.
                     </p>
                     {mainFocusEditing ? (
@@ -567,7 +567,7 @@ export default function ProfilePage() {
 
                 {/* Quest Board Section */}
                 {/* Current Plan Section */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 mb-6">
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 sm:p-3 mb-3">
                     <div className="flex items-start justify-between">
                         <div>
                             <p className="text-xs uppercase tracking-wide text-white/60 mb-1">CURRENT PLAN</p>
@@ -584,9 +584,9 @@ export default function ProfilePage() {
 
                 {/* Your Level Section */}
                 {gamificationStats && (
-                    <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-5 sm:p-6 mb-6">
-                        <h2 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-4">Your Level</h2>
-                        <div className="flex items-center justify-between mb-4">
+                    <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 sm:p-3 mb-3">
+                        <h2 className="text-lg font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Your Level</h2>
+                        <div className="flex items-center justify-between mb-2">
                             <div>
                                 <div className={`text-2xl font-bold ${levelColor}`}>{levelName}</div>
                                 <div className="text-sm text-white/70">Level {level}</div>
@@ -621,7 +621,7 @@ export default function ProfilePage() {
 
                 {/* Share your level */}
                 {levelShareTemplates.length > 0 && (
-                    <div className="mb-6">
+                    <div className="mb-3">
                         <CollapsibleCard title="Share your level" defaultOpen={false}>
                             <ShareCastComposer
                                 templates={levelShareTemplates}
@@ -632,7 +632,7 @@ export default function ProfilePage() {
                 )}
 
                 {/* Achievements Section */}
-                <section className="mb-6">
+                <section className="mb-3">
                     <Achievements
                         badgePanel={{
                             loading: badgesLoading,
@@ -646,7 +646,7 @@ export default function ProfilePage() {
                 </section>
 
                 {/* Export Data */}
-                <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 sm:p-5 relative overflow-hidden mb-6">
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 sm:p-3 relative overflow-hidden mb-3">
                     {/* Content visible through blur */}
                     <div className="pointer-events-none">
                         <div className="flex items-start justify-between mb-4">
@@ -697,7 +697,7 @@ function _Info({ label, value, mono = false }: { label: string; value: ReactNode
             : value ?? '—';
 
     return (
-        <div className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
+        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 sm:p-3">
             <div className="text-xs text-white/80">{label}</div>
             <div className={mono ? 'font-mono break-all' : ''}>{content}</div>
         </div>

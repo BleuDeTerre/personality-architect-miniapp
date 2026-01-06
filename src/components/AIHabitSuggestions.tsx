@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Clock } from 'lucide-react';
 import CollapsibleCard from './CollapsibleCard';
+import { IconDisplay } from '@/lib/iconMapper';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -61,9 +62,14 @@ export default function AIHabitSuggestions() {
                 <button
                     onClick={loadSuggestions}
                     disabled={loading}
-                    className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/20 disabled:opacity-60"
+                    className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/20 disabled:opacity-60 flex items-center justify-center gap-1"
                 >
-                    {loading ? 'Loading...' : '💡 Get Time Suggestions'}
+                    {loading ? 'Loading...' : (
+                        <>
+                            <IconDisplay emoji="💡" size="text-sm" />
+                            <span>Get Time Suggestions</span>
+                        </>
+                    )}
                 </button>
             )}
 
