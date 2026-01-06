@@ -15,11 +15,18 @@ jobs:
         with: { node-version: 20, cache: pnpm }
       - run: pnpm i --frozen-lockfile
 
-      # Запрет анонимного SDK в /api
+      # Запрет анонимного SDK в /api (исключая cron и специальные auth endpoints)
       - name: ban supabase sdk imports in /api
         run: |
           set -e
-          ! grep -R "from '@supabase/supabase-js'" src/app/api || (echo "supabase-js import in /api is forbidden"; exit 1)
+          # Исключаем файлы, которые легитимно используют service role клиент
+          EXCLUDED="(wheel/create-week|notifications/cron|auth/farcaster-login|auth/get-fid)"
+          FOUND=$(grep -R "from '@supabase/supabase-js'" src/app/api | grep -vE "$EXCLUDED" || true)
+          if [ -n "$FOUND" ]; then
+            echo "supabase-js import in /api is forbidden (except cron/special endpoints)"
+            echo "$FOUND"
+            exit 1
+          fi
 
       # requireUserFromReq присутствует в /api
       - name: requireUserFromReq presence
