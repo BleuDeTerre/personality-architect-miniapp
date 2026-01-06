@@ -120,12 +120,16 @@ export function getLevelColor(level: number): string {
 }
 
 // XP бонусы
-// Балансировка для достижения Level 10 за 6 месяцев (~77 XP/день)
+// Балансировка для достижения Level 10 за 6 месяцев (~86 XP/день)
+// Расчет: Level 10 = 15,451 XP / 180 дней = ~86 XP/день
+// При 5 привычках в день: (5*2 + 5 + 30) + (25/7) + (250/30) = 45 + 3.57 + 8.33 = ~56.9 XP/день
+// За 180 дней: ~10,242 XP (необходимо больше XP для уровня 10)
 export const XP_REWARDS = {
-    habit_log: 2, // Базовый XP за лог привычки (было 5)
-    bonus_first_day: 5, // Бонус за первое выполнение дня (было 10)
-    bonus_weekly_streak: 25, // Бонус за недельный streak (7 дней) - без изменений
-    bonus_all_habits: 30, // Бонус за выполнение всех активных привычек дня (было 50)
+    habit_log: 2, // Базовый XP за лог привычки
+    bonus_first_day: 5, // Бонус за первое выполнение дня (один раз в день)
+    bonus_weekly_streak: 25, // Бонус за недельный streak (7 дней) = ~3.57 XP/день в среднем
+    bonus_monthly_streak: 250, // Бонус за месячный streak (30 дней) = ~8.33 XP/день в среднем
+    bonus_all_habits: 30, // Бонус за выполнение всех активных привычек дня (один раз в день)
     achievement: 0, // Устанавливается индивидуально для каждого достижения
     level_up: 0, // Бонус за повышение уровня (обычно 0, но можно настроить)
 } as const;
@@ -134,7 +138,9 @@ export type XPEventType =
     | 'habit_log'
     | 'bonus_first_day'
     | 'bonus_weekly_streak'
+    | 'bonus_monthly_streak'
     | 'bonus_all_habits'
     | 'achievement'
-    | 'level_up';
+    | 'level_up'
+    | 'share_cast';
 

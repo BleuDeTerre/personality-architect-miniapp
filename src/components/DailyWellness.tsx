@@ -212,7 +212,7 @@ export default function DailyWellness() {
 
     return (
         <div>
-            <div className="flex items-center space-x-3 mb-3">
+            <div className="flex items-center space-x-3 mb-3 ml-0.5">
                 <div className="text-4xl drop-shadow-md filter transition-transform hover:scale-110 cursor-pointer">
                     💜
                 </div>

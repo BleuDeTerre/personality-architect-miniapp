@@ -1727,8 +1727,8 @@ export default function AnalyticsPage() {
                                                 <h3 className="text-sm font-semibold text-white">Goal Status Distribution</h3>
                                                 {goalStatusDistribution.trendMessage && (
                                                     <span className={`text-xs font-medium whitespace-nowrap ${goalStatusDistribution.trend === 'up' ? 'text-[#22C55E]'
-                                                            : goalStatusDistribution.trend === 'down' ? 'text-yellow-400'
-                                                                : 'text-white/60'
+                                                        : goalStatusDistribution.trend === 'down' ? 'text-yellow-400'
+                                                            : 'text-white/60'
                                                         }`}>
                                                         {goalStatusDistribution.trend === 'up' ? '↑' : goalStatusDistribution.trend === 'down' ? '↓' : '→'} {goalStatusDistribution.trendMessage}
                                                     </span>
@@ -1818,8 +1818,8 @@ export default function AnalyticsPage() {
                                                 <button
                                                     onClick={() => setWellnessTab('deepdive')}
                                                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${wellnessTab === 'deepdive'
-                                                            ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
-                                                            : 'text-white/60 hover:text-white/80'
+                                                        ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
+                                                        : 'text-white/60 hover:text-white/80'
                                                         }`}
                                                 >
                                                     Deep Dive
@@ -1827,8 +1827,8 @@ export default function AnalyticsPage() {
                                                 <button
                                                     onClick={() => setWellnessTab('correlations')}
                                                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${wellnessTab === 'correlations'
-                                                            ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
-                                                            : 'text-white/60 hover:text-white/80'
+                                                        ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30'
+                                                        : 'text-white/60 hover:text-white/80'
                                                         }`}
                                                 >
                                                     Correlations
@@ -1909,92 +1909,7 @@ export default function AnalyticsPage() {
                                         )}
 
                                         {wellnessTab === 'correlations' && (
-                                            <div className={`rounded-2xl border p-4 space-y-2 ${wellnessAnalytics?.correlations && wellnessAnalytics?.correlations.length > 0
-                                                ? (() => {
-                                                    // Определяем, является ли корреляция "хорошей" или "плохой"
-                                                    const isGoodCorrelation = (metricA: string, metricB: string, correlation: number): boolean => {
-                                                        const isPositive = correlation > 0;
-
-                                                        // Хорошие корреляции (зеленый):
-                                                        // - stress уменьшается с sleep/productivity (отрицательная корреляция)
-                                                        // - productivity увеличивается с sleep (положительная корреляция)
-                                                        // - sleep увеличивается с productivity (положительная корреляция)
-
-                                                        if (metricA === 'stress_level') {
-                                                            if (metricB === 'sleep_hours' || metricB === 'productivity_level') {
-                                                                return !isPositive; // Отрицательная корреляция = хорошо (меньше стресса)
-                                                            }
-                                                            if (metricB === 'work_hours') {
-                                                                return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = меньше стресса)
-                                                            }
-                                                        }
-
-                                                        if (metricA === 'productivity_level') {
-                                                            if (metricB === 'sleep_hours') {
-                                                                return isPositive; // Положительная корреляция = хорошо (больше сна = больше продуктивности)
-                                                            }
-                                                            if (metricB === 'work_hours') {
-                                                                return isPositive; // Положительная корреляция = хорошо (больше работы = больше продуктивности, до определенного предела)
-                                                            }
-                                                            if (metricB === 'stress_level') {
-                                                                return !isPositive; // Отрицательная корреляция = хорошо (меньше стресса = больше продуктивности)
-                                                            }
-                                                        }
-
-                                                        if (metricA === 'sleep_hours') {
-                                                            if (metricB === 'productivity_level') {
-                                                                return isPositive; // Положительная корреляция = хорошо (больше продуктивности = больше сна)
-                                                            }
-                                                            if (metricB === 'stress_level') {
-                                                                return !isPositive; // Отрицательная корреляция = хорошо (меньше стресса = больше сна)
-                                                            }
-                                                            if (metricB === 'work_hours') {
-                                                                return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = больше сна)
-                                                            }
-                                                        }
-
-                                                        if (metricA === 'work_hours') {
-                                                            if (metricB === 'stress_level') {
-                                                                return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = меньше стресса)
-                                                            }
-                                                            if (metricB === 'sleep_hours') {
-                                                                return !isPositive; // Отрицательная корреляция = хорошо (меньше работы = больше сна)
-                                                            }
-                                                            if (metricB === 'productivity_level') {
-                                                                return isPositive; // Положительная корреляция = хорошо (больше работы = больше продуктивности)
-                                                            }
-                                                        }
-
-                                                        // По умолчанию считаем нейтральным
-                                                        return false;
-                                                    };
-
-                                                    // Подсчитываем хорошие и плохие корреляции (только сильные > 0.5)
-                                                    let goodCount = 0;
-                                                    let badCount = 0;
-
-                                                    (wellnessAnalytics?.correlations || []).forEach(corr => {
-                                                        const strength = Math.abs(corr.correlation);
-                                                        if (strength >= 0.5) {
-                                                            if (isGoodCorrelation(corr.metric_a, corr.metric_b, corr.correlation)) {
-                                                                goodCount++;
-                                                            } else {
-                                                                badCount++;
-                                                            }
-                                                        }
-                                                    });
-
-                                                    // Определяем цвет контейнера
-                                                    if (goodCount > badCount) {
-                                                        return 'border-[#22C55E]/50 bg-[#22C55E]/5'; // Зеленый - больше хороших корреляций
-                                                    } else if (badCount > goodCount) {
-                                                        return 'border-red-400/50 bg-red-400/5'; // Красный - больше плохих корреляций
-                                                    } else {
-                                                        return 'border-white/10 bg-[#1a1b2e]'; // Нейтральный - одинаково или слабые корреляции
-                                                    }
-                                                })()
-                                                : 'border-white/10 bg-[#1a1b2e]'
-                                                }`}>
+                                            <div className={`rounded-2xl border p-4 space-y-2 ${borderColor} ${bgColor}`}>
                                                 <h3 className="text-base font-semibold text-white">Wellness Correlations</h3>
                                                 {wellnessAnalytics?.correlations && wellnessAnalytics?.correlations.length > 0 ? (
                                                     <div className="space-y-1.5">

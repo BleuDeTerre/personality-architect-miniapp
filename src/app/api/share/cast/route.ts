@@ -150,6 +150,22 @@ export async function POST(req: NextRequest) {
 
         console.log('[Share Cast] Cast published successfully:', { hash, castUrl });
 
+        // Начисляем XP за публикацию каста (3 XP согласно квесту)
+        const XP_REWARD = 3;
+        const { error: xpError } = await supa
+            .from('xp_events')
+            .insert({
+                user_id: user.id,
+                event_type: 'share_cast',
+                xp_amount: XP_REWARD,
+                description: 'Cast published',
+                metadata: { kind, hash, castUrl },
+            });
+
+        if (xpError) {
+            console.error('[Share Cast] Failed to award XP:', xpError);
+        }
+
         await supa.from('events_log').insert({
             user_id: user.id,
             name: 'share_cast_published',
@@ -161,6 +177,7 @@ export async function POST(req: NextRequest) {
             castUrl,
             previewUrl: preview.toString(),
             targetUrl,
+            xpEarned: XP_REWARD,
         });
     } catch (error: any) {
         console.error('[Share Cast] Failed to publish cast:', {

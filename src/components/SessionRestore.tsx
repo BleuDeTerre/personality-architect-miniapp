@@ -130,13 +130,13 @@ export default function SessionRestore() {
         // Восстанавливаем сессию при возврате на вкладку
         const handleVisibilityChange = async () => {
             if (document.visibilityState === 'visible') {
-                // Небольшая задержка, чтобы дать браузеру время восстановить состояние
+                // Увеличиваем задержку, чтобы дать браузеру время восстановить localStorage и состояние
                 if (restoreTimeoutRef.current) {
                     clearTimeout(restoreTimeoutRef.current);
                 }
                 restoreTimeoutRef.current = setTimeout(() => {
                     restoreSession();
-                }, 100);
+                }, 300);
             }
         };
         
@@ -147,7 +147,7 @@ export default function SessionRestore() {
             }
             restoreTimeoutRef.current = setTimeout(() => {
                 restoreSession();
-            }, 100);
+            }, 300);
         };
         
         // Также слушаем изменения состояния авторизации Supabase
@@ -156,8 +156,10 @@ export default function SessionRestore() {
             
             if (event === 'SIGNED_OUT') {
                 console.log('[SessionRestore] User signed out, trying to restore...');
-                // Пробуем восстановить сразу, без задержки
-                await restoreFromFid();
+                // Небольшая задержка перед восстановлением, чтобы дать время браузеру восстановить localStorage
+                setTimeout(async () => {
+                    await restoreFromFid();
+                }, 200);
             } else if (event === 'TOKEN_REFRESHED') {
                 console.log('[SessionRestore] Token refreshed successfully');
             } else if (event === 'SIGNED_IN') {

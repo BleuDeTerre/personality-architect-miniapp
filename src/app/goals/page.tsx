@@ -677,6 +677,12 @@ export default function GoalsPage() {
                                 onChange={(e) => setTitle(e.target.value)}
                                 className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-[#8B5CF6]"
                                 required
+                                onInvalid={(e) => {
+                                    e.currentTarget.setCustomValidity('Please fill in this field.');
+                                }}
+                                onInput={(e) => {
+                                    e.currentTarget.setCustomValidity('');
+                                }}
                             />
                             {title && (
                                 <AIGoalBreakdown

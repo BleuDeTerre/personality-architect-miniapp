@@ -49,10 +49,10 @@ export async function GET(req: NextRequest) {
         }
 
         // Calculate averages
-        const validData = wellnessData.filter(d => 
-            d.stress_level !== null || 
-            d.productivity_level !== null || 
-            d.sleep_hours !== null || 
+        const validData = wellnessData.filter(d =>
+            d.stress_level !== null ||
+            d.productivity_level !== null ||
+            d.sleep_hours !== null ||
             d.work_hours !== null
         );
 
@@ -65,11 +65,16 @@ export async function GET(req: NextRequest) {
             });
         }
 
+        const stressCount = validData.filter(d => d.stress_level !== null).length;
+        const productivityCount = validData.filter(d => d.productivity_level !== null).length;
+        const sleepCount = validData.filter(d => d.sleep_hours !== null).length;
+        const workCount = validData.filter(d => d.work_hours !== null).length;
+
         const averages = {
-            stress_level: validData.reduce((sum, d) => sum + (d.stress_level || 0), 0) / validData.filter(d => d.stress_level !== null).length || 0,
-            productivity_level: validData.reduce((sum, d) => sum + (d.productivity_level || 0), 0) / validData.filter(d => d.productivity_level !== null).length || 0,
-            sleep_hours: validData.reduce((sum, d) => sum + (d.sleep_hours || 0), 0) / validData.filter(d => d.sleep_hours !== null).length || 0,
-            work_hours: validData.reduce((sum, d) => sum + (d.work_hours || 0), 0) / validData.filter(d => d.work_hours !== null).length || 0,
+            stress_level: stressCount > 0 ? validData.reduce((sum, d) => sum + (d.stress_level || 0), 0) / stressCount : 0,
+            productivity_level: productivityCount > 0 ? validData.reduce((sum, d) => sum + (d.productivity_level || 0), 0) / productivityCount : 0,
+            sleep_hours: sleepCount > 0 ? validData.reduce((sum, d) => sum + (d.sleep_hours || 0), 0) / sleepCount : 0,
+            work_hours: workCount > 0 ? validData.reduce((sum, d) => sum + (d.work_hours || 0), 0) / workCount : 0,
         };
 
         // Calculate trends (today vs yesterday)
@@ -111,7 +116,7 @@ export async function GET(req: NextRequest) {
             const changePercent = t.current !== null && t.previous !== null && t.previous !== 0
                 ? ((t.current - t.previous) / t.previous) * 100
                 : null;
-            
+
             // Determine trend (improving, declining, or stable if no change)
             let trend: 'improving' | 'declining' | 'stable' | null = null;
             if (change !== null) {
@@ -137,7 +142,7 @@ export async function GET(req: NextRequest) {
                 const last7Days = sortedData.slice(-7);
                 const avgValue = last7Days
                     .filter(d => d[t.metric as keyof typeof d] !== null)
-                    .reduce((sum, d) => sum + (Number(d[t.metric as keyof typeof d]) || 0), 0) / 
+                    .reduce((sum, d) => sum + (Number(d[t.metric as keyof typeof d]) || 0), 0) /
                     last7Days.filter(d => d[t.metric as keyof typeof d] !== null).length;
                 if (!isNaN(avgValue) && avgValue > 0) {
                     currentValue = avgValue;
@@ -268,20 +273,30 @@ export async function GET(req: NextRequest) {
 
         // Generate insights
         const insights: string[] = [];
-        
+
         if (trends[2].current !== null && trends[2].current < 7) {
             insights.push(`Your average sleep is ${trends[2].current.toFixed(1)} hours. Consider aiming for 7-8 hours for better productivity.`);
         }
-        
+
         if (trends[0].current !== null && trends[0].current > 7) {
             insights.push(`Your stress level is high (${trends[0].current.toFixed(1)}/10). Consider stress-reduction habits like meditation or exercise.`);
         }
-        
+
         if (trends[1].current !== null && trends[2].current !== null && trends[1].current > 6 && trends[2].current < 6) {
             insights.push(`You're productive but getting insufficient sleep. More sleep could boost your productivity even further.`);
         }
 
-        const strongCorrelation = correlations.find(c => Math.abs(c.correlation) > 0.6);
+        // Преобразуем habitCorrelations в формат { metric_a, metric_b, correlation }
+        const formattedHabitCorrelations = habitCorrelations.map(hc => ({
+            metric_a: hc.habit.toLowerCase().replace(/\s+/g, '_'),
+            metric_b: hc.metric,
+            correlation: hc.correlation,
+        }));
+
+        // Объединяем все корреляции в единый формат
+        const allCorrelations = [...correlations, ...formattedHabitCorrelations];
+
+        const strongCorrelation = allCorrelations.find(c => Math.abs(c.correlation) > 0.6);
         if (strongCorrelation) {
             const direction = strongCorrelation.correlation > 0 ? 'increases' : 'decreases';
             insights.push(`${strongCorrelation.metric_a.replace('_', ' ')} strongly ${direction} when ${strongCorrelation.metric_b.replace('_', ' ')} is higher.`);
@@ -290,7 +305,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({
             trends,
             averages,
-            correlations: [...correlations, ...habitCorrelations],
+            correlations: allCorrelations,
             insights,
             dataPoints: validData.length,
         });

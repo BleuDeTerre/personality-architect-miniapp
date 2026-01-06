@@ -85,12 +85,14 @@ export async function checkXPBonuses(
         totalXP += XP_REWARDS.bonus_all_habits;
     }
 
-    // 3. Проверка: недельный streak (7 дней)
-    const { data: streakData } = await supabase
-        .rpc('get_habit_streak', { p_user: userId })
-        .single();
+    // 3. Проверка: недельный streak (7 дней) для конкретной привычки
+    // Лог уже создан к моменту вызова этой функции, поэтому стрик уже обновлен
+    const { data: habitStreak } = await supabase
+        .rpc('habit_streak', { p_user: userId, p_habit: habitId });
 
-    const currentStreak = streakData?.current_streak || 0;
+    const currentStreak = (typeof habitStreak === 'number' ? habitStreak : 0) || 0;
+
+    // Начисляем бонус только на 7-й день конкретной привычки (7, 14, 21, 28 и т.д.)
     if (currentStreak > 0 && currentStreak % 7 === 0) {
         bonuses.push({
             type: 'bonus_weekly_streak',
@@ -99,6 +101,18 @@ export async function checkXPBonuses(
             metadata: { streak_days: currentStreak },
         });
         totalXP += XP_REWARDS.bonus_weekly_streak;
+    }
+
+    // 4. Проверка: месячный streak (30 дней) для конкретной привычки
+    // Начисляем бонус только на 30-й день конкретной привычки (30, 60, 90 и т.д.)
+    if (currentStreak > 0 && currentStreak % 30 === 0) {
+        bonuses.push({
+            type: 'bonus_monthly_streak',
+            xp: XP_REWARDS.bonus_monthly_streak,
+            description: `Monthly streak: ${currentStreak} days! 🎉`,
+            metadata: { streak_days: currentStreak },
+        });
+        totalXP += XP_REWARDS.bonus_monthly_streak;
     }
 
     return { bonuses, totalXP };

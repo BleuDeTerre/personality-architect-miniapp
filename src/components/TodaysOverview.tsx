@@ -24,10 +24,10 @@ export default function TodaysOverview() {
       <section className="mb-1.5">
         <div className="bg-[#1a1b2e] rounded-2xl p-2 sm:p-3 min-h-fit">
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-base font-semibold text-white">Today's Overview</h2>
+            <h2 className="text-base font-semibold text-white ml-0.5">Today's Overview</h2>
             <button
               onClick={() => setInsightModalOpen(true)}
-              className="rounded-2xl bg-[#1a1b2e] px-2.5 py-1.5 flex items-center gap-1.5 text-white hover:bg-[#252640] transition text-left border border-white/10"
+              className="rounded-2xl bg-[#1a1b2e] px-2.5 py-1.5 flex items-center gap-1.5 text-white hover:bg-[#252640] transition text-left border border-white/10 mr-0.5"
             >
               <IconDisplay emoji="💡" size="text-lg" />
               <span className="text-xs font-semibold">Insight</span>

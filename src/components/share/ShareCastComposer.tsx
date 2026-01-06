@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { SHARE_PREVIEW_VERSION } from "@/lib/sharePreviewVersion";
 import { useMiniApp } from '@neynar/react';
+import { supabase } from '@/lib/supabase';
+import CastSuccessModal from '@/components/CastSuccessModal';
 
 export type CastTemplate = {
     key: string;
@@ -33,12 +35,127 @@ export default function ShareCastComposer({
     const [selectedKey, setSelectedKey] = useState<string>(() => templates[0]?.key ?? "");
     const [origin, setOrigin] = useState<string>("");
     const [loading, setLoading] = useState(false);
+    const composerOpenedRef = useRef(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [xpEarned, setXpEarned] = useState(0);
 
     useEffect(() => {
         if (typeof window !== "undefined") {
             setOrigin(window.location.origin);
         }
     }, []);
+
+    // Восстанавливаем сессию и проверяем опубликованный каст при возврате из композера
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const restoreSessionAndCheckCast = async () => {
+            // Если композер был открыт и мы вернулись на вкладку
+            if (composerOpenedRef.current && document.visibilityState === 'visible') {
+                console.log('[ShareCastComposer] Restoring session after return from composer');
+
+                // Увеличиваем задержку для новой вкладки/страницы
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                try {
+                    // Проверяем текущую сессию
+                    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+                    if (sessionError || !session?.access_token) {
+                        console.log('[ShareCastComposer] Session lost, attempting restore...');
+
+                        // Пробуем получить FID из localStorage
+                        const savedFid = localStorage.getItem('user_fid');
+                        if (savedFid) {
+                            const fid = Number(savedFid);
+                            if (fid && !isNaN(fid)) {
+                                // Восстанавливаем сессию через API
+                                const res = await fetch('/api/auth/farcaster-login', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ fid }),
+                                });
+
+                                if (res.ok) {
+                                    const loginData = await res.json();
+                                    if (loginData.access_token) {
+                                        await supabase.auth.setSession({
+                                            access_token: loginData.access_token,
+                                            refresh_token: loginData.refresh_token || loginData.access_token,
+                                        });
+                                        console.log('[ShareCastComposer] Session restored successfully');
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        console.log('[ShareCastComposer] Session is still valid');
+                    }
+
+                    // Проверяем, был ли опубликован каст (проверяем последнее событие share_cast_published)
+                    // и начислен ли XP за него
+                    if (session?.access_token) {
+                        try {
+                            const headers = prepareHeaders ? await prepareHeaders() : {};
+                            const checkCastRes = await fetch('/api/share/check-recent-cast', {
+                                method: 'GET',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${session.access_token}`,
+                                    ...headers,
+                                },
+                            });
+
+                            if (checkCastRes.ok) {
+                                const castData = await checkCastRes.json();
+                                if (castData.recent && castData.xpEarned) {
+                                    // Показываем модальное окно успеха
+                                    setXpEarned(castData.xpEarned);
+                                    setShowSuccessModal(true);
+                                }
+                            }
+                        } catch (error) {
+                            console.warn('[ShareCastComposer] Failed to check recent cast:', error);
+                        }
+                    }
+                } catch (error) {
+                    console.error('[ShareCastComposer] Error restoring session:', error);
+                } finally {
+                    // Сбрасываем флаг после проверки
+                    composerOpenedRef.current = false;
+                }
+            }
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                // Увеличиваем задержку для новой вкладки/страницы
+                setTimeout(restoreSessionAndCheckCast, 500);
+            }
+        };
+
+        const handleFocus = () => {
+            setTimeout(restoreSessionAndCheckCast, 500);
+        };
+
+        // Также слушаем событие pageshow (когда страница загружается из кэша)
+        const handlePageShow = (e: PageTransitionEvent) => {
+            if (e.persisted) {
+                // Страница была загружена из кэша (back/forward navigation)
+                setTimeout(restoreSessionAndCheckCast, 500);
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleFocus);
+        window.addEventListener('pageshow', handlePageShow);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', handleFocus);
+            window.removeEventListener('pageshow', handlePageShow);
+        };
+    }, [prepareHeaders]);
 
     useEffect(() => {
         if (!templates.find(t => t.key === selectedKey) && templates.length > 0) {
@@ -51,8 +168,8 @@ export default function ShareCastComposer({
     const buildPreviewUrl = useCallback(
         (template?: CastTemplate | null) => {
             if (!origin || !template) return null;
-        const url = new URL(`${origin}/api/share/og`);
-        url.searchParams.set("rev", SHARE_PREVIEW_VERSION);
+            const url = new URL(`${origin}/api/share/og`);
+            url.searchParams.set("rev", SHARE_PREVIEW_VERSION);
 
             // Единая схема: передаем kind для всех категорий (для правильного определения цвета)
             if (template.kind) {
@@ -61,23 +178,95 @@ export default function ShareCastComposer({
 
             if (template.previewParams) {
                 Object.entries(template.previewParams).forEach(([key, value]) => {
-                if (value === undefined || value === null) return;
-                if (key === 'preset') {
-                    url.searchParams.set("variant", String(value));
+                    if (value === undefined || value === null) return;
+                    if (key === 'preset') {
+                        url.searchParams.set("variant", String(value));
                     } else if (key === 'kind') {
                         // Если kind есть в previewParams, перезаписываем (но обычно он в template.kind)
                         url.searchParams.set("kind", String(value));
-                } else {
-                    url.searchParams.set(key, String(value));
-                }
-            });
-        }
-        return url.toString();
+                    } else {
+                        url.searchParams.set(key, String(value));
+                    }
+                });
+            }
+            return url.toString();
         },
         [origin],
     );
 
     const ogImageUrl = useMemo(() => buildPreviewUrl(selected), [buildPreviewUrl, selected]);
+
+    async function publishCastDirectly(template: CastTemplate) {
+        if (!origin || !prepareHeaders) {
+            toast.error("Unable to publish cast", {
+                description: "Origin or headers not available",
+            });
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            const headers = await prepareHeaders();
+
+            // Строим preview URL для эмбеда
+            const previewUrl = buildPreviewUrl(template);
+            if (!previewUrl) {
+                throw new Error("Failed to build preview URL");
+            }
+
+            // Для Farcaster передаем HTML-страницу с OG-тегами
+            let embedUrl = previewUrl.replace('/api/share/og', '/api/share/preview');
+
+            // Добавляем targetPath в preview URL, если он указан
+            if (template.targetPath) {
+                const embedUrlObj = new URL(embedUrl);
+                embedUrlObj.searchParams.set('targetPath', template.targetPath);
+                embedUrl = embedUrlObj.toString();
+            }
+
+            // Публикуем каст через API
+            const res = await fetch('/api/share/cast', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...headers,
+                },
+                body: JSON.stringify({
+                    kind: template.kind,
+                    title: template.title,
+                    text: template.text,
+                    previewParams: template.previewParams,
+                    embedUrl,
+                    targetUrl: template.targetPath ? `${origin}${template.targetPath}` : undefined,
+                }),
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+                throw new Error(errorData.error || 'Failed to publish cast');
+            }
+
+            const data = await res.json();
+
+            // Показываем модальное окно успеха
+            if (data.xpEarned) {
+                setXpEarned(data.xpEarned);
+                setShowSuccessModal(true);
+            }
+
+            toast.success("Cast published successfully!", {
+                description: `+${data.xpEarned || 0} XP earned`,
+            });
+        } catch (error: any) {
+            console.error('[ShareCastComposer] Failed to publish cast:', error);
+            toast.error("Failed to publish cast", {
+                description: error?.message ?? "Unknown error",
+            });
+        } finally {
+            setLoading(false);
+        }
+    }
 
     function openComposer(template: CastTemplate) {
         if (!origin) {
@@ -98,7 +287,7 @@ export default function ShareCastComposer({
 
             // Для Farcaster передаем HTML-страницу с OG-тегами
             let embedUrl = previewUrl.replace('/api/share/og', '/api/share/preview');
-            
+
             // Добавляем targetPath в preview URL, если он указан
             if (template.targetPath) {
                 const embedUrlObj = new URL(embedUrl);
@@ -118,6 +307,9 @@ export default function ShareCastComposer({
                 text: template.text,
                 embedUrl,
             });
+
+            // Устанавливаем флаг, что композер был открыт
+            composerOpenedRef.current = true;
 
             // Открываем композер Farcaster
             if (actions?.openUrl) {
@@ -159,8 +351,14 @@ export default function ShareCastComposer({
 
     function handleShareRequest() {
         if (!selected) return;
-        // Всегда открываем композер Farcaster с готовым текстом и картинкой
-        openComposer(selected);
+
+        // Если publishMode === 'auto', публикуем напрямую через API
+        // Иначе открываем композер Warpcast
+        if (selected.publishMode === 'auto') {
+            publishCastDirectly(selected);
+        } else {
+            openComposer(selected);
+        }
     }
 
     if (templates.length === 0 || !selected) {
@@ -171,62 +369,70 @@ export default function ShareCastComposer({
     const maxLength = 320;
 
     return (
-        <div className="space-y-4">
-            {sectionTitle ? <h3 className="text-xl font-semibold text-white mb-4">{sectionTitle}</h3> : null}
-
-            {/* Template selection buttons */}
-            <div className="flex flex-wrap gap-2">
-                {templates.map(template => {
-                    const active = template.key === selected.key;
-                    return (
-                        <button
-                            key={template.key}
-                            onClick={() => setSelectedKey(template.key)}
-                            className={[
-                                "rounded-full px-3 py-2 text-sm font-medium transition",
-                                active
-                                    ? "bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white shadow-lg shadow-[#8B5CF6]/40"
-                                    : "border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/10",
-                            ].join(" ")}
-                        >
-                            {template.label ?? template.title}
-                        </button>
-                    );
-                })}
-            </div>
-
-            {/* Character counter and Share button */}
-            <div className="flex items-center justify-between">
-                <span className="text-sm text-white/60">
-                    {textLength} / {maxLength} characters
-                </span>
-                <button
-                    onClick={handleShareRequest}
-                    disabled={loading}
-                    className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-center text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40"
-                >
-                    {loading ? "Opening…" : "Share to Farcaster"}
-                </button>
-            </div>
-
-            {/* PREVIEW Section */}
-            {ogImageUrl && (
-                <div className="space-y-2">
-                    <p className="text-sm uppercase tracking-wide text-white/60">PREVIEW</p>
-                    <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
-                        <Image
-                            src={ogImageUrl}
-                            alt="Cast preview"
-                            width={600}
-                            height={315}
-                            className="w-full rounded-xl"
-                            unoptimized
-                        />
-                    </div>
-                </div>
+        <>
+            {showSuccessModal && (
+                <CastSuccessModal
+                    xpEarned={xpEarned}
+                    onClose={() => setShowSuccessModal(false)}
+                />
             )}
+            <div className="space-y-4">
+                {sectionTitle ? <h3 className="text-xl font-semibold text-white mb-4">{sectionTitle}</h3> : null}
 
-        </div>
+                {/* Template selection buttons */}
+                <div className="flex flex-wrap gap-2">
+                    {templates.map(template => {
+                        const active = template.key === selected.key;
+                        return (
+                            <button
+                                key={template.key}
+                                onClick={() => setSelectedKey(template.key)}
+                                className={[
+                                    "rounded-full px-3 py-2 text-sm font-medium transition",
+                                    active
+                                        ? "bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white shadow-lg shadow-[#8B5CF6]/40"
+                                        : "border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/10",
+                                ].join(" ")}
+                            >
+                                {template.label ?? template.title}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Character counter and Share button */}
+                <div className="flex items-center justify-between">
+                    <span className="text-sm text-white/60">
+                        {textLength} / {maxLength} characters
+                    </span>
+                    <button
+                        onClick={handleShareRequest}
+                        disabled={loading}
+                        className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-center text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40"
+                    >
+                        {loading ? "Opening…" : "Share to Farcaster"}
+                    </button>
+                </div>
+
+                {/* PREVIEW Section */}
+                {ogImageUrl && (
+                    <div className="space-y-2">
+                        <p className="text-sm uppercase tracking-wide text-white/60">PREVIEW</p>
+                        <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
+                            <Image
+                                src={ogImageUrl}
+                                alt="Cast preview"
+                                width={600}
+                                height={315}
+                                className="w-full rounded-xl"
+                                unoptimized
+                            />
+                        </div>
+                    </div>
+                )}
+
+            </div>
+        </>
     );
 }
 
