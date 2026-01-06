@@ -1788,9 +1788,9 @@ export default function AnalyticsPage() {
                             </section>
 
                             {/* Wellness Analytics */}
-                            {wellnessAnalytics && wellnessAnalytics.dataPoints > 0 && (() => {
-                                const optimalCount = wellnessAnalytics.trends?.filter(t => t.status === 'optimal').length || 0;
-                                const totalCount = wellnessAnalytics.trends?.filter(t => t.current !== null).length || 0;
+                            {wellnessAnalytics && wellnessAnalytics?.dataPoints > 0 && (() => {
+                                const optimalCount = wellnessAnalytics?.trends?.filter(t => t.status === 'optimal').length || 0;
+                                const totalCount = wellnessAnalytics?.trends?.filter(t => t.current !== null).length || 0;
                                 
                                 let borderColor = 'border-white/10';
                                 let bgColor = 'bg-[#1a1b2e]';
@@ -1842,7 +1842,7 @@ export default function AnalyticsPage() {
                                         {wellnessTab === 'deepdive' && (
                                             <div className={`rounded-2xl border p-4 space-y-2 ${borderColor} ${bgColor}`}>
                                                 <h3 className="text-base font-semibold text-white">Wellness Deep Dive</h3>
-                                                {wellnessAnalytics?.trends && wellnessAnalytics.trends.length > 0 ? (
+                                                {wellnessAnalytics?.trends && wellnessAnalytics?.trends.length > 0 ? (
                                                     <div className="space-y-2 text-sm">
                                                         {(wellnessAnalytics?.trends || []).map((trend) => {
                                                             if (trend.current === null) return null;
@@ -1911,7 +1911,7 @@ export default function AnalyticsPage() {
                                         )}
                                         
                                         {wellnessTab === 'correlations' && (
-                                            <div className={`rounded-2xl border p-4 space-y-2 ${wellnessAnalytics?.correlations && wellnessAnalytics.correlations.length > 0
+                                            <div className={`rounded-2xl border p-4 space-y-2 ${wellnessAnalytics?.correlations && wellnessAnalytics?.correlations.length > 0
                                                 ? (() => {
                                                     // Определяем, является ли корреляция "хорошей" или "плохой"
                                                     const isGoodCorrelation = (metricA: string, metricB: string, correlation: number): boolean => {
@@ -1998,7 +1998,7 @@ export default function AnalyticsPage() {
                                                 : 'border-white/10 bg-[#1a1b2e]'
                                                 }`}>
                                                 <h3 className="text-base font-semibold text-white">Wellness Correlations</h3>
-                                                {wellnessAnalytics?.correlations && wellnessAnalytics.correlations.length > 0 ? (
+                                                {wellnessAnalytics?.correlations && wellnessAnalytics?.correlations.length > 0 ? (
                                                     <div className="space-y-1.5">
                                                         {(wellnessAnalytics?.correlations || []).slice(0, 3).map((corr, idx) => {
                                                             const strength = Math.abs(corr.correlation);
@@ -2015,7 +2015,7 @@ export default function AnalyticsPage() {
                                                     </div>
                                                 ) : (
                                                     <p className="text-xs text-white/60 leading-snug">
-                                                        {wellnessAnalytics?.dataPoints && wellnessAnalytics.dataPoints < 5 
+                                                        {wellnessAnalytics?.dataPoints && wellnessAnalytics?.dataPoints < 5 
                                                             ? `Need at least 5 data points to calculate correlations (currently ${wellnessAnalytics?.dataPoints || 0})`
                                                             : 'No significant correlations found yet. Keep tracking your wellness metrics!'}
                                                     </p>
