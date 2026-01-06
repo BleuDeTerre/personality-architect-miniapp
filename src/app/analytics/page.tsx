@@ -7,6 +7,7 @@ import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCa
 import MiniAppPage from '@/components/MiniAppPage';
 import CollapsibleCard from '@/components/CollapsibleCard';
 import { getRandomVariant, weeklySummaryTexts, topHabitTexts } from '@/lib/castTextVariants';
+import { IconDisplay } from '@/lib/iconMapper';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -324,6 +325,90 @@ function SparklineChartV3({ data, maxStreak }: { data: TrendPoint[]; maxStreak: 
                     <span key={idx}>{date ? formatChartDate(date) : ''}</span>
                 ))}
             </div>
+        </div>
+    );
+}
+
+// Pie Chart Component for Goal Status Distribution
+function GoalStatusPieChart({ 
+    active, 
+    completed, 
+    paused, 
+    total 
+}: { 
+    active: number; 
+    completed: number; 
+    paused: number; 
+    total: number;
+}) {
+    const size = 100;
+    const radius = 40;
+    const centerX = size / 2;
+    const centerY = size / 2;
+    const strokeWidth = 3;
+
+    if (total === 0) {
+        return (
+            <div className="flex items-center justify-center h-full text-white/40 text-xs">
+                No data
+            </div>
+        );
+    }
+
+    // Colors
+    const activeColor = '#8B5CF6'; // Purple
+    const completedColor = '#22C55E'; // Green
+    const pausedColor = '#F59E0B'; // Amber
+
+    // Calculate angles for each segment (in radians, starting from top)
+    const activeAngle = (active / total) * 2 * Math.PI;
+    const completedAngle = (completed / total) * 2 * Math.PI;
+    const pausedAngle = (paused / total) * 2 * Math.PI;
+
+    // Helper to create arc path
+    const createArc = (startAngle: number, endAngle: number, color: string, index: number) => {
+        // Start from top (subtract Math.PI/2 to rotate 90 degrees)
+        const startX = centerX + radius * Math.cos(startAngle - Math.PI / 2);
+        const startY = centerY + radius * Math.sin(startAngle - Math.PI / 2);
+        const endX = centerX + radius * Math.cos(endAngle - Math.PI / 2);
+        const endY = centerY + radius * Math.sin(endAngle - Math.PI / 2);
+        const largeArcFlag = endAngle - startAngle > Math.PI ? 1 : 0;
+
+        const path = `M ${centerX} ${centerY} L ${startX} ${startY} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
+        
+        return (
+            <path
+                key={index}
+                d={path}
+                fill={color}
+                stroke="#1a1b2e"
+                strokeWidth={strokeWidth}
+                opacity={0.85}
+            />
+        );
+    };
+
+    let currentAngle = 0;
+    const segments = [];
+
+    // Add segments in order: active, completed, paused
+    if (active > 0) {
+        segments.push(createArc(currentAngle, currentAngle + activeAngle, activeColor, 0));
+        currentAngle += activeAngle;
+    }
+    if (completed > 0) {
+        segments.push(createArc(currentAngle, currentAngle + completedAngle, completedColor, 1));
+        currentAngle += completedAngle;
+    }
+    if (paused > 0) {
+        segments.push(createArc(currentAngle, currentAngle + pausedAngle, pausedColor, 2));
+    }
+
+    return (
+        <div className="flex items-center justify-center flex-shrink-0">
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-sm">
+                {segments}
+            </svg>
         </div>
     );
 }
@@ -974,6 +1059,73 @@ export default function AnalyticsPage() {
         };
     }, [goals, activeGoals]);
 
+    // Goal Status Distribution: распределение целей по статусам
+    const goalStatusDistribution = useMemo(() => {
+        if (goals.length === 0) return null;
+
+        const statusCounts = {
+            active: goals.filter(g => g.status === 'active').length,
+            completed: goals.filter(g => g.status === 'completed').length,
+            paused: goals.filter(g => g.status === 'paused').length,
+        };
+
+        const total = goals.length;
+        const percentages = {
+            active: (statusCounts.active / total) * 100,
+            completed: (statusCounts.completed / total) * 100,
+            paused: (statusCounts.paused / total) * 100,
+        };
+
+        // Тренд изменения статусов (на основе created_at для анализа динамики)
+        const now = new Date();
+        const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+        // Цели, созданные в последние 30 дней
+        const recentGoals = goals.filter(g => {
+            if (!g.created_at) return false;
+            const created = new Date(g.created_at);
+            return created >= last30Days;
+        });
+
+        // Завершенные цели в последние 7 дней (если есть дата завершения, иначе используем created_at для completed)
+        const recentlyCompleted = goals.filter(g => {
+            if (g.status !== 'completed' || !g.created_at) return false;
+            // Если нет отдельного поля даты завершения, используем created_at как приближение
+            // В реальности нужно было бы добавить completed_at поле
+            const created = new Date(g.created_at);
+            return created >= last7Days;
+        });
+
+        // Тренд: больше активных = хорошо, больше завершенных = отлично
+        let trend: 'up' | 'down' | 'stable' = 'stable';
+        let trendMessage = '';
+        
+        if (recentlyCompleted.length > 0) {
+            trend = 'up';
+            trendMessage = `${recentlyCompleted.length} completed recently`;
+        } else if (recentGoals.length > 0 && statusCounts.active > statusCounts.completed) {
+            trend = 'up';
+            trendMessage = `${recentGoals.length} new goals`;
+        } else if (statusCounts.completed > statusCounts.active) {
+            trend = 'up';
+            trendMessage = 'More completed than active';
+        } else if (statusCounts.paused > statusCounts.active) {
+            trend = 'down';
+            trendMessage = 'Many paused goals';
+        }
+
+        return {
+            counts: statusCounts,
+            percentages,
+            total,
+            trend,
+            trendMessage,
+            recentCompleted: recentlyCompleted.length,
+            recentCreated: recentGoals.length,
+        };
+    }, [goals]);
+
     const topWheelDeltas = useMemo(() => {
         return wheelTrends
             .filter(t => t.delta4 !== null && t.delta4 > 0)
@@ -1391,7 +1543,7 @@ export default function AnalyticsPage() {
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4">
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-1.5">Advanced Analytics</h1>
                     <p className="text-sm text-white/70">
-                        First wave of dashboards arrives here. Core metrics show up as soon as we collect enough data. Below that - the roadmap of smarter insights we&apos;re building next.
+                        Deep insights into your progress patterns. Core metrics appear as we collect enough data.
                     </p>
                 </section>
 
@@ -1422,7 +1574,7 @@ export default function AnalyticsPage() {
                             {/* Performance Dashboard - объединенные Core Metrics */}
                             <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-4 space-y-4">
                                 <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                                    <span>📊</span>
+                                    <IconDisplay emoji="📊" size="text-xl" />
                                     <span className="bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Performance Dashboard</span>
                                 </h2>
                                 <div className="grid grid-cols-2 gap-3">
@@ -1559,6 +1711,76 @@ export default function AnalyticsPage() {
                                     </div>
                                     <p className="text-xs text-white/70 leading-snug" title="Peak day shows the day of week with most completions. Time shows average completion time.">
                                         Typical time of day you complete habits.
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Goal Status Distribution */}
+                            {goalStatusDistribution && (
+                                <div className={`rounded-2xl border p-4 space-y-3 col-span-2 ${goalStatusDistribution.trend === 'up' 
+                                    ? 'border-[#22C55E]/50 bg-[#22C55E]/5'
+                                    : goalStatusDistribution.trend === 'down'
+                                        ? 'border-yellow-400/50 bg-yellow-400/5'
+                                        : 'border-white/10 bg-[#1a1b2e]'
+                                }`}>
+                                    <div className="flex items-center justify-between flex-wrap gap-2">
+                                        <h3 className="text-sm font-semibold text-white">Goal Status Distribution</h3>
+                                        {goalStatusDistribution.trendMessage && (
+                                            <span className={`text-xs font-medium whitespace-nowrap ${
+                                                goalStatusDistribution.trend === 'up' ? 'text-[#22C55E]' 
+                                                : goalStatusDistribution.trend === 'down' ? 'text-yellow-400'
+                                                : 'text-white/60'
+                                            }`}>
+                                                {goalStatusDistribution.trend === 'up' ? '↑' : goalStatusDistribution.trend === 'down' ? '↓' : '→'} {goalStatusDistribution.trendMessage}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
+                                        <div className="flex-shrink-0 mx-auto sm:mx-0">
+                                            <GoalStatusPieChart
+                                                active={goalStatusDistribution.counts.active}
+                                                completed={goalStatusDistribution.counts.completed}
+                                                paused={goalStatusDistribution.counts.paused}
+                                                total={goalStatusDistribution.total}
+                                            />
+                                        </div>
+                                        <div className="flex-1 space-y-2 min-w-0">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-full bg-[#8B5CF6] flex-shrink-0"></div>
+                                                    <span className="text-sm text-white/80">Active</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <span className="text-sm font-semibold text-[#8B5CF6]">{goalStatusDistribution.counts.active}</span>
+                                                    <span className="text-xs text-white/60">({goalStatusDistribution.percentages.active.toFixed(0)}%)</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-full bg-[#22C55E] flex-shrink-0"></div>
+                                                    <span className="text-sm text-white/80">Completed</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <span className="text-sm font-semibold text-[#22C55E]">{goalStatusDistribution.counts.completed}</span>
+                                                    <span className="text-xs text-white/60">({goalStatusDistribution.percentages.completed.toFixed(0)}%)</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-full bg-[#F59E0B] flex-shrink-0"></div>
+                                                    <span className="text-sm text-white/80">Paused</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <span className="text-sm font-semibold text-[#F59E0B]">{goalStatusDistribution.counts.paused}</span>
+                                                    <span className="text-xs text-white/60">({goalStatusDistribution.percentages.paused.toFixed(0)}%)</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-white/70 leading-snug" title="Distribution of goals by status. Trend shows recent activity.">
+                                        {goalStatusDistribution.recentCompleted > 0 && `${goalStatusDistribution.recentCompleted} completed recently. `}
+                                        {goalStatusDistribution.recentCreated > 0 && `${goalStatusDistribution.recentCreated} created in last 30 days. `}
+                                        {goalStatusDistribution.recentCompleted === 0 && goalStatusDistribution.recentCreated === 0 && 'Track your goals to see trends.'}
                                     </p>
                                 </div>
                             )}
@@ -1860,8 +2082,9 @@ export default function AnalyticsPage() {
                                         ? 'bg-red-400/20 border border-red-400/50'
                                         : 'border border-white/10 bg-[#1a1b2e]'
                                     }`}>
-                                    <p className="text-sm font-semibold text-white mb-0.5">
-                                        {comparative.comparison.message} {comparative.comparison.trend === 'up' ? '🔥' : ''}
+                                    <p className="text-sm font-semibold text-white mb-0.5 flex items-center gap-1">
+                                        <span>{comparative.comparison.message}</span>
+                                        {comparative.comparison.trend === 'up' && <IconDisplay emoji="🔥" size="text-sm" color="text-orange-400" />}
                                     </p>
                                     <p className="text-xs text-white/70">
                                         {comparative.comparison.percent_change > 0 ? '+' : ''}{comparative.comparison.percent_change}% change
