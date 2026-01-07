@@ -798,45 +798,45 @@ export default function WheelPage() {
             });
         }
 
-        // Wheel shift - если есть положительные изменения
-        if (wheelTopShift && wheelTopShift.delta4 !== null && wheelTopShift.delta4 !== undefined) {
-            const delta4Value = wheelTopShift.delta4;
-            templates.push({
-                key: `wheel-shift-${wheelTopShift.area}`,
-                label: `Wheel shift: ${wheelTopShift.area}`,
-                title: 'Wheel of Life Shift',
-                kind: 'wheel',
-                text: getRandomVariant(wheelShiftTexts(wheelTopShift.area, delta4Value)),
-                previewParams: {
-                    variant: 'wheel:shift',
-                    area: wheelTopShift.area,
-                    delta: delta4Value > 0 ? `+${delta4Value.toFixed(1)}` : delta4Value.toFixed(1),
-                    current: wheelTopShift.last.toFixed(1),
-                },
-                targetPath: '/wheel',
-            });
-        }
+        // Wheel shift - скрыт из UI по запросу (код оставлен для возможного возврата)
+        // if (wheelTopShift && wheelTopShift.delta4 !== null && wheelTopShift.delta4 !== undefined) {
+        //     const delta4Value = wheelTopShift.delta4;
+        //     templates.push({
+        //         key: `wheel-shift-${wheelTopShift.area}`,
+        //         label: `Wheel shift: ${wheelTopShift.area}`,
+        //         title: 'Wheel of Life Shift',
+        //         kind: 'wheel',
+        //         text: getRandomVariant(wheelShiftTexts(wheelTopShift.area, delta4Value)),
+        //         previewParams: {
+        //             variant: 'wheel:shift',
+        //             area: wheelTopShift.area,
+        //             delta: delta4Value > 0 ? `+${delta4Value.toFixed(1)}` : delta4Value.toFixed(1),
+        //             current: wheelTopShift.last.toFixed(1),
+        //         },
+        //         targetPath: '/wheel',
+        //     });
+        // }
 
-        // Wheel spotlight - если есть данные trends
-        if (trends.length > 0 && avg > 0) {
-            const topAreaName = wheelTopAreas[0]?.area ?? topArea?.area ?? 'Top area';
-            const weakAreaName = wheelWeakestArea?.area ?? weakArea?.area ?? 'Focus area';
-            templates.push({
-                key: 'wheel-spotlight',
-                label: `Wheel spotlight (${avg.toFixed(1)}/10)`,
-                title: 'Wheel Spotlight',
-                kind: 'wheel',
-                text: getRandomVariant(wheelSpotlightTexts(avg, topAreaName, weakAreaName)),
-                previewParams: {
-                    variant: 'wheel:spotlight',
-                    avg: avg.toFixed(1),
-                    focus: weakAreaName,
-                    top: topAreaName,
-                    low: weakAreaName,
-                },
-                targetPath: '/wheel',
-            });
-        }
+        // Скрыто: Wheel spotlight - дублирует Wheel Snapshot
+        // if (trends.length > 0 && avg > 0) {
+        //     const topAreaName = wheelTopAreas[0]?.area ?? topArea?.area ?? 'Top area';
+        //     const weakAreaName = wheelWeakestArea?.area ?? weakArea?.area ?? 'Focus area';
+        //     templates.push({
+        //         key: 'wheel-spotlight',
+        //         label: `Wheel spotlight (${avg.toFixed(1)}/10)`,
+        //         title: 'Wheel Spotlight',
+        //         kind: 'wheel',
+        //         text: getRandomVariant(wheelSpotlightTexts(avg, topAreaName, weakAreaName)),
+        //         previewParams: {
+        //             variant: 'wheel:spotlight',
+        //             avg: avg.toFixed(1),
+        //             focus: weakAreaName,
+        //             top: topAreaName,
+        //             low: weakAreaName,
+        //         },
+        //         targetPath: '/wheel',
+        //     });
+        // }
 
         return templates;
     }, [avg, items, topArea, weakArea, trends, wheelTopShift, wheelTopAreas, wheelWeakestArea]);

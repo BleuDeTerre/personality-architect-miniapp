@@ -119,10 +119,10 @@ export async function GET(req: NextRequest) {
                 percent_change: percentChange,
                 trend: percentChange > 0 ? 'up' : percentChange < 0 ? 'down' : 'stable',
                 message: percentChange > 0
-                    ? `You're ${Math.abs(percentChange)}% better this week! 🔥`
+                    ? `I'm ${Math.abs(percentChange)}% better this week! 🔥`
                     : percentChange < 0
-                        ? `You're ${Math.abs(percentChange)}% down this week. Keep going! 💪`
-                        : "You're maintaining consistency! ✨",
+                        ? `I'm ${Math.abs(percentChange)}% down this week. Keep going! 💪`
+                        : "I'm maintaining consistency! ✨",
             },
         };
 

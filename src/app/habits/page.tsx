@@ -857,27 +857,27 @@ export default function HabitsPage() {
     const habitShareTemplates = useMemo<CastTemplate[]>(() => {
         const templates: CastTemplate[] = [];
 
-        // Top habit by streak
-        const topHabit = [...habits]
-            .filter(h => h.streak && h.streak > 0)
-            .sort((a, b) => (b.streak || 0) - (a.streak || 0))[0];
+        // Скрыто: Habit Streak Highlight - дублирует Habit Streak
+        // const topHabit = [...habits]
+        //     .filter(h => h.streak && h.streak > 0)
+        //     .sort((a, b) => (b.streak || 0) - (a.streak || 0))[0];
 
-        if (topHabit && topHabit.streak && topHabit.streak > 0) {
-            const habitTitle = topHabit.title.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim();
-            templates.push({
-                key: `top-streak-${topHabit.id}`,
-                label: `Top streak: ${habitTitle} (${topHabit.streak}d)`,
-                title: 'Habit Streak Highlight',
-                kind: 'habits',
-                text: getRandomVariant(topStreakHabitTexts(topHabit.title, topHabit.streak)),
-                previewParams: {
-                    variant: 'streaks:current',
-                    current: String(topHabit.streak),
-                    description: `${habitTitle} streak`,
-                },
-                targetPath: '/habits',
-            });
-        }
+        // if (topHabit && topHabit.streak && topHabit.streak > 0) {
+        //     const habitTitle = topHabit.title.replace(/^\p{Emoji_Presentation}|\p{Emoji}\uFE0F?\s*/u, '').trim();
+        //     templates.push({
+        //         key: `top-streak-${topHabit.id}`,
+        //         label: `Top streak: ${habitTitle} (${topHabit.streak}d)`,
+        //         title: 'Habit Streak Highlight',
+        //         kind: 'habits',
+        //         text: getRandomVariant(topStreakHabitTexts(topHabit.title, topHabit.streak)),
+        //         previewParams: {
+        //             variant: 'streaks:current',
+        //             current: String(topHabit.streak),
+        //             description: `${habitTitle} streak`,
+        //         },
+        //         targetPath: '/habits',
+        //     });
+        // }
 
         // Total habits count
         if (habits.length > 0) {

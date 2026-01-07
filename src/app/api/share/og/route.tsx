@@ -334,8 +334,8 @@ function resolveCard(params: URLSearchParams) {
       const message = params.get('msg') || params.get('summary') || 'Week summary';
       const emoji =
         trend === 'up' ? '📈' :
-        trend === 'down' ? '📉' :
-        '📊';
+          trend === 'down' ? '📉' :
+            '📊';
       return {
         title: 'Weekly Habit Summary',
         subtitle: message,
@@ -404,7 +404,7 @@ function resolveCard(params: URLSearchParams) {
         value: `Avg: ${avg}`,
         label: 'AVERAGE SCORE',
         icon: '🎡',
-};
+      };
     }
     if (variant === 'wheel:shift') {
       const area = params.get('area') || 'Area';
@@ -514,7 +514,7 @@ function resolveCard(params: URLSearchParams) {
       };
     }
   }
-  
+
   const fallbackValue = params.get('value') || params.get('statValue') || '0';
   const fallbackTitle = params.get('title') || 'Personality Architect';
   return {
@@ -534,7 +534,7 @@ export async function GET(req: NextRequest) {
   // Определяем variant
   const variant = (params.get('variant') || params.get('preset') || params.get('kind') || '').toLowerCase().trim();
   const finalVariant = variant || 'default';
-  
+
   // Логирование для отладки
   console.log('[OG Image] Resolved card:', {
     title: card.title,
@@ -561,14 +561,24 @@ export async function GET(req: NextRequest) {
   const wheelCategories: Array<{ name: string; score: number; color: string }> = [];
   if (finalVariant === 'wheel:snapshot' && params.has('scores')) {
     const scoresParam = params.get('scores') || '';
+    console.log('[OG Image] Wheel Snapshot - scores param:', {
+      hasScores: params.has('scores'),
+      scoresLength: scoresParam.length,
+      scoresValue: scoresParam,
+      variant: finalVariant,
+    });
     if (scoresParam.length === 10) {
       const scores = decodeWheelScores(scoresParam);
+      console.log('[OG Image] Wheel Snapshot - decoded scores:', scores);
       for (let i = 0; i < 10; i++) {
         const areaName = WHEEL_AREAS_ORDER[i];
         const score = scores[i];
         const color = WHEEL_AREAS_COLORS[areaName] || PRIMARY_COLOR;
         wheelCategories.push({ name: areaName, score, color });
       }
+      console.log('[OG Image] Wheel Snapshot - categories:', wheelCategories.length);
+    } else {
+      console.warn('[OG Image] Wheel Snapshot - invalid scores length:', scoresParam.length);
     }
   }
 
@@ -576,9 +586,67 @@ export async function GET(req: NextRequest) {
   // ВАЖНО: для habits с variant streaks:current НЕ считаем это streaks
   const isHabitsWithStreaksVariant = kind === 'habits' && finalVariant.startsWith('streaks');
   const isWheelSnapshot = finalVariant === 'wheel:snapshot';
+  const isWheelFocus = finalVariant === 'wheel:focus';
   const isAnalyticsWeekly = finalVariant === 'analytics:weekly' || finalVariant === 'analytics:weekly-summary';
+
+  // Wheel Focus: данные для сравнения
+  const focusAreaScore = isWheelFocus ? formatNumber(params.get('score')) : 0;
+  const focusAreaAvg = isWheelFocus ? formatNumber(params.get('avg')) : 0;
+  const focusAreaName = isWheelFocus ? (params.get('a') || params.get('area') || 'Area') : '';
+  const isAnalyticsBadgeProgress = finalVariant === 'analytics:badge-progress';
+  const isAnalyticsStreakSignal = finalVariant === 'analytics:streak-signal';
+  const isAnalyticsGoalPulse = finalVariant === 'analytics:goal-pulse';
+  const isAnalyticsTopHabit = finalVariant === 'analytics:top-habit';
+  const isAnalyticsWheelShift = finalVariant === 'analytics:wheel-shift';
+  const isAnalyticsWheelSpotlight = finalVariant === 'analytics:wheel-spotlight';
   const isStreaksVariant = finalVariant.startsWith('streaks') && !isHabitsWithStreaksVariant;
+  const isStreaksGoal = finalVariant.startsWith('streaks:goal');
   const isGoalsProgressVariant = finalVariant === 'goals:progress' || finalVariant === 'goals';
+  const isGoalsCompleted = finalVariant === 'goals:completed';
+  const isGoalsUpcoming = finalVariant === 'goals:upcoming';
+  const isQuestsVariant = finalVariant.startsWith('quests');
+
+  // Quests: данные для прогресс-баров по типам
+  const questsDaily = isQuestsVariant ? formatNumber(params.get('daily')) : 0;
+  const questsWeekly = isQuestsVariant ? formatNumber(params.get('weekly')) : 0;
+  const questsMonthly = isQuestsVariant ? formatNumber(params.get('monthly')) : 0;
+  const questsTotal = questsDaily + questsWeekly + questsMonthly;
+
+  // Top Habit: данные для статистики
+  const topHabitName = isAnalyticsTopHabit ? (params.get('habit') || 'Top habit') : '';
+  const topHabitCount = isAnalyticsTopHabit ? formatNumber(params.get('count')) : 0;
+  const topHabitTotal = isAnalyticsTopHabit ? formatNumber(params.get('total')) : 0;
+  const topHabitPercentage = topHabitTotal > 0 ? (topHabitCount / topHabitTotal) * 100 : 0;
+
+  // Goals Completed: данные для прогресса
+  const goalsCompletedCount = isGoalsCompleted ? formatNumber(params.get('completed')) : 0;
+  const goalsTotalForCompleted = isGoalsCompleted ? formatNumber(params.get('total')) || goalsCompletedCount : 0;
+  const goalsActiveForCompleted = isGoalsCompleted ? formatNumber(params.get('active')) : 0;
+
+  // Goals Upcoming: данные для прогресс-бара до дедлайна
+  const upcomingGoalDays = isGoalsUpcoming ? formatNumber(params.get('days')) : 0;
+  const upcomingGoalTotalDays = isGoalsUpcoming ? formatNumber(params.get('totalDays')) || 30 : 30; // По умолчанию 30 дней
+  const upcomingGoalProgressRatio = upcomingGoalTotalDays > 0 ? Math.max(0, Math.min(1, (upcomingGoalTotalDays - upcomingGoalDays) / upcomingGoalTotalDays)) : 0;
+
+  // Next Badge: данные для прогресс-бара
+  const nextBadgeDays = isStreaksGoal ? formatNumber(params.get('next')) : 0;
+  const currentStreakForBadge = isStreaksGoal ? formatNumber(params.get('current')) : 0;
+  const badgeTarget = nextBadgeDays > 0 ? currentStreakForBadge + nextBadgeDays : 0;
+  const badgeProgressRatio = badgeTarget > 0 ? currentStreakForBadge / badgeTarget : 0;
+
+  // Analytics: прогресс до бейджа
+  const badgeProgress = isAnalyticsBadgeProgress ? formatNumber(params.get('progress')) : 0;
+
+  // Weekly Analytics: вычисления вынесены для Edge runtime
+  const thisWeek = isAnalyticsWeekly ? formatNumber(params.get('tw')) : 0;
+  const lastWeek = isAnalyticsWeekly ? formatNumber(params.get('lw')) : 0;
+  const trend = isAnalyticsWeekly ? (params.get('trend') || '') : '';
+  const weeklyMax = Math.max(thisWeek, lastWeek, 1);
+  const thisRatio = weeklyMax > 0 ? thisWeek / weeklyMax : 0;
+  const lastRatio = weeklyMax > 0 ? lastWeek / weeklyMax : 0;
+  const trendColor = trend === 'up' ? '#22c55e' : trend === 'down' ? '#ef4444' : '#94a3b8';
+  const trendArrow = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→';
+  const trendText = trend === 'up' ? 'Up vs last week' : trend === 'down' ? 'Down vs last week' : 'Flat vs last week';
 
   // Колесо: градиент для 10 секторов и топ/слабые области
   let wheelGradient = '';
@@ -602,12 +670,12 @@ export async function GET(req: NextRequest) {
   // Для habits с streaks:current тоже нужно получить данные, но не показывать прогресс-бары
   const currentStreak = (isStreaksVariant || isHabitsWithStreaksVariant) ? formatNumber(params.get('current')) : 0;
   const bestStreak = isStreaksVariant ? formatNumber(params.get('best')) : 0;
-  const nextBadgeDays = isStreaksVariant ? formatNumber(params.get('next')) : 0;
+  const nextBadgeDaysForStreaks = isStreaksVariant ? formatNumber(params.get('next')) : 0;
   const streakMaxForComparison = Math.max(currentStreak, bestStreak, 1);
-  const streakMaxForBadge = currentStreak + nextBadgeDays > 0 ? currentStreak + nextBadgeDays : currentStreak || 1;
+  const streakMaxForBadge = currentStreak + nextBadgeDaysForStreaks > 0 ? currentStreak + nextBadgeDaysForStreaks : currentStreak || 1;
   const currentStreakRatio = streakMaxForComparison > 0 ? currentStreak / streakMaxForComparison : 0;
   const bestStreakRatio = streakMaxForComparison > 0 ? bestStreak / streakMaxForComparison : 0;
-  const badgeProgressRatio =
+  const badgeProgressRatioForStreaks =
     streakMaxForBadge > 0 ? currentStreak / streakMaxForBadge : 0;
 
   // Goals: прогресс по активным/завершенным целям
@@ -617,10 +685,10 @@ export async function GET(req: NextRequest) {
   const goalsProgressRatio =
     goalsTotal > 0 ? goalsCompleted / goalsTotal : 0;
 
-    return new ImageResponse(
-        (
-            <div
-                style={{
+  return new ImageResponse(
+    (
+      <div
+        style={{
           width: '100%',
           height: '100%',
           display: 'flex',
@@ -630,23 +698,6 @@ export async function GET(req: NextRequest) {
           position: 'relative',
         }}
       >
-            {/* Декоративные паттерны на фоне */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                opacity: 0.03,
-                pointerEvents: 'none',
-                background: finalVariant.startsWith('analytics') || finalVariant.startsWith('streaks')
-                  ? 'repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(255,255,255,0.1) 20px, rgba(255,255,255,0.1) 40px)'
-                  : finalVariant.startsWith('wheel')
-                  ? 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05) 0%, transparent 70%)'
-                  : 'transparent',
-              }}
-            />
         {/* Заголовок сверху слева */}
         <div
           style={{
@@ -670,8 +721,8 @@ export async function GET(req: NextRequest) {
             }}
           >
             {(card as any).icon && (
-              <span 
-                style={{ 
+              <span
+                style={{
                   fontSize: 48,
                   filter: `drop-shadow(0 0 12px ${PRIMARY_COLOR}40)`,
                 }}
@@ -718,12 +769,12 @@ export async function GET(req: NextRequest) {
               flexDirection: 'column',
               padding: 32,
               paddingRight: 120,
-              borderRadius: 28,
+              borderRadius: 36,
               width: '100%',
               maxWidth: '100%',
-              background: DARK_BACKGROUND,
+              background: 'rgba(15,23,42,0.3)',
               border: '1px solid rgba(148,163,184,0.35)',
-              boxShadow: '0 28px 80px rgba(15,23,42,0.85)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
             }}
           >
             {(card as any).label ? (
@@ -756,7 +807,7 @@ export async function GET(req: NextRequest) {
             >
               {card.value}
             </div>
-            
+
             {/* Чипы для Habits, Quests, Level Up */}
             {finalVariant.startsWith('habits') && !finalVariant.includes('streak') && (
               <div
@@ -811,75 +862,48 @@ export async function GET(req: NextRequest) {
               </div>
             )}
 
-            {/* Визуализация колеса жизни */}
-            {isWheelSnapshot && wheelCategories.length === 10 && (
+            {/* Прогресс до следующего уровня для Level Up */}
+            {finalVariant.startsWith('level') && (
               <div
                 style={{
                   marginTop: 24,
-                  paddingTop: 20,
+                  paddingTop: 16,
                   borderTop: '1px solid rgba(148,163,184,0.35)',
                   display: 'flex',
-                  gap: 24,
-                  alignItems: 'center',
+                  flexDirection: 'column',
+                  gap: 10,
                 }}
               >
-                {/* Донат-диаграмма */}
-                <div
-                  style={{
-                    width: 180,
-                    height: 180,
-                    borderRadius: '50%',
-                    backgroundImage: wheelGradient ? `conic-gradient(${wheelGradient})` : undefined,
-                    position: 'relative',
-                    boxShadow: '0 0 40px rgba(15,23,42,0.8)',
-                    display: 'flex',
-                  }}
-                >
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 26,
-                      borderRadius: '50%',
-                      background: 'radial-gradient(circle at 30% 30%, rgba(15,23,42,0.1), rgba(15,23,42,0.9))',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'white',
-                      gap: 4,
-                    }}
-                  >
-                    <div style={{ fontSize: 24, fontWeight: 'bold', display: 'flex' }}>
-                      {params.get('avg') || '0'}/10
-                    </div>
-                    <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, color: '#9ca3af', display: 'flex' }}>
-                      Life balance
-                    </div>
-                  </div>
-                </div>
+                {(() => {
+                  const currentXp = formatNumber(params.get('xp')) || 0;
+                  const nextXp = formatNumber(params.get('nextXp')) || 0;
+                  const levelXp = formatNumber(params.get('levelXp')) || 0;
+                  const levelXpMax = formatNumber(params.get('levelXpMax')) || 100;
 
-                {/* Топ-3 и слабая область */}
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
-                    flex: 1,
-                  }}
-                >
-                  {wheelTopThree.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  // Вычисляем прогресс до следующего уровня
+                  let progressRatio = 0;
+                  if (levelXpMax > 0 && levelXp > 0) {
+                    progressRatio = levelXp / levelXpMax;
+                  } else if (nextXp > 0 && currentXp > 0) {
+                    // Альтернативный расчет, если есть nextXp
+                    progressRatio = Math.min(1, currentXp / (currentXp + nextXp));
+                  } else if (nextXp > 0) {
+                    // Если есть только nextXp, показываем минимальный прогресс
+                    progressRatio = 0.1;
+                  }
+
+                  return (
+                    <>
                       <div
                         style={{
                           fontSize: 13,
                           textTransform: 'uppercase',
                           letterSpacing: 1.2,
                           color: '#9ca3af',
-                          marginBottom: 4,
                           display: 'flex',
                         }}
                       >
-                        Top 3 areas
+                        Progress to next level
                       </div>
                       <div
                         style={{
@@ -888,96 +912,48 @@ export async function GET(req: NextRequest) {
                           gap: 4,
                         }}
                       >
-                        {wheelTopThree.map((area, idx) => (
-                          <div
-                            key={area.name}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 8,
-                              fontSize: 15,
-                              color: 'white',
-                            }}
-                          >
-                            <div
-                              style={{
-                                width: 10,
-                                height: 10,
-                                borderRadius: '50%',
-                                background: WHEEL_AREAS_COLORS[area.name] || PRIMARY_COLOR,
-                                display: 'flex',
-                              }}
-                            />
-                            <span style={{ display: 'flex' }}>
-                              {area.name}: {area.score}/10
-                            </span>
-                            {idx === 0 && (
-                              <span
-                                style={{
-                                  fontSize: 10,
-                                  padding: '2px 6px',
-                                  borderRadius: 4,
-                                  background: 'rgba(34,197,94,0.2)',
-                                  color: '#22c55e',
-                                  textTransform: 'uppercase',
-                                  letterSpacing: 0.5,
-                                  marginLeft: 4,
-                                }}
-                              >
-                                Primary
-                              </span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {wheelWeakest && (
-                    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column' }}>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          textTransform: 'uppercase',
-                          letterSpacing: 1.2,
-                          color: '#f97373',
-                          marginBottom: 4,
-                          display: 'flex',
-                        }}
-                      >
-                        Focus area
-                      </div>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          fontSize: 15,
-                          color: 'white',
-                        }}
-                      >
-                        <span style={{ fontSize: 16, display: 'flex' }}>🎯</span>
                         <div
                           style={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: '50%',
-                            background: WHEEL_AREAS_COLORS[wheelWeakest.name] || PRIMARY_COLOR,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            fontSize: 12,
+                            color: '#f1f5f9',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <span style={{ display: 'flex' }}>XP progress</span>
+                          <span style={{ display: 'flex' }}>
+                            {nextXp > 0 ? `${nextXp} XP left` : levelXp > 0 ? `${levelXp}/${levelXpMax} XP` : currentXp > 0 ? `${currentXp} XP` : 'Level up!'}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            height: 8,
+                            borderRadius: 999,
+                            background: 'rgba(15,23,42,0.9)',
+                            overflow: 'hidden',
                             display: 'flex',
                           }}
-                        />
-                        <span style={{ display: 'flex' }}>
-                          {wheelWeakest.name}: {wheelWeakest.score}/10
-                        </span>
+                        >
+                          <div
+                            style={{
+                              width: `${Math.max(4, progressRatio * 100)}%`,
+                              height: '100%',
+                              borderRadius: 999,
+                              background: 'linear-gradient(to right, #facc15, #fbbf24)',
+                              boxShadow: '0 0 16px rgba(250,204,21,0.6)',
+                            }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    </>
+                  );
+                })()}
               </div>
             )}
 
-            {/* Мини-график для Weekly Analytics */}
-            {isAnalyticsWeekly && (
+            {/* Визуализация для Habits Summary - топ привычки */}
+            {(finalVariant === 'habits:summary' || (kind === 'habits' && finalVariant === '')) && (
               <div
                 style={{
                   marginTop: 24,
@@ -985,7 +961,7 @@ export async function GET(req: NextRequest) {
                   borderTop: '1px solid rgba(148,163,184,0.35)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 8,
+                  gap: 10,
                 }}
               >
                 <div
@@ -997,118 +973,735 @@ export async function GET(req: NextRequest) {
                     display: 'flex',
                   }}
                 >
-                  This week vs last week
+                  Habit tracking overview
+                </div>
+                {/* Статистика по привычкам */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                  }}
+                >
+                  {(() => {
+                    const total = formatNumber(params.get('statValue')) || formatNumber(params.get('total')) || 0;
+                    const active = formatNumber(params.get('active')) || total;
+                    const completed = formatNumber(params.get('completed')) || 0;
+                    const completionRate = total > 0 ? completed / total : 0;
+
+                    return (
+                      <>
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 4,
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              fontSize: 12,
+                              color: '#f1f5f9',
+                              fontWeight: 600,
+                            }}
+                          >
+                            <span style={{ display: 'flex' }}>Total habits</span>
+                            <span style={{ display: 'flex' }}>{total}</span>
+                          </div>
+                          <div
+                            style={{
+                              height: 8,
+                              borderRadius: 999,
+                              background: 'rgba(15,23,42,0.9)',
+                              overflow: 'hidden',
+                              display: 'flex',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: `${Math.max(4, 100)}%`,
+                                height: '100%',
+                                borderRadius: 999,
+                                background: PRIMARY_COLOR,
+                              }}
+                            />
+                          </div>
+                        </div>
+                        {completed > 0 && (
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 4,
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                fontSize: 12,
+                                color: '#9ca3af',
+                              }}
+                            >
+                              <span style={{ display: 'flex' }}>Completion rate</span>
+                              <span style={{ display: 'flex' }}>{Math.round(completionRate * 100)}%</span>
+                            </div>
+                            <div
+                              style={{
+                                height: 8,
+                                borderRadius: 999,
+                                background: 'rgba(15,23,42,0.9)',
+                                overflow: 'hidden',
+                                display: 'flex',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: `${Math.max(4, completionRate * 100)}%`,
+                                  height: '100%',
+                                  borderRadius: 999,
+                                  background: 'linear-gradient(to right, #22c55e, #10b981)',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* Визуализация колеса жизни - упрощенная версия с прогресс-барами */}
+            {isWheelSnapshot && wheelCategories.length > 0 && (
+              <div
+                style={{
+                  marginTop: 24,
+                  paddingTop: 20,
+                  borderTop: '1px solid rgba(148,163,184,0.35)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                }}
+              >
+                {/* Две колонки по 5 областей */}
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 24,
+                  }}
+                >
+                  {/* Левая колонка - первые 5 областей */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                      flex: 1,
+                    }}
+                  >
+                    {wheelCategories.slice(0, 5).map((area) => (
+                      <div
+                        key={area.name}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 3,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 4,
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              fontSize: 11,
+                              color: 'white',
+                            }}
+                          >
+                            <span style={{ display: 'flex' }}>{WHEEL_AREAS_ICONS[area.name] || '•'}</span>
+                            <span style={{ display: 'flex' }}>{area.name}</span>
+                          </div>
+                          <span style={{ display: 'flex', fontSize: 11, color: area.color }}>
+                            {area.score}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            height: 6,
+                            borderRadius: 999,
+                            background: 'rgba(15,23,42,0.9)',
+                            overflow: 'hidden',
+                            display: 'flex',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${(area.score / 10) * 100}%`,
+                              height: '100%',
+                              borderRadius: 999,
+                              background: area.color,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Правая колонка - остальные 5 областей */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                      flex: 1,
+                    }}
+                  >
+                    {wheelCategories.slice(5, 10).map((area) => (
+                      <div
+                        key={area.name}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 3,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 4,
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              fontSize: 11,
+                              color: 'white',
+                            }}
+                          >
+                            <span style={{ display: 'flex' }}>{WHEEL_AREAS_ICONS[area.name] || '•'}</span>
+                            <span style={{ display: 'flex' }}>{area.name}</span>
+                          </div>
+                          <span style={{ display: 'flex', fontSize: 11, color: area.color }}>
+                            {area.score}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            height: 6,
+                            borderRadius: 999,
+                            background: 'rgba(15,23,42,0.9)',
+                            overflow: 'hidden',
+                            display: 'flex',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${(area.score / 10) * 100}%`,
+                              height: '100%',
+                              borderRadius: 999,
+                              background: area.color,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Визуализация для Focus Area - прогресс-бар и сравнение */}
+            {isWheelFocus && focusAreaScore > 0 && (
+              <div
+                style={{
+                  marginTop: 24,
+                  paddingTop: 16,
+                  borderTop: '1px solid rgba(148,163,184,0.35)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 13,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1.2,
+                    color: '#9ca3af',
+                    display: 'flex',
+                  }}
+                >
+                  Focus area progress
+                </div>
+                {/* Прогресс-бар для Focus Area */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: 12,
+                      color: '#f1f5f9',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span style={{ display: 'flex' }}>{focusAreaName}</span>
+                    <span style={{ display: 'flex' }}>{focusAreaScore}/10</span>
+                  </div>
+                  <div
+                    style={{
+                      height: 8,
+                      borderRadius: 999,
+                      background: 'rgba(15,23,42,0.9)',
+                      overflow: 'hidden',
+                      display: 'flex',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${Math.max(4, (focusAreaScore / 10) * 100)}%`,
+                        height: '100%',
+                        borderRadius: 999,
+                        background: PRIMARY_COLOR,
+                      }}
+                    />
+                  </div>
+                </div>
+                {/* Сравнение со средним */}
+                {focusAreaAvg > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: 12,
+                        color: '#9ca3af',
+                      }}
+                    >
+                      <span style={{ display: 'flex' }}>Average score</span>
+                      <span style={{ display: 'flex' }}>{focusAreaAvg}/10</span>
+                    </div>
+                    <div
+                      style={{
+                        height: 8,
+                        borderRadius: 999,
+                        background: 'rgba(15,23,42,0.9)',
+                        overflow: 'hidden',
+                        display: 'flex',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${Math.max(4, (focusAreaAvg / 10) * 100)}%`,
+                          height: '100%',
+                          borderRadius: 999,
+                          background: 'rgba(248,250,252,0.75)',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Weekly Analytics - как в Habit streak с колонками */}
+            {isAnalyticsWeekly && (
+              <div
+                style={{
+                  marginTop: 24,
+                  paddingTop: 16,
+                  borderTop: '1px solid rgba(148,163,184,0.35)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 13,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1.2,
+                    color: '#9ca3af',
+                    display: 'flex',
+                  }}
+                >
+                  Weekly comparison
+                </div>
+                {/* This week колонка */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: 12,
+                      color: '#f1f5f9',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span style={{ display: 'flex' }}>This week</span>
+                    <span style={{ display: 'flex' }}>{thisWeek} habits</span>
+                  </div>
+                  <div
+                    style={{
+                      height: 8,
+                      borderRadius: 999,
+                      background: 'rgba(15,23,42,0.9)',
+                      overflow: 'hidden',
+                      display: 'flex',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${Math.max(4, thisRatio * 100)}%`,
+                        height: '100%',
+                        borderRadius: 999,
+                        background: PRIMARY_COLOR,
+                        boxShadow: trend === 'up' ? '0 0 12px rgba(34,197,94,0.5)' : trend === 'down' ? '0 0 12px rgba(239,68,68,0.5)' : 'none',
+                      }}
+                    />
+                  </div>
+                </div>
+                {/* Last week колонка */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: 12,
+                      color: '#9ca3af',
+                    }}
+                  >
+                    <span style={{ display: 'flex' }}>Last week</span>
+                    <span style={{ display: 'flex' }}>{lastWeek} habits</span>
+                  </div>
+                  <div
+                    style={{
+                      height: 8,
+                      borderRadius: 999,
+                      background: 'rgba(15,23,42,0.9)',
+                      overflow: 'hidden',
+                      display: 'flex',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${Math.max(4, lastRatio * 100)}%`,
+                        height: '100%',
+                        borderRadius: 999,
+                        background: 'rgba(248,250,252,0.75)',
+                      }}
+                    />
+                  </div>
+                </div>
+                {/* Trend indicator removed - info is in subtitle */}
+              </div>
+            )}
+
+            {/* Прогресс-бар для Analytics Badge Progress */}
+            {isAnalyticsBadgeProgress && badgeProgress > 0 && (
+              <div
+                style={{
+                  marginTop: 24,
+                  paddingTop: 16,
+                  borderTop: '1px solid rgba(148,163,184,0.35)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 13,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1.2,
+                    color: '#9ca3af',
+                    display: 'flex',
+                  }}
+                >
+                  Badge progress
                 </div>
                 <div
                   style={{
-                    position: 'relative',
                     display: 'flex',
-                    alignItems: 'flex-end',
-                    gap: 16,
-                    height: 80,
+                    flexDirection: 'column',
+                    gap: 4,
                   }}
                 >
-                  {/* Baseline */}
                   <div
                     style={{
-                      position: 'absolute',
-                      bottom: 20,
-                      left: 0,
-                      right: 0,
-                      height: 1,
-                      background: 'rgba(148,163,184,0.35)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: 12,
+                      color: '#f1f5f9',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span style={{ display: 'flex' }}>Progress</span>
+                    <span style={{ display: 'flex' }}>{badgeProgress}%</span>
+                  </div>
+                  <div
+                    style={{
+                      height: 8,
+                      borderRadius: 999,
+                      background: 'rgba(15,23,42,0.9)',
+                      overflow: 'hidden',
                       display: 'flex',
                     }}
-                  />
-                  {(() => {
-                    const thisWeek = formatNumber(params.get('tw'));
-                    const lastWeek = formatNumber(params.get('lw'));
-                    const trend = params.get('trend') || '';
-                    const max = Math.max(thisWeek, lastWeek, 1);
-                    const thisHeight = (thisWeek / max) * 100;
-                    const lastHeight = (lastWeek / max) * 100;
-                    const trendColor = trend === 'up' ? '#22c55e' : trend === 'down' ? '#ef4444' : '#94a3b8';
-                    const trendArrow = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→';
-                    const trendText = trend === 'up' ? 'Up vs last week' : trend === 'down' ? 'Down vs last week' : 'Flat vs last week';
-                    return (
-                      <div style={{ display: 'flex', gap: 16, width: '100%' }}>
-                        <div
-                          style={{
-                            flex: 1,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'flex-end',
-                            gap: 6,
-                            position: 'relative',
-                          }}
-                        >
-                          <div
-                            style={{
-                              height: `${thisHeight}%`,
-                              borderRadius: 999,
-                              background: PRIMARY_COLOR,
-                              boxShadow: '0 0 24px rgba(129,140,248,0.7)',
-                              display: 'flex',
-                            }}
-                          />
-                          <div
-                            style={{
-                              fontSize: 12,
-                              color: '#e5e7eb',
-                              display: 'flex',
-                            }}
-                          >
-                            This week
-                          </div>
-                          {trend && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                top: -20,
-                                right: 0,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 4,
-                                fontSize: 11,
-                                color: trendColor,
-                                fontWeight: 600,
-                              }}
-                            >
-                              <span style={{ display: 'flex' }}>{trendArrow}</span>
-                              <span style={{ display: 'flex' }}>{trendText}</span>
-                            </div>
-                          )}
-                        </div>
-                        <div
-                          style={{
-                            flex: 1,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'flex-end',
-                            gap: 6,
-                          }}
-                        >
-                          <div
-                            style={{
-                              height: `${lastHeight}%`,
-                              borderRadius: 999,
-                              background: 'rgba(148,163,184,0.6)',
-                              display: 'flex',
-                            }}
-                          />
-                          <div
-                            style={{
-                              fontSize: 12,
-                              color: '#9ca3af',
-                              display: 'flex',
-                            }}
-                          >
-                            Last week
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
+                  >
+                    <div
+                      style={{
+                        width: `${Math.max(4, badgeProgress)}%`,
+                        height: '100%',
+                        borderRadius: 999,
+                        background: 'linear-gradient(to right, #fbbf24, #facc15)',
+                        boxShadow: '0 0 16px rgba(251,191,36,0.6)',
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Визуализация для других типов Analytics */}
+            {/* Скрыто: Streak Signal, Goal Pulse, Wheel Spotlight - малоценные касты */}
+            {(isAnalyticsTopHabit || isAnalyticsWheelShift) && (
+              <div
+                style={{
+                  marginTop: 24,
+                  paddingTop: 16,
+                  borderTop: '1px solid rgba(148,163,184,0.35)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 13,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1.2,
+                    color: '#9ca3af',
+                    display: 'flex',
+                  }}
+                >
+                  Analytics insight
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                  }}
+                >
+                  {/* Скрыто: Streak Signal и Goal Pulse - малоценные касты */}
+                  {isAnalyticsTopHabit && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        fontSize: 14,
+                        color: 'white',
+                      }}
+                    >
+                      <span style={{ display: 'flex' }}>🌟</span>
+                      <span style={{ display: 'flex' }}>Top habit: {params.get('habit') || 'Top habit'}</span>
+                    </div>
+                  )}
+                  {isAnalyticsWheelShift && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        fontSize: 14,
+                        color: 'white',
+                      }}
+                    >
+                      <span style={{ display: 'flex' }}>🎡</span>
+                      <span style={{ display: 'flex' }}>Shift: {params.get('shift') || '0'}</span>
+                    </div>
+                  )}
+                  {/* Скрыто: Wheel Spotlight - дублирует Wheel Snapshot */}
+                </div>
+              </div>
+            )}
+
+            {/* Визуализация для Top Habit - статистика */}
+            {isAnalyticsTopHabit && topHabitName && (
+              <div
+                style={{
+                  marginTop: 24,
+                  paddingTop: 16,
+                  borderTop: '1px solid rgba(148,163,184,0.35)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 13,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1.2,
+                    color: '#9ca3af',
+                    display: 'flex',
+                  }}
+                >
+                  Top habit stats
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: 12,
+                      color: '#f1f5f9',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span style={{ display: 'flex' }}>{topHabitName}</span>
+                    <span style={{ display: 'flex' }}>{topHabitCount} times</span>
+                  </div>
+                  <div
+                    style={{
+                      height: 8,
+                      borderRadius: 999,
+                      background: 'rgba(15,23,42,0.9)',
+                      overflow: 'hidden',
+                      display: 'flex',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${Math.max(4, topHabitPercentage)}%`,
+                        height: '100%',
+                        borderRadius: 999,
+                        background: PRIMARY_COLOR,
+                        boxShadow: '0 0 16px rgba(59,130,246,0.6)',
+                      }}
+                    />
+                  </div>
+                </div>
+                {topHabitTotal > 0 && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: '#9ca3af',
+                      marginTop: 4,
+                      display: 'flex',
+                    }}
+                  >
+                    {Math.round(topHabitPercentage)}% of all habit completions
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Прогресс-бар для Next Badge */}
+            {isStreaksGoal && nextBadgeDays > 0 && (
+              <div
+                style={{
+                  marginTop: 24,
+                  paddingTop: 16,
+                  borderTop: '1px solid rgba(148,163,184,0.35)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 13,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1.2,
+                    color: '#9ca3af',
+                    display: 'flex',
+                  }}
+                >
+                  Badge progress
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: 12,
+                      color: '#f1f5f9',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span style={{ display: 'flex' }}>Progress to badge</span>
+                    <span style={{ display: 'flex' }}>{nextBadgeDays} days left</span>
+                  </div>
+                  <div
+                    style={{
+                      height: 8,
+                      borderRadius: 999,
+                      background: 'rgba(15,23,42,0.9)',
+                      overflow: 'hidden',
+                      display: 'flex',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${Math.max(4, badgeProgressRatio * 100)}%`,
+                        height: '100%',
+                        borderRadius: 999,
+                        background: 'linear-gradient(to right, #fbbf24, #facc15)',
+                        boxShadow: '0 0 16px rgba(251,191,36,0.6)',
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -1260,30 +1853,12 @@ export async function GET(req: NextRequest) {
                     </div>
                   </div>
                 )}
-                
-                {/* Мотивационный текст под прогресс-блоком */}
-                {currentStreak > 0 && (
-                  <div
-                    style={{
-                      marginTop: 8,
-                      fontSize: 11,
-                      color: '#9ca3af',
-                      fontStyle: 'italic',
-                      display: 'flex',
-                    }}
-                  >
-                    {currentStreak >= bestStreak * 0.9
-                      ? 'Keep pace with your best run'
-                      : currentStreak >= bestStreak * 0.7
-                      ? 'New personal best is close'
-                      : 'Building momentum day by day'}
-                  </div>
-                )}
+
               </div>
             )}
 
-            {/* Прогресс-бар для целей */}
-            {isGoalsProgressVariant && goalsTotal > 0 && (
+            {/* Визуализация для Goal Completed - прогресс всех целей */}
+            {isGoalsCompleted && goalsTotalForCompleted > 0 && (
               <div
                 style={{
                   marginTop: 24,
@@ -1291,7 +1866,7 @@ export async function GET(req: NextRequest) {
                   borderTop: '1px solid rgba(148,163,184,0.35)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 8,
+                  gap: 10,
                 }}
               >
                 <div
@@ -1303,76 +1878,417 @@ export async function GET(req: NextRequest) {
                     display: 'flex',
                   }}
                 >
-                  Goals completion
+                  All goals overview
                 </div>
+                {/* Completed goals */}
                 <div
                   style={{
                     display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: 12,
-                    color: '#e5e7eb',
+                    flexDirection: 'column',
+                    gap: 4,
                   }}
                 >
-                  <span style={{ display: 'flex' }}>
-                    {goalsCompleted}/{goalsTotal} completed
-                  </span>
-                  {goalsActive > 0 && (
-                    <span style={{ display: 'flex' }}>{goalsActive} active</span>
-                  )}
-                </div>
-                <div
-                  style={{
-                    height: 10,
-                    borderRadius: 999,
-                    background: 'rgba(15,23,42,0.9)',
-                    overflow: 'hidden',
-                    position: 'relative',
-                    display: 'flex',
-                  }}
-                >
-                  {/* Сегменты прогресс-бара */}
-                  {goalsTotal > 0 && (
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
-                      {Array.from({ length: Math.min(goalsTotal, 10) }).map((_, idx) => {
-                    const segmentWidth = 100 / Math.min(goalsTotal, 10);
-                    const isCompleted = idx < goalsCompleted;
-                    return (
-                      <div
-                        key={idx}
-                        style={{
-                          position: 'absolute',
-                          left: `${idx * segmentWidth}%`,
-                          width: `${segmentWidth}%`,
-                          height: '100%',
-                          borderRight: idx < Math.min(goalsTotal, 10) - 1 ? '1px solid rgba(15,23,42,0.5)' : '0px solid transparent',
-                        }}
-                      />
-                    );
-                  })}
-                    </div>
-                  )}
                   <div
                     style={{
-                      width: `${Math.max(4, goalsProgressRatio * 100)}%`,
-                      height: '100%',
-                      borderRadius: 999,
-                      background: PRIMARY_COLOR,
-                      boxShadow: '0 0 24px rgba(34,197,94,0.7)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: 12,
+                      color: '#f1f5f9',
+                      fontWeight: 600,
                     }}
-                  />
+                  >
+                    <span style={{ display: 'flex' }}>Completed</span>
+                    <span style={{ display: 'flex' }}>{goalsCompletedCount}/{goalsTotalForCompleted}</span>
+                  </div>
+                  <div
+                    style={{
+                      height: 8,
+                      borderRadius: 999,
+                      background: 'rgba(15,23,42,0.9)',
+                      overflow: 'hidden',
+                      display: 'flex',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${Math.max(4, (goalsCompletedCount / Math.max(goalsTotalForCompleted, 1)) * 100)}%`,
+                        height: '100%',
+                        borderRadius: 999,
+                        background: '#22c55e',
+                        boxShadow: '0 0 16px rgba(34,197,94,0.6)',
+                      }}
+                    />
+                  </div>
                 </div>
-                {/* Momentum текст */}
+                {/* Active goals */}
+                {goalsActiveForCompleted > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: 12,
+                        color: '#9ca3af',
+                      }}
+                    >
+                      <span style={{ display: 'flex' }}>Active</span>
+                      <span style={{ display: 'flex' }}>{goalsActiveForCompleted}</span>
+                    </div>
+                    <div
+                      style={{
+                        height: 8,
+                        borderRadius: 999,
+                        background: 'rgba(15,23,42,0.9)',
+                        overflow: 'hidden',
+                        display: 'flex',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${Math.max(4, (goalsActiveForCompleted / Math.max(goalsTotalForCompleted, 1)) * 100)}%`,
+                          height: '100%',
+                          borderRadius: 999,
+                          background: 'linear-gradient(to right, #8b5cf6, #a78bfa)',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Прогресс-бары для целей - улучшенная версия с колонками */}
+            {isGoalsProgressVariant && goalsTotal > 0 && (
+              <div
+                style={{
+                  marginTop: 24,
+                  paddingTop: 16,
+                  borderTop: '1px solid rgba(148,163,184,0.35)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 13,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1.2,
+                    color: '#9ca3af',
+                    display: 'flex',
+                  }}
+                >
+                  Goals progress
+                </div>
+                {/* Колонка для завершенных целей */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: 12,
+                      color: '#f1f5f9',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span style={{ display: 'flex' }}>Completed</span>
+                    <span style={{ display: 'flex' }}>{goalsCompleted}/{goalsTotal}</span>
+                  </div>
+                  <div
+                    style={{
+                      height: 8,
+                      borderRadius: 999,
+                      background: 'rgba(15,23,42,0.9)',
+                      overflow: 'hidden',
+                      display: 'flex',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${Math.max(4, goalsProgressRatio * 100)}%`,
+                        height: '100%',
+                        borderRadius: 999,
+                        background: '#22c55e',
+                        boxShadow: '0 0 16px rgba(34,197,94,0.6)',
+                      }}
+                    />
+                  </div>
+                </div>
+                {/* Колонка для активных целей */}
+                {goalsActive > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: 12,
+                        color: '#9ca3af',
+                      }}
+                    >
+                      <span style={{ display: 'flex' }}>Active</span>
+                      <span style={{ display: 'flex' }}>{goalsActive}</span>
+                    </div>
+                    <div
+                      style={{
+                        height: 8,
+                        borderRadius: 999,
+                        background: 'rgba(15,23,42,0.9)',
+                        overflow: 'hidden',
+                        display: 'flex',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${Math.max(4, (goalsActive / Math.max(goalsTotal, 1)) * 100)}%`,
+                          height: '100%',
+                          borderRadius: 999,
+                          background: 'linear-gradient(to right, #8b5cf6, #a78bfa)',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Визуализация для Upcoming Goal - прогресс-бар до дедлайна */}
+            {isGoalsUpcoming && upcomingGoalDays > 0 && (
+              <div
+                style={{
+                  marginTop: 24,
+                  paddingTop: 16,
+                  borderTop: '1px solid rgba(148,163,184,0.35)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 13,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1.2,
+                    color: '#9ca3af',
+                    display: 'flex',
+                  }}
+                >
+                  Deadline countdown
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: 12,
+                      color: '#f1f5f9',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span style={{ display: 'flex' }}>Time remaining</span>
+                    <span style={{ display: 'flex' }}>{upcomingGoalDays} days</span>
+                  </div>
+                  <div
+                    style={{
+                      height: 8,
+                      borderRadius: 999,
+                      background: 'rgba(15,23,42,0.9)',
+                      overflow: 'hidden',
+                      display: 'flex',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${Math.max(4, upcomingGoalProgressRatio * 100)}%`,
+                        height: '100%',
+                        borderRadius: 999,
+                        background: upcomingGoalDays <= 7 ? 'linear-gradient(to right, #ef4444, #f87171)' : 'linear-gradient(to right, #fbbf24, #facc15)',
+                        boxShadow: upcomingGoalDays <= 7 ? '0 0 16px rgba(239,68,68,0.6)' : '0 0 16px rgba(251,191,36,0.6)',
+                      }}
+                    />
+                  </div>
+                </div>
                 <div
                   style={{
                     fontSize: 11,
-                    color: goalsProgressRatio >= 0.7 ? '#22c55e' : goalsProgressRatio >= 0.4 ? '#facc15' : '#f97373',
-                    fontWeight: 600,
+                    color: upcomingGoalDays <= 7 ? '#ef4444' : '#9ca3af',
+                    fontWeight: upcomingGoalDays <= 7 ? 600 : 400,
                     marginTop: 4,
                     display: 'flex',
                   }}
                 >
-                  Momentum: {goalsProgressRatio >= 0.7 ? 'strong' : goalsProgressRatio >= 0.4 ? 'building' : 'fragile'}
+                  {upcomingGoalDays <= 7 ? '⚠️ Urgent deadline approaching' : '⏰ Deadline approaching'}
                 </div>
+              </div>
+            )}
+
+            {/* Визуализация для Quest Progress - прогресс-бары по типам */}
+            {isQuestsVariant && questsTotal > 0 && (
+              <div
+                style={{
+                  marginTop: 24,
+                  paddingTop: 16,
+                  borderTop: '1px solid rgba(148,163,184,0.35)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 13,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1.2,
+                    color: '#9ca3af',
+                    display: 'flex',
+                  }}
+                >
+                  Quest types progress
+                </div>
+                {/* Daily quests */}
+                {questsDaily > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: 12,
+                        color: '#f1f5f9',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <span style={{ display: 'flex' }}>Daily</span>
+                      <span style={{ display: 'flex' }}>{questsDaily} completed</span>
+                    </div>
+                    <div
+                      style={{
+                        height: 8,
+                        borderRadius: 999,
+                        background: 'rgba(15,23,42,0.9)',
+                        overflow: 'hidden',
+                        display: 'flex',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${Math.max(4, (questsDaily / Math.max(questsTotal, 1)) * 100)}%`,
+                          height: '100%',
+                          borderRadius: 999,
+                          background: PRIMARY_COLOR,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {/* Weekly quests */}
+                {questsWeekly > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: 12,
+                        color: '#9ca3af',
+                      }}
+                    >
+                      <span style={{ display: 'flex' }}>Weekly</span>
+                      <span style={{ display: 'flex' }}>{questsWeekly} completed</span>
+                    </div>
+                    <div
+                      style={{
+                        height: 8,
+                        borderRadius: 999,
+                        background: 'rgba(15,23,42,0.9)',
+                        overflow: 'hidden',
+                        display: 'flex',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${Math.max(4, (questsWeekly / Math.max(questsTotal, 1)) * 100)}%`,
+                          height: '100%',
+                          borderRadius: 999,
+                          background: 'rgba(248,250,252,0.75)',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {/* Monthly quests */}
+                {questsMonthly > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: 12,
+                        color: '#9ca3af',
+                      }}
+                    >
+                      <span style={{ display: 'flex' }}>Monthly</span>
+                      <span style={{ display: 'flex' }}>{questsMonthly} completed</span>
+                    </div>
+                    <div
+                      style={{
+                        height: 8,
+                        borderRadius: 999,
+                        background: 'rgba(15,23,42,0.9)',
+                        overflow: 'hidden',
+                        display: 'flex',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${Math.max(4, (questsMonthly / Math.max(questsTotal, 1)) * 100)}%`,
+                          height: '100%',
+                          borderRadius: 999,
+                          background: 'linear-gradient(to right, #8b5cf6, #a78bfa)',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1413,12 +2329,12 @@ export async function GET(req: NextRequest) {
             >
               P
             </div>
-                    <div
-                        style={{
+            <div
+              style={{
                 display: 'flex',
-                            flexDirection: 'column',
-                        }}
-                    >
+                flexDirection: 'column',
+              }}
+            >
               <div
                 style={{
                   fontSize: 20,
@@ -1428,43 +2344,43 @@ export async function GET(req: NextRequest) {
                 }}
               >
                 Personality Architect
-                    </div>
-                            <div
-                                style={{
+              </div>
+              <div
+                style={{
                   fontSize: 14,
                   color: '#94a3b8',
                   display: 'flex',
-                                }}
-                            >
+                }}
+              >
                 Plan. Execute. Evolve.
-                            </div>
-                    </div>
-                    </div>
-                    
-                    {/* Микро-декор: точки-индикаторы */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: 6,
-                        marginLeft: 'auto',
-                        alignItems: 'center',
-                      }}
-                    >
-                      {[1, 2, 3, 4].map((dot, idx) => (
-                        <div
-                          key={dot}
-                          style={{
-                            width: 4,
-                            height: 4,
-                            borderRadius: '50%',
-                            background: idx === 0 ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.2)',
-                          }}
-                        />
-                      ))}
-                    </div>
-                </div>
+              </div>
             </div>
-        ),
+          </div>
+
+          {/* Микро-декор: точки-индикаторы */}
+          <div
+            style={{
+              display: 'flex',
+              gap: 6,
+              marginLeft: 'auto',
+              alignItems: 'center',
+            }}
+          >
+            {[1, 2, 3, 4].map((dot, idx) => (
+              <div
+                key={dot}
+                style={{
+                  width: 4,
+                  height: 4,
+                  borderRadius: '50%',
+                  background: idx === 0 ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.2)',
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    ),
     {
       width: 1200,
       height: 630,
@@ -1475,5 +2391,5 @@ export async function GET(req: NextRequest) {
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
       },
     },
-    );
+  );
 }

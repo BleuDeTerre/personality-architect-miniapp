@@ -17,6 +17,19 @@ export default function SessionRestore() {
         const restoreFromFid = async (): Promise<boolean> => {
             if (isRestoringRef.current) return false;
             
+            // Проверяем, не открыт ли композер каста (с timeout в 2 минуты)
+            const composerOpenTime = typeof window !== 'undefined' ? localStorage.getItem('cast_composer_opening') : null;
+            const isComposerOpen = typeof window !== 'undefined' && (
+                (window as any).__castComposerOpen === true ||
+                sessionStorage.getItem('cast_composer_opening') === 'true' ||
+                (composerOpenTime && (Date.now() - parseInt(composerOpenTime)) < 120000) // 2 минуты
+            );
+            
+            if (isComposerOpen) {
+                console.log('[SessionRestore] Skipping restore - cast composer is open');
+                return false;
+            }
+            
             try {
                 isRestoringRef.current = true;
                 
@@ -155,6 +168,19 @@ export default function SessionRestore() {
             console.log('[SessionRestore] Auth state changed:', event, { hasSession: !!session });
             
             if (event === 'SIGNED_OUT') {
+                // Проверяем, не открыт ли композер каста (с timeout в 2 минуты)
+                const composerOpenTime = typeof window !== 'undefined' ? localStorage.getItem('cast_composer_opening') : null;
+                const isComposerOpen = typeof window !== 'undefined' && (
+                    (window as any).__castComposerOpen === true ||
+                    sessionStorage.getItem('cast_composer_opening') === 'true' ||
+                    (composerOpenTime && (Date.now() - parseInt(composerOpenTime)) < 120000) // 2 минуты
+                );
+                
+                if (isComposerOpen) {
+                    console.log('[SessionRestore] User signed out but cast composer is open, skipping restore...');
+                    return;
+                }
+                
                 console.log('[SessionRestore] User signed out, trying to restore...');
                 // Небольшая задержка перед восстановлением, чтобы дать время браузеру восстановить localStorage
                 setTimeout(async () => {
@@ -169,6 +195,40 @@ export default function SessionRestore() {
         
         document.addEventListener('visibilitychange', handleVisibilityChange);
         window.addEventListener('focus', handleFocus);
+        
+        // Проверяем, был ли недавно открыт композер каста
+        const composerOpenTime = localStorage.getItem('cast_composer_opening');
+        if (composerOpenTime) {
+            const timeSinceOpen = Date.now() - parseInt(composerOpenTime);
+            // Если композер был открыт менее 2 минут назад, восстанавливаем сессию из сохраненных токенов
+            if (timeSinceOpen < 120000) {
+                console.log('[SessionRestore] Composer was recently opened, restoring from saved tokens...');
+                const savedToken = localStorage.getItem('cast_composer_session');
+                const savedRefresh = localStorage.getItem('cast_composer_refresh');
+                if (savedToken) {
+                    supabase.auth.setSession({
+                        access_token: savedToken,
+                        refresh_token: savedRefresh || savedToken,
+                    }).then(({ error }) => {
+                        if (error) {
+                            console.warn('[SessionRestore] Failed to restore from composer tokens:', error);
+                            // Очищаем невалидные токены
+                            localStorage.removeItem('cast_composer_session');
+                            localStorage.removeItem('cast_composer_refresh');
+                            restoreFromFid();
+                        } else {
+                            console.log('[SessionRestore] Session restored from composer tokens');
+                        }
+                    });
+                    return; // Пропускаем обычную проверку
+                }
+            } else {
+                // Очищаем старый флаг композера
+                localStorage.removeItem('cast_composer_opening');
+                localStorage.removeItem('cast_composer_session');
+                localStorage.removeItem('cast_composer_refresh');
+            }
+        }
         
         // Восстанавливаем сессию сразу при монтировании
         restoreSession();

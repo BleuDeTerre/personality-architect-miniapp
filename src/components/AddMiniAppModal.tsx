@@ -49,6 +49,20 @@ export default function AddMiniAppModal() {
         const {
             data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
+            // Проверяем, не открыт ли композер каста (с timeout в 2 минуты)
+            const composerOpenTime = typeof window !== 'undefined' ? localStorage.getItem('cast_composer_opening') : null;
+            const isComposerOpen = typeof window !== 'undefined' && (
+                (window as any).__castComposerOpen === true ||
+                sessionStorage.getItem('cast_composer_opening') === 'true' ||
+                (composerOpenTime && (Date.now() - parseInt(composerOpenTime)) < 120000) // 2 минуты
+            );
+            
+            // Не показываем модалку если открыт композер
+            if (isComposerOpen) {
+                console.log('[AddMiniAppModal] Skipping show - cast composer is open');
+                return;
+            }
+            
             // Показываем только если пользователь не залогинен
             setShow(!session?.user && !isMiniAppEnv && !storedSeen);
         });

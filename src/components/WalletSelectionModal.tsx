@@ -37,6 +37,20 @@ export default function WalletSelectionModal() {
                 // Если пользователь залогинен - скрываем окно
                 setShow(false);
             } else {
+                // Проверяем, не открыт ли композер каста (с timeout в 2 минуты)
+                const composerOpenTime = typeof window !== 'undefined' ? localStorage.getItem('cast_composer_opening') : null;
+                const isComposerOpen = typeof window !== 'undefined' && (
+                    (window as any).__castComposerOpen === true ||
+                    sessionStorage.getItem('cast_composer_opening') === 'true' ||
+                    (composerOpenTime && (Date.now() - parseInt(composerOpenTime)) < 120000) // 2 минуты
+                );
+                
+                // Если композер открыт, не показываем модалку
+                if (isComposerOpen) {
+                    console.log('[WalletSelectionModal] Skipping show - cast composer is open');
+                    return;
+                }
+                
                 // Если пользователь не залогинен и не видел окно - показываем
                 if (!hasSeenWalletPrompt) {
                     // Ждем, пока закроется AddMiniAppModal (если оно есть)

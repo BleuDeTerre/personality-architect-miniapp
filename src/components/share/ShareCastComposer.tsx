@@ -55,14 +55,42 @@ export default function ShareCastComposer({
                 console.log('[ShareCastComposer] Restoring session after return from composer');
 
                 // Увеличиваем задержку для новой вкладки/страницы
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 300));
 
                 try {
+                    // Сначала пробуем восстановить из localStorage/sessionStorage
+                    const savedToken = localStorage.getItem('cast_composer_session') || sessionStorage.getItem('cast_composer_session');
+                    const savedRefresh = localStorage.getItem('cast_composer_refresh') || '';
+
                     // Проверяем текущую сессию
-                    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                    let { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+                    if (savedToken && (sessionError || !session?.access_token)) {
+                        console.log('[ShareCastComposer] Session lost, trying to restore from saved token...');
+                        try {
+                            // Пробуем установить сессию из сохраненных токенов
+                            const { data: setSessionData, error: setSessionError } = await supabase.auth.setSession({
+                                access_token: savedToken,
+                                refresh_token: savedRefresh || savedToken,
+                            });
+
+                            if (!setSessionError && setSessionData.session) {
+                                console.log('[ShareCastComposer] Session restored from saved token');
+                                session = setSessionData.session;
+                            } else {
+                                throw new Error('setSession failed');
+                            }
+                        } catch (error) {
+                            console.log('[ShareCastComposer] Saved token invalid, will try FID restore...');
+                            // Очищаем невалидные токены
+                            localStorage.removeItem('cast_composer_session');
+                            localStorage.removeItem('cast_composer_refresh');
+                            sessionStorage.removeItem('cast_composer_session');
+                        }
+                    }
 
                     if (sessionError || !session?.access_token) {
-                        console.log('[ShareCastComposer] Session lost, attempting restore...');
+                        console.log('[ShareCastComposer] Session lost, attempting restore from FID...');
 
                         // Пробуем получить FID из localStorage
                         const savedFid = localStorage.getItem('user_fid');
@@ -83,7 +111,9 @@ export default function ShareCastComposer({
                                             access_token: loginData.access_token,
                                             refresh_token: loginData.refresh_token || loginData.access_token,
                                         });
-                                        console.log('[ShareCastComposer] Session restored successfully');
+                                        console.log('[ShareCastComposer] Session restored successfully from FID');
+                                        // Сохраняем новый токен
+                                        sessionStorage.setItem('cast_composer_session', loginData.access_token);
                                     }
                                 }
                             }
@@ -91,6 +121,11 @@ export default function ShareCastComposer({
                     } else {
                         console.log('[ShareCastComposer] Session is still valid');
                     }
+
+                    // Очищаем сохраненные токены после успешного восстановления
+                    localStorage.removeItem('cast_composer_session');
+                    localStorage.removeItem('cast_composer_refresh');
+                    sessionStorage.removeItem('cast_composer_session');
 
                     // Проверяем, был ли опубликован каст (проверяем последнее событие share_cast_published)
                     // и начислен ли XP за него
@@ -123,6 +158,12 @@ export default function ShareCastComposer({
                 } finally {
                     // Сбрасываем флаг после проверки
                     composerOpenedRef.current = false;
+                    // Очищаем глобальный флаг композера
+                    if (typeof window !== 'undefined') {
+                        (window as any).__castComposerOpen = false;
+                        localStorage.removeItem('cast_composer_opening');
+                        sessionStorage.removeItem('cast_composer_opening');
+                    }
                 }
             }
         };
@@ -278,75 +319,141 @@ export default function ShareCastComposer({
 
         setLoading(true);
 
-        try {
-            // Строим preview URL для эмбеда
-            const previewUrl = buildPreviewUrl(template);
-            if (!previewUrl) {
-                throw new Error("Failed to build preview URL");
+        // Сохраняем сессию перед открытием композера
+        const saveSessionBeforeOpen = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.access_token) {
+                    // Сохраняем токен в localStorage для более надежного восстановления
+                    localStorage.setItem('cast_composer_session', session.access_token);
+                    localStorage.setItem('cast_composer_refresh', session.refresh_token || '');
+                    sessionStorage.setItem('cast_composer_session', session.access_token);
+
+                    // Сохраняем FID если его еще нет
+                    if (!localStorage.getItem('user_fid')) {
+                        const { data: { user } } = await supabase.auth.getUser();
+                        if (user?.user_metadata?.fid) {
+                            localStorage.setItem('user_fid', String(user.user_metadata.fid));
+                        }
+                    }
+
+                    console.log('[ShareCastComposer] Session saved before opening composer');
+                } else {
+                    console.warn('[ShareCastComposer] No session to save before opening composer');
+                }
+            } catch (error) {
+                console.warn('[ShareCastComposer] Failed to save session before opening composer:', error);
             }
+        };
 
-            // Для Farcaster передаем HTML-страницу с OG-тегами
-            let embedUrl = previewUrl.replace('/api/share/og', '/api/share/preview');
+        // Выполняем сохранение синхронно перед открытием
+        saveSessionBeforeOpen().then(async () => {
+            try {
+                // Строим preview URL для эмбеда
+                const previewUrl = buildPreviewUrl(template);
+                if (!previewUrl) {
+                    throw new Error("Failed to build preview URL");
+                }
 
-            // Добавляем targetPath в preview URL, если он указан
-            if (template.targetPath) {
-                const embedUrlObj = new URL(embedUrl);
-                embedUrlObj.searchParams.set('targetPath', template.targetPath);
-                embedUrl = embedUrlObj.toString();
-            }
+                // Для Farcaster передаем HTML-страницу с OG-тегами
+                let embedUrl = previewUrl.replace('/api/share/og', '/api/share/preview');
 
-            // Строим URL композера Warpcast
-            const compose = new URL('https://warpcast.com/~/compose');
-            compose.searchParams.set('text', template.text);
-            compose.searchParams.append('embeds[]', embedUrl);
+                // Добавляем targetPath в preview URL, если он указан
+                if (template.targetPath) {
+                    const embedUrlObj = new URL(embedUrl);
+                    embedUrlObj.searchParams.set('targetPath', template.targetPath);
+                    embedUrl = embedUrlObj.toString();
+                }
 
-            const composeUrl = compose.toString();
+                // Строим URL композера Warpcast
+                const compose = new URL('https://warpcast.com/~/compose');
+                compose.searchParams.set('text', template.text);
+                compose.searchParams.append('embeds[]', embedUrl);
 
-            console.log('[ShareCastComposer] Opening Farcaster composer:', {
-                composeUrl,
-                text: template.text,
-                embedUrl,
-            });
+                const composeUrl = compose.toString();
 
-            // Устанавливаем флаг, что композер был открыт
-            composerOpenedRef.current = true;
-
-            // Открываем композер Farcaster
-            if (actions?.openUrl) {
-                actions.openUrl({ url: composeUrl });
-            } else {
-                window.open(composeUrl, '_blank');
-            }
-
-            // Логируем открытие композера
-            if (prepareHeaders) {
-                prepareHeaders().then(headers => {
-                    fetch('/api/share/log', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...headers,
-                        },
-                        body: JSON.stringify({
-                            method: 'open_composer',
-                            success: true,
-                            kind: template.kind,
-                        }),
-                    }).catch(err => {
-                        console.warn('[ShareCastComposer] Failed to log composer open:', err);
-                    });
-                }).catch(err => {
-                    console.warn('[ShareCastComposer] Failed to prepare headers for log:', err);
+                console.log('[ShareCastComposer] Opening Farcaster composer:', {
+                    composeUrl,
+                    text: template.text,
+                    embedUrl,
                 });
+
+                // Устанавливаем флаг, что композер был открыт
+                composerOpenedRef.current = true;
+
+                // Устанавливаем глобальный флаг для предотвращения показа модалок авторизации
+                // Используем localStorage вместо sessionStorage для сохранения при перезагрузке
+                if (typeof window !== 'undefined') {
+                    (window as any).__castComposerOpen = true;
+                    localStorage.setItem('cast_composer_opening', Date.now().toString());
+                    sessionStorage.setItem('cast_composer_opening', 'true');
+                }
+
+                // Открываем композер Farcaster через нативный SDK метод
+                // Это не открывает новое окно и не вызывает logout
+                if (actions?.composeCast) {
+                    console.log('[ShareCastComposer] Using native composeCast');
+                    try {
+                        await actions.composeCast({
+                            text: template.text,
+                            embeds: [embedUrl],
+                        });
+                    } catch (sdkError) {
+                        console.warn('[ShareCastComposer] composeCast failed, falling back to link:', sdkError);
+                        // Fallback: открываем через ссылку
+                        const link = document.createElement('a');
+                        link.href = composeUrl;
+                        link.target = '_blank';
+                        link.rel = 'noopener noreferrer';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }
+                } else {
+                    // Fallback для не-MiniApp окружения
+                    console.log('[ShareCastComposer] No composeCast available, using link');
+                    const link = document.createElement('a');
+                    link.href = composeUrl;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+
+                // Логируем открытие композера
+                if (prepareHeaders) {
+                    prepareHeaders().then(headers => {
+                        fetch('/api/share/log', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...headers,
+                            },
+                            body: JSON.stringify({
+                                method: 'open_composer',
+                                success: true,
+                                kind: template.kind,
+                            }),
+                        }).catch(err => {
+                            console.warn('[ShareCastComposer] Failed to log composer open:', err);
+                        });
+                    }).catch(err => {
+                        console.warn('[ShareCastComposer] Failed to prepare headers for log:', err);
+                    });
+                }
+            } catch (error: any) {
+                console.error('[ShareCastComposer] Failed to open composer:', error);
+                toast.error("Unable to open composer", {
+                    description: error?.message ?? "Unknown error",
+                });
+            } finally {
+                setLoading(false);
             }
-        } catch (error: any) {
-            console.error('[ShareCastComposer] Failed to open composer:', error);
-            toast.error("Unable to open composer", {
-                description: error?.message ?? "Unknown error",
-            });
-        } finally {
+        }).catch((error) => {
+            console.error('[ShareCastComposer] Failed to save session:', error);
             setLoading(false);
-        }
+        });
     }
 
     function handleShareRequest() {

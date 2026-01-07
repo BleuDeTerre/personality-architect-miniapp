@@ -567,44 +567,46 @@ export default function GoalsPage() {
             targetPath: '/goals',
         });
 
-        if (recentCompleted) {
-            templates.push({
-                key: `completed-${recentCompleted.id}`,
-                label: `Completed: ${recentCompleted.title}`,
-                title: 'Goal Completed',
-                kind: 'goals',
-                text: getRandomVariant(goalCompletedTexts(recentCompleted.title)),
-                previewParams: {
-                    variant: 'goals:completed',
-                    goal: recentCompleted.title,
-                    completed: String(completedGoals.length),
-                    chips: `JUST FINISHED|${recentCompleted.title}`,
-                },
-                targetPath: '/goals',
-            });
-        }
+        // Completed cast - скрыт из UI (информация есть в summary касте)
+        // if (recentCompleted) {
+        //     templates.push({
+        //         key: `completed-${recentCompleted.id}`,
+        //         label: `Completed: ${recentCompleted.title}`,
+        //         title: 'Goal Completed',
+        //         kind: 'goals',
+        //         text: getRandomVariant(goalCompletedTexts(recentCompleted.title)),
+        //         previewParams: {
+        //             variant: 'goals:completed',
+        //             goal: recentCompleted.title,
+        //             completed: String(completedGoals.length),
+        //             chips: `JUST FINISHED|${recentCompleted.title}`,
+        //         },
+        //         targetPath: '/goals',
+        //     });
+        // }
 
-        if (nextDeadline) {
-            const due = nextDeadline.due_date ? new Date(nextDeadline.due_date) : null;
-            const now = new Date();
-            const daysLeft = due ? Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
-            const dueLabel = due ? due.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Soon';
-            templates.push({
-                key: `upcoming-${nextDeadline.id}`,
-                label: `Next: ${nextDeadline.title}`,
-                title: 'Upcoming Goal',
-                kind: 'goals',
-                text: getRandomVariant(upcomingGoalTexts(nextDeadline.title, dueLabel)),
-                previewParams: {
-                    variant: 'goals:upcoming',
-                    goal: nextDeadline.title,
-                    due: dueLabel,
-                    days: String(daysLeft ?? ''),
-                    chips: daysLeft !== null ? `DUE IN ${daysLeft}D` : `DUE ${dueLabel}`,
-                },
-                targetPath: '/goals',
-            });
-        }
+        // Next/Upcoming cast - скрыт из UI
+        // if (nextDeadline) {
+        //     const due = nextDeadline.due_date ? new Date(nextDeadline.due_date) : null;
+        //     const now = new Date();
+        //     const daysLeft = due ? Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
+        //     const dueLabel = due ? due.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Soon';
+        //     templates.push({
+        //         key: `upcoming-${nextDeadline.id}`,
+        //         label: `Next: ${nextDeadline.title}`,
+        //         title: 'Upcoming Goal',
+        //         kind: 'goals',
+        //         text: getRandomVariant(upcomingGoalTexts(nextDeadline.title, dueLabel)),
+        //         previewParams: {
+        //             variant: 'goals:upcoming',
+        //             goal: nextDeadline.title,
+        //             due: dueLabel,
+        //             days: String(daysLeft ?? ''),
+        //             chips: daysLeft !== null ? `DUE IN ${daysLeft}D` : `DUE ${dueLabel}`,
+        //         },
+        //         targetPath: '/goals',
+        //     });
+        // }
 
         return templates;
     }, [goals, activeGoals, completedGoals, nextDeadline]);
