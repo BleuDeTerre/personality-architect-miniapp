@@ -794,7 +794,7 @@ export async function GET(req: NextRequest) {
             ) : null}
             <div
               style={{
-                fontSize: 72,
+                fontSize: isWheelSnapshot ? 60 : 72,
                 fontWeight: 'bold',
                 color: PRIMARY_COLOR,
                 lineHeight: 1.05,
@@ -1079,19 +1079,19 @@ export async function GET(req: NextRequest) {
             {isWheelSnapshot && wheelCategories.length > 0 && (
               <div
                 style={{
-                  marginTop: 24,
-                  paddingTop: 20,
+                  marginTop: 20,
+                  paddingTop: 16,
                   borderTop: '1px solid rgba(148,163,184,0.35)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 12,
+                  gap: 10,
                 }}
               >
                 {/* Две колонки по 5 областей */}
                 <div
                   style={{
                     display: 'flex',
-                    gap: 24,
+                    gap: 20,
                   }}
                 >
                   {/* Левая колонка - первые 5 областей */}
@@ -1099,7 +1099,7 @@ export async function GET(req: NextRequest) {
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 8,
+                      gap: 6,
                       flex: 1,
                     }}
                   >
@@ -1109,7 +1109,7 @@ export async function GET(req: NextRequest) {
                         style={{
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: 3,
+                          gap: 2,
                         }}
                       >
                         <div
@@ -1124,21 +1124,21 @@ export async function GET(req: NextRequest) {
                             style={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 6,
-                              fontSize: 11,
+                              gap: 5,
+                              fontSize: 12,
                               color: 'white',
                             }}
                           >
                             <span style={{ display: 'flex' }}>{WHEEL_AREAS_ICONS[area.name] || '•'}</span>
                             <span style={{ display: 'flex' }}>{area.name}</span>
                           </div>
-                          <span style={{ display: 'flex', fontSize: 11, color: area.color }}>
+                          <span style={{ display: 'flex', fontSize: 12, color: area.color }}>
                             {area.score}
                           </span>
                         </div>
                         <div
                           style={{
-                            height: 6,
+                            height: 5,
                             borderRadius: 999,
                             background: 'rgba(15,23,42,0.9)',
                             overflow: 'hidden',
@@ -1162,7 +1162,7 @@ export async function GET(req: NextRequest) {
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 8,
+                      gap: 6,
                       flex: 1,
                     }}
                   >
@@ -1172,7 +1172,7 @@ export async function GET(req: NextRequest) {
                         style={{
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: 3,
+                          gap: 2,
                         }}
                       >
                         <div
@@ -1187,21 +1187,21 @@ export async function GET(req: NextRequest) {
                             style={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 6,
-                              fontSize: 11,
+                              gap: 5,
+                              fontSize: 12,
                               color: 'white',
                             }}
                           >
                             <span style={{ display: 'flex' }}>{WHEEL_AREAS_ICONS[area.name] || '•'}</span>
                             <span style={{ display: 'flex' }}>{area.name}</span>
                           </div>
-                          <span style={{ display: 'flex', fontSize: 11, color: area.color }}>
+                          <span style={{ display: 'flex', fontSize: 12, color: area.color }}>
                             {area.score}
                           </span>
                         </div>
                         <div
                           style={{
-                            height: 6,
+                            height: 5,
                             borderRadius: 999,
                             background: 'rgba(15,23,42,0.9)',
                             overflow: 'hidden',
@@ -1805,55 +1805,6 @@ export async function GET(req: NextRequest) {
                     />
                   </div>
                 </div>
-
-                {/* Прогресс до следующего бейджа */}
-                {nextBadgeDays > 0 && (
-                  <div
-                    style={{
-                      marginTop: 4,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 4,
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        fontSize: 12,
-                        color: '#facc15',
-                      }}
-                    >
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ display: 'flex' }}>🏅</span>
-                        <span style={{ display: 'flex' }}>Next badge</span>
-                      </span>
-                      <span style={{ display: 'flex' }}>
-                        {nextBadgeDays} day{nextBadgeDays === 1 ? '' : 's'} left
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        height: 8,
-                        borderRadius: 999,
-                        background: 'rgba(15,23,42,0.9)',
-                        overflow: 'hidden',
-                        display: 'flex',
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${Math.max(4, badgeProgressRatio * 100)}%`,
-                          height: '100%',
-                          borderRadius: 999,
-                          background: 'linear-gradient(to right, #fbbf24, #facc15)',
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-
               </div>
             )}
 
@@ -2355,28 +2306,6 @@ export async function GET(req: NextRequest) {
                 Plan. Execute. Evolve.
               </div>
             </div>
-          </div>
-
-          {/* Микро-декор: точки-индикаторы */}
-          <div
-            style={{
-              display: 'flex',
-              gap: 6,
-              marginLeft: 'auto',
-              alignItems: 'center',
-            }}
-          >
-            {[1, 2, 3, 4].map((dot, idx) => (
-              <div
-                key={dot}
-                style={{
-                  width: 4,
-                  height: 4,
-                  borderRadius: '50%',
-                  background: idx === 0 ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.2)',
-                }}
-              />
-            ))}
           </div>
         </div>
       </div>
