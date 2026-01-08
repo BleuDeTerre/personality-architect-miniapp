@@ -203,7 +203,7 @@ function generateNotionMarkdown(data: any): string {
     // Колесо жизни
     if (data.wheel_of_life.length > 0) {
         lines.push('## 🎡 Колесо жизни\n');
-        const weeks = [...new Set(data.wheel_of_life.map((w: any) => w.week))];
+        const weeks = [...new Set(data.wheel_of_life.map((w: any) => w.week))] as string[];
         weeks.slice(0, 12).forEach((week: string) => {
             lines.push(`### Неделя ${week}`);
             const weekData = data.wheel_of_life.filter((w: any) => w.week === week);
