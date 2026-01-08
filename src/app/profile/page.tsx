@@ -85,6 +85,7 @@ export default function ProfilePage() {
     const [mainFocus, setMainFocus] = useState<string | null>(null);
     const [mainFocusEditing, setMainFocusEditing] = useState(false);
     const [mainFocusInput, setMainFocusInput] = useState('');
+    const [exporting, setExporting] = useState<string | null>(null);
 
     // Headers with Bearer
     const authHeaders = useCallback(async () => {
@@ -118,6 +119,42 @@ export default function ProfilePage() {
             })
         );
         setEligMap(Object.fromEntries(entries));
+    }, [authHeaders]);
+
+    // Export data handler
+    const handleExport = useCallback((format: 'csv' | 'notion' | 'obsidian' | 'json') => async () => {
+        try {
+            setExporting(format);
+            const headers = await authHeaders();
+            const response = await fetch(`/api/export/data?format=${format}`, {
+                headers,
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to export data');
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            const contentDisposition = response.headers.get('Content-Disposition');
+            const filename = contentDisposition 
+                ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
+                : `export-${format}-${new Date().toISOString().slice(0, 10)}.${format === 'json' ? 'json' : format === 'csv' ? 'csv' : 'md'}`;
+            
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Export error:', error);
+            alert('Ошибка при экспорте данных. Попробуйте еще раз.');
+        } finally {
+            setExporting(null);
+        }
     }, [authHeaders]);
 
     const loadNeynarProfile = useCallback(async (fid: number | null, userId: string | null) => {
@@ -646,42 +683,81 @@ export default function ProfilePage() {
                 </section>
 
                 {/* Export Data */}
-                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 sm:p-3 relative overflow-hidden mb-3">
-                    {/* Content visible through blur */}
-                    <div className="pointer-events-none">
-                        <div className="flex items-start justify-between mb-4">
-                            <div>
-                                <p className="text-xs uppercase tracking-wide text-white/60 mb-1">EXPORT DATA</p>
-                                <p className="text-xl font-bold text-white">Download your data</p>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <button
-                                disabled
-                                className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
-                            >
-                                Export CSV
-                            </button>
-                            <button
-                                disabled
-                                className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
-                            >
-                                Export Notion
-                            </button>
-                            <button
-                                disabled
-                                className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm text-white/70 font-medium transition cursor-not-allowed opacity-60"
-                            >
-                                Export Obsidian
-                            </button>
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 sm:p-3 mb-3">
+                    <div className="flex items-start justify-between mb-4">
+                        <div>
+                            <p className="text-xs uppercase tracking-wide text-white/60 mb-1">EXPORT DATA</p>
+                            <p className="text-xl font-bold text-white">Download your data</p>
+                            <p className="text-sm text-white/60 mt-1">
+                                Export all your habits, goals, analytics and chat history
+                            </p>
                         </div>
                     </div>
-                    {/* COMING SOON overlay with blur effect */}
-                    <div className="absolute inset-0 flex items-center justify-center bg-[#1a1b2e]/70 backdrop-blur-md">
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1a1b2e] border border-white/10">
-                            <span className="text-sm">⏳</span>
-                            <span className="text-sm font-semibold text-white">COMING SOON</span>
-                        </div>
+                    <div className="space-y-2">
+                        <button
+                            onClick={handleExport('csv')}
+                            disabled={!!exporting}
+                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm text-white font-medium transition hover:bg-white/5 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                            {exporting === 'csv' ? (
+                                <>
+                                    <span className="animate-spin">⏳</span>
+                                    Exporting...
+                                </>
+                            ) : (
+                                <>
+                                    📊 Export CSV
+                                </>
+                            )}
+                        </button>
+                        <button
+                            onClick={handleExport('notion')}
+                            disabled={!!exporting}
+                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm text-white font-medium transition hover:bg-white/5 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                            {exporting === 'notion' ? (
+                                <>
+                                    <span className="animate-spin">⏳</span>
+                                    Exporting...
+                                </>
+                            ) : (
+                                <>
+                                    📝 Export for Notion
+                                </>
+                            )}
+                        </button>
+                        <button
+                            onClick={handleExport('obsidian')}
+                            disabled={!!exporting}
+                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm text-white font-medium transition hover:bg-white/5 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                            {exporting === 'obsidian' ? (
+                                <>
+                                    <span className="animate-spin">⏳</span>
+                                    Exporting...
+                                </>
+                            ) : (
+                                <>
+                                    📔 Export for Obsidian
+                                </>
+                            )}
+                        </button>
+                        <button
+                            onClick={handleExport('json')}
+                            disabled={!!exporting}
+                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm text-white font-medium transition hover:bg-white/5 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                            {exporting === 'json' ? (
+                                <>
+                                    <span className="animate-spin">⏳</span>
+                                    Exporting...
+                                </>
+                            ) : (
+                                <>
+                                    💾 Export JSON (Full Data)
+                                </>
+                            )}
+                        </button>
                     </div>
                 </section>
             </div>
