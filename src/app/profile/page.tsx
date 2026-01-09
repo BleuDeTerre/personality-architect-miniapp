@@ -59,7 +59,7 @@ type FrameContextUser = {
 
 
 export default function ProfilePage() {
-    const { isSDKLoaded, context } = useMiniApp();
+    const { isSDKLoaded, context, actions } = useMiniApp();
 
     // Profile
     const [p, setP] = useState<Profile>({
@@ -86,6 +86,7 @@ export default function ProfilePage() {
     const [mainFocusEditing, setMainFocusEditing] = useState(false);
     const [mainFocusInput, setMainFocusInput] = useState('');
     const [exporting, setExporting] = useState<string | null>(null);
+    const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
     // Headers with Bearer
     const authHeaders = useCallback(async () => {
@@ -121,40 +122,106 @@ export default function ProfilePage() {
         setEligMap(Object.fromEntries(entries));
     }, [authHeaders]);
 
-    // Export data handler
-    const handleExport = useCallback((format: 'csv' | 'notion' | 'obsidian' | 'json') => async () => {
-        try {
-            setExporting(format);
-            const headers = await authHeaders();
-            const response = await fetch(`/api/export/data?format=${format}`, {
-                headers,
-            });
+    // Export data handler - использует SDK openUrl для работы в miniapp
+    const handleExport = useCallback((format: 'csv' | 'markdown' | 'json') => {
+        return async (e?: React.MouseEvent) => {
+            e?.preventDefault();
+            e?.stopPropagation();
 
-            if (!response.ok) {
-                throw new Error('Failed to export data');
+            console.log('[Export] Starting export for format:', format);
+            try {
+                setExporting(format);
+
+                // Проверяем сессию
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    throw new Error('Необходима авторизация для экспорта данных');
+                }
+
+                const sessionHeaders = await authHeaders();
+                console.log('[Export] Generating download link...');
+
+                // Генерируем временную ссылку для скачивания
+                const response = await fetch('/api/export/download-link', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        authorization: sessionHeaders.authorization,
+                    },
+                    body: JSON.stringify({ format }),
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('[Export] API error:', response.status, errorText);
+                    throw new Error(`Failed to generate download link: ${response.status}`);
+                }
+
+                const { url: downloadUrl } = await response.json();
+                console.log('[Export] Download URL:', downloadUrl);
+
+                // Используем SDK openUrl для открытия ссылки в браузере
+                if (actions?.openUrl) {
+                    console.log('[Export] Using SDK openUrl');
+                    await actions.openUrl(downloadUrl);
+                } else {
+                    // Fallback для не-miniapp окружения
+                    console.log('[Export] SDK not available, using window.open');
+                    window.open(downloadUrl, '_blank');
+                }
+
+            } catch (error) {
+                console.error('[Export] Error:', error);
+                const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+                alert(`Ошибка при экспорте: ${errorMessage}`);
+            } finally {
+                setExporting(null);
             }
+        };
+    }, [authHeaders, actions]);
 
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            
-            const contentDisposition = response.headers.get('Content-Disposition');
-            const filename = contentDisposition 
-                ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-                : `export-${format}-${new Date().toISOString().slice(0, 10)}.${format === 'json' ? 'json' : format === 'csv' ? 'csv' : 'md'}`;
-            
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        } catch (error) {
-            console.error('Export error:', error);
-            alert('Ошибка при экспорте данных. Попробуйте еще раз.');
-        } finally {
-            setExporting(null);
-        }
+    // Копирование данных в буфер обмена (для miniapp/iframe)
+    const handleCopyToClipboard = useCallback((format: 'markdown' | 'json') => {
+        return async () => {
+            console.log('[Copy] Starting copy for format:', format);
+            try {
+                setExporting(format);
+
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    throw new Error('Необходима авторизация');
+                }
+
+                const sessionHeaders = await authHeaders();
+                // Маппинг форматов для обратной совместимости
+                const apiFormat = format === 'markdown' ? 'markdown' : format;
+                const response = await fetch(`/api/export/data?format=${apiFormat}`, {
+                    method: 'GET',
+                    headers: { authorization: sessionHeaders.authorization },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed: ${response.status}`);
+                }
+
+                const text = await response.text();
+                console.log('[Copy] Text received, length:', text.length);
+
+                // Копируем в буфер обмена
+                await navigator.clipboard.writeText(text);
+                console.log('[Copy] Copied to clipboard');
+
+                setCopySuccess(format);
+                setTimeout(() => setCopySuccess(null), 3000);
+
+            } catch (error) {
+                console.error('[Copy] Error:', error);
+                const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+                alert(`Ошибка: ${errorMessage}`);
+            } finally {
+                setExporting(null);
+            }
+        };
     }, [authHeaders]);
 
     const loadNeynarProfile = useCallback(async (fid: number | null, userId: string | null) => {
@@ -689,76 +756,95 @@ export default function ProfilePage() {
                             <p className="text-xs uppercase tracking-wide text-white/60 mb-1">EXPORT DATA</p>
                             <p className="text-xl font-bold text-white">Download your data</p>
                             <p className="text-sm text-white/60 mt-1">
-                                Export all your habits, goals, analytics and chat history
+                                Copy to clipboard or download your data
                             </p>
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <button
-                            onClick={handleExport('csv')}
-                            disabled={!!exporting}
-                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm text-white font-medium transition hover:bg-white/5 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            {exporting === 'csv' ? (
-                                <>
-                                    <span className="animate-spin">⏳</span>
-                                    Exporting...
-                                </>
-                            ) : (
-                                <>
-                                    📊 Export CSV
-                                </>
-                            )}
-                        </button>
-                        <button
-                            onClick={handleExport('notion')}
-                            disabled={!!exporting}
-                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm text-white font-medium transition hover:bg-white/5 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            {exporting === 'notion' ? (
-                                <>
-                                    <span className="animate-spin">⏳</span>
-                                    Exporting...
-                                </>
-                            ) : (
-                                <>
-                                    📝 Export for Notion
-                                </>
-                            )}
-                        </button>
-                        <button
-                            onClick={handleExport('obsidian')}
-                            disabled={!!exporting}
-                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm text-white font-medium transition hover:bg-white/5 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            {exporting === 'obsidian' ? (
-                                <>
-                                    <span className="animate-spin">⏳</span>
-                                    Exporting...
-                                </>
-                            ) : (
-                                <>
-                                    📔 Export for Obsidian
-                                </>
-                            )}
-                        </button>
-                        <button
-                            onClick={handleExport('json')}
-                            disabled={!!exporting}
-                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-sm text-white font-medium transition hover:bg-white/5 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            {exporting === 'json' ? (
-                                <>
-                                    <span className="animate-spin">⏳</span>
-                                    Exporting...
-                                </>
-                            ) : (
-                                <>
-                                    💾 Export JSON (Full Data)
-                                </>
-                            )}
-                        </button>
+
+                    {/* Copy success message */}
+                    {copySuccess && (
+                        <div className="mb-3 p-3 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 text-sm text-center">
+                            ✅ Copied to clipboard! Paste in Notion, Obsidian, ChatGPT, or any Markdown editor.
+                        </div>
+                    )}
+
+                    <div className="space-y-3">
+                        {/* JSON - Full Data */}
+                        <div className="space-y-1">
+                            <p className="text-xs text-white/50 uppercase tracking-wide">Full Data (JSON)</p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleCopyToClipboard('json')}
+                                    disabled={!!exporting}
+                                    className="flex-1 rounded-xl border border-white/10 bg-[#1a1b2e] px-3 py-2.5 text-sm text-white font-medium transition hover:bg-white/5 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {exporting === 'json' ? (
+                                        <><span className="animate-spin">⏳</span> Loading...</>
+                                    ) : copySuccess === 'json' ? (
+                                        <><span>✅</span> Copied!</>
+                                    ) : (
+                                        <><span>📋</span> Copy JSON</>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={handleExport('json')}
+                                    disabled={!!exporting}
+                                    className="rounded-xl border border-white/10 bg-[#1a1b2e] px-3 py-2.5 text-sm text-white/70 font-medium transition hover:bg-white/5 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Download file"
+                                >
+                                    💾
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Markdown - универсальный формат */}
+                        <div className="space-y-1">
+                            <p className="text-xs text-white/50 uppercase tracking-wide">Full Data (md)</p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleCopyToClipboard('markdown')}
+                                    disabled={!!exporting}
+                                    className="flex-1 rounded-xl border border-white/10 bg-[#1a1b2e] px-3 py-2.5 text-sm text-white font-medium transition hover:bg-white/5 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {exporting === 'markdown' ? (
+                                        <><span className="animate-spin">⏳</span> Loading...</>
+                                    ) : copySuccess === 'markdown' ? (
+                                        <><span>✅</span> Copied!</>
+                                    ) : (
+                                        <><span>📋</span> Copy Markdown</>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={handleExport('markdown')}
+                                    disabled={!!exporting}
+                                    className="rounded-xl border border-white/10 bg-[#1a1b2e] px-3 py-2.5 text-sm text-white/70 font-medium transition hover:bg-white/5 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Download file"
+                                >
+                                    💾
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* CSV */}
+                        <div className="space-y-1">
+                            <p className="text-xs text-white/50 uppercase tracking-wide">CSV (All Data)</p>
+                            <button
+                                onClick={handleExport('csv')}
+                                disabled={!!exporting}
+                                className="w-full rounded-xl border border-white/10 bg-[#1a1b2e] px-3 py-2.5 text-sm text-white font-medium transition hover:bg-white/5 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {exporting === 'csv' ? (
+                                    <><span className="animate-spin">⏳</span> Exporting...</>
+                                ) : (
+                                    <><span>📊</span> Download CSV</>
+                                )}
+                            </button>
+                        </div>
                     </div>
+
+                    <p className="text-xs text-white/40 mt-3 text-center">
+                        💡 Download buttons open browser for file download. Copy buttons work in miniapp.
+                    </p>
                 </section>
             </div>
         </MiniAppPage>

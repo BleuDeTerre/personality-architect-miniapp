@@ -745,13 +745,44 @@ export default function HabitsPage() {
 
             const data = await res.json();
 
+            // Обновляем локально is_completed
             setHabits(prev =>
                 prev.map(h =>
                     h.id === id
-                        ? { ...h, is_completed: true, streak: (h.streak ?? 0) + 1 }
+                        ? { ...h, is_completed: true }
                         : h
                 )
             );
+
+            // Перезагружаем streak для этой привычки через API (правильный расчет)
+            try {
+                const streakRes = await fetch('/api/habits/streaks', {
+                    method: 'POST',
+                    headers: await authHeaders(),
+                    body: JSON.stringify({ ids: [id] }),
+                });
+                if (streakRes.ok) {
+                    const streakData: Array<{ habit_id: string; streak: number }> = await streakRes.json();
+                    const newStreak = streakData.find(s => s.habit_id === id)?.streak ?? 0;
+                    setHabits(prev =>
+                        prev.map(h =>
+                            h.id === id
+                                ? { ...h, streak: newStreak }
+                                : h
+                        )
+                    );
+                }
+            } catch (streakError) {
+                console.error('[HabitsPage] Failed to refresh streak:', streakError);
+                // Если не удалось обновить streak, просто увеличиваем на 1 (fallback)
+                setHabits(prev =>
+                    prev.map(h =>
+                        h.id === id
+                            ? { ...h, streak: (h.streak ?? 0) + 1 }
+                            : h
+                    )
+                );
+            }
 
             toast.success('Nice! Habit marked for today.', {
                 description: 'Habit completed',

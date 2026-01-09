@@ -127,6 +127,21 @@ export const upcomingGoalTexts = (goalTitle: string, dueDate: string) => [
   `🚀 "${goalTitle}" is approaching (${dueDate}). Time to act!`,
 ];
 
+export const eisenhowerMatrixTexts = (
+  importantUrgent: number,
+  importantNotUrgent: number,
+  notImportantUrgent: number,
+  notImportantNotUrgent: number
+) => {
+  const total = importantUrgent + importantNotUrgent + notImportantUrgent + notImportantNotUrgent;
+  return [
+    `🎯 My Eisenhower Matrix: ${total} goal${total === 1 ? '' : 's'} organized by priority. ${importantUrgent} urgent & important, ${importantNotUrgent} important to schedule.`,
+    `🎯 Organizing ${total} goal${total === 1 ? '' : 's'} with the Eisenhower Matrix. ${importantUrgent} need immediate attention, ${importantNotUrgent} are important for later.`,
+    `🎯 Prioritizing ${total} goal${total === 1 ? '' : 's'} using the Eisenhower Matrix. ${importantUrgent} are urgent & important, ${importantNotUrgent} I'll schedule.`,
+    `🎯 ${total} goal${total === 1 ? '' : 's'} sorted by the Eisenhower Matrix. ${importantUrgent} do first, ${importantNotUrgent} schedule for later.`,
+  ];
+};
+
 // Analytics - Weekly Capsule
 export const weeklyCapsuleTexts = (startStr: string, endStr: string, completedDays: number, totalDays: number, longestRun: number) => [
   `📦 Week ${startStr}–${endStr}: ${completedDays}/${totalDays} days done, longest run ${longestRun}d.`,

@@ -11,7 +11,7 @@ import AIGoalBreakdown from '@/components/AIGoalBreakdown';
 import EisenhowerMatrix from '@/components/EisenhowerMatrix';
 import GoalSubtasks from '@/components/GoalSubtasks';
 import DatePicker from '@/components/DatePicker';
-import { getRandomVariant, goalProgressTexts, goalCompletedTexts, upcomingGoalTexts } from '@/lib/castTextVariants';
+import { getRandomVariant, goalProgressTexts, goalCompletedTexts, upcomingGoalTexts, eisenhowerMatrixTexts } from '@/lib/castTextVariants';
 import { IconDisplay } from '@/lib/iconMapper';
 
 // Используем централизованный клиент из lib/supabase с правильными настройками
@@ -566,6 +566,47 @@ export default function GoalsPage() {
             },
             targetPath: '/goals',
         });
+
+        // Eisenhower Matrix cast - только цели с установленными приоритетами
+        const matrixGoals = activeGoals.filter(g => 
+            (g.important === true || g.important === false) && 
+            (g.urgent === true || g.urgent === false)
+        );
+        if (matrixGoals.length > 0) {
+            const importantUrgent = matrixGoals.filter(g => g.important === true && g.urgent === true);
+            const importantNotUrgent = matrixGoals.filter(g => g.important === true && g.urgent === false);
+            const notImportantUrgent = matrixGoals.filter(g => g.important === false && g.urgent === true);
+            const notImportantNotUrgent = matrixGoals.filter(g => g.important === false && g.urgent === false);
+
+            // Получаем первые 3 цели из каждого квадранта для отображения
+            const getGoalsTitles = (goalsList: Goal[], max: number = 3) => 
+                goalsList.slice(0, max).map(g => g.title).join('|');
+
+            templates.push({
+                key: 'eisenhower',
+                label: `Eisenhower Matrix (${matrixGoals.length} goals)`,
+                title: 'Eisenhower Matrix',
+                kind: 'goals',
+                text: getRandomVariant(eisenhowerMatrixTexts(
+                    importantUrgent.length,
+                    importantNotUrgent.length,
+                    notImportantUrgent.length,
+                    notImportantNotUrgent.length
+                )),
+                previewParams: {
+                    variant: 'goals:eisenhower',
+                    q1_count: String(importantUrgent.length),
+                    q2_count: String(importantNotUrgent.length),
+                    q3_count: String(notImportantUrgent.length),
+                    q4_count: String(notImportantNotUrgent.length),
+                    q1_goals: getGoalsTitles(importantUrgent),
+                    q2_goals: getGoalsTitles(importantNotUrgent),
+                    q3_goals: getGoalsTitles(notImportantUrgent),
+                    q4_goals: getGoalsTitles(notImportantNotUrgent),
+                },
+                targetPath: '/goals',
+            });
+        }
 
         // Completed cast - скрыт из UI (информация есть в summary касте)
         // if (recentCompleted) {

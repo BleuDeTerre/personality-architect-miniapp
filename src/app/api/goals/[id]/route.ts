@@ -3,8 +3,29 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
+import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
+    // Rate limiting для изменения данных
+    const rateLimit = checkRateLimit(req, RATE_LIMIT_PRESETS.API);
+    if (!rateLimit.allowed) {
+        return NextResponse.json(
+            {
+                error: 'rate_limit_exceeded',
+                message: 'Too many requests. Please try again later.',
+                retry_after: rateLimit.retryAfter,
+            },
+            {
+                status: 429,
+                headers: {
+                    'Retry-After': String(rateLimit.retryAfter || 60),
+                    'X-RateLimit-Limit': String(rateLimit.limit || 0),
+                    'X-RateLimit-Remaining': String(rateLimit.remaining || 0),
+                },
+            }
+        );
+    }
+
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -61,6 +82,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
+    // Rate limiting для удаления данных
+    const rateLimit = checkRateLimit(req, RATE_LIMIT_PRESETS.API);
+    if (!rateLimit.allowed) {
+        return NextResponse.json(
+            {
+                error: 'rate_limit_exceeded',
+                message: 'Too many requests. Please try again later.',
+                retry_after: rateLimit.retryAfter,
+            },
+            {
+                status: 429,
+                headers: {
+                    'Retry-After': String(rateLimit.retryAfter || 60),
+                    'X-RateLimit-Limit': String(rateLimit.limit || 0),
+                    'X-RateLimit-Remaining': String(rateLimit.remaining || 0),
+                },
+            }
+        );
+    }
+
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

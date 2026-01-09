@@ -6,8 +6,29 @@ import { createUserServerClient } from '@/lib/supabase';
 import { getCachedAnalytics, setCachedAnalytics } from '@/lib/analytics-cache';
 import { generateAnalyticsFacts } from '@/lib/analyticsFactsTemplates';
 import type { UserPlan } from '@/lib/aiLimits';
+import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 
 export async function GET(req: NextRequest) {
+    // Rate limiting для чтения аналитики
+    const rateLimit = checkRateLimit(req, RATE_LIMIT_PRESETS.READ);
+    if (!rateLimit.allowed) {
+        return NextResponse.json(
+            {
+                error: 'rate_limit_exceeded',
+                message: 'Too many requests. Please try again later.',
+                retry_after: rateLimit.retryAfter,
+            },
+            {
+                status: 429,
+                headers: {
+                    'Retry-After': String(rateLimit.retryAfter || 60),
+                    'X-RateLimit-Limit': String(rateLimit.limit || 0),
+                    'X-RateLimit-Remaining': String(rateLimit.remaining || 0),
+                },
+            }
+        );
+    }
+
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) {

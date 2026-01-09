@@ -5,6 +5,7 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { getCachedAnalytics, setCachedAnalytics } from '@/lib/analytics-cache';
 import { isoWeek } from '@/lib/time';
+import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 
 const DEV_UID =
     process.env.NODE_ENV !== 'production'
@@ -19,6 +20,26 @@ function weekKey(isoWeek: string): number {
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 
 export async function GET(req: NextRequest) {
+    // Rate limiting для чтения аналитики
+    const rateLimit = checkRateLimit(req, RATE_LIMIT_PRESETS.READ);
+    if (!rateLimit.allowed) {
+        return NextResponse.json(
+            {
+                error: 'rate_limit_exceeded',
+                message: 'Too many requests. Please try again later.',
+                retry_after: rateLimit.retryAfter,
+            },
+            {
+                status: 429,
+                headers: {
+                    'Retry-After': String(rateLimit.retryAfter || 60),
+                    'X-RateLimit-Limit': String(rateLimit.limit || 0),
+                    'X-RateLimit-Remaining': String(rateLimit.remaining || 0),
+                },
+            }
+        );
+    }
+
     // auth
     let userId: string | null = null;
     let supa = null as ReturnType<typeof createUserServerClient> | null;

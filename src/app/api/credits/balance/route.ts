@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/auth';
 import { PRICES_USD } from '@/lib/pricing';
+import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 
 // Карта прайсинга (используем примерные цены для расчета экономии)
 const PRICE_BY_ENDPOINT: Record<string, number> = {
@@ -14,6 +15,26 @@ const PRICE_BY_ENDPOINT: Record<string, number> = {
 };
 
 export async function GET(req: NextRequest) {
+  // Rate limiting для чтения данных
+  const rateLimit = checkRateLimit(req, RATE_LIMIT_PRESETS.READ);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: 'rate_limit_exceeded',
+        message: 'Too many requests. Please try again later.',
+        retry_after: rateLimit.retryAfter,
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(rateLimit.retryAfter || 60),
+          'X-RateLimit-Limit': String(rateLimit.limit || 0),
+          'X-RateLimit-Remaining': String(rateLimit.remaining || 0),
+        },
+      }
+    );
+  }
+
   try {
     // 1) Аутентификация (как у тебя)
     const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');

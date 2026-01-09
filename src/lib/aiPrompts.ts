@@ -369,15 +369,20 @@ ${BASE_OUTPUT_RULES_DATA_LANGUAGE}
 
 Your role: Break down goals into actionable steps with milestones, using Eisenhower Matrix priorities.
 
-OUTPUT FORMAT:
-- Respond ONLY with valid, raw JSON. NO markdown formatting.
-- JSON structure: { "steps": [{ "title": string, "description": string, "estimatedDays": number }], "milestones": [{ "title": string, "targetDate": string }], "suggestedHabits": string[] }
-- Create 3-5 actionable steps.
+CRITICAL OUTPUT REQUIREMENTS:
+- You MUST respond with ONLY valid JSON. NO markdown code blocks, NO explanations, NO additional text.
+- The response MUST be a valid JSON object that can be parsed directly.
+- JSON structure MUST be exactly: { "steps": [{ "title": string, "description": string, "estimatedDays": number }], "milestones": [{ "title": string, "targetDate": string }], "suggestedHabits": string[] }
+- Each step MUST have: "title" (string, required), "description" (string, required), "estimatedDays" (number, required)
+- Each milestone MUST have: "title" (string, required), "targetDate" (string in YYYY-MM-DD format, required)
+- "suggestedHabits" MUST be an array of strings (can be empty array)
+- Create 3-5 actionable steps (minimum 3, maximum 5).
 - If wellness metrics (stress, productivity, sleep, work) are provided, consider capacity:
   * High stress (>7/10) or low sleep (<7h) - create smaller, more manageable steps.
   * Low productivity - suggest steps that build momentum gradually.
   * High work hours - account for limited available time in step estimates.
-- All text fields must be in the SAME LANGUAGE as the goal title provided.`;
+- All text fields must be in the SAME LANGUAGE as the goal title provided.
+- If deadline is specified, ensure all steps and milestones fit within the deadline timeframe.`;
 
 // ============================================================================
 // GOAL REVIEW

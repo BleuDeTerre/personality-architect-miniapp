@@ -40,6 +40,7 @@ type Props = {
 export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, goalId, important, urgent, onBreakdownGenerated, onSubtasksCreated }: Props) {
     const [breakdown, setBreakdown] = useState<BreakdownData | null>(null);
     const [loading, setLoading] = useState(false);
+    const [creatingSubtasks, setCreatingSubtasks] = useState(false);
     const [expanded, setExpanded] = useState(false);
     const [selectedSteps, setSelectedSteps] = useState<Set<number>>(new Set());
 
@@ -59,7 +60,7 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
             
             // Создаем AbortController для таймаута
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 секунд таймаут
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 секунд таймаут
             
             try {
                 const res = await fetch('/api/ai/goal-breakdown', {
@@ -80,24 +81,32 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
                 if (res.ok) {
                     const result = await res.json();
                     console.log('[AI Goal Breakdown] Success:', result);
+                    
                     // Проверяем, что результат валидный
                     if (result && (result.steps || result.milestones || result.suggestedHabits)) {
-                        setBreakdown(result);
-                        setExpanded(true);
-                        // Предварительно выбираем все шаги
-                        setSelectedSteps(new Set(result.steps?.map((_: any, idx: number) => idx) || []));
-                        if (onBreakdownGenerated) {
-                            onBreakdownGenerated(result);
+                        // Проверяем, что steps - это массив и не пустой
+                        if (Array.isArray(result.steps) && result.steps.length > 0) {
+                            setBreakdown(result);
+                            setExpanded(true);
+                            // Предварительно выбираем все шаги
+                            setSelectedSteps(new Set(result.steps.map((_: any, idx: number) => idx)));
+                            if (onBreakdownGenerated) {
+                                onBreakdownGenerated(result);
+                            }
+                        } else {
+                            console.error('[AI Goal Breakdown] No steps in result:', result);
+                            alert('AI generated a plan but no actionable steps were found. Please try again.');
                         }
                     } else {
-                        console.error('[AI Goal Breakdown] Invalid result:', result);
+                        console.error('[AI Goal Breakdown] Invalid result structure:', result);
                         alert('Received invalid breakdown data. Please try again.');
                     }
                 } else {
                     // Обработка ошибок API
                     const errorData = await res.json().catch(() => ({}));
                     console.error('[AI Goal Breakdown] API error:', res.status, errorData);
-                    alert(errorData.message || `Error: ${res.status}. Please try again.`);
+                    const errorMessage = errorData.message || errorData.error || `Error: ${res.status}. Please try again.`;
+                    alert(errorMessage);
                 }
             } catch (fetchError: any) {
                 clearTimeout(timeoutId);
@@ -126,25 +135,75 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
     }, [goalTitle]);
 
     const createSubtasksFromBreakdown = useCallback(async (goalId: number, steps: Step[]) => {
+        if (!goalId || !steps || steps.length === 0) {
+            console.error('[AI Goal Breakdown] Invalid parameters for createSubtasksFromBreakdown:', { goalId, steps });
+            alert('Cannot create subtasks: invalid goal ID or no steps selected.');
+            return;
+        }
+
         try {
+            setCreatingSubtasks(true);
             const headers = await authHeaders();
+            const createdSubtasks = [];
+            const errors = [];
+
             // Create subtasks from AI breakdown steps
             for (let i = 0; i < steps.length; i++) {
                 const step = steps[i];
-                await fetch('/api/subtasks', {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        goal_id: goalId,
-                        title: step.title,
-                        weight: 1, // Default weight
-                        order_index: i + 1,
-                    }),
-                });
+                if (!step || !step.title) {
+                    console.warn('[AI Goal Breakdown] Skipping invalid step:', step);
+                    continue;
+                }
+
+                try {
+                    const res = await fetch('/api/subtasks', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({
+                            goal_id: goalId,
+                            title: step.title,
+                            weight: 1, // Default weight
+                            order_index: i + 1,
+                        }),
+                    });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        createdSubtasks.push(data.item);
+                        console.log('[AI Goal Breakdown] Created subtask:', data.item);
+                    } else {
+                        const errorData = await res.json().catch(() => ({}));
+                        console.error('[AI Goal Breakdown] Failed to create subtask:', step.title, errorData);
+                        errors.push({ step: step.title, error: errorData.message || errorData.error || 'Unknown error' });
+                    }
+                } catch (fetchError: any) {
+                    console.error('[AI Goal Breakdown] Error creating subtask:', step.title, fetchError);
+                    errors.push({ step: step.title, error: fetchError.message || 'Network error' });
+                }
             }
-            onSubtasksCreated?.();
-        } catch (error) {
-            console.error('Failed to create subtasks from breakdown:', error);
+
+            if (errors.length > 0) {
+                console.error('[AI Goal Breakdown] Some subtasks failed to create:', errors);
+                alert(`Created ${createdSubtasks.length} of ${steps.length} subtasks. Some failed: ${errors.map(e => e.step).join(', ')}`);
+            } else {
+                console.log('[AI Goal Breakdown] Successfully created all subtasks:', createdSubtasks.length);
+            }
+
+            // Обновляем список целей, даже если были ошибки
+            if (createdSubtasks.length > 0) {
+                // Сбрасываем состояние компонента - это скроет разбивку
+                setBreakdown(null);
+                setSelectedSteps(new Set());
+                setExpanded(false);
+                
+                // Обновляем список целей (это покажет новые подзадачи)
+                onSubtasksCreated?.();
+            }
+        } catch (error: any) {
+            console.error('[AI Goal Breakdown] Failed to create subtasks from breakdown:', error);
+            alert(`Failed to create subtasks: ${error.message || 'Unknown error'}`);
+        } finally {
+            setCreatingSubtasks(false);
         }
     }, [authHeaders, onSubtasksCreated]);
 
@@ -210,11 +269,18 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
                             onClick={async () => {
                                 const stepsToAdd = breakdown.steps.filter((_, idx) => selectedSteps.has(idx));
                                 await createSubtasksFromBreakdown(goalId, stepsToAdd);
-                                setExpanded(false);
                             }}
-                            className="mt-3 w-full px-4 py-2 rounded-lg bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors text-xs font-semibold"
+                            disabled={creatingSubtasks}
+                            className="mt-3 w-full px-4 py-2 rounded-lg bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Add {selectedSteps.size} selected step{selectedSteps.size !== 1 ? 's' : ''} as subtasks
+                            {creatingSubtasks ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <Sparkles className="h-3 w-3 animate-pulse" />
+                                    Creating subtasks...
+                                </span>
+                            ) : (
+                                `Add ${selectedSteps.size} selected step${selectedSteps.size !== 1 ? 's' : ''} as subtasks`
+                            )}
                         </button>
                     )}
                 </div>

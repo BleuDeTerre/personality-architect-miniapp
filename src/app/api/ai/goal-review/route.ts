@@ -10,6 +10,7 @@ import { GOAL_REVIEW_PROMPT } from '@/lib/aiPrompts';
 import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 import { getAICache, setAICache } from '@/lib/aiCacheHelper';
 import crypto from 'crypto';
+import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 
 // Типы для Review
 type ReviewStatus = 'on_track' | 'off_track' | 'overdue';
@@ -156,6 +157,26 @@ function calculateGoalProgress(
 }
 
 export async function GET(req: NextRequest) {
+    // Rate limiting для AI endpoints
+    const rateLimit = checkRateLimit(req, RATE_LIMIT_PRESETS.AI);
+    if (!rateLimit.allowed) {
+        return NextResponse.json(
+            {
+                error: 'rate_limit_exceeded',
+                message: 'Too many AI requests. Please try again later.',
+                retry_after: rateLimit.retryAfter,
+            },
+            {
+                status: 429,
+                headers: {
+                    'Retry-After': String(rateLimit.retryAfter || 60),
+                    'X-RateLimit-Limit': String(rateLimit.limit || 0),
+                    'X-RateLimit-Remaining': String(rateLimit.remaining || 0),
+                },
+            }
+        );
+    }
+
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) {

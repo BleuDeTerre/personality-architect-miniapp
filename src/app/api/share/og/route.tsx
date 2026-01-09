@@ -212,6 +212,20 @@ function resolveCard(params: URLSearchParams) {
         icon: '🎯',
       };
     }
+    if (variant === 'goals:eisenhower') {
+      const q1Count = formatNumber(params.get('q1_count'));
+      const q2Count = formatNumber(params.get('q2_count'));
+      const q3Count = formatNumber(params.get('q3_count'));
+      const q4Count = formatNumber(params.get('q4_count'));
+      const total = q1Count + q2Count + q3Count + q4Count;
+      return {
+        title: 'Eisenhower Matrix',
+        subtitle: `${total} goal${total === 1 ? '' : 's'} organized by priority`,
+        value: `${total} goal${total === 1 ? '' : 's'}`,
+        label: 'PRIORITY MATRIX',
+        icon: '🎯',
+      };
+    }
     const active = formatNumber(params.get('active'));
     const completed = formatNumber(params.get('completed'));
     return {
@@ -435,7 +449,7 @@ function resolveCard(params: URLSearchParams) {
       const low = params.get('low') || 'Focus area';
       return {
         title: 'Wheel of Life Snapshot',
-        subtitle: `${top} strongest • ${low} needs attention`,
+        subtitle: null,
         value: `${avg}/10`,
         label: 'AVERAGE SCORE',
         icon: '🎡',
@@ -604,6 +618,7 @@ export async function GET(req: NextRequest) {
   const isGoalsProgressVariant = finalVariant === 'goals:progress' || finalVariant === 'goals';
   const isGoalsCompleted = finalVariant === 'goals:completed';
   const isGoalsUpcoming = finalVariant === 'goals:upcoming';
+  const isGoalsEisenhower = finalVariant === 'goals:eisenhower';
   const isQuestsVariant = finalVariant.startsWith('quests');
 
   // Quests: данные для прогресс-баров по типам
@@ -685,6 +700,56 @@ export async function GET(req: NextRequest) {
   const goalsProgressRatio =
     goalsTotal > 0 ? goalsCompleted / goalsTotal : 0;
 
+  // Eisenhower Matrix: данные для квадрантов
+  // Функция для безопасного получения и ограничения списка целей (максимум 3)
+  const getLimitedGoals = (goalsParam: string | null, maxCount: number = 3) => {
+    if (!goalsParam) return [];
+    return goalsParam
+      .split('|')
+      .filter(Boolean)
+      .slice(0, maxCount)
+      .map(goal => goal.trim());
+  };
+
+  const matrixQuadrants = {
+    q1: {
+      count: isGoalsEisenhower ? formatNumber(params.get('q1_count')) : 0,
+      goals: isGoalsEisenhower ? getLimitedGoals(params.get('q1_goals'), 3) : [],
+      title: 'Important & Urgent',
+      subtitle: 'Do First',
+      color: '#ef4444', // red-500
+      bgColor: 'rgba(239, 68, 68, 0.1)',
+      borderColor: 'rgba(239, 68, 68, 0.5)',
+    },
+    q2: {
+      count: isGoalsEisenhower ? formatNumber(params.get('q2_count')) : 0,
+      goals: isGoalsEisenhower ? getLimitedGoals(params.get('q2_goals'), 3) : [],
+      title: 'Important & Not Urgent',
+      subtitle: 'Schedule',
+      color: '#22c55e', // green-500
+      bgColor: 'rgba(34, 197, 94, 0.1)',
+      borderColor: 'rgba(34, 197, 94, 0.5)',
+    },
+    q3: {
+      count: isGoalsEisenhower ? formatNumber(params.get('q3_count')) : 0,
+      goals: isGoalsEisenhower ? getLimitedGoals(params.get('q3_goals'), 3) : [],
+      title: 'Not Important & Urgent',
+      subtitle: 'Delegate',
+      color: '#eab308', // yellow-500
+      bgColor: 'rgba(234, 179, 8, 0.1)',
+      borderColor: 'rgba(234, 179, 8, 0.5)',
+    },
+    q4: {
+      count: isGoalsEisenhower ? formatNumber(params.get('q4_count')) : 0,
+      goals: isGoalsEisenhower ? getLimitedGoals(params.get('q4_goals'), 3) : [],
+      title: 'Not Important & Not Urgent',
+      subtitle: 'Eliminate',
+      color: '#94a3b8', // gray-400
+      bgColor: 'rgba(148, 163, 184, 0.1)',
+      borderColor: 'rgba(148, 163, 184, 0.5)',
+    },
+  };
+
   return new ImageResponse(
     (
       <div
@@ -705,7 +770,7 @@ export async function GET(req: NextRequest) {
             flexDirection: 'column',
             alignItems: 'flex-start',
             justifyContent: 'flex-start',
-            paddingTop: 60,
+            paddingTop: isStreaksGoal || isWheelSnapshot || isGoalsEisenhower ? 30 : 60,
             paddingLeft: 80,
             paddingRight: 80,
           }}
@@ -715,7 +780,7 @@ export async function GET(req: NextRequest) {
               display: 'flex',
               alignItems: 'center',
               gap: 16,
-              fontSize: 50,
+              fontSize: isGoalsEisenhower ? 36 : 50,
               fontWeight: 'bold',
               color: 'white',
             }}
@@ -723,7 +788,7 @@ export async function GET(req: NextRequest) {
             {(card as any).icon && (
               <span
                 style={{
-                  fontSize: 48,
+                  fontSize: isGoalsEisenhower ? 36 : 48,
                   filter: `drop-shadow(0 0 12px ${PRIMARY_COLOR}40)`,
                 }}
               >
@@ -734,7 +799,7 @@ export async function GET(req: NextRequest) {
               {card.title}
             </span>
           </div>
-          {(card as any).subtitle && (
+          {(card as any).subtitle && !isGoalsEisenhower && (
             <div
               style={{
                 fontSize: 24,
@@ -760,15 +825,15 @@ export async function GET(req: NextRequest) {
             justifyContent: 'flex-start',
             paddingLeft: 80,
             paddingRight: 80,
-            paddingTop: 24,
+            paddingTop: isStreaksGoal || isWheelSnapshot || isGoalsEisenhower ? 8 : 24,
           }}
         >
           <div
             style={{
               display: 'flex',
               flexDirection: 'column',
-              padding: 32,
-              paddingRight: 120,
+              padding: isStreaksGoal || isWheelSnapshot || isGoalsEisenhower ? 20 : 32,
+              paddingRight: isGoalsEisenhower ? 80 : 120,
               borderRadius: 36,
               width: '100%',
               maxWidth: '100%',
@@ -777,7 +842,7 @@ export async function GET(req: NextRequest) {
               boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
             }}
           >
-            {(card as any).label ? (
+            {(card as any).label && !isGoalsEisenhower ? (
               <div
                 style={{
                   fontSize: 14,
@@ -794,7 +859,7 @@ export async function GET(req: NextRequest) {
             ) : null}
             <div
               style={{
-                fontSize: isWheelSnapshot ? 60 : 72,
+                fontSize: isWheelSnapshot ? 60 : isGoalsEisenhower ? 42 : 72,
                 fontWeight: 'bold',
                 color: PRIMARY_COLOR,
                 lineHeight: 1.05,
@@ -916,7 +981,7 @@ export async function GET(req: NextRequest) {
                           style={{
                             display: 'flex',
                             justifyContent: 'space-between',
-                            fontSize: 12,
+                            fontSize: 14,
                             color: '#f1f5f9',
                             fontWeight: 600,
                           }}
@@ -1002,17 +1067,17 @@ export async function GET(req: NextRequest) {
                             style={{
                               display: 'flex',
                               justifyContent: 'space-between',
-                              fontSize: 12,
+                              fontSize: 14,
                               color: '#f1f5f9',
                               fontWeight: 600,
                             }}
                           >
-                            <span style={{ display: 'flex' }}>Total habits</span>
-                            <span style={{ display: 'flex' }}>{total}</span>
+                            <span style={{ display: 'flex' }}>Completed today</span>
+                            <span style={{ display: 'flex' }}>{completed}</span>
                           </div>
                           <div
                             style={{
-                              height: 8,
+                              height: 10,
                               borderRadius: 999,
                               background: 'rgba(15,23,42,0.9)',
                               overflow: 'hidden',
@@ -1021,10 +1086,11 @@ export async function GET(req: NextRequest) {
                           >
                             <div
                               style={{
-                                width: `${Math.max(4, 100)}%`,
+                                width: `${Math.max(4, total > 0 ? (completed / total) * 100 : 0)}%`,
                                 height: '100%',
                                 borderRadius: 999,
                                 background: PRIMARY_COLOR,
+                                boxShadow: `0 0 8px ${PRIMARY_COLOR}40`,
                               }}
                             />
                           </div>
@@ -1041,7 +1107,7 @@ export async function GET(req: NextRequest) {
                               style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
-                                fontSize: 12,
+                                fontSize: 14,
                                 color: '#9ca3af',
                               }}
                             >
@@ -1125,14 +1191,14 @@ export async function GET(req: NextRequest) {
                               display: 'flex',
                               alignItems: 'center',
                               gap: 5,
-                              fontSize: 12,
+                              fontSize: 14,
                               color: 'white',
                             }}
                           >
                             <span style={{ display: 'flex' }}>{WHEEL_AREAS_ICONS[area.name] || '•'}</span>
                             <span style={{ display: 'flex' }}>{area.name}</span>
                           </div>
-                          <span style={{ display: 'flex', fontSize: 12, color: area.color }}>
+                          <span style={{ display: 'flex', fontSize: 14, color: area.color }}>
                             {area.score}
                           </span>
                         </div>
@@ -1188,14 +1254,14 @@ export async function GET(req: NextRequest) {
                               display: 'flex',
                               alignItems: 'center',
                               gap: 5,
-                              fontSize: 12,
+                              fontSize: 14,
                               color: 'white',
                             }}
                           >
                             <span style={{ display: 'flex' }}>{WHEEL_AREAS_ICONS[area.name] || '•'}</span>
                             <span style={{ display: 'flex' }}>{area.name}</span>
                           </div>
-                          <span style={{ display: 'flex', fontSize: 12, color: area.color }}>
+                          <span style={{ display: 'flex', fontSize: 14, color: area.color }}>
                             {area.score}
                           </span>
                         </div>
@@ -1259,7 +1325,7 @@ export async function GET(req: NextRequest) {
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      fontSize: 12,
+                      fontSize: 14,
                       color: '#f1f5f9',
                       fontWeight: 600,
                     }}
@@ -1299,7 +1365,7 @@ export async function GET(req: NextRequest) {
                       style={{
                         display: 'flex',
                         justifyContent: 'space-between',
-                        fontSize: 12,
+                        fontSize: 14,
                         color: '#9ca3af',
                       }}
                     >
@@ -1364,7 +1430,7 @@ export async function GET(req: NextRequest) {
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      fontSize: 12,
+                      fontSize: 14,
                       color: '#f1f5f9',
                       fontWeight: 600,
                     }}
@@ -1404,7 +1470,7 @@ export async function GET(req: NextRequest) {
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      fontSize: 12,
+                      fontSize: 14,
                       color: '#9ca3af',
                     }}
                   >
@@ -1468,7 +1534,7 @@ export async function GET(req: NextRequest) {
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      fontSize: 12,
+                      fontSize: 14,
                       color: '#f1f5f9',
                       fontWeight: 600,
                     }}
@@ -1598,7 +1664,7 @@ export async function GET(req: NextRequest) {
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      fontSize: 12,
+                      fontSize: 14,
                       color: '#f1f5f9',
                       fontWeight: 600,
                     }}
@@ -1645,12 +1711,12 @@ export async function GET(req: NextRequest) {
             {isStreaksGoal && nextBadgeDays > 0 && (
               <div
                 style={{
-                  marginTop: 24,
-                  paddingTop: 16,
+                  marginTop: 16,
+                  paddingTop: 12,
                   borderTop: '1px solid rgba(148,163,184,0.35)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 10,
+                  gap: 8,
                 }}
               >
                 <div
@@ -1675,7 +1741,7 @@ export async function GET(req: NextRequest) {
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      fontSize: 12,
+                      fontSize: 14,
                       color: '#f1f5f9',
                       fontWeight: 600,
                     }}
@@ -1710,12 +1776,12 @@ export async function GET(req: NextRequest) {
             {isStreaksVariant && (currentStreak > 0 || bestStreak > 0) && (
               <div
                 style={{
-                  marginTop: 24,
-                  paddingTop: 16,
+                  marginTop: isStreaksGoal ? 12 : 24,
+                  paddingTop: isStreaksGoal ? 12 : 16,
                   borderTop: '1px solid rgba(148,163,184,0.35)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 10,
+                  gap: isStreaksGoal ? 8 : 10,
                 }}
               >
                 <div
@@ -1741,7 +1807,7 @@ export async function GET(req: NextRequest) {
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      fontSize: 12,
+                      fontSize: 14,
                       color: '#f1f5f9',
                       fontWeight: 600,
                     }}
@@ -1779,7 +1845,7 @@ export async function GET(req: NextRequest) {
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      fontSize: 12,
+                      fontSize: 14,
                       color: '#9ca3af',
                     }}
                   >
@@ -1843,7 +1909,7 @@ export async function GET(req: NextRequest) {
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      fontSize: 12,
+                      fontSize: 14,
                       color: '#f1f5f9',
                       fontWeight: 600,
                     }}
@@ -1884,7 +1950,7 @@ export async function GET(req: NextRequest) {
                       style={{
                         display: 'flex',
                         justifyContent: 'space-between',
-                        fontSize: 12,
+                        fontSize: 14,
                         color: '#9ca3af',
                       }}
                     >
@@ -1949,7 +2015,7 @@ export async function GET(req: NextRequest) {
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      fontSize: 12,
+                      fontSize: 14,
                       color: '#f1f5f9',
                       fontWeight: 600,
                     }}
@@ -1990,7 +2056,7 @@ export async function GET(req: NextRequest) {
                       style={{
                         display: 'flex',
                         justifyContent: 'space-between',
-                        fontSize: 12,
+                        fontSize: 14,
                         color: '#9ca3af',
                       }}
                     >
@@ -2054,7 +2120,7 @@ export async function GET(req: NextRequest) {
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      fontSize: 12,
+                      fontSize: 14,
                       color: '#f1f5f9',
                       fontWeight: 600,
                     }}
@@ -2132,7 +2198,7 @@ export async function GET(req: NextRequest) {
                       style={{
                         display: 'flex',
                         justifyContent: 'space-between',
-                        fontSize: 12,
+                        fontSize: 14,
                         color: '#f1f5f9',
                         fontWeight: 600,
                       }}
@@ -2173,7 +2239,7 @@ export async function GET(req: NextRequest) {
                       style={{
                         display: 'flex',
                         justifyContent: 'space-between',
-                        fontSize: 12,
+                        fontSize: 14,
                         color: '#9ca3af',
                       }}
                     >
@@ -2213,7 +2279,7 @@ export async function GET(req: NextRequest) {
                       style={{
                         display: 'flex',
                         justifyContent: 'space-between',
-                        fontSize: 12,
+                        fontSize: 14,
                         color: '#9ca3af',
                       }}
                     >
@@ -2242,6 +2308,408 @@ export async function GET(req: NextRequest) {
                 )}
               </div>
             )}
+
+            {/* Визуализация для Eisenhower Matrix - сетка 2x2 */}
+            {isGoalsEisenhower && (
+              <div
+                style={{
+                  marginTop: 12,
+                  paddingTop: 12,
+                  borderTop: '1px solid rgba(148,163,184,0.35)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                {/* Сетка 2x2 */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                  }}
+                >
+                  {/* Первая строка: Q1 и Q2 */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 10,
+                      width: '100%',
+                    }}
+                  >
+                    {/* Q1: Important & Urgent */}
+                    <div
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        padding: 12,
+                        borderRadius: 12,
+                        background: matrixQuadrants.q1.bgColor,
+                        border: `2px solid ${matrixQuadrants.q1.borderColor}`,
+                        minHeight: 120,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: 6,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            flex: 1,
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 'bold',
+                              color: matrixQuadrants.q1.color,
+                              display: 'flex',
+                            }}
+                          >
+                            {matrixQuadrants.q1.title}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 10,
+                              color: '#94a3b8',
+                              marginTop: 1,
+                              display: 'flex',
+                            }}
+                          >
+                            {matrixQuadrants.q1.subtitle}
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                            color: matrixQuadrants.q1.color,
+                            display: 'flex',
+                          }}
+                        >
+                          {matrixQuadrants.q1.count}
+                        </div>
+                      </div>
+                      {matrixQuadrants.q1.goals.length > 0 && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 3,
+                            marginTop: 6,
+                          }}
+                        >
+                          {matrixQuadrants.q1.goals.map((goal, idx) => (
+                            <div
+                              key={idx}
+                              style={{
+                                fontSize: 10,
+                                color: '#f1f5f9',
+                                padding: '4px 6px',
+                                borderRadius: 4,
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                display: 'flex',
+                              }}
+                            >
+                              {goal}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {/* Q2: Important & Not Urgent */}
+                    <div
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        padding: 12,
+                        borderRadius: 12,
+                        background: matrixQuadrants.q2.bgColor,
+                        border: `2px solid ${matrixQuadrants.q2.borderColor}`,
+                        minHeight: 120,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: 6,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            flex: 1,
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 'bold',
+                              color: matrixQuadrants.q2.color,
+                              display: 'flex',
+                            }}
+                          >
+                            {matrixQuadrants.q2.title}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 10,
+                              color: '#94a3b8',
+                              marginTop: 1,
+                              display: 'flex',
+                            }}
+                          >
+                            {matrixQuadrants.q2.subtitle}
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                            color: matrixQuadrants.q2.color,
+                            display: 'flex',
+                          }}
+                        >
+                          {matrixQuadrants.q2.count}
+                        </div>
+                      </div>
+                      {matrixQuadrants.q2.goals.length > 0 && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 3,
+                            marginTop: 6,
+                          }}
+                        >
+                          {matrixQuadrants.q2.goals.map((goal, idx) => (
+                            <div
+                              key={idx}
+                              style={{
+                                fontSize: 10,
+                                color: '#f1f5f9',
+                                padding: '4px 6px',
+                                borderRadius: 4,
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                display: 'flex',
+                              }}
+                            >
+                              {goal}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {/* Вторая строка: Q3 и Q4 */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 10,
+                      width: '100%',
+                    }}
+                  >
+                    {/* Q3: Not Important & Urgent */}
+                    <div
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        padding: 12,
+                        borderRadius: 12,
+                        background: matrixQuadrants.q3.bgColor,
+                        border: `2px solid ${matrixQuadrants.q3.borderColor}`,
+                        minHeight: 120,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: 6,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            flex: 1,
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 'bold',
+                              color: matrixQuadrants.q3.color,
+                              display: 'flex',
+                            }}
+                          >
+                            {matrixQuadrants.q3.title}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 10,
+                              color: '#94a3b8',
+                              marginTop: 1,
+                              display: 'flex',
+                            }}
+                          >
+                            {matrixQuadrants.q3.subtitle}
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                            color: matrixQuadrants.q3.color,
+                            display: 'flex',
+                          }}
+                        >
+                          {matrixQuadrants.q3.count}
+                        </div>
+                      </div>
+                      {matrixQuadrants.q3.goals.length > 0 && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 3,
+                            marginTop: 6,
+                          }}
+                        >
+                          {matrixQuadrants.q3.goals.map((goal, idx) => (
+                            <div
+                              key={idx}
+                              style={{
+                                fontSize: 10,
+                                color: '#f1f5f9',
+                                padding: '4px 6px',
+                                borderRadius: 4,
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                display: 'flex',
+                              }}
+                            >
+                              {goal}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {/* Q4: Not Important & Not Urgent */}
+                    <div
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        padding: 12,
+                        borderRadius: 12,
+                        background: matrixQuadrants.q4.bgColor,
+                        border: `2px solid ${matrixQuadrants.q4.borderColor}`,
+                        minHeight: 120,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: 6,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            flex: 1,
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 'bold',
+                              color: matrixQuadrants.q4.color,
+                              display: 'flex',
+                            }}
+                          >
+                            {matrixQuadrants.q4.title}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 10,
+                              color: '#94a3b8',
+                              marginTop: 1,
+                              display: 'flex',
+                            }}
+                          >
+                            {matrixQuadrants.q4.subtitle}
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                            color: matrixQuadrants.q4.color,
+                            display: 'flex',
+                          }}
+                        >
+                          {matrixQuadrants.q4.count}
+                        </div>
+                      </div>
+                      {matrixQuadrants.q4.goals.length > 0 && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 3,
+                            marginTop: 6,
+                          }}
+                        >
+                          {matrixQuadrants.q4.goals.map((goal, idx) => (
+                            <div
+                              key={idx}
+                              style={{
+                                fontSize: 10,
+                                color: '#f1f5f9',
+                                padding: '4px 6px',
+                                borderRadius: 4,
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                display: 'flex',
+                              }}
+                            >
+                              {goal}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -2251,7 +2719,7 @@ export async function GET(req: NextRequest) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-start',
-            paddingBottom: 50,
+            paddingBottom: isStreaksGoal || isWheelSnapshot || isGoalsEisenhower ? 40 : 50,
             paddingLeft: 80,
             paddingRight: 80,
             gap: 12,
