@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useMiniApp } from '@neynar/react';
+import { useRouter } from 'next/navigation';
 import MiniAppPage from '@/components/MiniAppPage';
 import { CREDIT_PACKS, UNLOCKS, FREE_LIMITS } from '@/lib/pricing';
 
@@ -20,6 +21,7 @@ type LimitsData = {
 };
 
 export default function PricingPage() {
+    const router = useRouter();
     const [limits, setLimits] = useState<LimitsData | null>(null);
     const [loading, setLoading] = useState<string | null>(null);
 
@@ -119,14 +121,25 @@ export default function PricingPage() {
     return (
         <MiniAppPage>
             <div className="space-y-6">
-                {/* Header */}
+                {/* Header with Back button */}
                 <section className="space-y-2">
-                    <h1 className="text-2xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
-                        Credits & Unlocks
-                    </h1>
-                    <p className="text-sm text-white/70">
-                        Buy AI credits for extra requests or unlock unlimited features
-                    </p>
+                    <div className="flex items-center gap-3 mb-2">
+                        <button
+                            onClick={() => router.back()}
+                            className="flex items-center justify-center w-10 h-10 rounded-xl border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+                            title="Назад"
+                        >
+                            <span className="material-symbols-rounded text-xl">arrow_back</span>
+                        </button>
+                        <div className="flex-1">
+                            <h1 className="text-2xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
+                                Credits & Unlocks
+                            </h1>
+                            <p className="text-sm text-white/70">
+                                Buy AI credits for extra requests or unlock unlimited features
+                            </p>
+                        </div>
+                    </div>
                 </section>
 
                 {/* Current Status */}
@@ -350,10 +363,6 @@ export default function PricingPage() {
                         <li className="flex items-center gap-2">
                             <span className="text-green-400">✓</span>
                             NFT Badge minting on Base
-                        </li>
-                        <li className="flex items-center gap-2">
-                            <span className="text-green-400">✓</span>
-                            Data export (CSV, JSON, Markdown)
                         </li>
                     </ul>
                 </section>

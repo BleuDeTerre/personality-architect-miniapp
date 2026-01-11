@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
+import { getUserUnlocks } from '@/lib/featureLimits';
 
 // Используем admin client
 const supabaseAdmin = createClient(
@@ -109,6 +110,22 @@ export async function GET(req: NextRequest) {
 
         // КРИТИЧЕСКОЕ ПРАВИЛО БЕЗОПАСНОСТИ: userId берется ТОЛЬКО из подписанного токена
         // Все запросы к базе используют этот userId напрямую - подмена невозможна
+        
+        // Проверяем, есть ли у пользователя unlock (habits или goals)
+        const unlocks = await getUserUnlocks(supabaseAdmin, userId);
+        if (!unlocks.habits && !unlocks.goals) {
+            return new NextResponse(
+                JSON.stringify({ 
+                    error: 'unlock_required',
+                    message: 'Data export is available only for users with unlocked features.',
+                }),
+                { 
+                    status: 403,
+                    headers: { 'Content-Type': 'application/json' },
+                }
+            );
+        }
+        
         // Загружаем данные пользователя
         const [
             habitsData,

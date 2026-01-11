@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
+import { getUserUnlocks } from '@/lib/featureLimits';
 
 export async function GET(req: NextRequest) {
     // Rate limiting для экспорта данных (строгий лимит)
@@ -27,11 +28,20 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-        if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
-        const { id: userId } = await requireUserFromReq(req);
+        const { id: userId, token } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
+
+        // Проверяем, есть ли у пользователя unlock (habits или goals)
+        const unlocks = await getUserUnlocks(supa, userId);
+        if (!unlocks.habits && !unlocks.goals) {
+            return NextResponse.json(
+                { 
+                    error: 'unlock_required',
+                    message: 'Data export is available only for users with unlocked features. Purchase Unlimited Habits or Unlimited Goals to access data export.',
+                },
+                { status: 403 }
+            );
+        }
 
         const format = new URL(req.url).searchParams.get('format') || 'json';
 

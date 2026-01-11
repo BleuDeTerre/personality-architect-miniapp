@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createClient } from '@supabase/supabase-js';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
+import { getUserUnlocks } from '@/lib/featureLimits';
+import { createUserServerClient } from '@/lib/supabase';
 
 // Используем admin client для работы с таблицей токенов
 const supabaseAdmin = createClient(
@@ -34,10 +36,20 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-        if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
-        const { id: userId } = await requireUserFromReq(req);
+        const { id: userId, token } = await requireUserFromReq(req);
+        const supa = createUserServerClient(token);
+        
+        // Проверяем, есть ли у пользователя unlock (habits или goals)
+        const unlocks = await getUserUnlocks(supa, userId);
+        if (!unlocks.habits && !unlocks.goals) {
+            return NextResponse.json(
+                { 
+                    error: 'unlock_required',
+                    message: 'Data export is available only for users with unlocked features. Purchase Unlimited Habits or Unlimited Goals to access data export.',
+                },
+                { status: 403 }
+            );
+        }
         
         const body = await req.json().catch(() => ({}));
         const format = body.format || 'json';

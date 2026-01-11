@@ -40,17 +40,17 @@ export const UNLOCKS = {
     habits: {
         priceUsd: 2.99,
         name: 'Unlimited Habits',
-        description: 'Remove the 5 habit limit forever',
+        description: 'Remove the 5 habit limit forever + Data export (CSV, JSON, Markdown)',
     },
     goals: {
         priceUsd: 2.99,
         name: 'Unlimited Goals',
-        description: 'Remove the 3 goal limit forever',
+        description: 'Remove the 3 goal limit forever + Data export (CSV, JSON, Markdown)',
     },
     bundle: {
         priceUsd: 4.99,
         name: 'Full Unlock',
-        description: 'Unlimited habits & goals forever',
+        description: 'Unlimited habits & goals forever + Data export (CSV, JSON, Markdown)',
     },
 } as const;
 

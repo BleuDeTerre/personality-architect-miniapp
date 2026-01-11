@@ -88,6 +88,7 @@ export default function ProfilePage() {
         habits: { current: number; limit: number; unlimited: boolean };
         goals: { current: number; limit: number; unlimited: boolean };
     } | null>(null);
+    const [unlocks, setUnlocks] = useState<{ habits: boolean; goals: boolean } | null>(null);
     const [mainFocus, setMainFocus] = useState<string | null>(null);
     const [mainFocusEditing, setMainFocusEditing] = useState(false);
     const [mainFocusInput, setMainFocusInput] = useState('');
@@ -158,9 +159,14 @@ export default function ProfilePage() {
                 });
 
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('[Export] API error:', response.status, errorText);
-                    throw new Error(`Failed to generate download link: ${response.status}`);
+                    const errorData = await response.json().catch(() => ({ error: 'unknown', message: 'Failed to generate download link' }));
+                    console.error('[Export] API error:', response.status, errorData);
+                    
+                    if (response.status === 403 && errorData.error === 'unlock_required') {
+                        throw new Error('Data export is available only for users with unlocked features. Purchase Unlimited Habits or Unlimited Goals to access data export.');
+                    }
+                    
+                    throw new Error(errorData.message || `Failed to generate download link: ${response.status}`);
                 }
 
                 const { url: downloadUrl } = await response.json();
@@ -207,7 +213,14 @@ export default function ProfilePage() {
                 });
 
                 if (!response.ok) {
-                    throw new Error(`Failed: ${response.status}`);
+                    const errorData = await response.json().catch(() => ({ error: 'unknown', message: 'Failed to export data' }));
+                    console.error('[Copy] API error:', response.status, errorData);
+                    
+                    if (response.status === 403 && errorData.error === 'unlock_required') {
+                        throw new Error('Data export is available only for users with unlocked features. Purchase Unlimited Habits or Unlimited Goals to access data export.');
+                    }
+                    
+                    throw new Error(errorData.message || `Failed: ${response.status}`);
                 }
 
                 const text = await response.text();
@@ -434,6 +447,7 @@ export default function ProfilePage() {
                         habits: limitsData.habits,
                         goals: limitsData.goals,
                     });
+                    setUnlocks(limitsData.unlocks || { habits: false, goals: false });
                 }
 
                 // Load main focus
@@ -989,14 +1003,32 @@ export default function ProfilePage() {
                         </div>
                     </div>
 
-                    {/* Copy success message */}
-                    {copySuccess && (
-                        <div className="mb-3 p-3 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 text-sm text-center">
-                            ✅ Copied to clipboard! Paste in Notion, Obsidian, ChatGPT, or any Markdown editor.
+                    {/* Проверка unlock */}
+                    {unlocks && !unlocks.habits && !unlocks.goals ? (
+                        <div className="rounded-xl border border-purple-500/30 bg-purple-500/10 p-4 mb-3">
+                            <p className="text-sm text-white/90 mb-2">
+                                🔒 Data export is available only for users with unlocked features
+                            </p>
+                            <p className="text-xs text-white/60 mb-3">
+                                Purchase Unlimited Habits or Unlimited Goals to access data export (CSV, JSON, Markdown)
+                            </p>
+                            <a
+                                href="/pricing"
+                                className="inline-block rounded-xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 shadow-lg shadow-[#8B5CF6]/30"
+                            >
+                                Unlock Features →
+                            </a>
                         </div>
-                    )}
+                    ) : (
+                        <>
+                            {/* Copy success message */}
+                            {copySuccess && (
+                                <div className="mb-3 p-3 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 text-sm text-center">
+                                    ✅ Copied to clipboard! Paste in Notion, Obsidian, ChatGPT, or any Markdown editor.
+                                </div>
+                            )}
 
-                    <div className="space-y-3">
+                            <div className="space-y-3">
                         {/* JSON - Full Data */}
                         <div className="space-y-1">
                             <p className="text-xs text-white/50 uppercase tracking-wide">Full Data (JSON)</p>
@@ -1068,11 +1100,13 @@ export default function ProfilePage() {
                                 )}
                             </button>
                         </div>
-                    </div>
+                            </div>
 
-                    <p className="text-xs text-white/40 mt-3 text-center">
-                        💡 Download buttons open browser for file download. Copy buttons work in miniapp.
-                    </p>
+                            <p className="text-xs text-white/40 mt-3 text-center">
+                                💡 Download buttons open browser for file download. Copy buttons work in miniapp.
+                            </p>
+                        </>
+                    )}
                 </section>
             </div>
         </MiniAppPage>
