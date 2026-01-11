@@ -317,15 +317,16 @@ export default function ProfilePage() {
                 }
 
                 let fid = context?.user?.fid ? Number(context.user.fid) : null;
-                const wallet = (context?.user as any)?.custodyAddress ?? (context?.user as any)?.walletAddress ?? null;
+                let wallet = (context?.user as any)?.custodyAddress ?? (context?.user as any)?.walletAddress ?? null;
 
                 // Supabase session
                 let { data } = await supabase.auth.getUser();
                 if (!data.user && fid) {
+                    // Передаем wallet при логине, чтобы сохранить его в базу
                     const res = await fetch('/api/auth/farcaster-login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ fid }),
+                        body: JSON.stringify({ fid, wallet }),
                     });
                     const { access_token } = await res.json().catch(() => ({}));
                     if (access_token) {
@@ -334,14 +335,34 @@ export default function ProfilePage() {
                     }
                 }
 
-                if (!fid && data.user?.id) {
+                // Загружаем fid и wallet_address из базы данных, если их нет
+                if (data.user?.id) {
                     const { data: profileRow } = await supabase
                         .from('users')
-                        .select('fid')
+                        .select('fid, wallet_address')
                         .eq('id', data.user.id)
-                        .maybeSingle<{ fid: number | null }>();
-                    if (profileRow?.fid) {
-                        fid = profileRow.fid;
+                        .maybeSingle<{ fid: number | null; wallet_address: string | null }>();
+                    if (profileRow) {
+                        if (!fid && profileRow.fid) {
+                            fid = profileRow.fid;
+                        }
+                        // Используем wallet из базы, если его нет в контексте
+                        if (!wallet && profileRow.wallet_address) {
+                            wallet = profileRow.wallet_address;
+                        }
+                        // Сохраняем wallet из контекста в БД, если его нет в БД, но есть в контексте
+                        if (wallet && !profileRow.wallet_address) {
+                            try {
+                                const headers = await authHeaders();
+                                await fetch('/api/profile/wallet', {
+                                    method: 'POST',
+                                    headers,
+                                    body: JSON.stringify({ wallet }),
+                                });
+                            } catch (error) {
+                                console.error('[Profile] Failed to save wallet:', error);
+                            }
+                        }
                     }
                 }
 

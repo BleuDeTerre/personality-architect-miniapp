@@ -279,9 +279,21 @@ export async function POST(req: NextRequest) {
         const walletType = body?.walletType || 'farcaster'; // 'farcaster' или 'external'
 
         // Определяем финальный кошелек:
-        // Если передан selectedWallet - используем его (для external wallet)
-        // Для Farcaster wallet - будет получен из контекста на клиенте
-        const finalWallet = selectedWallet || null;
+        // Используем переданный wallet из контекста Farcaster SDK или external wallet
+        // Если wallet не передан, попробуем получить из БД для существующих пользователей
+        let finalWallet = selectedWallet || null;
+        
+        // Для существующих пользователей, если wallet не передан, попробуем получить из БД
+        if (!finalWallet && userId) {
+            const { data: existingUserData } = await admin
+                .from('users')
+                .select('wallet_address')
+                .eq('id', userId)
+                .maybeSingle<{ wallet_address: string | null }>();
+            if (existingUserData?.wallet_address) {
+                finalWallet = existingUserData.wallet_address;
+            }
+        }
 
         const baseMetadata: Record<string, any> = {
             fid,
@@ -337,6 +349,18 @@ export async function POST(req: NextRequest) {
                     await admin.auth.admin.updateUserById(userId, {
                         user_metadata: mergedMetadata,
                     } as any);
+                    // Обновляем wallet_address в таблице users, если передан новый кошелек
+                    if (finalWallet) {
+                        const { error: walletUpdateError } = await admin
+                            .from('users')
+                            .update({ wallet_address: finalWallet })
+                            .eq('id', userId);
+                        if (walletUpdateError) {
+                            console.error('[Farcaster Login] Failed to update wallet_address:', walletUpdateError);
+                        } else {
+                            console.log('[Farcaster Login] Updated wallet_address for existing user');
+                        }
+                    }
                 } else {
                     console.warn('[Farcaster Login] User not found in auth.users, error:', authCheckError);
                 }

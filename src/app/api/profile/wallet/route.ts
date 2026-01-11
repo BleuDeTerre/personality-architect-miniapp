@@ -4,6 +4,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 
+export async function GET(req: NextRequest) {
+    try {
+        const { id: userId } = await requireUserFromReq(req);
+        const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+        if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+        const supa = createUserServerClient(token);
+        const { data, error } = await supa
+            .from('users')
+            .select('wallet_address')
+            .eq('id', userId)
+            .maybeSingle<{ wallet_address: string | null }>();
+        
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        
+        return NextResponse.json({ wallet_address: data?.wallet_address || null });
+    } catch (e: any) {
+        return NextResponse.json({ error: e?.message || 'error' }, { status: 500 });
+    }
+}
+
 export async function POST(req: NextRequest) {
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
