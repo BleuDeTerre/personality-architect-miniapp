@@ -70,6 +70,18 @@ const COLOR_SCHEMES = {
     dark: 'rgba(139, 92, 246, 0.15)',
     background: 'linear-gradient(to bottom, #4c1d95, #0f172a)',
   },
+  // Achievements - фиолетово-розовый
+  achievements: {
+    primary: '#8b5cf6', // Violet
+    dark: 'rgba(139, 92, 246, 0.15)',
+    background: 'linear-gradient(to bottom, #4c1d95, #0f172a)',
+  },
+  // Badges - золотой
+  badges: {
+    primary: '#ffd700', // Gold
+    dark: 'rgba(255, 215, 0, 0.15)',
+    background: 'linear-gradient(to bottom, #854d0e, #0f172a)',
+  },
   // Analytics - синий
   analytics: {
     primary: '#3b82f6', // Blue
@@ -117,6 +129,8 @@ function getColorScheme(variant: string, kind?: string) {
   if (k === 'level') return COLOR_SCHEMES.level;
   if (k === 'analytics') return COLOR_SCHEMES.analytics;
   if (k === 'wheel') return COLOR_SCHEMES.wheel;
+  if (k === 'achievements') return COLOR_SCHEMES.achievements;
+  if (k === 'badges') return COLOR_SCHEMES.badges;
 
   // ПРИОРИТЕТ 2: Если kind не указан, определяем по variant
   if (v.startsWith('goals')) return COLOR_SCHEMES.goals;
@@ -127,6 +141,8 @@ function getColorScheme(variant: string, kind?: string) {
   if (v.startsWith('analytics')) return COLOR_SCHEMES.analytics;
   if (v.startsWith('wheel')) return COLOR_SCHEMES.wheel;
   if (v.startsWith('capsule')) return COLOR_SCHEMES.capsule;
+  if (v.startsWith('achievements')) return COLOR_SCHEMES.achievements;
+  if (v.startsWith('badges')) return COLOR_SCHEMES.badges;
 
   return COLOR_SCHEMES.default;
 }
@@ -244,6 +260,55 @@ function resolveCard(params: URLSearchParams) {
       value: `${next} days`,
       label: 'DAYS TO BADGE',
       icon: '🔥',
+    };
+  }
+
+  // Achievements
+  if (variant.startsWith('achievements') || kind === 'achievements') {
+    if (variant === 'achievements:unlocked') {
+      const icon = params.get('icon') || '🎉';
+      const title = params.get('title') || 'Achievement Unlocked';
+      const description = params.get('description') || '';
+      const xp = formatNumber(params.get('xp'));
+      const rarity = params.get('rarity') || 'common';
+      return {
+        title: 'Achievement Unlocked',
+        subtitle: title,
+        value: `+${xp} XP`,
+        label: rarity.toUpperCase(),
+        icon: icon,
+        description: description,
+      };
+    }
+    return {
+      title: 'Achievement Unlocked',
+      subtitle: 'New achievement earned',
+      value: 'Achievement',
+      label: 'ACHIEVEMENT',
+      icon: '🎉',
+    };
+  }
+
+  // Badges
+  if (variant.startsWith('badges') || kind === 'badges') {
+    if (variant === 'badges:earned') {
+      const title = params.get('title') || 'Badge Earned';
+      const description = params.get('description') || '';
+      return {
+        title: 'Badge Earned',
+        subtitle: title,
+        value: 'Badge',
+        label: 'BADGE',
+        icon: '🏆',
+        description: description,
+      };
+    }
+    return {
+      title: 'Badge Earned',
+      subtitle: 'New badge unlocked',
+      value: 'Badge',
+      label: 'BADGE',
+      icon: '🏆',
     };
   }
 
@@ -527,6 +592,29 @@ function resolveCard(params: URLSearchParams) {
         icon: '✅',
       };
     }
+    if (kind === 'achievements') {
+      const icon = params.get('icon') || '🎉';
+      const title = params.get('title') || 'Achievement Unlocked';
+      const xp = formatNumber(params.get('xp'));
+      const rarity = params.get('rarity') || 'common';
+      return {
+        title: 'Achievement Unlocked',
+        subtitle: title,
+        value: `+${xp} XP`,
+        label: rarity.toUpperCase(),
+        icon: icon,
+      };
+    }
+    if (kind === 'badges') {
+      const title = params.get('title') || 'Badge Earned';
+      return {
+        title: 'Badge Earned',
+        subtitle: title,
+        value: 'Badge',
+        label: 'BADGE',
+        icon: '🏆',
+      };
+    }
   }
 
   const fallbackValue = params.get('value') || params.get('statValue') || '0';
@@ -620,6 +708,8 @@ export async function GET(req: NextRequest) {
   const isGoalsUpcoming = finalVariant === 'goals:upcoming';
   const isGoalsEisenhower = finalVariant === 'goals:eisenhower';
   const isQuestsVariant = finalVariant.startsWith('quests');
+  const isAchievementsUnlocked = finalVariant === 'achievements:unlocked' || kind === 'achievements';
+  const isBadgesEarned = finalVariant === 'badges:earned' || kind === 'badges';
 
   // Quests: данные для прогресс-баров по типам
   const questsDaily = isQuestsVariant ? formatNumber(params.get('daily')) : 0;
@@ -770,7 +860,7 @@ export async function GET(req: NextRequest) {
             flexDirection: 'column',
             alignItems: 'flex-start',
             justifyContent: 'flex-start',
-            paddingTop: isStreaksGoal || isWheelSnapshot || isGoalsEisenhower ? 30 : 60,
+            paddingTop: isStreaksGoal || isWheelSnapshot || isGoalsEisenhower || isAchievementsUnlocked || isBadgesEarned ? 30 : 60,
             paddingLeft: 80,
             paddingRight: 80,
           }}
@@ -780,7 +870,7 @@ export async function GET(req: NextRequest) {
               display: 'flex',
               alignItems: 'center',
               gap: 16,
-              fontSize: isGoalsEisenhower ? 36 : 50,
+              fontSize: isGoalsEisenhower || isAchievementsUnlocked || isBadgesEarned ? 36 : 50,
               fontWeight: 'bold',
               color: 'white',
             }}
@@ -788,7 +878,7 @@ export async function GET(req: NextRequest) {
             {(card as any).icon && (
               <span
                 style={{
-                  fontSize: isGoalsEisenhower ? 36 : 48,
+                  fontSize: isGoalsEisenhower || isAchievementsUnlocked || isBadgesEarned ? 48 : 48,
                   filter: `drop-shadow(0 0 12px ${PRIMARY_COLOR}40)`,
                 }}
               >
@@ -799,7 +889,7 @@ export async function GET(req: NextRequest) {
               {card.title}
             </span>
           </div>
-          {(card as any).subtitle && !isGoalsEisenhower && (
+          {(card as any).subtitle && !isGoalsEisenhower && !isAchievementsUnlocked && !isBadgesEarned && (
             <div
               style={{
                 fontSize: 24,
@@ -825,15 +915,15 @@ export async function GET(req: NextRequest) {
             justifyContent: 'flex-start',
             paddingLeft: 80,
             paddingRight: 80,
-            paddingTop: isStreaksGoal || isWheelSnapshot || isGoalsEisenhower ? 8 : 24,
+            paddingTop: isStreaksGoal || isWheelSnapshot || isGoalsEisenhower || isAchievementsUnlocked || isBadgesEarned ? 8 : 24,
           }}
         >
           <div
             style={{
               display: 'flex',
               flexDirection: 'column',
-              padding: isStreaksGoal || isWheelSnapshot || isGoalsEisenhower ? 20 : 32,
-              paddingRight: isGoalsEisenhower ? 80 : 120,
+              padding: isStreaksGoal || isWheelSnapshot || isGoalsEisenhower || isAchievementsUnlocked || isBadgesEarned ? 20 : 32,
+              paddingRight: isGoalsEisenhower || isAchievementsUnlocked || isBadgesEarned ? 80 : 120,
               borderRadius: 36,
               width: '100%',
               maxWidth: '100%',
@@ -842,7 +932,7 @@ export async function GET(req: NextRequest) {
               boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
             }}
           >
-            {(card as any).label && !isGoalsEisenhower ? (
+            {(card as any).label && !isGoalsEisenhower && !isAchievementsUnlocked && !isBadgesEarned ? (
               <div
                 style={{
                   fontSize: 14,
@@ -859,7 +949,7 @@ export async function GET(req: NextRequest) {
             ) : null}
             <div
               style={{
-                fontSize: isWheelSnapshot ? 60 : isGoalsEisenhower ? 42 : 72,
+                fontSize: isWheelSnapshot ? 60 : isGoalsEisenhower || isAchievementsUnlocked || isBadgesEarned ? 42 : 72,
                 fontWeight: 'bold',
                 color: PRIMARY_COLOR,
                 lineHeight: 1.05,
@@ -925,6 +1015,80 @@ export async function GET(req: NextRequest) {
                   return 'Level unlocked';
                 })()}
               </div>
+            )}
+            {/* Achievement info: XP and rarity */}
+            {isAchievementsUnlocked && (
+              <>
+                {(card as any).description && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      fontSize: 14,
+                      color: '#94a3b8',
+                      display: 'flex',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {(card as any).description}
+                  </div>
+                )}
+                {(card as any).label && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      fontSize: 12,
+                      padding: '4px 12px',
+                      borderRadius: 8,
+                      background: `${PRIMARY_COLOR}20`,
+                      color: PRIMARY_COLOR,
+                      fontWeight: 'bold',
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                      display: 'inline-flex',
+                      alignSelf: 'flex-start',
+                    }}
+                  >
+                    {(card as any).label}
+                  </div>
+                )}
+              </>
+            )}
+            {/* Badge info: description */}
+            {isBadgesEarned && (
+              <>
+                {(card as any).description && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      fontSize: 14,
+                      color: '#94a3b8',
+                      display: 'flex',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {(card as any).description}
+                  </div>
+                )}
+                {(card as any).label && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      fontSize: 12,
+                      padding: '4px 12px',
+                      borderRadius: 8,
+                      background: `${PRIMARY_COLOR}20`,
+                      color: PRIMARY_COLOR,
+                      fontWeight: 'bold',
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                      display: 'inline-flex',
+                      alignSelf: 'flex-start',
+                    }}
+                  >
+                    {(card as any).label}
+                  </div>
+                )}
+              </>
             )}
 
             {/* Прогресс до следующего уровня для Level Up */}

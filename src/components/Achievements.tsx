@@ -7,6 +7,7 @@ import { calculateQuestProgress, type Quest } from '@/lib/daily-quests';
 import { BADGES, type Badge } from '@/lib/badges';
 import BadgeImage from '@/components/BadgeImage';
 import { IconDisplay } from '@/lib/iconMapper';
+import { getRandomVariant, badgeEarnedTexts } from '@/lib/castTextVariants';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -61,6 +62,58 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
             Authorization: `Bearer ${session?.access_token ?? ''}`,
         };
     }, []);
+
+    // Function to share badge
+    const shareBadge = useCallback(async (badge: Badge) => {
+        try {
+            const headers = await authHeaders();
+            const origin = typeof window !== 'undefined' ? window.location.origin : '';
+            
+            const castText = getRandomVariant(badgeEarnedTexts(
+                badge.title,
+                badge.description
+            ));
+
+            // Build preview URL
+            const previewUrl = new URL('/api/share/og', origin);
+            previewUrl.searchParams.set('kind', 'badges');
+            previewUrl.searchParams.set('variant', 'badges:earned');
+            previewUrl.searchParams.set('title', badge.title);
+            previewUrl.searchParams.set('description', badge.description);
+            previewUrl.searchParams.set('targetPath', '/profile');
+
+            // Publish cast
+            const res = await fetch('/api/share/cast', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    kind: 'badges',
+                    title: `Badge: ${badge.title}`,
+                    text: castText,
+                    previewParams: {
+                        variant: 'badges:earned',
+                        title: badge.title,
+                        description: badge.description,
+                    },
+                    embedUrl: previewUrl.toString(),
+                    targetUrl: `${origin}/profile`,
+                }),
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                console.error('[Share Badge] Failed to publish cast:', errorData);
+                alert(errorData.message || 'Failed to share badge. Please try again.');
+                return;
+            }
+
+            const data = await res.json();
+            console.log('[Share Badge] Cast published successfully:', data);
+        } catch (error: any) {
+            console.error('[Share Badge] Error:', error);
+            alert('Failed to share badge. Please try again.');
+        }
+    }, [authHeaders]);
 
     useEffect(() => {
         async function loadAchievements() {
@@ -244,14 +297,32 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
                                     <p className="text-sm text-white/70">{badge.description}</p>
                                 </div>
                             </div>
-                            <div className="mt-auto">
-                                {!badgePanel.wallet ? (
-                                    <div className="text-sm text-white/60 mb-2">Connect wallet to mint.</div>
-                                ) : (
-                                    <div className="text-xs text-white/50 mb-2">
-                                        {elig.eligible ? 'Eligible to mint' : elig.reason || 'Requirement not met'}
+                            <div className="mt-auto space-y-3">
+                                {/* Progress indicator for non-eligible badges */}
+                                {!elig.eligible && elig.reason && (
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between text-xs text-white/70">
+                                            <span>Progress</span>
+                                            <span>{elig.reason}</span>
+                                        </div>
+                                        {/* Placeholder progress bar - will be enhanced with real progress data later */}
+                                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] transition-all duration-300"
+                                                style={{ width: '0%' }}
+                                            />
+                                        </div>
                                     </div>
                                 )}
+
+                                {!badgePanel.wallet ? (
+                                    <div className="text-sm text-white/60">Connect wallet to mint.</div>
+                                ) : elig.eligible ? (
+                                    <div className="text-xs text-green-400 font-semibold mb-2">
+                                        ✓ Eligible to mint
+                                    </div>
+                                ) : null}
+
                                 <button
                                     disabled={disabled || !elig.eligible || st === 'success'}
                                     onClick={async () => {
@@ -276,6 +347,16 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
                                                 )
                                                 : 'Mint'}
                                 </button>
+                                
+                                {/* Share button for minted badges */}
+                                {st === 'success' && (
+                                    <button
+                                        onClick={() => shareBadge(badge)}
+                                        className="w-full rounded-2xl px-4 py-2 text-sm font-semibold bg-gradient-to-r from-[#EC4899] to-[#F97316] text-white hover:opacity-90 transition-opacity"
+                                    >
+                                        🎯 Share on Farcaster
+                                    </button>
+                                )}
                             </div>
                         </div>
                     );
@@ -401,31 +482,24 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
             </div>
 
             {badgePanel && (
-                <div className="border-t border-white/10 pt-3 relative overflow-hidden rounded-2xl">
-                    <div className="pointer-events-none opacity-70">
-                        <button
-                            type="button"
-                            onClick={() => setBadgesExpanded(prev => !prev)}
-                            className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition"
+                <div className="border-t border-white/10 pt-4">
+                    <button
+                        type="button"
+                        onClick={() => setBadgesExpanded(prev => !prev)}
+                        className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition"
+                    >
+                        <h3 className="text-xl font-semibold text-white">Badges gallery</h3>
+                        <svg
+                            className={`h-5 w-5 text-white/60 transition-transform ${badgesExpanded ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
                         >
-                            <h3 className="text-xl font-semibold text-white">Badges gallery</h3>
-                            <svg
-                                className={`h-5 w-5 text-white/60 transition-transform ${badgesExpanded ? 'rotate-180' : ''}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </button>
-                        {badgesExpanded && renderBadges()}
-                    </div>
-                    <div className="absolute inset-0 flex items-center justify-center bg-[#1a1b2e]/80 backdrop-blur-md">
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1a1b2e] border border-white/10">
-                            <span className="text-sm">⏳</span>
-                            <span className="text-sm font-semibold text-white uppercase tracking-wide">Coming soon</span>
-                        </div>
-                    </div>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+
+                    {badgesExpanded && renderBadges()}
                 </div>
             )}
         </div>

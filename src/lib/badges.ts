@@ -34,16 +34,16 @@ export type Badge = {
  * { slug: 'FIRST_LOG', ..., image: 'https://gateway.pinata.cloud/ipfs/QmXXXXX...' }
  */
 export const BADGES: Badge[] = [
-    { slug: 'FIRST_LOG', title: 'First Log', description: 'Logged your first habit.', tokenId: BigInt(1), image: BADGE_PLACEHOLDER_IMAGE },
-    { slug: 'STREAK_7', title: 'Streak 7', description: '7-day habit streak.', tokenId: BigInt(2), image: BADGE_PLACEHOLDER_IMAGE },
-    { slug: 'STREAK_30', title: 'Streak 30', description: '30-day habit streak.', tokenId: BigInt(3), image: BADGE_PLACEHOLDER_IMAGE },
-    { slug: 'STREAK_60', title: 'Streak 60', description: '60-day habit streak.', tokenId: BigInt(8), image: BADGE_PLACEHOLDER_IMAGE },
-    { slug: 'STREAK_100', title: 'Streak 100', description: '100-day habit streak.', tokenId: BigInt(9), image: BADGE_PLACEHOLDER_IMAGE },
-    { slug: 'STREAK_365', title: 'Streak 365', description: '365-day habit streak!', tokenId: BigInt(10), image: BADGE_PLACEHOLDER_IMAGE },
-    { slug: 'WHEEL_70', title: 'Wheel 70', description: 'Reached 70/100 on Wheel of Life.', tokenId: BigInt(4), image: BADGE_PLACEHOLDER_IMAGE },
-    { slug: 'WHEEL_80', title: 'Wheel 80', description: 'Reached 80/100 on Wheel of Life.', tokenId: BigInt(5), image: BADGE_PLACEHOLDER_IMAGE },
-    { slug: 'CONSISTENT_21', title: 'Consistent 21', description: '21 days of consistent tracking.', tokenId: BigInt(6), image: BADGE_PLACEHOLDER_IMAGE },
-    { slug: 'SHARE_3', title: 'Share x3', description: 'Shared 3 insights to Farcaster.', tokenId: BigInt(7), image: BADGE_PLACEHOLDER_IMAGE },
+    { slug: 'FIRST_LOG', title: 'First Log', description: 'Logged your first habit.', tokenId: BigInt(1), image: '/badges/first-log.png' },
+    { slug: 'STREAK_7', title: 'Streak 7', description: '7-day habit streak.', tokenId: BigInt(2), image: '/badges/streak-7.png' },
+    { slug: 'STREAK_30', title: 'Streak 30', description: '30-day habit streak.', tokenId: BigInt(3), image: '/badges/streak-30.png' },
+    { slug: 'STREAK_60', title: 'Streak 60', description: '60-day habit streak.', tokenId: BigInt(8), image: '/badges/streak-60.png' },
+    { slug: 'STREAK_100', title: 'Streak 100', description: '100-day habit streak.', tokenId: BigInt(9), image: '/badges/streak-100.png' },
+    { slug: 'STREAK_365', title: 'Streak 365', description: '365-day habit streak!', tokenId: BigInt(10), image: '/badges/streak-365.png' },
+    { slug: 'WHEEL_70', title: 'Wheel 70', description: 'Reached 70/100 on Wheel of Life.', tokenId: BigInt(4), image: '/badges/wheel-70.png' },
+    { slug: 'WHEEL_80', title: 'Wheel 80', description: 'Reached 80/100 on Wheel of Life.', tokenId: BigInt(5), image: '/badges/wheel-80.png' },
+    { slug: 'CONSISTENT_21', title: 'Consistent 21', description: '21 days of consistent tracking.', tokenId: BigInt(6), image: '/badges/consistent-21.png' },
+    { slug: 'SHARE_3', title: 'Share x3', description: 'Shared 3 insights to Farcaster.', tokenId: BigInt(7), image: '/badges/share-3.png' },
 ];
 
 export function getBadge(slug: Badge['slug']): Badge | undefined {

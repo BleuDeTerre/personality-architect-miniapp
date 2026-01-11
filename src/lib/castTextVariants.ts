@@ -127,6 +127,25 @@ export const upcomingGoalTexts = (goalTitle: string, dueDate: string) => [
   `🚀 "${goalTitle}" is approaching (${dueDate}). Time to act!`,
 ];
 
+// Achievements
+export const achievementUnlockedTexts = (title: string, xpReward: number, rarity: string) => {
+  const rarityEmoji = rarity === 'legendary' ? '👑' : rarity === 'epic' ? '💎' : rarity === 'rare' ? '⭐' : '✨';
+  return [
+    `🎉 Just unlocked: ${title}! +${xpReward} XP ${rarityEmoji} #PersonalityArchitect`,
+    `🎉 Achievement unlocked: ${title}! Earned ${xpReward} XP. ${rarityEmoji} #PersonalityArchitect`,
+    `🏆 ${title} achievement unlocked! +${xpReward} XP ${rarityEmoji} #PersonalityArchitect`,
+    `✨ New achievement: ${title}! Got ${xpReward} XP for this. ${rarityEmoji} #PersonalityArchitect`,
+  ];
+};
+
+// Badges
+export const badgeEarnedTexts = (title: string, description: string) => [
+  `🏆 Earned badge: ${title}! ${description} #PersonalityArchitect`,
+  `🏆 Just got the ${title} badge! ${description} #PersonalityArchitect`,
+  `🎖️ ${title} badge is mine! ${description} #PersonalityArchitect`,
+  `✨ New badge unlocked: ${title}! ${description} #PersonalityArchitect`,
+];
+
 export const eisenhowerMatrixTexts = (
   importantUrgent: number,
   importantNotUrgent: number,

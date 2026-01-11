@@ -413,19 +413,32 @@
 **Статус**: Приложение готово к работе с placeholder изображениями. Система автоматически использует fallback.
 
 **Что нужно сделать:**
-1. Дождаться готовых изображений от дизайнеров (10 PNG файлов, 1024x1024px)
-2. Создать NFT в Zora Creator для каждого бейджа (получить IPFS хэши)
-3. Обновить поле `image` в `src/lib/badges.ts` для каждого из 10 бейджей:
+
+**Вариант 1: Быстрый старт с локальными файлами (рекомендуется для начала)**
+1. Создать папку `public/badges/` и поместить туда изображения (10 PNG файлов, 1024x1024px):
+   - `first-log.png`, `streak-7.png`, `streak-30.png`, `streak-60.png`, `streak-100.png`
+   - `streak-365.png`, `wheel-70.png`, `wheel-80.png`, `consistent-21.png`, `share-3.png`
+2. Обновить поле `image` в `src/lib/badges.ts` для каждого бейджа:
+   ```typescript
+   image: '/badges/first-log.png'  // Локальный путь
+   ```
+3. **Позже, при загрузке NFT в Zora**, можно заменить локальные пути на IPFS URL:
+   ```typescript
+   image: 'https://gateway.pinata.cloud/ipfs/QmXXXXX...'  // IPFS хэш из Zora
+   ```
+
+**Вариант 2: Сразу использовать IPFS (если уже загрузили в Zora)**
+1. Создать NFT в Zora Creator для каждого бейджа (получить IPFS хэши)
+2. Обновить поле `image` в `src/lib/badges.ts` для каждого из 10 бейджей:
    - Использовать IPFS Gateway URL (рекомендуется): 
      - `https://gateway.pinata.cloud/ipfs/QmXXXXX...` 
      - или `https://ipfs.io/ipfs/QmXXXXX...`
-   - Или локальные файлы: `/badges/first-log.png`, `/badges/streak-7.png`, и т.д.
-4. Заменить значение `BADGE_PLACEHOLDER_IMAGE` или отдельные поля `image` в массиве `BADGES`
 
 **Где**: `src/lib/badges.ts` - подробные инструкции уже есть в комментариях
 
 **Примечание**: 
 - Приложение уже готово к этому - просто заменить URL в массиве `BADGES`
+- Можно начать с локальных файлов, а потом легко заменить на IPFS URL при загрузке NFT в Zora
 - Компонент `BadgeImage` автоматически обработает fallback если что-то пойдет не так
 - Подробная документация: `docs/BADGE_IMAGE_SETUP.md`
 

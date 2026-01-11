@@ -11,7 +11,8 @@ import MiniAppPage from '@/components/MiniAppPage';
 import { IconDisplay } from '@/lib/iconMapper';
 import CollapsibleCard from '@/components/CollapsibleCard';
 import AIHabitInsights from '@/components/AIHabitInsights';
-import { getRandomVariant, topStreakHabitTexts, habitsSummaryTexts } from '@/lib/castTextVariants';
+import { getRandomVariant, topStreakHabitTexts, habitsSummaryTexts, achievementUnlockedTexts } from '@/lib/castTextVariants';
+import type { Achievement } from '@/lib/achievements';
 
 // Используем централизованный клиент из lib/supabase с правильными настройками
 
@@ -154,7 +155,7 @@ export default function HabitsPage() {
     const emojiPickerRef = useRef<HTMLDivElement>(null);
     const [removingHabitId, setRemovingHabitId] = useState<string | null>(null);
     const [updatingHabitId, setUpdatingHabitId] = useState<string | null>(null);
-    const [levelUpState, setLevelUpState] = useState<{ level: number } | null>(null);
+    const [levelUpState, setLevelUpState] = useState<{ level: number; xpGained?: number } | null>(null);
     const [achievementState, setAchievementState] = useState<{
         id: string;
         title: string;
@@ -811,8 +812,15 @@ export default function HabitsPage() {
                 if (data.level_up) {
                     const levelEvent = data.xp_events.find((e: any) => e.type === 'level_up');
                     if (levelEvent && levelEvent.metadata?.level) {
+                        // Calculate XP gained (excluding level_up and achievement events)
+                        const xpGained = data.xp_events
+                            .filter((e: any) => e.type !== 'level_up' && e.type !== 'achievement')
+                            .reduce((sum: number, e: any) => sum + (e.xp || 0), 0);
                         setTimeout(() => {
-                            setLevelUpState({ level: levelEvent.metadata.level });
+                            setLevelUpState({ 
+                                level: levelEvent.metadata.level,
+                                xpGained: xpGained > 0 ? xpGained : undefined,
+                            });
                         }, data.achievements_unlocked?.length > 0 ? 3500 : 0);
                     }
                 }
@@ -934,6 +942,78 @@ export default function HabitsPage() {
         return templates;
     }, [habits]);
 
+    // Function to share achievement
+    const shareAchievement = useCallback(async (achievement: Achievement) => {
+        try {
+            const headers = await authHeaders();
+            const origin = typeof window !== 'undefined' ? window.location.origin : '';
+            
+            const castText = getRandomVariant(achievementUnlockedTexts(
+                achievement.title,
+                achievement.xpReward,
+                achievement.rarity
+            ));
+
+            const template: CastTemplate = {
+                key: `achievement-${achievement.id}`,
+                title: `Achievement: ${achievement.title}`,
+                label: `Achievement unlocked`,
+                text: castText,
+                kind: 'achievements',
+                previewParams: {
+                    variant: 'achievements:unlocked',
+                    icon: achievement.icon,
+                    title: achievement.title,
+                    description: achievement.description,
+                    xp: String(achievement.xpReward),
+                    rarity: achievement.rarity,
+                },
+                targetPath: '/profile',
+            };
+
+            // Build preview URL
+            const previewUrl = new URL('/api/share/og', origin);
+            previewUrl.searchParams.set('kind', 'achievements');
+            previewUrl.searchParams.set('variant', 'achievements:unlocked');
+            previewUrl.searchParams.set('icon', achievement.icon);
+            previewUrl.searchParams.set('title', achievement.title);
+            previewUrl.searchParams.set('description', achievement.description);
+            previewUrl.searchParams.set('xp', String(achievement.xpReward));
+            previewUrl.searchParams.set('rarity', achievement.rarity);
+            previewUrl.searchParams.set('targetPath', '/profile');
+
+            // Publish cast
+            const res = await fetch('/api/share/cast', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    kind: template.kind,
+                    title: template.title,
+                    text: template.text,
+                    previewParams: template.previewParams,
+                    embedUrl: previewUrl.toString(),
+                    targetUrl: template.targetPath ? `${origin}${template.targetPath}` : undefined,
+                }),
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                console.error('[Share Achievement] Failed to publish cast:', errorData);
+                alert(errorData.message || 'Failed to share achievement. Please try again.');
+                return;
+            }
+
+            const data = await res.json();
+            console.log('[Share Achievement] Cast published successfully:', data);
+            
+            // Close achievement animation
+            setAchievementState(null);
+        } catch (error: any) {
+            console.error('[Share Achievement] Error:', error);
+            alert('Failed to share achievement. Please try again.');
+        }
+    }, [authHeaders]);
+
     return (
         <>
             {achievementState && (
@@ -948,11 +1028,14 @@ export default function HabitsPage() {
                         rarity: achievementState.rarity as any,
                     }}
                     onComplete={() => setAchievementState(null)}
+                    onShare={shareAchievement}
+                    showShareButton={true}
                 />
             )}
             {levelUpState && (
                 <LevelUpAnimation
                     level={levelUpState.level}
+                    xpGained={levelUpState.xpGained}
                     onComplete={() => setLevelUpState(null)}
                 />
             )}
