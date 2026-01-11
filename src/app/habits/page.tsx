@@ -11,6 +11,7 @@ import MiniAppPage from '@/components/MiniAppPage';
 import { IconDisplay } from '@/lib/iconMapper';
 import CollapsibleCard from '@/components/CollapsibleCard';
 import AIHabitInsights from '@/components/AIHabitInsights';
+import AIHabitDifficulty from '@/components/AIHabitDifficulty';
 import { getRandomVariant, topStreakHabitTexts, habitsSummaryTexts, achievementUnlockedTexts } from '@/lib/castTextVariants';
 import type { Achievement } from '@/lib/achievements';
 
@@ -1242,6 +1243,18 @@ export default function HabitsPage() {
                                         <div className="text-xs text-white/70 flex items-center gap-1">
                                             <IconDisplay emoji="🔥" size="text-xs" color="text-orange-400" />
                                             <span>{h.streak ?? 0}d streak</span>
+                                        </div>
+                                        {/* AI Habit Difficulty Check */}
+                                        <div className="mt-1">
+                                            <AIHabitDifficulty
+                                                habitId={h.id}
+                                                habitTitle={titleText}
+                                                currentTarget={h.target_days_per_week}
+                                                onTargetUpdate={async (newTarget) => {
+                                                    await updateHabit(h.id, h.title || titleText, newTarget);
+                                                    await fetchHabits(); // Refresh habits to show updated target
+                                                }}
+                                            />
                                         </div>
                                         <div className="flex items-center gap-2 mt-auto">
                                             <button

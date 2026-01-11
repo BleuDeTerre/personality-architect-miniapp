@@ -5,6 +5,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
+import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
+import { HABIT_DIFFICULTY_PROMPT } from '@/lib/aiPrompts';
+import { detectLanguageFromSources, getLanguageInstruction } from '@/lib/detectLanguage';
+import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
 
 export async function POST(req: NextRequest) {
     // Rate limiting для AI endpoints
@@ -35,6 +39,26 @@ export async function POST(req: NextRequest) {
 
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
+
+        // Получаем план пользователя для проверки лимита
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as UserPlan;
+
+        // Проверяем лимит AI запросов
+        const limitCheck = await checkAILimit(supa, userId, userPlan);
+        if (!limitCheck.allowed) {
+            return NextResponse.json(
+                {
+                    error: 'ai_limit_reached',
+                    message: limitCheck.error || 'AI request limit reached',
+                },
+                { status: 403 }
+            );
+        }
 
         const body = await req.json().catch(() => ({}));
         const habitId = String(body.habitId || '');
@@ -81,30 +105,114 @@ export async function POST(req: NextRequest) {
         });
         const currentStreak = (streakData as number) || 0;
 
-        // Генерируем рекомендацию через расчеты (без AI)
-        let recommendedTarget = targetDays;
-        let suggestion = '';
-        let difficulty = 'medium';
+        // Используем AI для генерации рекомендации (Gemma для легких задач)
+        const provider = pickAIProvider('light'); // Использует Gemma
+        const aiClient = getAIClient(provider);
+        const model = getAIModel(provider);
 
-        if (completionRate < 30) {
-            // Высокая сложность
-            difficulty = 'high';
-            recommendedTarget = Math.max(1, Math.floor(targetDays * 0.7));
-            suggestion = `This habit seems too challenging. Your completion rate is ${completionRate.toFixed(0)}%. Consider reducing the target to ${recommendedTarget} days per week to build consistency.`;
-        } else if (completionRate < 60) {
-            // Средняя сложность
-            difficulty = 'medium';
-            suggestion = `Your completion rate is ${completionRate.toFixed(0)}%. Keep your current target of ${targetDays} days per week and focus on consistency.`;
-        } else if (completionRate > 90 && currentStreak > 7) {
-            // Низкая сложность - можно увеличить
-            difficulty = 'low';
-            recommendedTarget = Math.min(7, Math.ceil(targetDays * 1.3));
-            suggestion = `Great job! Your completion rate is ${completionRate.toFixed(0)}% and you have a ${currentStreak}-day streak. Consider increasing the target to ${recommendedTarget} days per week to challenge yourself.`;
-        } else {
-            // Оптимальная сложность
-            difficulty = 'optimal';
-            suggestion = `Your completion rate is ${completionRate.toFixed(0)}%. Your current target of ${targetDays} days per week seems perfect for maintaining consistency.`;
+        // Определяем язык по названию привычки
+        const detectedLang = detectLanguageFromSources([habit.title]);
+        const languageInstruction = getLanguageInstruction(detectedLang);
+
+        // Формируем промпт
+        const systemPrompt = HABIT_DIFFICULTY_PROMPT.replace('{LANGUAGE_INSTRUCTION}', languageInstruction);
+
+        // Формируем контекст для AI
+        const context = `
+Habit: "${habit.title}"
+Current target: ${targetDays} days per week
+Completion rate: ${completionRate.toFixed(0)}%
+Completed days (last 30): ${completedDays} out of ${expectedDays} expected
+Current streak: ${currentStreak} days
+
+Analyze the difficulty and provide:
+1. A brief assessment (2-3 sentences)
+2. Recommended target days per week (1-7)
+3. Difficulty level: "high", "medium", "low", or "optimal"
+`;
+
+        console.log('[AI Habit Difficulty] Using provider:', provider, 'model:', model);
+
+        let chat;
+        try {
+            chat = await aiClient.chat.completions.create({
+                model,
+                temperature: 0.7,
+                messages: [
+                    {
+                        role: 'system',
+                        content: systemPrompt,
+                    },
+                    {
+                        role: 'user',
+                        content: context,
+                    },
+                ],
+            });
+        } catch (aiError: any) {
+            console.error('[AI Habit Difficulty] AI API Error:', {
+                error: aiError?.message,
+                code: aiError?.code,
+                status: aiError?.status,
+                provider,
+                model,
+            });
+            throw aiError;
         }
+
+        const aiResponse = chat.choices[0]?.message?.content || '';
+
+        // Парсим ответ AI для извлечения recommendedTarget и difficulty
+        // AI должен вернуть рекомендацию в формате, который мы можем распарсить
+        // Пока используем простую логику на основе completionRate как fallback
+        let recommendedTarget = targetDays;
+        let difficulty = 'medium';
+        let suggestion = aiResponse.trim();
+
+        // Пытаемся извлечь recommended target из ответа AI
+        const targetMatch = aiResponse.match(/(?:recommended|target|suggest).*?(\d+)\s*(?:days?|times?)/i);
+        if (targetMatch) {
+            const extracted = parseInt(targetMatch[1], 10);
+            if (extracted >= 1 && extracted <= 7) {
+                recommendedTarget = extracted;
+            }
+        }
+
+        // Определяем difficulty на основе completionRate (fallback если AI не указал)
+        if (completionRate < 30) {
+            difficulty = 'high';
+            if (!targetMatch) {
+                recommendedTarget = Math.max(1, Math.floor(targetDays * 0.7));
+            }
+        } else if (completionRate < 60) {
+            difficulty = 'medium';
+        } else if (completionRate > 90 && currentStreak > 7) {
+            difficulty = 'low';
+            if (!targetMatch) {
+                recommendedTarget = Math.min(7, Math.ceil(targetDays * 1.3));
+            }
+        } else {
+            difficulty = 'optimal';
+        }
+
+        // Если AI не дал хорошего ответа, используем fallback
+        if (!suggestion || suggestion.length < 20) {
+            if (completionRate < 30) {
+                suggestion = `This habit seems too challenging. Your completion rate is ${completionRate.toFixed(0)}%. Consider reducing the target to ${recommendedTarget} days per week to build consistency.`;
+            } else if (completionRate < 60) {
+                suggestion = `Your completion rate is ${completionRate.toFixed(0)}%. Keep your current target of ${targetDays} days per week and focus on consistency.`;
+            } else if (completionRate > 90 && currentStreak > 7) {
+                suggestion = `Great job! Your completion rate is ${completionRate.toFixed(0)}% and you have a ${currentStreak}-day streak. Consider increasing the target to ${recommendedTarget} days per week to challenge yourself.`;
+            } else {
+                suggestion = `Your completion rate is ${completionRate.toFixed(0)}%. Your current target of ${targetDays} days per week seems perfect for maintaining consistency.`;
+            }
+        }
+
+        // Логируем AI запрос
+        await logAIRequest(supa, userId, userPlan, 'ai/habit-difficulty', {
+            provider,
+            habitId,
+        });
 
         return NextResponse.json({
             suggestion,
@@ -121,4 +229,3 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'failed_to_analyze', message: error?.message }, { status: 500 });
     }
 }
-

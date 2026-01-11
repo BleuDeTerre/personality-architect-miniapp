@@ -82,6 +82,12 @@ export default function ProfilePage() {
     const [badgesLoading, setBadgesLoading] = useState(true);
     const [gamificationStats, setGamificationStats] = useState<UserStats | null>(null);
     const [currentPlan, setCurrentPlan] = useState<'free' | 'pro' | 'premium'>('free');
+    const [credits, setCredits] = useState<{ balance: number; nextExpiry: string | null }>({ balance: 0, nextExpiry: null });
+    const [aiUsage, setAiUsage] = useState<{ used: number; limit: number; remaining: number }>({ used: 0, limit: 5, remaining: 5 });
+    const [featureLimits, setFeatureLimits] = useState<{
+        habits: { current: number; limit: number; unlimited: boolean };
+        goals: { current: number; limit: number; unlimited: boolean };
+    } | null>(null);
     const [mainFocus, setMainFocus] = useState<string | null>(null);
     const [mainFocusEditing, setMainFocusEditing] = useState(false);
     const [mainFocusInput, setMainFocusInput] = useState('');
@@ -416,6 +422,18 @@ export default function ProfilePage() {
                 if (planRes.ok) {
                     const planData = await planRes.json();
                     setCurrentPlan(planData.plan || 'free');
+                }
+
+                // Load limits and credits
+                const limitsRes = await fetch('/api/limits', { headers: await authHeaders() });
+                if (limitsRes.ok) {
+                    const limitsData = await limitsRes.json();
+                    setCredits(limitsData.credits || { balance: 0, nextExpiry: null });
+                    setAiUsage(limitsData.ai || { used: 0, limit: 5, remaining: 5 });
+                    setFeatureLimits({
+                        habits: limitsData.habits,
+                        goals: limitsData.goals,
+                    });
                 }
 
                 // Load main focus
@@ -810,21 +828,89 @@ export default function ProfilePage() {
                     )}
                 </section>
 
-                {/* Quest Board Section */}
-                {/* Current Plan Section */}
+                {/* Credits & Usage Section */}
                 <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 sm:p-3 mb-3">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className="text-xs uppercase tracking-wide text-white/60 mb-1">CURRENT PLAN</p>
-                            <p className="text-2xl font-bold text-white">{currentPlan.toUpperCase()}</p>
+                    {/* AI Credits Row */}
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center text-xl">
+                                💎
+                            </div>
+                            <div>
+                                <p className="text-xs uppercase tracking-wide text-white/60">AI CREDITS</p>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-bold text-white">{credits.balance}</span>
+                                    <span className="text-sm text-white/60">bonus</span>
+                                </div>
+                            </div>
                         </div>
                         <a
                             href="/pricing"
-                            className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-center text-base font-semibold text-white transition hover:opacity-90 shadow-lg shadow-[#8B5CF6]/40 whitespace-nowrap"
+                            className="rounded-xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 shadow-lg shadow-[#8B5CF6]/30"
                         >
-                            Change plan
+                            + Buy
                         </a>
                     </div>
+
+                    {/* Daily Usage */}
+                    <div className="mb-4">
+                        <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs text-white/60">Daily AI Usage</span>
+                            <span className="text-xs text-white/80">{aiUsage.used}/{aiUsage.limit}</span>
+                        </div>
+                        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div
+                                className={`h-full transition-all duration-300 ${
+                                    aiUsage.remaining <= 1 ? 'bg-red-500' : 
+                                    aiUsage.remaining <= 2 ? 'bg-yellow-500' : 'bg-purple-500'
+                                }`}
+                                style={{ width: `${(aiUsage.used / aiUsage.limit) * 100}%` }}
+                            />
+                        </div>
+                        <p className="text-xs text-white/50 mt-1">
+                            {aiUsage.remaining > 0 
+                                ? `${aiUsage.remaining} free requests left today`
+                                : 'Use bonus credits for more AI requests'}
+                        </p>
+                    </div>
+
+                    {/* Feature Limits */}
+                    {featureLimits && (
+                        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
+                            <div className="text-center">
+                                <p className="text-xs text-white/60 mb-1">Habits</p>
+                                {featureLimits.habits.unlimited ? (
+                                    <p className="text-sm font-semibold text-green-400">♾️ Unlimited</p>
+                                ) : (
+                                    <p className="text-sm font-semibold text-white">
+                                        {featureLimits.habits.current}/{featureLimits.habits.limit}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="text-center">
+                                <p className="text-xs text-white/60 mb-1">Goals</p>
+                                {featureLimits.goals.unlimited ? (
+                                    <p className="text-sm font-semibold text-green-400">♾️ Unlimited</p>
+                                ) : (
+                                    <p className="text-sm font-semibold text-white">
+                                        {featureLimits.goals.current}/{featureLimits.goals.limit}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Unlock promo */}
+                    {featureLimits && (!featureLimits.habits.unlimited || !featureLimits.goals.unlimited) && (
+                        <div className="mt-3 pt-3 border-t border-white/10">
+                            <a
+                                href="/pricing"
+                                className="block text-center text-sm text-purple-400 hover:text-purple-300 transition-colors"
+                            >
+                                🔓 Unlock unlimited habits & goals →
+                            </a>
+                        </div>
+                    )}
                 </section>
 
                 {/* Your Level Section */}

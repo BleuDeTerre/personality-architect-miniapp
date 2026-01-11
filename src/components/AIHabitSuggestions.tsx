@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Clock } from 'lucide-react';
 import CollapsibleCard from './CollapsibleCard';
 import { IconDisplay } from '@/lib/iconMapper';
+import { renderMarkdown } from '@/lib/markdown';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -104,9 +105,10 @@ export default function AIHabitSuggestions() {
                                             {suggestion.optimalTime}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-white/70 leading-snug">
-                                        {suggestion.suggestion}
-                                    </p>
+                                    <p 
+                                        className="text-xs text-white/70 leading-snug"
+                                        dangerouslySetInnerHTML={{ __html: renderMarkdown(suggestion.suggestion) }}
+                                    />
                                 </div>
                             </div>
                         </div>

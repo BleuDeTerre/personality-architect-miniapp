@@ -5,6 +5,8 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { parsePaginationParams, getPaginationMeta } from '@/lib/pagination';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
+import { canAddGoal } from '@/lib/featureLimits';
+import { UNLOCKS } from '@/lib/pricing';
 
 export async function GET(req: NextRequest) {
     // Rate limiting для чтения данных
@@ -130,6 +132,24 @@ export async function POST(req: NextRequest) {
         }
 
         const supa = createUserServerClient(token);
+
+        // Check goal limit
+        const goalCheck = await canAddGoal(supa, userId);
+        if (!goalCheck.allowed) {
+            return NextResponse.json(
+                {
+                    error: 'limit_reached',
+                    message: goalCheck.reason,
+                    limits: goalCheck.limits,
+                    upgrade: {
+                        type: 'goals',
+                        price: UNLOCKS.goals.priceUsd,
+                        name: UNLOCKS.goals.name,
+                    },
+                },
+                { status: 403 }
+            );
+        }
 
         const body = await req.json().catch(() => ({}));
         const title = String(body?.title || '').trim();

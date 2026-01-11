@@ -27,6 +27,7 @@ export const EMOJI_TO_MATERIAL_ICON: Record<string, string> = {
   '📝': 'edit_note',
   '🎧': 'headphones',
   '⏱️': 'timer',
+  '⏰': 'alarm',
   '💳': 'credit_card',
   '🏦': 'account_balance',
   '💬': 'chat_bubble',

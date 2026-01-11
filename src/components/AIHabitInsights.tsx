@@ -2,8 +2,9 @@
 
 import { useState, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Clock, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
 import CollapsibleCard from './CollapsibleCard';
+import { renderMarkdown } from '@/lib/markdown';
 import { IconDisplay } from '@/lib/iconMapper';
 
 const supabase = createClient(
@@ -30,8 +31,8 @@ type DifficultyData = {
     currentStreak: number;
 };
 
+
 export default function AIHabitInsights() {
-    const [activeTab, setActiveTab] = useState<'time' | 'difficulty'>('time');
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
     const [difficulties, setDifficulties] = useState<DifficultyData[]>([]);
     const [loading, setLoading] = useState(false);
@@ -115,11 +116,6 @@ export default function AIHabitInsights() {
         }
     }, [authHeaders, loading, hasLoadedDifficulty]);
 
-    const handleTabChange = (tab: 'time' | 'difficulty') => {
-        setActiveTab(tab);
-        // Не загружаем автоматически - пользователь должен нажать кнопку
-    };
-
     return (
         <CollapsibleCard 
             title={
@@ -128,172 +124,63 @@ export default function AIHabitInsights() {
                     <span>AI Habit Insights</span>
                 </div>
             } 
-            subtitle={activeTab === 'time' 
-                ? (hasLoadedTime && suggestions.length > 0 ? `${suggestions.length} time suggestion${suggestions.length > 1 ? 's' : ''} available` : 'Get personalized time suggestions')
-                : (hasLoadedDifficulty && difficulties.length > 0 ? `${difficulties.length} habit${difficulties.length > 1 ? 's' : ''} analyzed` : 'Analyze habit difficulty')
-            }
+            subtitle={hasLoadedTime && suggestions.length > 0 ? `${suggestions.length} time suggestion${suggestions.length > 1 ? 's' : ''} available` : 'Get personalized time suggestions'}
             defaultOpen={false}
         >
-            {/* Tabs */}
-            <div className="flex gap-2 mb-4 border-b border-white/10">
+            {!hasLoadedTime && !loading && (
                 <button
-                    onClick={() => handleTabChange('time')}
-                    className={`px-4 py-2 text-sm font-medium transition ${
-                        activeTab === 'time'
-                            ? 'text-[#8B5CF6] border-b-2 border-[#8B5CF6]'
-                            : 'text-white/60 hover:text-white/80'
-                    }`}
+                    onClick={loadTimeSuggestions}
+                    disabled={loading}
+                    className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/20 disabled:opacity-60 flex items-center justify-center gap-1"
                 >
-                    ⏰ Optimal Time
+                    {loading ? 'Loading...' : (
+                        <>
+                            <IconDisplay emoji="💡" size="text-sm" />
+                            <span>Get Time Suggestions</span>
+                        </>
+                    )}
                 </button>
-                <button
-                    onClick={() => handleTabChange('difficulty')}
-                    className={`px-4 py-2 text-sm font-medium transition flex items-center gap-1 ${
-                        activeTab === 'difficulty'
-                            ? 'text-[#8B5CF6] border-b-2 border-[#8B5CF6]'
-                            : 'text-white/60 hover:text-white/80'
-                    }`}
-                >
-                    <IconDisplay emoji="📊" size="text-sm" />
-                    <span>Difficulty</span>
-                </button>
-            </div>
+            )}
 
-            {/* Time Suggestions Tab */}
-            {activeTab === 'time' && (
-                <div>
-                    {!hasLoadedTime && !loading && (
-                        <button
-                            onClick={loadTimeSuggestions}
-                            disabled={loading}
-                            className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/20 disabled:opacity-60 flex items-center justify-center gap-1"
-                        >
-                            {loading ? 'Loading...' : (
-                                <>
-                                    <IconDisplay emoji="💡" size="text-sm" />
-                                    <span>Get Time Suggestions</span>
-                                </>
-                            )}
-                        </button>
-                    )}
-
-                    {loading && activeTab === 'time' && (
-                        <div className="space-y-3 animate-pulse">
-                            <div className="h-4 w-3/4 rounded bg-white/10" />
-                            <div className="h-3 w-full rounded bg-white/10" />
-                        </div>
-                    )}
-
-                    {hasLoadedTime && suggestions.length === 0 && (
-                        <div className="text-sm text-white/60 text-center py-2">
-                            Not enough data yet. Complete habits for at least 3 days to get time suggestions.
-                        </div>
-                    )}
-
-                    {hasLoadedTime && suggestions.length > 0 && (
-                        <div className="space-y-3">
-                            {suggestions.map((suggestion) => (
-                                <div
-                                    key={suggestion.habitId}
-                                    className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4"
-                                >
-                                    <div className="flex items-start gap-3">
-                                        <Clock className="h-5 w-5 text-purple-400 flex-shrink-0 mt-0.5" />
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between gap-2 mb-1">
-                                                <h4 className="text-sm font-semibold text-white truncate">
-                                                    {suggestion.habitTitle}
-                                                </h4>
-                                                <span className="text-xs text-purple-300 font-medium flex-shrink-0">
-                                                    {suggestion.optimalTime}
-                                                </span>
-                                            </div>
-                                            <p className="text-xs text-white/70 leading-snug">
-                                                {suggestion.suggestion}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+            {loading && (
+                <div className="space-y-3 animate-pulse">
+                    <div className="h-4 w-3/4 rounded bg-white/10" />
+                    <div className="h-3 w-full rounded bg-white/10" />
                 </div>
             )}
 
-            {/* Difficulty Analysis Tab */}
-            {activeTab === 'difficulty' && (
-                <div>
-                    {!hasLoadedDifficulty && !loading && (
-                        <button
-                            onClick={loadDifficultyAnalysis}
-                            disabled={loading}
-                            className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/20 disabled:opacity-60 flex items-center justify-center gap-1"
+            {hasLoadedTime && suggestions.length === 0 && (
+                <div className="text-sm text-white/60 text-center py-2">
+                    Not enough data yet. Complete habits for at least 3 days to get time suggestions.
+                </div>
+            )}
+
+            {hasLoadedTime && suggestions.length > 0 && (
+                <div className="space-y-3">
+                    {suggestions.map((suggestion) => (
+                        <div
+                            key={suggestion.habitId}
+                            className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4"
                         >
-                            {loading ? 'Analyzing...' : (
-                                <>
-                                    <IconDisplay emoji="📊" size="text-sm" />
-                                    <span>Analyze All Habits</span>
-                                </>
-                            )}
-                        </button>
-                    )}
-
-                    {loading && activeTab === 'difficulty' && (
-                        <div className="space-y-3 animate-pulse">
-                            <div className="h-4 w-3/4 rounded bg-white/10" />
-                            <div className="h-3 w-full rounded bg-white/10" />
-                        </div>
-                    )}
-
-                    {hasLoadedDifficulty && difficulties.length === 0 && (
-                        <div className="text-sm text-white/60 text-center py-2">
-                            No habits to analyze yet.
-                        </div>
-                    )}
-
-                    {hasLoadedDifficulty && difficulties.length > 0 && (
-                        <div className="space-y-3">
-                            {difficulties.map((difficulty) => {
-                                const shouldIncrease = difficulty.recommendedTarget > difficulty.currentTarget;
-                                const shouldDecrease = difficulty.recommendedTarget < difficulty.currentTarget;
-                                const shouldKeep = difficulty.recommendedTarget === difficulty.currentTarget;
-
-                                return (
-                                    <div
-                                        key={difficulty.habitId}
-                                        className="rounded-xl border border-white/10 bg-[#1a1b2e] p-3 space-y-2.5"
-                                    >
-                                        <h4 className="text-sm font-semibold text-white">{difficulty.habitTitle}</h4>
-                                        <div className="space-y-2">
-                                            <p className="text-xs text-white/90 leading-relaxed break-words">{difficulty.suggestion}</p>
-                                            <div className="flex flex-wrap items-center gap-2 text-xs text-white/70">
-                                                <span className="whitespace-nowrap">Completion: {difficulty.completionRate}%</span>
-                                                <span className="whitespace-nowrap">Current: {difficulty.currentTarget}/week</span>
-                                                {shouldIncrease && (
-                                                    <span className="text-green-400 flex items-center gap-1 whitespace-nowrap">
-                                                        <TrendingUp className="h-3 w-3 flex-shrink-0" />
-                                                        <span>Recommended: {difficulty.recommendedTarget}/week</span>
-                                                    </span>
-                                                )}
-                                                {shouldDecrease && (
-                                                    <span className="text-yellow-400 flex items-center gap-1 whitespace-nowrap">
-                                                        <TrendingDown className="h-3 w-3 flex-shrink-0" />
-                                                        <span>Recommended: {difficulty.recommendedTarget}/week</span>
-                                                    </span>
-                                                )}
-                                                {shouldKeep && (
-                                                    <span className="text-white/60 flex items-center gap-1 whitespace-nowrap">
-                                                        <Minus className="h-3 w-3 flex-shrink-0" />
-                                                        <span>Keep current</span>
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
+                            <div className="flex items-start gap-3">
+                                <IconDisplay emoji="⏰" size="text-xl" color="text-purple-400" className="flex-shrink-0 mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                        <h4 className="text-sm font-semibold text-white truncate">
+                                            {suggestion.habitTitle}
+                                        </h4>
+                                        <span className="text-xs text-purple-300 font-medium flex-shrink-0">
+                                            {suggestion.optimalTime}
+                                        </span>
                                     </div>
-                                );
-                            })}
+                                    <p 
+                                        className="text-xs text-white/70 leading-snug"
+                                        dangerouslySetInnerHTML={{ __html: renderMarkdown(suggestion.suggestion) }}
+                                    />
+                                </div>
+                            </div>
                         </div>
-                    )}
+                    ))}
                 </div>
             )}
         </CollapsibleCard>

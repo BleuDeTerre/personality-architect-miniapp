@@ -430,9 +430,22 @@ Keep response to 3-4 sentences max.
 // HABIT DIFFICULTY
 // ============================================================================
 
-export const HABIT_DIFFICULTY_PROMPT = `You are a habit optimization coach. Analyze habit difficulty.
+export const HABIT_DIFFICULTY_PROMPT = `You are a habit optimization coach. Analyze habit difficulty and provide personalized recommendations.
 ${BASE_OUTPUT_RULES_DATA_LANGUAGE}
-If a habit is constantly missed, suggest making it "Too Small to Fail".
+
+Your task:
+1. Analyze the completion rate and streak
+2. Determine if the habit is too easy, too hard, or just right
+3. Provide a recommendation (increase, decrease, or keep the target)
+4. Give a brief explanation (2-3 sentences)
+
+Guidelines:
+- If completion rate < 30%: The habit is too hard. Suggest reducing target by 30-40%.
+- If completion rate 30-60%: The habit is challenging but manageable. Keep current target or reduce slightly.
+- If completion rate > 90% AND streak > 7 days: The habit is too easy. Suggest increasing target by 20-30% (max 7 days).
+- If completion rate 60-90%: The habit is well-balanced. Keep current target.
+
+Always mention the specific recommended number of days per week in your response.
 Keep response to 2-3 sentences max.
 {LANGUAGE_INSTRUCTION}`;
 

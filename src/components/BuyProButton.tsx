@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { PRICES_USD } from "@/lib/pricing";
+import { CREDIT_PACKS } from "@/lib/pricing";
 
-const PRICE = PRICES_USD["/api/paid/credits/pro-monthly"];
+// Default to medium pack (best value)
+const DEFAULT_PACK = CREDIT_PACKS.medium;
 
 export default function BuyProButton() {
     const [loading, setLoading] = useState(false);
@@ -12,14 +13,18 @@ export default function BuyProButton() {
     async function buy() {
         setLoading(true);
         try {
-            const r = await fetch("/api/credits/purchase", {
+            const r = await fetch("/api/paid/credits/medium", {
                 method: "POST",
                 headers: { "content-type": "application/json" },
-                body: JSON.stringify({ pack: "pro-monthly" }),
             });
             const j = await r.json();
+            if (r.status === 402) {
+                // x402 payment required
+                toast.info("Payment required - please complete the payment");
+                return;
+            }
             if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-            const exp = j.expires ? new Date(j.expires).toLocaleDateString() : "";
+            const exp = j.expiresAt ? new Date(j.expiresAt).toLocaleDateString() : "";
             toast.success(`Pack purchased: ${j.credits} credits, valid until ${exp}`);
             window.location.reload();
         } catch (e: any) {
@@ -36,7 +41,7 @@ export default function BuyProButton() {
             disabled={loading}
             aria-busy={loading}
         >
-            {loading ? "Purchasing…" : `Buy Pro · $${PRICE.toFixed(2)}`}
+            {loading ? "Purchasing…" : `Buy ${DEFAULT_PACK.credits} Credits · $${DEFAULT_PACK.priceUsd}`}
         </button>
     );
 }

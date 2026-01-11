@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
+import { canAddHabit } from '@/lib/featureLimits';
+import { FREE_LIMITS, UNLOCKS } from '@/lib/pricing';
 
 export async function POST(req: NextRequest) {
     // Rate limiting для создания данных
@@ -44,6 +46,24 @@ export async function POST(req: NextRequest) {
         }
 
         const supa = createUserServerClient(token);
+
+        // Check habit limit
+        const habitCheck = await canAddHabit(supa, userId);
+        if (!habitCheck.allowed) {
+            return NextResponse.json(
+                {
+                    error: 'limit_reached',
+                    message: habitCheck.reason,
+                    limits: habitCheck.limits,
+                    upgrade: {
+                        type: 'habits',
+                        price: UNLOCKS.habits.priceUsd,
+                        name: UNLOCKS.habits.name,
+                    },
+                },
+                { status: 403 }
+            );
+        }
 
         const body = await req.json().catch(() => ({}));
         const title = String(body?.title || '').trim();

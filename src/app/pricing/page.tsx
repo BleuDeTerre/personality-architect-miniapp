@@ -4,78 +4,24 @@ import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useMiniApp } from '@neynar/react';
 import MiniAppPage from '@/components/MiniAppPage';
-import { calculateXP, calculateLevel, xpForNextLevel, getLevelName, type UserStats } from '@/lib/gamification';
+import { CREDIT_PACKS, UNLOCKS, FREE_LIMITS } from '@/lib/pricing';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const PLANS = [
-    {
-        id: 'free',
-        name: 'Free',
-        price: 0,
-        period: 'forever',
-        features: [
-            'Up to 5 template habits',
-            'Wheel of Life assessment',
-            'Streak analytics',
-            'Goals management',
-            'Basic badges (10 types)',
-            'Community support',
-        ],
-        cta: 'Always Free',
-        popular: false,
-    },
-    {
-        id: 'pro',
-        name: 'Pro',
-        price: 4.99,
-        period: 'month',
-        features: [
-            'Everything in Free',
-            'Unlimited habits + custom habits',
-            '12 Pro Credits/month',
-            'AI habit insights',
-            'Weekly summaries',
-            'Monthly reports',
-            'Coach recommendations',
-            'Priority support',
-        ],
-        cta: 'Upgrade to Pro',
-        popular: true,
-    },
-    {
-        id: 'premium',
-        name: 'Premium',
-        price: 9.99,
-        period: 'month',
-        features: [
-            'Everything in Pro',
-            'Unlimited credits',
-            'Advanced analytics',
-            'Habit correlations',
-            'Predictive insights',
-            'Comparative analytics',
-            'Rare edition badges',
-            'Team collaboration (coming soon)',
-        ],
-        cta: 'Upgrade to Premium',
-        popular: false,
-    },
-];
-
-const ALL_PLANS_FEATURES = [
-    'Secure Farcaster authentication',
-    'NFT badge minting on Base',
-    'Export & share your data',
-];
+type LimitsData = {
+    credits: { balance: number; nextExpiry: string | null };
+    ai: { used: number; limit: number; remaining: number };
+    habits: { current: number; limit: number; unlimited: boolean };
+    goals: { current: number; limit: number; unlimited: boolean };
+    unlocks: { habits: boolean; goals: boolean };
+};
 
 export default function PricingPage() {
-    const [currentPlan, setCurrentPlan] = useState<string>('free');
-    const [loading, setLoading] = useState(false);
-    const [gamificationStats, setGamificationStats] = useState<UserStats | null>(null);
+    const [limits, setLimits] = useState<LimitsData | null>(null);
+    const [loading, setLoading] = useState<string | null>(null);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -85,16 +31,16 @@ export default function PricingPage() {
         };
     }, []);
 
-    const loadCurrentPlan = useCallback(async () => {
+    const loadLimits = useCallback(async () => {
         try {
             const hdrs = await authHeaders();
-            const res = await fetch('/api/plan', { headers: hdrs });
+            const res = await fetch('/api/limits', { headers: hdrs });
             if (res.ok) {
                 const data = await res.json();
-                setCurrentPlan(data.plan || 'free');
+                setLimits(data);
             }
         } catch (e) {
-            console.error('Failed to load plan:', e);
+            console.error('Failed to load limits:', e);
         }
     }, [authHeaders]);
 
@@ -104,14 +50,13 @@ export default function PricingPage() {
     useEffect(() => {
         (async () => {
             if (!isSDKLoaded || !userFid) return;
-            const fid = userFid;
 
             const { data } = await supabase.auth.getUser();
             if (!data.user) {
                 const res = await fetch('/api/auth/farcaster-login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fid }),
+                    body: JSON.stringify({ fid: userFid }),
                 });
                 const { access_token } = await res.json();
                 if (access_token) {
@@ -119,151 +64,317 @@ export default function PricingPage() {
                 }
             }
 
-            await loadCurrentPlan();
-
-            // Load gamification stats
-            const statsRes = await fetch('/api/stats/gamification', { headers: await authHeaders() });
-            if (statsRes.ok) {
-                const stats = await statsRes.json();
-                setGamificationStats(stats);
-            }
+            await loadLimits();
         })();
-    }, [loadCurrentPlan, authHeaders, isSDKLoaded, userFid]);
+    }, [loadLimits, authHeaders, isSDKLoaded, userFid]);
 
-    const handleUpgrade = async (planId: string) => {
-        if (planId === 'free') return;
-
-        setLoading(true);
+    const handleBuyCredits = async (pack: keyof typeof CREDIT_PACKS) => {
+        setLoading(`credits_${pack}`);
         try {
             const hdrs = await authHeaders();
-            const res = await fetch('/api/plan', {
+            const res = await fetch(`/api/paid/credits/${pack}`, {
                 method: 'POST',
                 headers: hdrs,
-                body: JSON.stringify({ plan: planId, days: 30 }),
             });
 
-            if (res.ok) {
-                await loadCurrentPlan();
-                alert(`Successfully upgraded to ${planId}!`);
+            if (res.status === 402) {
+                // x402 payment required - handle payment flow
+                alert('Payment required. x402 payment flow will be triggered.');
+                // TODO: Integrate x402 payment
+            } else if (res.ok) {
+                await loadLimits();
+                alert('Credits purchased successfully!');
             } else {
                 const err = await res.json();
-                alert(`Error: ${err.error || 'Failed to upgrade'}`);
+                alert(`Error: ${err.error || 'Failed to purchase'}`);
             }
         } finally {
-            setLoading(false);
+            setLoading(null);
         }
     };
 
-    // Calculate XP and level
-    const xp = gamificationStats?.totalXP ?? (gamificationStats ? calculateXP(gamificationStats) : 0);
-    const level = calculateLevel(xp);
-    const xpGap = xpForNextLevel(level);
-    const xpForCurrentLevel = (level ** 2) * 100;
-    const xpInCurrentLevel = Math.max(xp - xpForCurrentLevel, 0);
-    const xpRemaining = Math.max(xpGap - xpInCurrentLevel, 0);
-    const levelName = getLevelName(level);
+    const handleBuyUnlock = async (type: keyof typeof UNLOCKS) => {
+        setLoading(`unlock_${type}`);
+        try {
+            const hdrs = await authHeaders();
+            const res = await fetch(`/api/paid/unlock/${type}`, {
+                method: 'POST',
+                headers: hdrs,
+            });
+
+            if (res.status === 402) {
+                alert('Payment required. x402 payment flow will be triggered.');
+            } else if (res.ok) {
+                await loadLimits();
+                alert('Feature unlocked successfully!');
+            } else {
+                const err = await res.json();
+                alert(`Error: ${err.error || err.message || 'Failed to unlock'}`);
+            }
+        } finally {
+            setLoading(null);
+        }
+    };
 
     return (
         <MiniAppPage>
             <div className="space-y-6">
                 {/* Header */}
                 <section className="space-y-2">
-                    <h1 className="text-2xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">Choose Your Plan</h1>
+                    <h1 className="text-2xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent">
+                        Credits & Unlocks
+                    </h1>
                     <p className="text-sm text-white/70">
-                        Upgrade to unlock powerful insights and analytics
+                        Buy AI credits for extra requests or unlock unlimited features
                     </p>
                 </section>
 
-                {/* Plans Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {PLANS.map((plan) => {
-                        const isCurrent = currentPlan === plan.id;
-
-                        return (
-                            <div
-                                key={plan.id}
-                                className={`rounded-3xl border p-6 flex flex-col ${plan.popular
-                                    ? 'border-[#8B5CF6] bg-[#1a1b2e]'
-                                    : 'border-white/10 bg-[#1a1b2e]'
-                                    } ${isCurrent && plan.id !== 'free' ? 'border-[#8B5CF6]' : ''}`}
-                            >
-                                {/* MOST POPULAR Badge */}
-                                {plan.popular && (
-                                    <div className="flex justify-center mb-4">
-                                        <div className="rounded-full bg-[#8B5CF6] px-4 py-1 text-xs font-semibold text-white">
-                                            MOST POPULAR
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Plan Name */}
-                                <h2 className="text-2xl font-bold text-white mb-3">{plan.name}</h2>
-
-                                {/* Price */}
-                                <div className="mb-6">
-                                    <span className="text-3xl font-bold text-[#8B5CF6]">
-                                        ${plan.price}
-                                    </span>
-                                    {plan.price > 0 && (
-                                        <span className="text-white/70 text-lg">/{plan.period}</span>
+                {/* Current Status */}
+                {limits && (
+                    <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
+                        <h2 className="text-lg font-semibold text-white mb-3">Your Status</h2>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <p className="text-xs text-white/60 uppercase">AI Credits</p>
+                                <p className="text-2xl font-bold text-purple-400">
+                                    {limits.credits.balance}
+                                    <span className="text-sm text-white/50 ml-1">bonus</span>
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-white/60 uppercase">Today&apos;s Usage</p>
+                                <p className="text-2xl font-bold text-white">
+                                    {limits.ai.used}/{limits.ai.limit}
+                                    <span className="text-sm text-white/50 ml-1">free</span>
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-white/60 uppercase">Habits</p>
+                                <p className="text-lg font-bold text-white">
+                                    {limits.habits.unlimited ? (
+                                        <span className="text-green-400">♾️ Unlimited</span>
+                                    ) : (
+                                        `${limits.habits.current}/${limits.habits.limit}`
                                     )}
-                                </div>
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-white/60 uppercase">Goals</p>
+                                <p className="text-lg font-bold text-white">
+                                    {limits.goals.unlimited ? (
+                                        <span className="text-green-400">♾️ Unlimited</span>
+                                    ) : (
+                                        `${limits.goals.current}/${limits.goals.limit}`
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+                )}
 
-                                {/* Features */}
-                                <ul className="space-y-3 mb-6 flex-1">
-                                    {plan.features.map((feature, idx) => (
-                                        <li key={idx} className="flex items-start gap-2">
-                                            <span className="text-[#2BD4A4] text-lg flex-shrink-0">✓</span>
-                                            <span className="text-sm text-white/70">{feature}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-
-                                {/* CTA Button */}
-                                <button
-                                    onClick={() => {
-                                        if (plan.id === 'free') return;
-                                        if (isCurrent) return;
-                                        handleUpgrade(plan.id);
-                                    }}
-                                    disabled={isCurrent || loading || plan.id === 'free'}
-                                    className={`w-full rounded-2xl py-3 px-4 font-semibold transition ${isCurrent
-                                        ? 'bg-white/10 text-white/60 cursor-not-allowed'
-                                        : plan.id === 'free'
-                                            ? 'bg-white/10 text-white/70 cursor-default'
-                                            : plan.popular
-                                                ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white hover:opacity-90 shadow-lg shadow-[#8B5CF6]/40'
-                                                : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white hover:opacity-90 shadow-lg shadow-[#8B5CF6]/40'
-                                        } disabled:opacity-50`}
+                {/* Credit Packs */}
+                <section className="space-y-3">
+                    <h2 className="text-lg font-semibold text-white">💎 AI Credit Packs</h2>
+                    <p className="text-xs text-white/60">
+                        Get {FREE_LIMITS.aiRequestsPerDay} free AI requests daily. Buy credits for more!
+                    </p>
+                    
+                    <div className="space-y-3">
+                        {(Object.entries(CREDIT_PACKS) as [keyof typeof CREDIT_PACKS, typeof CREDIT_PACKS[keyof typeof CREDIT_PACKS]][]).map(([key, pack]) => {
+                            const pricePerCredit = (pack.priceUsd / pack.credits).toFixed(2);
+                            const isPopular = key === 'medium';
+                            
+                            return (
+                                <div
+                                    key={key}
+                                    className={`rounded-2xl border p-4 ${
+                                        isPopular 
+                                            ? 'border-purple-500/50 bg-purple-500/10' 
+                                            : 'border-white/10 bg-[#1a1b2e]'
+                                    }`}
                                 >
-                                    {isCurrent
-                                        ? 'Current Plan'
-                                        : plan.id === 'free'
-                                            ? 'Always Free'
-                                            : loading
-                                                ? 'Processing...'
-                                                : plan.cta}
-                                </button>
-                            </div>
-                        );
-                    })}
-                </div>
-
-                {/* All Plans Include */}
-                <section className="space-y-4">
-                    <h3 className="text-xl font-semibold text-white">All plans include:</h3>
-                    <div className="space-y-2">
-                        {ALL_PLANS_FEATURES.map((feature, idx) => (
-                            <div key={idx} className="flex items-start gap-2">
-                                <span className="text-[#2BD4A4] text-lg flex-shrink-0">✓</span>
-                                <span className="text-sm text-white/70">{feature}</span>
-                            </div>
-                        ))}
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-lg font-bold text-white">
+                                                    {pack.credits} Credits
+                                                </span>
+                                                {isPopular && (
+                                                    <span className="text-xs bg-purple-500 text-white px-2 py-0.5 rounded-full">
+                                                        BEST VALUE
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-white/50 mt-1">
+                                                ${pricePerCredit}/credit • Valid {pack.ttlDays} days
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleBuyCredits(key)}
+                                            disabled={!!loading}
+                                            className={`rounded-xl px-4 py-2 font-semibold transition ${
+                                                isPopular
+                                                    ? 'bg-gradient-to-r from-purple-500 to-purple-700 text-white shadow-lg shadow-purple-500/30'
+                                                    : 'bg-white/10 text-white hover:bg-white/20'
+                                            } disabled:opacity-50`}
+                                        >
+                                            {loading === `credits_${key}` ? '...' : `$${pack.priceUsd}`}
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </section>
 
+                {/* Unlocks */}
+                <section className="space-y-3">
+                    <h2 className="text-lg font-semibold text-white">🔓 Unlock Features</h2>
+                    <p className="text-xs text-white/60">
+                        One-time purchase. Remove limits forever!
+                    </p>
+
+                    <div className="space-y-3">
+                        {/* Habits Unlock */}
+                        <div className={`rounded-2xl border p-4 ${
+                            limits?.unlocks?.habits 
+                                ? 'border-green-500/30 bg-green-500/5' 
+                                : 'border-white/10 bg-[#1a1b2e]'
+                        }`}>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span className="text-lg font-bold text-white">
+                                        {UNLOCKS.habits.name}
+                                    </span>
+                                    <p className="text-xs text-white/50 mt-1">
+                                        {UNLOCKS.habits.description}
+                                    </p>
+                                </div>
+                                {limits?.unlocks?.habits ? (
+                                    <span className="text-green-400 font-semibold">✓ Owned</span>
+                                ) : (
+                                    <button
+                                        onClick={() => handleBuyUnlock('habits')}
+                                        disabled={!!loading}
+                                        className="rounded-xl bg-white/10 px-4 py-2 font-semibold text-white hover:bg-white/20 transition disabled:opacity-50"
+                                    >
+                                        {loading === 'unlock_habits' ? '...' : `$${UNLOCKS.habits.priceUsd}`}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Goals Unlock */}
+                        <div className={`rounded-2xl border p-4 ${
+                            limits?.unlocks?.goals 
+                                ? 'border-green-500/30 bg-green-500/5' 
+                                : 'border-white/10 bg-[#1a1b2e]'
+                        }`}>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span className="text-lg font-bold text-white">
+                                        {UNLOCKS.goals.name}
+                                    </span>
+                                    <p className="text-xs text-white/50 mt-1">
+                                        {UNLOCKS.goals.description}
+                                    </p>
+                                </div>
+                                {limits?.unlocks?.goals ? (
+                                    <span className="text-green-400 font-semibold">✓ Owned</span>
+                                ) : (
+                                    <button
+                                        onClick={() => handleBuyUnlock('goals')}
+                                        disabled={!!loading}
+                                        className="rounded-xl bg-white/10 px-4 py-2 font-semibold text-white hover:bg-white/20 transition disabled:opacity-50"
+                                    >
+                                        {loading === 'unlock_goals' ? '...' : `$${UNLOCKS.goals.priceUsd}`}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Bundle */}
+                        {(!limits?.unlocks?.habits || !limits?.unlocks?.goals) && (
+                            <div className="rounded-2xl border border-purple-500/50 bg-purple-500/10 p-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-lg font-bold text-white">
+                                                {UNLOCKS.bundle.name}
+                                            </span>
+                                            <span className="text-xs bg-purple-500 text-white px-2 py-0.5 rounded-full">
+                                                SAVE $0.99
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-white/50 mt-1">
+                                            {UNLOCKS.bundle.description}
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => handleBuyUnlock('bundle')}
+                                        disabled={!!loading}
+                                        className="rounded-xl bg-gradient-to-r from-purple-500 to-purple-700 px-4 py-2 font-semibold text-white shadow-lg shadow-purple-500/30 hover:opacity-90 transition disabled:opacity-50"
+                                    >
+                                        {loading === 'unlock_bundle' ? '...' : `$${UNLOCKS.bundle.priceUsd}`}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </section>
+
+                {/* Free Features */}
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4">
+                    <h2 className="text-lg font-semibold text-white mb-3">✨ Always Free</h2>
+                    <ul className="space-y-2 text-sm text-white/70">
+                        <li className="flex items-center gap-2">
+                            <span className="text-green-400">✓</span>
+                            {FREE_LIMITS.habits} habits (track daily)
+                        </li>
+                        <li className="flex items-center gap-2">
+                            <span className="text-green-400">✓</span>
+                            {FREE_LIMITS.goals} goals with subtasks
+                        </li>
+                        <li className="flex items-center gap-2">
+                            <span className="text-green-400">✓</span>
+                            {FREE_LIMITS.aiRequestsPerDay} AI requests per day
+                        </li>
+                        <li className="flex items-center gap-2">
+                            <span className="text-green-400">✓</span>
+                            Wheel of Life assessment
+                        </li>
+                        <li className="flex items-center gap-2">
+                            <span className="text-green-400">✓</span>
+                            XP, Levels & 10 Achievement Badges
+                        </li>
+                        <li className="flex items-center gap-2">
+                            <span className="text-green-400">✓</span>
+                            NFT Badge minting on Base
+                        </li>
+                        <li className="flex items-center gap-2">
+                            <span className="text-green-400">✓</span>
+                            Data export (CSV, JSON, Markdown)
+                        </li>
+                    </ul>
+                </section>
+
+                {/* FAQ */}
+                <section className="text-xs text-white/50 space-y-2">
+                    <p>
+                        <strong className="text-white/70">How do credits work?</strong> Each AI request 
+                        (chat, insights, reviews) uses 1 credit. You get {FREE_LIMITS.aiRequestsPerDay} free daily, 
+                        then use purchased credits.
+                    </p>
+                    <p>
+                        <strong className="text-white/70">Do credits expire?</strong> Yes, credits expire 
+                        after the validity period. Use them before they expire!
+                    </p>
+                    <p>
+                        <strong className="text-white/70">Are unlocks permanent?</strong> Yes! Once you 
+                        unlock habits or goals, you have unlimited access forever.
+                    </p>
+                </section>
             </div>
         </MiniAppPage>
     );
 }
-

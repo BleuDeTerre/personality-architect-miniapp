@@ -38,12 +38,12 @@ const optimalTime = `${Math.floor(avgHour)}:${Math.floor((avgHour % 1) * 60).toS
 
 ## 2. Функция `AIHabitDifficulty` (Проверка сложности привычки)
 
-**Статус:** ⚠️ **НЕ используется в UI**
+**Статус:** ✅ **Используется в UI** (обновлено: 2025-01-11)
 
 **Расположение:**
 - API: `src/app/api/ai/habit-difficulty/route.ts`
 - Компонент: `src/components/AIHabitDifficulty.tsx`
-- **НЕ используется ни в одной странице**
+- Использование: `src/app/habits/page.tsx` (в карточке каждой привычки)
 
 **Что делает:**
 - Анализирует статистику выполнения привычки за последние 30 дней
@@ -52,40 +52,17 @@ const optimalTime = `${Math.floor(avgHour)}:${Math.floor((avgHour % 1) * 60).toS
 - Показывает процент выполнения и текущий стрик
 
 **Как работает:**
-- ❌ **НЕ использует AI** - работает через расчеты
-- Вычисляет `completionRate = (completedDays / expectedDays) * 100`
-- Рекомендует новую цель на основе статистики
-
-**Где можно использовать:**
-- В `src/app/habits/page.tsx` - добавить кнопку "🤖 AI: Check difficulty" для каждой привычки
-- В модальном окне редактирования привычки
-- В разделе Analytics
-
----
-
-## 3. Функция `social-motivation` (Социальная мотивация для кастов)
-
-**Статус:** ⚠️ **Используется косвенно через шаблоны**
-
-**Расположение:**
-- API: `src/app/api/ai/social-motivation/route.ts`
-- Шаблоны: `src/lib/socialMotivationTemplates.ts`
-- **НЕ вызывается напрямую из UI**
-
-**Что делает:**
-- Генерирует мотивационный текст для кастов в Farcaster
-- Использует шаблоны (не AI) для генерации текста
-- Учитывает milestone (например, "30 day streak", "Level 5")
-
-**Как работает:**
-- ❌ **НЕ использует AI** - работает через шаблоны
-- Использует функцию `generateSocialMotivationText()` из `socialMotivationTemplates.ts`
+- ✅ **Использует AI (Gemma 3)** - генерирует умные рекомендации
+- Анализирует `completionRate`, `currentStreak`, `completedDays`
+- AI даёт персонализированные рекомендации с объяснением
+- Позволяет обновить `target_days_per_week` одним кликом
 
 **Где используется:**
-- Косвенно через `ShareCastComposer` - но напрямую не вызывается
-- Возможно, используется в других местах для генерации текста кастов
+- В `src/app/habits/page.tsx` - кнопка "🤖 AI: Check difficulty" в карточке каждой привычки
+- Компонент показывает рекомендацию и позволяет обновить цель
 
 ---
+
 
 ## 4. Другие функции - все используются
 
@@ -124,24 +101,26 @@ import AIHabitDifficulty from '@/components/AIHabitDifficulty';
 
 **Вариант C:** Добавить в Analytics как отдельную секцию
 
-### 2. Проверить использование `social-motivation`
-
-- Проверить, используется ли `generateSocialMotivationText()` напрямую
-- Если нет - можно удалить API endpoint или интегрировать в UI
-
 ---
 
 ## Итоговая статистика
 
 - **Всего AI endpoints:** 11
-- **Используются в UI:** 9
-- **Не используются в UI:** 2
-  - `habit-difficulty` (компонент есть, но не подключен)
+- **Используются в UI:** 10 ✅
+- **Не используются в UI:** 1
   - `social-motivation` (используется косвенно через шаблоны)
 
-- **Используют AI:** 8
-- **Не используют AI (только расчеты):** 3
+- **Используют AI:** 9 ✅
+  - `daily-motivation` (Gemma)
+  - `chat` (DeepSeek)
+  - `goal-breakdown` (DeepSeek)
+  - `goal-review` (DeepSeek)
+  - `wheel-insights` (DeepSeek)
+  - `weekly-insight` (DeepSeek)
+  - `monthly-insight` (DeepSeek)
+  - `correlation-insights` (DeepSeek)
+  - `habit-difficulty` (Gemma) ✅ **Обновлено: теперь использует AI**
+- **Не используют AI (только расчеты/шаблоны):** 2
   - `habit-suggestions` (расчеты)
-  - `habit-difficulty` (расчеты)
   - `social-motivation` (шаблоны)
 
