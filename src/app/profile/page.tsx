@@ -335,34 +335,52 @@ export default function ProfilePage() {
                     }
                 }
 
-                // Загружаем fid и wallet_address из базы данных, если их нет
+                // Загружаем fid и wallet из базы данных
                 if (data.user?.id) {
-                    const { data: profileRow } = await supabase
+                    const { data: profileRow, error: profileError } = await supabase
                         .from('users')
-                        .select('fid, wallet_address')
+                        .select('fid, wallet')
                         .eq('id', data.user.id)
-                        .maybeSingle<{ fid: number | null; wallet_address: string | null }>();
+                        .maybeSingle<{ fid: number | null; wallet: string | null }>();
+                    
+                    if (profileError) {
+                        console.error('[Profile] Error loading user profile:', profileError);
+                    }
+                    
                     if (profileRow) {
                         if (!fid && profileRow.fid) {
                             fid = profileRow.fid;
                         }
-                        // Используем wallet из базы, если его нет в контексте
-                        if (!wallet && profileRow.wallet_address) {
-                            wallet = profileRow.wallet_address;
-                        }
-                        // Сохраняем wallet из контекста в БД, если его нет в БД, но есть в контексте
-                        if (wallet && !profileRow.wallet_address) {
+                        
+                        // ВАЖНО: Приоритет у wallet из базы данных
+                        // Если в базе есть wallet - используем его
+                        if (profileRow.wallet) {
+                            wallet = profileRow.wallet;
+                            console.log('[Profile] Using wallet from database:', wallet?.slice(0, 10) + '...');
+                        } else if (wallet) {
+                            // Если в базе нет, но есть в контексте - сохраняем в БД
+                            console.log('[Profile] Saving wallet from context to database:', wallet?.slice(0, 10) + '...');
                             try {
                                 const headers = await authHeaders();
-                                await fetch('/api/profile/wallet', {
+                                const saveRes = await fetch('/api/profile/wallet', {
                                     method: 'POST',
                                     headers,
                                     body: JSON.stringify({ wallet }),
                                 });
+                                if (saveRes.ok) {
+                                    console.log('[Profile] Wallet saved successfully');
+                                } else {
+                                    const errorData = await saveRes.json().catch(() => ({}));
+                                    console.error('[Profile] Failed to save wallet:', errorData);
+                                }
                             } catch (error) {
                                 console.error('[Profile] Failed to save wallet:', error);
                             }
+                        } else {
+                            console.log('[Profile] No wallet found in database or context');
                         }
+                    } else {
+                        console.warn('[Profile] User profile not found in database');
                     }
                 }
 
@@ -448,10 +466,114 @@ export default function ProfilePage() {
         }
     };
 
+    // Refresh wallet from database and context
+    const refreshWallet = useCallback(async () => {
+        try {
+            console.log('[Profile] Refreshing wallet...');
+            
+            // Сначала проверяем контекст Farcaster
+            let walletFromContext = (context?.user as any)?.custodyAddress ?? (context?.user as any)?.walletAddress ?? null;
+            console.log('[Profile] Wallet from context:', walletFromContext ? walletFromContext.slice(0, 10) + '...' : 'null');
+            
+            const { data } = await supabase.auth.getUser();
+            if (!data.user?.id) {
+                console.log('[Profile] No user ID, using wallet from context only');
+                // Если нет пользователя, но есть кошелек в контексте, используем его
+                if (walletFromContext) {
+                    setP(prev => ({
+                        ...prev,
+                        wallet: walletFromContext,
+                    }));
+                }
+                return;
+            }
+
+            const { data: profileRow, error: profileError } = await supabase
+                .from('users')
+                .select('wallet')
+                .eq('id', data.user.id)
+                .maybeSingle<{ wallet: string | null }>();
+
+            if (profileError) {
+                console.error('[Profile] Error loading wallet from database:', profileError);
+            }
+
+            console.log('[Profile] Wallet from database:', profileRow?.wallet ? profileRow.wallet.slice(0, 10) + '...' : 'null');
+
+            // ВАЖНО: Приоритет у wallet из базы данных
+            const finalWallet = profileRow?.wallet || walletFromContext || null;
+
+            console.log('[Profile] Final wallet to use:', finalWallet ? finalWallet.slice(0, 10) + '...' : 'null');
+
+            if (finalWallet) {
+                setP(prev => {
+                    const newWallet = finalWallet;
+                    console.log('[Profile] Updating wallet state:', newWallet.slice(0, 10) + '...');
+                    return {
+                        ...prev,
+                        wallet: newWallet,
+                    };
+                });
+
+                // Если кошелек есть в контексте, но не в базе - сохраняем его
+                if (walletFromContext && !profileRow?.wallet) {
+                    console.log('[Profile] Saving wallet from context to database...');
+                    try {
+                        const headers = await authHeaders();
+                        const saveRes = await fetch('/api/profile/wallet', {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify({ wallet: walletFromContext }),
+                        });
+                        if (saveRes.ok) {
+                            console.log('[Profile] Wallet saved successfully to database');
+                        } else {
+                            const errorData = await saveRes.json().catch(() => ({}));
+                            console.error('[Profile] Failed to save wallet:', errorData);
+                        }
+                    } catch (error) {
+                        console.error('[Profile] Failed to save wallet from context:', error);
+                    }
+                }
+            } else {
+                console.log('[Profile] No wallet found anywhere');
+                setP(prev => ({
+                    ...prev,
+                    wallet: null,
+                }));
+            }
+        } catch (error) {
+            console.error('[Profile] Failed to refresh wallet:', error);
+        }
+    }, [context, authHeaders]);
+
     useEffect(() => {
         if (!p.fid && !p.supaUserId) return;
         loadNeynarProfile(p.fid, p.supaUserId);
     }, [p.fid, p.supaUserId, loadNeynarProfile]);
+
+    // Listen for wallet updates from WalletSelectionModal
+    useEffect(() => {
+        const handleWalletUpdate = () => {
+            refreshWallet();
+        };
+
+        // Listen for custom event
+        window.addEventListener('wallet-updated', handleWalletUpdate);
+        
+        // Also listen for storage changes (when wallet is saved to localStorage)
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === 'selected_wallet') {
+                refreshWallet();
+            }
+        };
+        window.addEventListener('storage', handleStorageChange);
+
+        return () => {
+            window.removeEventListener('wallet-updated', handleWalletUpdate);
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, [refreshWallet]);
 
     // Mint button
     async function mint(slug: string) {
@@ -548,8 +670,6 @@ export default function ProfilePage() {
             <div>
                 {/* Profile Section */}
                 <section className="space-y-1 mb-2">
-                    <h1 className="text-xl font-semibold bg-gradient-to-r from-[#8a5df5] to-[#a183f9] bg-clip-text text-transparent mb-2">Profile</h1>
-
                     {neynarLoading ? (
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2 animate-pulse">
                             <div className="flex items-center gap-3">
@@ -766,6 +886,7 @@ export default function ProfilePage() {
                             busyCode,
                             wallet: p.wallet,
                             onMint: mint,
+                            onRefreshWallet: refreshWallet,
                         }}
                     />
                 </section>

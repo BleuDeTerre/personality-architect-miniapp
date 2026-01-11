@@ -5,7 +5,6 @@ import { createClient } from '@supabase/supabase-js';
 import { useMiniApp } from '@neynar/react';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
-import AIStreakRecovery from '@/components/AIStreakRecovery';
 import CollapsibleCard from '@/components/CollapsibleCard';
 import { getRandomVariant, habitStreakTexts, nextBadgeTexts } from '@/lib/castTextVariants';
 
@@ -741,9 +740,6 @@ export default function StreaksPage() {
                         );
                     })()}
                 </section>
-
-                {/* Streak Recovery Coach */}
-                <AIStreakRecovery />
 
                 {/* Habit spotlight */}
                 <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2">

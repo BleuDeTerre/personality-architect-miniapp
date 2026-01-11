@@ -33,6 +33,7 @@ type BadgePanelProps = {
     busyCode: string | null;
     wallet?: string | null;
     onMint: (slug: Badge['slug']) => Promise<void>;
+    onRefreshWallet?: () => Promise<void>;
 };
 
 type AchievementsProps = {
@@ -253,6 +254,10 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
 
     const renderBadges = () => {
         if (!badgePanel) return null;
+        
+        // Логирование для отладки
+        console.log('[Achievements] Rendering badges, wallet:', badgePanel.wallet ? badgePanel.wallet.slice(0, 10) + '...' : 'null');
+        
         if (badgePanel.loading) {
             return (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -326,7 +331,20 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
                                 <button
                                     disabled={disabled || !elig.eligible || st === 'success'}
                                     onClick={async () => {
-                                        if (disabled || !elig.eligible || st === 'success') return;
+                                        if (disabled || st === 'success') return;
+                                        
+                                        // Если нет кошелька, обновляем его из базы данных
+                                        if (!badgePanel.wallet) {
+                                            if (badgePanel.onRefreshWallet) {
+                                                await badgePanel.onRefreshWallet();
+                                            }
+                                            return;
+                                        }
+                                        
+                                        // Если кошелек есть, но бейдж не подходит для минтинга
+                                        if (!elig.eligible) return;
+                                        
+                                        // Минтим бейдж
                                         await badgePanel.onMint(badge.slug);
                                     }}
                                     className={`w-full rounded-2xl px-4 py-2 text-sm font-semibold transition ${st === 'success'

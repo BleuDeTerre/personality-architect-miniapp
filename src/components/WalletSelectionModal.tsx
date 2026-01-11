@@ -127,15 +127,26 @@ export default function WalletSelectionModal() {
                 // Кошелек уже доступен из контекста, просто закрываем окно
                 // Пользователь может использовать его после регистрации
                 if (farcasterWallet) {
+                    console.log('[WalletSelectionModal] Saving Farcaster wallet:', farcasterWallet.slice(0, 10) + '...');
                     localStorage.setItem('selected_wallet', farcasterWallet);
                     localStorage.setItem('wallet_type', 'farcaster');
                     const headers = await getAuthHeaders();
                     if (headers) {
-                        await fetch('/api/profile/wallet', {
+                        const res = await fetch('/api/profile/wallet', {
                             method: 'POST',
                             headers,
                             body: JSON.stringify({ wallet: farcasterWallet }),
                         }).catch(() => undefined);
+                        if (res?.ok) {
+                            console.log('[WalletSelectionModal] Wallet saved successfully');
+                            // Dispatch event to notify ProfilePage
+                            window.dispatchEvent(new Event('wallet-updated'));
+                        } else {
+                            const errorData = await res?.json().catch(() => ({}));
+                            console.error('[WalletSelectionModal] Failed to save wallet:', errorData);
+                        }
+                    } else {
+                        console.warn('[WalletSelectionModal] No auth headers available');
                     }
                 }
                 localStorage.setItem('wallet_selection_seen', 'true');
@@ -154,16 +165,27 @@ export default function WalletSelectionModal() {
             setConnecting(true);
             try {
                 // Сохраняем выбор в localStorage для использования после регистрации
+                console.log('[WalletSelectionModal] Saving external wallet:', externalWallet.slice(0, 10) + '...');
                 localStorage.setItem('selected_wallet', externalWallet);
                 localStorage.setItem('wallet_type', 'external');
                 localStorage.setItem('wallet_selection_seen', 'true');
                 const headers = await getAuthHeaders();
                 if (headers) {
-                    await fetch('/api/profile/wallet', {
+                    const res = await fetch('/api/profile/wallet', {
                         method: 'POST',
                         headers,
                         body: JSON.stringify({ wallet: externalWallet }),
                     }).catch(() => undefined);
+                    if (res?.ok) {
+                        console.log('[WalletSelectionModal] External wallet saved successfully');
+                        // Dispatch event to notify ProfilePage
+                        window.dispatchEvent(new Event('wallet-updated'));
+                    } else {
+                        const errorData = await res?.json().catch(() => ({}));
+                        console.error('[WalletSelectionModal] Failed to save external wallet:', errorData);
+                    }
+                } else {
+                    console.warn('[WalletSelectionModal] No auth headers available');
                 }
                 setShow(false);
             } catch (error) {

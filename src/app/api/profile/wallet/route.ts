@@ -13,13 +13,13 @@ export async function GET(req: NextRequest) {
         const supa = createUserServerClient(token);
         const { data, error } = await supa
             .from('users')
-            .select('wallet_address')
+            .select('wallet')
             .eq('id', userId)
-            .maybeSingle<{ wallet_address: string | null }>();
+            .maybeSingle<{ wallet: string | null }>();
         
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
         
-        return NextResponse.json({ wallet_address: data?.wallet_address || null });
+        return NextResponse.json({ wallet_address: data?.wallet || null });
     } catch (e: any) {
         return NextResponse.json({ error: e?.message || 'error' }, { status: 500 });
     }
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 
         const { error } = await supa
             .from('users')
-            .update({ wallet_address: wallet })
+            .update({ wallet: wallet })
             .eq('id', userId);
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

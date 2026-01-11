@@ -287,11 +287,11 @@ export async function POST(req: NextRequest) {
         if (!finalWallet && userId) {
             const { data: existingUserData } = await admin
                 .from('users')
-                .select('wallet_address')
+                .select('wallet')
                 .eq('id', userId)
-                .maybeSingle<{ wallet_address: string | null }>();
-            if (existingUserData?.wallet_address) {
-                finalWallet = existingUserData.wallet_address;
+                .maybeSingle<{ wallet: string | null }>();
+            if (existingUserData?.wallet) {
+                finalWallet = existingUserData.wallet;
             }
         }
 
@@ -325,7 +325,7 @@ export async function POST(req: NextRequest) {
                     id: userId,
                     fid,
                     email,
-                    wallet_address: finalWallet,
+                    wallet: finalWallet,
                 })
                 .single();
             if (insErr) {
@@ -349,16 +349,16 @@ export async function POST(req: NextRequest) {
                     await admin.auth.admin.updateUserById(userId, {
                         user_metadata: mergedMetadata,
                     } as any);
-                    // Обновляем wallet_address в таблице users, если передан новый кошелек
+                    // Обновляем wallet в таблице users, если передан новый кошелек
                     if (finalWallet) {
                         const { error: walletUpdateError } = await admin
                             .from('users')
-                            .update({ wallet_address: finalWallet })
+                            .update({ wallet: finalWallet })
                             .eq('id', userId);
                         if (walletUpdateError) {
-                            console.error('[Farcaster Login] Failed to update wallet_address:', walletUpdateError);
+                            console.error('[Farcaster Login] Failed to update wallet:', walletUpdateError);
                         } else {
-                            console.log('[Farcaster Login] Updated wallet_address for existing user');
+                            console.log('[Farcaster Login] Updated wallet for existing user');
                         }
                     }
                 } else {
