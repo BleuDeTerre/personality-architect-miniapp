@@ -20,14 +20,14 @@ const TodaysOverview = dynamic(() => import('@/components/TodaysOverview'), {
 
 
 const NAVIGATION = [
-  { href: '/habits', label: 'Habits', icon: 'check_box', iconColor: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-500/10', desc: 'Track daily habits' },
-  { href: '/wheel', label: 'Wheel of Life', icon: 'attractions', iconColor: 'text-pink-600 dark:text-pink-400', bgColor: 'bg-pink-100 dark:bg-pink-500/10', desc: 'Rate life areas' },
-  { href: '/goals', label: 'Goals', icon: 'track_changes', iconColor: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-100 dark:bg-red-500/10', desc: 'Set & track goals' },
-  { href: '/streaks', label: 'Streaks', icon: 'local_fire_department', iconColor: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-100 dark:bg-orange-500/10', desc: 'View your streaks' },
-  { href: '/analytics', label: 'Analytics', icon: 'bar_chart', iconColor: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-100 dark:bg-blue-500/10', desc: 'Advanced insights' },
-  { href: '/leaderboard', label: 'Leaderboard', icon: 'emoji_events', iconColor: 'text-yellow-600 dark:text-yellow-400', bgColor: 'bg-yellow-100 dark:bg-yellow-500/10', desc: 'Top performers' },
-  { href: '/chat', label: 'AI Coach', icon: 'smart_toy', iconColor: 'text-teal-600 dark:text-teal-400', bgColor: 'bg-teal-100 dark:bg-teal-500/10', desc: 'Chat with your coach' },
-  { href: '/profile', label: 'Profile', icon: 'person', iconColor: 'text-indigo-600 dark:text-indigo-400', bgColor: 'bg-indigo-100 dark:bg-indigo-500/10', desc: 'Account & badges' },
+  { href: '/habits', label: 'Habits', icon: 'check_box', iconColor: 'text-green-400', glowClass: 'nav-card-green', desc: 'Track daily habits' },
+  { href: '/wheel', label: 'Wheel of Life', icon: 'attractions', iconColor: 'text-pink-400', glowClass: 'nav-card-pink', desc: 'Rate life areas' },
+  { href: '/goals', label: 'Goals', icon: 'track_changes', iconColor: 'text-red-400', glowClass: 'nav-card-red', desc: 'Set & track goals' },
+  { href: '/streaks', label: 'Streaks', icon: 'local_fire_department', iconColor: 'text-orange-400', glowClass: 'nav-card-orange', desc: 'View your streaks' },
+  { href: '/analytics', label: 'Analytics', icon: 'bar_chart', iconColor: 'text-blue-400', glowClass: 'nav-card-blue', desc: 'Advanced insights' },
+  { href: '/chat', label: 'AI Coach', icon: 'smart_toy', iconColor: 'text-teal-400', glowClass: 'nav-card-teal', desc: 'Chat with your coach' },
+  { href: '/leaderboard', label: 'Leaderboard', icon: 'emoji_events', iconColor: 'text-yellow-400', glowClass: 'nav-card-yellow', desc: 'Top performers' },
+  { href: '/profile', label: 'Profile', icon: 'person', iconColor: 'text-indigo-400', glowClass: 'nav-card-indigo', desc: 'Account & badges' },
 ];
 
 export default function DashboardPage() {
@@ -170,20 +170,18 @@ export default function DashboardPage() {
 
         <TodaysOverview />
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {NAVIGATION.map(item => (
             <Link
               key={item.href}
               href={item.href}
-              className="group flex flex-col p-2.5 rounded-2xl bg-[#1a1b2e] hover:bg-[#252640] transition-all border border-transparent hover:border-white/10 shadow-sm text-left"
+              className={`group flex flex-col items-center p-3 rounded-2xl bg-[#1a1b2e] transition-all text-center ${item.glowClass}`}
             >
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className={`w-7 h-7 rounded-lg ${item.bgColor} flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0`}>
-                  <span className={`material-symbols-rounded ${item.iconColor} text-lg`}>{item.icon}</span>
-                </div>
-                <h3 className="text-sm font-semibold text-white">{item.label}</h3>
+              <div className="mb-2">
+                <span className={`material-symbols-rounded ${item.iconColor} text-3xl`}>{item.icon}</span>
               </div>
-              <p className="text-xs text-white/60">{item.desc}</p>
+              <h3 className="text-sm font-semibold text-white mb-0.5">{item.label}</h3>
+              <p className="text-[10px] text-white/50 leading-tight">{item.desc}</p>
             </Link>
           ))}
         </div>

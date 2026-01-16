@@ -6,16 +6,15 @@ import { useMiniApp } from '@neynar/react';
 
 type WellnessData = {
     sleep_hours?: number | null;
-    stress_level?: number | null; // Используем как Mood (инвертированный: 10 - stress_level)
-    productivity_level?: number | null; // Используем как Energy
-    work_hours?: number | null; // Используем как Mindfulness
+    stress_level?: number | null;
+    productivity_level?: number | null;
+    work_hours?: number | null;
 };
 
 export default function DailyWellness() {
     const { isSDKLoaded } = useMiniApp();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [dragging, setDragging] = useState<string | null>(null);
     const [values, setValues] = useState<WellnessData>({
         sleep_hours: null,
         stress_level: null,
@@ -23,7 +22,6 @@ export default function DailyWellness() {
         work_hours: null,
     });
     
-    // Используем локальную дату, а не UTC
     const getLocalDateString = () => {
         const now = new Date();
         const year = now.getFullYear();
@@ -73,7 +71,6 @@ export default function DailyWellness() {
         }
     }, [isSDKLoaded]);
 
-    // Проверяем смену дня при возврате фокуса на окно и периодически
     useEffect(() => {
         const checkDayChange = () => {
             const currentDate = getLocalDateString();
@@ -148,58 +145,67 @@ export default function DailyWellness() {
     };
 
     if (loading) {
-    return (
-        <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 animate-pulse">
+        return (
+            <section className="rounded-2xl wellness-card-glow bg-[#1a1b2e] p-4 animate-pulse">
                 <div className="h-48 w-full rounded bg-white/10" />
             </section>
         );
     }
 
-    // Вычисляем общий wellness score (среднее значение всех метрик)
     const sleep = values.sleep_hours ?? null;
-    const mood = values.stress_level !== null && values.stress_level !== undefined ? 11 - values.stress_level : null; // Инвертируем стресс в настроение
+    const mood = values.stress_level !== null && values.stress_level !== undefined ? 11 - values.stress_level : null;
     const energy = values.productivity_level ?? null;
     const mindfulness = values.work_hours ?? null;
     
-    // Подсчитываем количество заполненных метрик
     const filledCount = [sleep, mood, energy, mindfulness].filter(v => v !== null).length;
     const total = (sleep ?? 0) + (mood ?? 0) + (energy ?? 0) + (mindfulness ?? 0);
     const wellnessValue = filledCount > 0 ? Math.round(total / filledCount) : 0;
     const wellnessScore = filledCount > 0 ? Math.round((total / (filledCount * 10)) * 100) : 0;
     
-    // Вычисляем процент для кругового прогресса
-    const circumference = 2 * Math.PI * 20; // r=20 (уменьшено с 28)
+    const circumference = 2 * Math.PI * 45;
     const offset = circumference - (wellnessScore / 100) * circumference;
 
     const metrics = [
         {
             key: 'sleep_hours' as const,
             label: 'Sleep',
+            icon: 'bedtime',
             value: sleep ?? 1,
             displayValue: sleep ?? 0,
             saveField: 'sleep_hours' as const,
+            colorClass: 'metric-bar-blue',
+            iconColor: 'text-blue-400',
         },
         {
             key: 'mood' as const,
             label: 'Mood',
+            icon: 'mood',
             value: mood ?? 1,
             displayValue: mood ?? 0,
             saveField: 'stress_level' as const,
-            inverted: true, // Инвертируем при сохранении
+            inverted: true,
+            colorClass: 'metric-bar-yellow',
+            iconColor: 'text-yellow-400',
         },
         {
             key: 'energy' as const,
             label: 'Energy',
+            icon: 'bolt',
             value: energy ?? 1,
             displayValue: energy ?? 0,
             saveField: 'productivity_level' as const,
+            colorClass: 'metric-bar-green',
+            iconColor: 'text-green-400',
         },
         {
             key: 'mindfulness' as const,
             label: 'Mindfulness',
+            icon: 'self_improvement',
             value: mindfulness ?? 1,
             displayValue: mindfulness ?? 0,
             saveField: 'work_hours' as const,
+            colorClass: 'metric-bar-purple',
+            iconColor: 'text-purple-400',
         },
     ];
 
@@ -211,145 +217,83 @@ export default function DailyWellness() {
     };
 
     return (
-        <div>
-            <div className="flex items-center space-x-3 mb-3 ml-0.5">
-                <div className="text-4xl drop-shadow-md filter transition-transform hover:scale-110 cursor-pointer">
-                    💜
+        <div className="rounded-2xl wellness-card-glow bg-[#1a1b2e] p-4">
+            <div className="flex gap-6">
+                {/* Left: Circle progress */}
+                <div className="flex flex-col items-center justify-center">
+                    <div className="relative w-28 h-28 flex items-center justify-center progress-glow">
+                        <svg className="w-full h-full transform -rotate-90">
+                            <circle
+                                className="text-white/10"
+                                cx="56"
+                                cy="56"
+                                fill="transparent"
+                                r="45"
+                                stroke="currentColor"
+                                strokeWidth="6"
+                            />
+                            <circle
+                                className="text-[#8B5CF6]"
+                                cx="56"
+                                cy="56"
+                                fill="transparent"
+                                r="45"
+                                stroke="currentColor"
+                                strokeDasharray={circumference}
+                                strokeDashoffset={offset}
+                                strokeLinecap="round"
+                                strokeWidth="6"
+                            />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className="material-symbols-rounded text-purple-400 text-xl mb-0.5">favorite</span>
+                            <span className="text-3xl font-bold text-white">{wellnessValue}</span>
+                        </div>
+                    </div>
+                    <span className="text-sm text-purple-300 mt-2">{getMotivationText()}</span>
                 </div>
-                <div className="relative w-12 h-12 flex items-center justify-center">
-                    <svg className="w-full h-full transform -rotate-90">
-                        <circle
-                            className="text-gray-200 dark:text-gray-700"
-                            cx="24"
-                            cy="24"
-                            fill="transparent"
-                            r="20"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                        />
-                        <circle
-                            className="text-[#8B5CF6]"
-                            cx="24"
-                            cy="24"
-                            fill="transparent"
-                            r="20"
-                            stroke="currentColor"
-                            strokeDasharray={circumference}
-                            strokeDashoffset={offset}
-                            strokeLinecap="round"
-                            strokeWidth="3"
-                        />
-                    </svg>
-                    <span className="absolute text-base font-bold text-white">{wellnessValue || 0}</span>
-                </div>
-                <div className="flex flex-col">
-                    <span className="text-lg font-bold tracking-tight text-white">Wellness</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{getMotivationText()}</span>
-                </div>
-            </div>
-            <div className="grid grid-cols-1 gap-y-4 gap-x-4">
-                <div className="grid grid-cols-2 gap-2">
-                    {metrics.slice(0, 2).map((metric) => {
-                        const handleChange = (val: number, isDragging: boolean) => {
+
+                {/* Right: Metrics */}
+                <div className="flex-1 flex flex-col justify-center space-y-3">
+                    {metrics.map((metric) => {
+                        const handleChange = (val: number) => {
                             let saveValue = val;
                             if (metric.inverted) {
                                 saveValue = 11 - val;
                             }
-                            // Обновляем значение сразу для визуального отклика
                             const newValues = { ...values, [metric.saveField]: saveValue };
                             setValues(newValues);
-                            // Сохраняем в базу только если не перетаскиваем (или при отпускании)
-                            if (!isDragging) {
-                                saveMetric(metric.saveField, saveValue, true);
-                            }
+                            saveMetric(metric.saveField, saveValue, true);
                         };
 
                         return (
-                            <div key={metric.key} className="flex flex-col">
-                                <div className="flex justify-between text-xs mb-0.5">
-                                    <span className="font-medium text-gray-600 dark:text-gray-300">{metric.label}</span>
-                                    <span className="text-gray-500 dark:text-gray-400">{metric.displayValue}</span>
+                            <div key={metric.key} className="flex items-center gap-3">
+                                <span className={`material-symbols-rounded ${metric.iconColor} text-xl`}>
+                                    {metric.icon}
+                                </span>
+                                <div className="flex-1">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="text-sm text-white/80">{metric.label}</span>
+                                        <span className={`text-sm font-medium ${metric.iconColor}`}>
+                                            {metric.displayValue}
+                                        </span>
+                                    </div>
+                                    <div 
+                                        className={`metric-bar ${metric.colorClass} cursor-pointer`}
+                                        onClick={(e) => {
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            const x = e.clientX - rect.left;
+                                            const percent = x / rect.width;
+                                            const val = Math.max(1, Math.min(10, Math.round(percent * 10)));
+                                            handleChange(val);
+                                        }}
+                                    >
+                                        <div 
+                                            className="metric-bar-fill"
+                                            style={{ width: `${metric.value * 10}%` }}
+                                        />
+                                    </div>
                                 </div>
-                                <input
-                                    type="range"
-                                    min="1"
-                                    max="10"
-                                    value={metric.value}
-                                    onChange={(e) => {
-                                        const val = Number(e.target.value);
-                                        handleChange(val, dragging === metric.key);
-                                    }}
-                                    onMouseDown={() => setDragging(metric.key)}
-                                    onMouseUp={(e) => {
-                                        const val = Number((e.target as HTMLInputElement).value);
-                                        setDragging(null);
-                                        handleChange(val, false);
-                                    }}
-                                    onTouchStart={() => setDragging(metric.key)}
-                                    onTouchEnd={(e) => {
-                                        const val = Number((e.target as HTMLInputElement).value);
-                                        setDragging(null);
-                                        handleChange(val, false);
-                                    }}
-                                    className="slider-green cursor-grab active:cursor-grabbing"
-                                    style={{
-                                        '--value': `${metric.value * 10}%`,
-                                    } as React.CSSProperties & { '--value': string }}
-                                    disabled={saving}
-                                />
-                            </div>
-                        );
-                    })}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                    {metrics.slice(2, 4).map((metric) => {
-                        const handleChange = (val: number, isDragging: boolean) => {
-                            let saveValue = val;
-                            if (metric.inverted) {
-                                saveValue = 11 - val;
-                            }
-                            // Обновляем значение сразу для визуального отклика
-                            const newValues = { ...values, [metric.saveField]: saveValue };
-                            setValues(newValues);
-                            // Сохраняем в базу только если не перетаскиваем (или при отпускании)
-                            if (!isDragging) {
-                                saveMetric(metric.saveField, saveValue, true);
-                            }
-                        };
-
-                        return (
-                            <div key={metric.key} className="flex flex-col">
-                                <div className="flex justify-between text-xs mb-0.5">
-                                    <span className="font-medium text-gray-600 dark:text-gray-300">{metric.label}</span>
-                                    <span className="text-gray-500 dark:text-gray-400">{metric.displayValue}</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min="1"
-                                    max="10"
-                                    value={metric.value}
-                                    onChange={(e) => {
-                                        const val = Number(e.target.value);
-                                        handleChange(val, dragging === metric.key);
-                                    }}
-                                    onMouseDown={() => setDragging(metric.key)}
-                                    onMouseUp={(e) => {
-                                        const val = Number((e.target as HTMLInputElement).value);
-                                        setDragging(null);
-                                        handleChange(val, false);
-                                    }}
-                                    onTouchStart={() => setDragging(metric.key)}
-                                    onTouchEnd={(e) => {
-                                        const val = Number((e.target as HTMLInputElement).value);
-                                        setDragging(null);
-                                        handleChange(val, false);
-                                    }}
-                                    className="slider-green cursor-grab active:cursor-grabbing"
-                                    style={{
-                                        '--value': `${metric.value * 10}%`,
-                                    } as React.CSSProperties & { '--value': string }}
-                                    disabled={saving}
-                                />
                             </div>
                         );
                     })}
@@ -358,4 +302,3 @@ export default function DailyWellness() {
         </div>
     );
 }
-

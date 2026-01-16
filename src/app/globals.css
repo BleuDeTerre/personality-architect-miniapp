@@ -104,3 +104,124 @@ input[type=range]::-moz-range-track {
   background: #4B5563;
   border-radius: 2px;
 }
+
+/* Neon glow effects for Wellness card */
+.wellness-card-glow {
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  box-shadow: 
+    0 0 15px rgba(139, 92, 246, 0.15),
+    inset 0 0 20px rgba(139, 92, 246, 0.05);
+}
+
+/* Glow progress ring */
+.progress-glow {
+  filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.6));
+}
+
+/* Metric bar styles with colors */
+.metric-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.metric-bar-blue .metric-bar-fill {
+  background: linear-gradient(90deg, #3B82F6, #60A5FA);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+}
+
+.metric-bar-yellow .metric-bar-fill {
+  background: linear-gradient(90deg, #EAB308, #FACC15);
+  box-shadow: 0 0 8px rgba(234, 179, 8, 0.5);
+}
+
+.metric-bar-green .metric-bar-fill {
+  background: linear-gradient(90deg, #22C55E, #4ADE80);
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+}
+
+.metric-bar-purple .metric-bar-fill {
+  background: linear-gradient(90deg, #8B5CF6, #A78BFA);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
+}
+
+/* Navigation card glow borders */
+.nav-card-green {
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.2), inset 0 0 15px rgba(34, 197, 94, 0.05);
+}
+.nav-card-green:hover {
+  border-color: rgba(34, 197, 94, 0.6);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.3), inset 0 0 20px rgba(34, 197, 94, 0.08);
+}
+
+.nav-card-pink {
+  border: 1px solid rgba(236, 72, 153, 0.4);
+  box-shadow: 0 0 12px rgba(236, 72, 153, 0.2), inset 0 0 15px rgba(236, 72, 153, 0.05);
+}
+.nav-card-pink:hover {
+  border-color: rgba(236, 72, 153, 0.6);
+  box-shadow: 0 0 20px rgba(236, 72, 153, 0.3), inset 0 0 20px rgba(236, 72, 153, 0.08);
+}
+
+.nav-card-red {
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.2), inset 0 0 15px rgba(239, 68, 68, 0.05);
+}
+.nav-card-red:hover {
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3), inset 0 0 20px rgba(239, 68, 68, 0.08);
+}
+
+.nav-card-orange {
+  border: 1px solid rgba(249, 115, 22, 0.4);
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.2), inset 0 0 15px rgba(249, 115, 22, 0.05);
+}
+.nav-card-orange:hover {
+  border-color: rgba(249, 115, 22, 0.6);
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.3), inset 0 0 20px rgba(249, 115, 22, 0.08);
+}
+
+.nav-card-blue {
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.2), inset 0 0 15px rgba(59, 130, 246, 0.05);
+}
+.nav-card-blue:hover {
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3), inset 0 0 20px rgba(59, 130, 246, 0.08);
+}
+
+.nav-card-yellow {
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  box-shadow: 0 0 12px rgba(234, 179, 8, 0.2), inset 0 0 15px rgba(234, 179, 8, 0.05);
+}
+.nav-card-yellow:hover {
+  border-color: rgba(234, 179, 8, 0.6);
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.3), inset 0 0 20px rgba(234, 179, 8, 0.08);
+}
+
+.nav-card-teal {
+  border: 1px solid rgba(20, 184, 166, 0.4);
+  box-shadow: 0 0 12px rgba(20, 184, 166, 0.2), inset 0 0 15px rgba(20, 184, 166, 0.05);
+}
+.nav-card-teal:hover {
+  border-color: rgba(20, 184, 166, 0.6);
+  box-shadow: 0 0 20px rgba(20, 184, 166, 0.3), inset 0 0 20px rgba(20, 184, 166, 0.08);
+}
+
+.nav-card-indigo {
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.2), inset 0 0 15px rgba(99, 102, 241, 0.05);
+}
+.nav-card-indigo:hover {
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.3), inset 0 0 20px rgba(99, 102, 241, 0.08);
+}
