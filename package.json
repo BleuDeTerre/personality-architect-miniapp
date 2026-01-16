@@ -10,7 +10,8 @@
     "lint": "next lint",
     "pay:ping": "node scripts/pay-ping.mjs",
     "pay:monthly": "node scripts/pay-monthly.mjs",
-    "vapid:generate": "node scripts/generate-vapid-keys.mjs"
+    "vapid:generate": "node scripts/generate-vapid-keys.mjs",
+    "test:x402": "node scripts/test-x402-facilitator.mjs"
   },
   "dependencies": {
     "@farcaster/miniapp-sdk": "^0.1.8",

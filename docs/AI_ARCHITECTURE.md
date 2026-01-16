@@ -96,7 +96,7 @@ Gemma работает напрямую через Google AI Studio API.
 
 1. **Библиотека:** `@google/generative-ai`
 2. **API ключ:** `GEMMA_API_KEY` (от Google AI Studio)
-3. **Модель:** `gemma-3-27b`
+3. **Модель:** `gemma-3-27b-it` (по умолчанию)
 4. **Формат:** Google Generative AI формат (конвертируется из OpenAI формата)
 
 **Реализация:**
