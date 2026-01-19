@@ -854,7 +854,7 @@ export default function ProfilePage() {
                                 <p className="text-xs uppercase tracking-wide text-white/60">AI CREDITS</p>
                                 <div className="flex items-baseline gap-2">
                                     <span className="text-2xl font-bold text-white">{credits.balance}</span>
-                                    <span className="text-sm text-white/60">bonus</span>
+                                    <span className="text-sm text-white/60">AI Credits</span>
                                 </div>
                             </div>
                         </div>
@@ -884,7 +884,7 @@ export default function ProfilePage() {
                         <p className="text-xs text-white/50 mt-1">
                             {aiUsage.remaining > 0 
                                 ? `${aiUsage.remaining} free requests left today`
-                                : 'Use bonus credits for more AI requests'}
+                                : 'Use AI Credits for more AI requests'}
                         </p>
                     </div>
 

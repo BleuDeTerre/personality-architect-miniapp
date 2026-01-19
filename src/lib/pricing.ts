@@ -12,19 +12,19 @@
 export const CREDIT_PACKS = {
     small: { 
         credits: 6, 
-        priceUsd: 1.74,      // $0.29/credit
+        priceUsd: 1.44,      // $0.24/credit (скидка 4% от $0.25)
         ttlDays: 31,
         description: '6 AI Credits',
     },
     medium: { 
         credits: 15, 
-        priceUsd: 3.49,      // $0.23/credit (скидка ~20%)
+        priceUsd: 3.30,      // $0.22/credit (скидка 12% от $0.25)
         ttlDays: 62,
         description: '15 AI Credits',
     },
     large: { 
         credits: 40, 
-        priceUsd: 7.99,      // $0.20/credit (скидка ~31%)
+        priceUsd: 8.00,      // $0.20/credit (скидка 20% от $0.25)
         ttlDays: 93,
         description: '40 AI Credits',
     },
@@ -71,7 +71,7 @@ export const FREE_LIMITS = {
 // =============================================================================
 
 // Цена за один AI запрос через X402
-export const AI_REQUEST_PRICE_USD = 0.20;
+export const AI_REQUEST_PRICE_USD = 0.25;
 
 export const PRICES_USD = {
     "/api/paid/credits/small": CREDIT_PACKS.small.priceUsd,
@@ -81,7 +81,7 @@ export const PRICES_USD = {
     "/api/paid/unlock/goals": UNLOCKS.goals.priceUsd,
     "/api/paid/unlock/bundle": UNLOCKS.bundle.priceUsd,
     "/api/mint": 0.19,
-    // Paid AI endpoints - $0.20 за запрос
+    // Paid AI endpoints - $0.25 за запрос
     "/api/paid/insight/weekly": AI_REQUEST_PRICE_USD,
     "/api/paid/insight/monthly": AI_REQUEST_PRICE_USD,
     "/api/paid/insight/habit": AI_REQUEST_PRICE_USD,

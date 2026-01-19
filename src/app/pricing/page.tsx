@@ -151,7 +151,7 @@ export default function PricingPage() {
                                 <p className="text-xs text-white/60 uppercase">AI Credits</p>
                                 <p className="text-2xl font-bold text-purple-400">
                                     {limits.credits.balance}
-                                    <span className="text-sm text-white/50 ml-1">bonus</span>
+                                    <span className="text-sm text-white/50 ml-1">AI Credits</span>
                                 </p>
                             </div>
                             <div>
