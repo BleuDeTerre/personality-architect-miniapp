@@ -20,8 +20,18 @@ export function checkAndShowAILimitWarning(limitInfo: AILimitInfo | null): void 
 
     const { used, limit, remaining, plan } = limitInfo;
 
-    // Если лимит достигнут - уже обрабатывается в API
-    if (remaining <= 0) {
+    // Показываем предупреждение о достижении лимита, если remaining = 0
+    if (remaining === 0) {
+        toast.warning('Daily AI limit reached!', {
+            description: plan === 'free' 
+                ? 'You\'ve used all free requests today. Upgrade to Pro for 20 requests per day!' 
+                : 'You\'ve reached your daily limit. Please try again tomorrow.',
+            duration: 6000,
+            action: plan === 'free' ? {
+                label: 'Upgrade',
+                onClick: () => window.location.href = '/pricing',
+            } : undefined,
+        });
         return;
     }
 
@@ -37,7 +47,8 @@ export function checkAndShowAILimitWarning(limitInfo: AILimitInfo | null): void 
                 onClick: () => window.location.href = '/pricing',
             } : undefined,
         });
-    } else if (remaining === 2) {
+    } else if (remaining === 2 && used > 0) {
+        // Показываем только если уже были использованы запросы
         toast.info('2 AI requests remaining', {
             description: plan === 'free' 
                 ? 'Upgrade to Pro for more requests!' 

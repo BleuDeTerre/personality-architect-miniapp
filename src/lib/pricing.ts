@@ -63,7 +63,8 @@ export type UnlockType = keyof typeof UNLOCKS;
 export const FREE_LIMITS = {
     habits: 5,       // Максимум 5 привычек для Free
     goals: 3,        // Максимум 3 цели для Free
-    aiRequestsPerDay: 2, // 2 AI запросов в день (Daily Tip не считается)
+    aiRequestsPerDay: 2, // 2 AI запросов в день (Daily Tip и AI Chat не считаются)
+    aiChatMessagesPerDay: 1, // 1 бесплатное сообщение в AI Chat в день (отдельно от общего лимита)
 } as const;
 
 // =============================================================================

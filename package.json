@@ -20,6 +20,11 @@
     "@neynar/react": "^1.2.22",
     "@pigment-css/react": "^0.0.30",
     "@supabase/supabase-js": "^2.54.0",
+    "@x402/core": "^2.2.0",
+    "@x402/evm": "^2.2.0",
+    "@x402/fetch": "^2.2.0",
+    "@x402/next": "^2.2.0",
+    "@x402/svm": "^2.2.0",
     "abitype": "^1.1.1",
     "dotenv": "^16.4.5",
     "lucide-react": "^0.553.0",
@@ -28,8 +33,6 @@
     "react-dom": "19.2.1",
     "sonner": "^2.0.7",
     "viem": "^2.37.6",
-    "x402-fetch": "^0.6.6",
-    "x402-next": "^0.6.5",
     "zod": "^3.25.8"
   },
   "devDependencies": {

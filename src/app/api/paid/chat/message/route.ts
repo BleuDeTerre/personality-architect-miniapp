@@ -1,5 +1,5 @@
 // src/app/api/paid/chat/message/route.ts
-// Paid version of chat/message - оплата через X402 ($0.20)
+// Paid version of chat/message - оплата через X402 ($0.25)
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';

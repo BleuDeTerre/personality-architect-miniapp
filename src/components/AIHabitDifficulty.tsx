@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { TrendingUp, TrendingDown, Minus, X } from 'lucide-react';
 import { renderMarkdown } from '@/lib/markdown';
+import X402PaymentRequiredModal from '@/components/X402PaymentRequiredModal';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,6 +34,9 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
     const [loading, setLoading] = useState(false);
     const [expanded, setExpanded] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>(
+        { open: false }
+    );
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -53,9 +57,27 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
                 headers,
                 body: JSON.stringify({ habitId }),
             });
+
+            if (res.status === 402) {
+                const errorData = await res.json().catch(() => ({}));
+                setPayModal({
+                    open: true,
+                    message: errorData.message || 'Daily AI limit reached.',
+                    sku: errorData.sku || '/api/paid/ai/habit-difficulty',
+                    priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
+                });
+                return;
+            }
             
             if (res.status === 403) {
                 const errorData = await res.json().catch(() => ({}));
+                // При 403 тоже показываем модальное окно оплаты
+                setPayModal({
+                    open: true,
+                    message: errorData.message || 'Daily AI limit reached.',
+                    sku: '/api/paid/ai/habit-difficulty',
+                    priceUsd: 0.25,
+                });
                 setError(errorData.message || 'AI request limit reached. Try again tomorrow or buy credits.');
                 return;
             }
@@ -78,13 +100,22 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
 
     if (!data && !expanded && !error) {
         return (
-            <button
-                onClick={analyzeDifficulty}
-                disabled={loading}
-                className="text-xs text-white/60 hover:text-white/80 transition flex items-center gap-1"
-            >
-                {loading ? 'Analyzing...' : '🤖 AI: Check difficulty'}
-            </button>
+            <>
+                <button
+                    onClick={analyzeDifficulty}
+                    disabled={loading}
+                    className="text-xs text-white/60 hover:text-white/80 transition flex items-center gap-1"
+                >
+                    {loading ? 'Analyzing...' : '🤖 AI: Check difficulty'}
+                </button>
+                <X402PaymentRequiredModal
+                    open={payModal.open}
+                    onClose={() => setPayModal({ open: false })}
+                    message={payModal.message}
+                    sku={payModal.sku}
+                    priceUsd={payModal.priceUsd}
+                />
+            </>
         );
     }
 
@@ -96,20 +127,45 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
 
     if (error) {
         return (
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-2">
-                <div className="flex items-center justify-between">
-                    <p className="text-xs text-red-400">{error}</p>
-                    <button
-                        onClick={() => {
-                            setError(null);
-                            setExpanded(false);
-                        }}
-                        className="text-red-400 hover:text-red-300 transition"
-                    >
-                        <X className="h-3 w-3" />
-                    </button>
+            <>
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                        <p className="text-xs text-red-400 flex-1">{error}</p>
+                        <button
+                            onClick={() => {
+                                setError(null);
+                                setExpanded(false);
+                            }}
+                            className="text-red-400 hover:text-red-300 transition ml-2 flex-shrink-0"
+                        >
+                            <X className="h-3 w-3" />
+                        </button>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setPayModal({ open: true, message: error, sku: '/api/paid/ai/habit-difficulty', priceUsd: 0.25 })}
+                            className="flex-1 text-xs rounded-lg bg-purple-500/20 text-purple-300 px-3 py-1.5 hover:bg-purple-500/30 transition text-center font-semibold"
+                        >
+                            Pay for 1 request · 0.25 USDC
+                        </button>
+                        <button
+                            onClick={() => {
+                                window.location.href = '/pricing';
+                            }}
+                            className="flex-1 text-xs rounded-lg bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white px-3 py-1.5 hover:opacity-90 transition text-center font-semibold"
+                        >
+                            Buy AI Credits
+                        </button>
+                    </div>
                 </div>
-            </div>
+                <X402PaymentRequiredModal
+                    open={payModal.open}
+                    onClose={() => setPayModal({ open: false })}
+                    message={payModal.message}
+                    sku={payModal.sku}
+                    priceUsd={payModal.priceUsd}
+                />
+            </>
         );
     }
 

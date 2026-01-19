@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { AlertCircle, ChevronDown, Sparkles } from 'lucide-react';
 import { fetchJson } from '@/lib/http';
 import { getCachedData, setCachedData, CACHE_TTL } from '@/lib/clientCache';
+import X402PaymentRequiredModal from '@/components/X402PaymentRequiredModal';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -55,6 +56,9 @@ export default function AIPredictiveAlerts({ onAlertsCountChange }: Props = {}) 
     const [loading, setLoading] = useState(!cachedData?.alerts || cachedData.alerts.length === 0);
     const [isExpanded, setIsExpanded] = useState(false);
     const isLoadingRef = useRef(false); // Защита от одновременных запросов
+    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>(
+        { open: false }
+    );
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -107,6 +111,29 @@ export default function AIPredictiveAlerts({ onAlertsCountChange }: Props = {}) 
                     // Cache the result for 1 hour
                     setCachedData(CACHE_KEY, { alerts: alertsData, fatigue: data.fatigue }, CACHE_TTL.HOURLY);
                 } catch (e: any) {
+                    // Обработка 402 ошибки
+                    if (e?.code === 402) {
+                        const errorData = e?.detail || {};
+                        setPayModal({
+                            open: true,
+                            message: errorData.message || 'Daily AI limit reached.',
+                            sku: errorData.sku || '/api/paid/ai/predictive-alerts',
+                            priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
+                        });
+                        // Используем кэшированные данные как fallback
+                        const cached = getCachedData<PredictiveAlertsResponse>(CACHE_KEY);
+                        if (cached?.alerts) {
+                            setAlerts(cached.alerts);
+                            setFatigue(cached.fatigue || null);
+                            onAlertsCountChange?.(cached.alerts.length);
+                        } else {
+                            setAlerts([]);
+                            setFatigue(null);
+                            onAlertsCountChange?.(0);
+                        }
+                        return;
+                    }
+                    
                     // Если ошибка или таймаут - используем кэшированные данные как fallback
                     console.warn('[AI Predictive Alerts] Request failed or timed out:', e?.name || e?.message);
                     const cached = getCachedData<PredictiveAlertsResponse>(CACHE_KEY);
@@ -242,6 +269,14 @@ export default function AIPredictiveAlerts({ onAlertsCountChange }: Props = {}) 
                     )}
                 </div>
             )}
+            
+            <X402PaymentRequiredModal
+                open={payModal.open}
+                onClose={() => setPayModal({ open: false })}
+                message={payModal.message}
+                sku={payModal.sku}
+                priceUsd={payModal.priceUsd}
+            />
         </div>
     );
 }

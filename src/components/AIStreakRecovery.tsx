@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Sparkles } from 'lucide-react';
+import X402PaymentRequiredModal from '@/components/X402PaymentRequiredModal';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,6 +20,9 @@ type RecoveryData = {
 export default function AIStreakRecovery() {
     const [recovery, setRecovery] = useState<RecoveryData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>(
+        { open: false }
+    );
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -34,6 +38,18 @@ export default function AIStreakRecovery() {
                 setLoading(true);
                 const headers = await authHeaders();
                 const res = await fetch('/api/ai/streak-recovery', { headers });
+                
+                if (res.status === 402) {
+                    const errorData = await res.json().catch(() => ({}));
+                    setPayModal({
+                        open: true,
+                        message: errorData.message || 'Daily AI limit reached.',
+                        sku: errorData.sku || '/api/paid/ai/streak-recovery',
+                        priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
+                    });
+                    return;
+                }
+                
                 if (res.ok) {
                     const data = await res.json();
                     if (data.needsRecovery && data.message) {
@@ -65,6 +81,14 @@ export default function AIStreakRecovery() {
                     </div>
                 </div>
             </div>
+            
+            <X402PaymentRequiredModal
+                open={payModal.open}
+                onClose={() => setPayModal({ open: false })}
+                message={payModal.message}
+                sku={payModal.sku}
+                priceUsd={payModal.priceUsd}
+            />
         </div>
     );
 }

@@ -8,6 +8,7 @@ import AILimitReachedModal from '@/components/AILimitReachedModal';
 import { toast } from 'sonner';
 import { getCachedData, setCachedData, CACHE_TTL } from '@/lib/clientCache';
 import { isoWeek, weekToLocalSunday } from '@/lib/time';
+import X402PaymentRequiredModal from '@/components/X402PaymentRequiredModal';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,6 +40,9 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
     const [loading, setLoading] = useState(true);
     const [showLimitModal, setShowLimitModal] = useState(false);
     const [userPlan, setUserPlan] = useState<'free' | 'pro' | 'premium'>('free');
+    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>(
+        { open: false }
+    );
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -82,6 +86,16 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
                 const res = await fetch('/api/ai/wheel-insights', { headers });
                 
                 if (!res.ok) {
+                    if (res.status === 402) {
+                        const errorData = await res.json().catch(() => ({}));
+                        setPayModal({
+                            open: true,
+                            message: errorData.message || 'Daily AI limit reached.',
+                            sku: errorData.sku || '/api/paid/ai/wheel-insights',
+                            priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
+                        });
+                        return;
+                    }
                     if (res.status === 429) {
                         // Лимит достигнут
                         const errorData = await res.json().catch(() => ({}));
@@ -179,6 +193,14 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
                     onClose={() => setShowLimitModal(false)}
                 />
             )}
+            <X402PaymentRequiredModal
+                open={payModal.open}
+                onClose={() => setPayModal({ open: false })}
+                title="Лимит AI исчерпан"
+                message={payModal.message}
+                sku={payModal.sku}
+                priceUsd={payModal.priceUsd}
+            />
         </div>
     );
 }

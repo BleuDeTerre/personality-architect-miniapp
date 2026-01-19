@@ -10,13 +10,18 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { FREE_LIMITS } from './pricing';
 
 export const AI_LIMITS = {
-  DAILY_FREE: FREE_LIMITS.aiRequestsPerDay, // 2 AI requests per day for all users
-  COACH_ADVICE_FREE: 1, // 1 дополнительный бесплатный запрос для Coach Advice
+  DAILY_FREE: FREE_LIMITS.aiRequestsPerDay, // общий лимит (не включает AI Chat)
+  CHAT_FREE: FREE_LIMITS.aiChatMessagesPerDay, // отдельный лимит для AI Chat
 } as const;
 
-// Endpoints которые не считаются в общий лимит
+// Endpoints которые не считаются в общий лимит и не логируются
 export const EXCLUDED_FROM_LIMIT = [
   'ai/daily-motivation', // Daily Tip всегда бесплатный
+] as const;
+
+// Endpoints, которые НЕ должны попадать в общий дневной лимит (но логируются)
+export const EXCLUDED_FROM_DAILY_FREE = [
+  'chat/message', // AI Chat — отдельный лимит
 ] as const;
 
 // Keep UserPlan for backward compatibility, but premium is deprecated
@@ -41,7 +46,7 @@ export async function checkAILimit(
   supa: SupabaseClient,
   userId: string,
   _userPlan?: UserPlan, // Deprecated, kept for backward compatibility
-  endpoint?: string // Endpoint для специальной логики (Coach Advice, Daily Tip)
+  endpoint?: string // Endpoint для специальной логики (AI Chat, Daily Tip)
 ): Promise<AILimitCheck> {
   const limit = AI_LIMITS.DAILY_FREE;
 
@@ -94,40 +99,43 @@ export async function checkAILimit(
 
   const bonusCredits = creditsData?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
 
-  const used = countedRequests.length;
-  
-  // Для Coach Advice добавляем дополнительный бесплатный лимит
-  let effectiveLimit = limit;
-  let effectiveUsed = used;
-  
-  if (endpoint === 'insight/coach') {
-    // Проверяем сколько Coach Advice запросов уже было сегодня
-    const coachRequests = countedRequests.filter(req => {
-      const endpointName = req.props?.endpoint as string | undefined;
-      return endpointName === 'insight/coach';
-    });
-    
-    // Если Coach Advice запросов меньше лимита + 1 дополнительный, разрешаем
-    if (coachRequests.length < AI_LIMITS.COACH_ADVICE_FREE) {
-      // Есть дополнительный бесплатный для Coach Advice
-      effectiveLimit = limit + AI_LIMITS.COACH_ADVICE_FREE;
-      effectiveUsed = used - coachRequests.length; // Вычитаем Coach Advice запросы из общего подсчета
-    }
+  // === AI Chat: отдельный лимит (не влияет на общий) ===
+  if (endpoint === 'chat/message') {
+    const chatUsed = countedRequests.filter(req => req.props?.endpoint === 'chat/message').length;
+    const chatRemaining = Math.max(0, AI_LIMITS.CHAT_FREE - chatUsed);
+    const allowed = chatRemaining > 0 || bonusCredits > 0;
+    return {
+      allowed,
+      limit: AI_LIMITS.CHAT_FREE,
+      used: chatUsed,
+      remaining: chatRemaining,
+      bonusCredits,
+      error: !allowed
+        ? `You have used all ${AI_LIMITS.CHAT_FREE} free AI Chat messages today. Pay $0.25 per request or buy credits for more!`
+        : undefined,
+    };
   }
-  
-  const freeRemaining = Math.max(0, effectiveLimit - effectiveUsed);
-  
+
+  // === Общий лимит: исключаем AI Chat из подсчета ===
+  const countedForDailyFree = countedRequests.filter(req => {
+    const endpointName = req.props?.endpoint as string | undefined;
+    return !endpointName || !EXCLUDED_FROM_DAILY_FREE.includes(endpointName as any);
+  });
+
+  const used = countedForDailyFree.length;
+  const freeRemaining = Math.max(0, limit - used);
+
   // User can make request if they have free requests OR bonus credits
   const allowed = freeRemaining > 0 || bonusCredits > 0;
 
   return {
     allowed,
-    limit: effectiveLimit,
-    used: effectiveUsed,
+    limit,
+    used,
     remaining: freeRemaining,
     bonusCredits,
-    error: !allowed
-      ? `You have used all ${limit} free AI requests today. Pay $0.20 per request or buy credits for more!`
+      error: !allowed
+      ? `You have used all ${limit} free AI requests today. Pay $0.25 per request or buy credits for more!`
       : undefined,
   };
 }
@@ -168,23 +176,19 @@ export async function logAIRequest(
     return !endpointName || !EXCLUDED_FROM_LIMIT.includes(endpointName as any);
   });
 
-  const used = countedRequests.length;
-  
-  // Для Coach Advice учитываем дополнительный бесплатный лимит
-  let effectiveLimit = AI_LIMITS.DAILY_FREE;
-  if (endpoint === 'insight/coach') {
-    const coachRequests = countedRequests.filter(req => {
+  // Определяем, нужно ли списывать кредит (отдельно для AI Chat и общего лимита)
+  let usedBonusCredit = false;
+
+  if (endpoint === 'chat/message') {
+    const chatUsed = countedRequests.filter(req => req.props?.endpoint === 'chat/message').length;
+    usedBonusCredit = chatUsed >= AI_LIMITS.CHAT_FREE;
+  } else {
+    const countedForDailyFree = countedRequests.filter(req => {
       const endpointName = req.props?.endpoint as string | undefined;
-      return endpointName === 'insight/coach';
+      return !endpointName || !EXCLUDED_FROM_DAILY_FREE.includes(endpointName as any);
     });
-    
-    // Если Coach Advice запросов меньше лимита + 1 дополнительный, не списываем кредит
-    if (coachRequests.length < AI_LIMITS.COACH_ADVICE_FREE) {
-      effectiveLimit = AI_LIMITS.DAILY_FREE + AI_LIMITS.COACH_ADVICE_FREE;
-    }
+    usedBonusCredit = countedForDailyFree.length >= AI_LIMITS.DAILY_FREE;
   }
-  
-  const usedBonusCredit = used >= effectiveLimit;
 
   // If over free limit, try to consume a bonus credit
   if (usedBonusCredit) {
@@ -197,20 +201,28 @@ export async function logAIRequest(
     }
   }
 
-  // Log the request
+  // Log the request using RPC function to bypass RLS
   try {
-    await supa.from('events_log').insert({
-      user_id: userId,
-      name: 'ai_request',
-      props: {
+    const { error: logError } = await supa.rpc('log_event', {
+      p_name: 'ai_request',
+      p_status: null,
+      p_path: null,
+      p_amount_cents: null,
+      p_props: {
         plan: userPlan,
         endpoint,
         usedBonusCredit,
         ...metadata,
       },
     });
+    
+    if (logError) {
+      console.error('[AI Limits] Failed to log AI request:', logError);
+    } else {
+      console.log('[AI Limits] Successfully logged AI request:', { userId, endpoint, usedBonusCredit });
+    }
   } catch (error) {
-    console.warn('[AI Limits] Failed to log AI request:', error);
+    console.error('[AI Limits] Exception while logging AI request:', error);
   }
 
   return { usedBonusCredit };
@@ -258,7 +270,13 @@ export async function getAITodayUsage(
 
   const bonusCredits = creditsData?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
 
-  const used = countedRequests.length;
+  // Общий лимит: исключаем AI Chat из подсчета
+  const countedForDailyFree = countedRequests.filter(req => {
+    const endpointName = req.props?.endpoint as string | undefined;
+    return !endpointName || !EXCLUDED_FROM_DAILY_FREE.includes(endpointName as any);
+  });
+
+  const used = countedForDailyFree.length;
   const remaining = Math.max(0, limit - used);
 
   return {

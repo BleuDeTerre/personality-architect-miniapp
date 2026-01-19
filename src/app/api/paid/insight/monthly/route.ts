@@ -1,5 +1,5 @@
 // src/app/api/paid/insight/monthly/route.ts
-// Paid version of insight/monthly - оплата через X402 ($0.20)
+// Paid version of insight/monthly - оплата через X402 ($0.25)
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';

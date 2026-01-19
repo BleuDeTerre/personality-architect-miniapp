@@ -1,5 +1,5 @@
 // src/app/api/paid/insight/coach/route.ts
-// Paid version of insight/coach - оплата через X402 ($0.20)
+// Paid version of insight/coach - оплата через X402 ($0.25)
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,7 +14,7 @@ import { AI_REQUEST_PRICE_USD } from '@/lib/pricing';
 import crypto from 'crypto';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 
-export async function GET(req: NextRequest) {
+async function handleCoach(req: NextRequest) {
     // Rate limiting для AI endpoints
     const rateLimit = checkRateLimit(req, RATE_LIMIT_PRESETS.AI);
     if (!rateLimit.allowed) {
@@ -228,4 +228,13 @@ export async function GET(req: NextRequest) {
             message: e?.message || 'An unexpected error occurred. Please try again later.',
         }, { status });
     }
+}
+
+// Поддержка как GET, так и POST для совместимости
+export async function GET(req: NextRequest) {
+    return handleCoach(req);
+}
+
+export async function POST(req: NextRequest) {
+    return handleCoach(req);
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
+import X402PaymentRequiredModal from '@/components/X402PaymentRequiredModal';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,6 +23,9 @@ export default function AIGoalReview() {
     const [reviews, setReviews] = useState<Review[]>([]);
     const [loading, setLoading] = useState(false);
     const [hasLoaded, setHasLoaded] = useState(false);
+    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>(
+        { open: false }
+    );
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -38,10 +42,25 @@ export default function AIGoalReview() {
             setLoading(true);
             const headers = await authHeaders();
             const res = await fetch('/api/ai/goal-review', { headers });
+            
+            if (res.status === 402) {
+                const errorData = await res.json().catch(() => ({}));
+                setPayModal({
+                    open: true,
+                    message: errorData.message || 'Daily AI limit reached.',
+                    sku: errorData.sku || '/api/paid/ai/goal-review',
+                    priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
+                });
+                return;
+            }
+            
             if (res.ok) {
                 const data = await res.json();
                 setReviews(data.reviews || []);
                 setHasLoaded(true);
+            } else {
+                const errorData = await res.json().catch(() => ({}));
+                console.error('[AI Goal Review] API error:', res.status, errorData);
             }
         } catch (e) {
             console.error('[AI Goal Review] Failed to load:', e);
@@ -106,6 +125,14 @@ export default function AIGoalReview() {
                     </div>
                 </div>
             ))}
+            
+            <X402PaymentRequiredModal
+                open={payModal.open}
+                onClose={() => setPayModal({ open: false })}
+                message={payModal.message}
+                sku={payModal.sku}
+                priceUsd={payModal.priceUsd}
+            />
         </div>
     );
 }

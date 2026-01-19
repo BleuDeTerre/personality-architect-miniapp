@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { toast } from 'sonner';
+import X402PaymentRequiredModal from '@/components/X402PaymentRequiredModal';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +16,9 @@ interface CoachBlockProps {
 export default function CoachBlock({ advice: externalAdvice }: CoachBlockProps) {
     const [internalAdvice, setInternalAdvice] = useState('');
     const [loading, setLoading] = useState(false);
+    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>(
+        { open: false }
+    );
 
     // Если advice передан извне - используем его, иначе используем внутреннее состояние
     const advice = externalAdvice !== undefined ? externalAdvice : internalAdvice;
@@ -49,6 +53,16 @@ export default function CoachBlock({ advice: externalAdvice }: CoachBlockProps) 
                 const errorData = await r.json().catch(() => ({}));
                 const errorMessage = errorData.error || errorData.message || `HTTP ${r.status}`;
                 console.error('[CoachBlock] API error:', r.status, errorMessage);
+
+                if (r.status === 402) {
+                    setPayModal({
+                        open: true,
+                        message: errorData.message || 'Daily AI limit reached.',
+                        sku: errorData.sku || '/api/paid/insight/coach',
+                        priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
+                    });
+                    return;
+                }
                 
                 if (r.status === 401) {
                     toast.error('Authentication failed', {
@@ -117,6 +131,14 @@ export default function CoachBlock({ advice: externalAdvice }: CoachBlockProps) 
                     {advice}
                 </div>
             )}
+            <X402PaymentRequiredModal
+                open={payModal.open}
+                onClose={() => setPayModal({ open: false })}
+                title="Лимит AI исчерпан"
+                message={payModal.message}
+                sku={payModal.sku}
+                priceUsd={payModal.priceUsd}
+            />
         </div>
     );
 }

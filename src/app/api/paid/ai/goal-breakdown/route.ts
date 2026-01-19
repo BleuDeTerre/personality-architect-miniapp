@@ -1,5 +1,5 @@
 // src/app/api/paid/ai/goal-breakdown/route.ts
-// Paid version of ai/goal-breakdown - оплата через X402 ($0.20)
+// Paid version of ai/goal-breakdown - оплата через X402 ($0.25)
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';

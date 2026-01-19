@@ -34,22 +34,34 @@ export async function getUserUnlocks(
     supa: SupabaseClient,
     userId: string
 ): Promise<UnlockStatus> {
-    const { data, error } = await supa
-        .from('user_unlocks')
-        .select('unlock_type')
-        .eq('user_id', userId);
+    try {
+        const { data, error } = await supa
+            .from('user_unlocks')
+            .select('unlock_type')
+            .eq('user_id', userId);
 
-    if (error) {
-        console.error('[Feature Limits] Error fetching unlocks:', error);
+        // Если таблица не существует или ошибка доступа - возвращаем false
+        if (error) {
+            // PGRST205 означает что таблица не найдена
+            if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
+                console.warn('[Feature Limits] Table user_unlocks does not exist, returning default unlocks');
+                return { habits: false, goals: false };
+            }
+            console.error('[Feature Limits] Error fetching unlocks:', error);
+            return { habits: false, goals: false };
+        }
+
+        const unlocks = data?.map(u => u.unlock_type) || [];
+        
+        return {
+            habits: unlocks.includes('habits') || unlocks.includes('bundle'),
+            goals: unlocks.includes('goals') || unlocks.includes('bundle'),
+        };
+    } catch (error: any) {
+        // Обрабатываем любые исключения
+        console.error('[Feature Limits] Exception fetching unlocks:', error);
         return { habits: false, goals: false };
     }
-
-    const unlocks = data?.map(u => u.unlock_type) || [];
-    
-    return {
-        habits: unlocks.includes('habits') || unlocks.includes('bundle'),
-        goals: unlocks.includes('goals') || unlocks.includes('bundle'),
-    };
 }
 
 /**
@@ -62,12 +74,12 @@ export async function getUserLimits(
     // Get unlocks
     const unlocks = await getUserUnlocks(supa, userId);
 
-    // Count current habits
+    // Count current habits (only active, not archived)
     const { count: habitsCount, error: habitsError } = await supa
         .from('habits')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId)
-        .eq('archived', false);
+        .eq('is_active', true);
 
     if (habitsError) {
         console.error('[Feature Limits] Error counting habits:', habitsError);

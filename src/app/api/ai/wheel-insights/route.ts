@@ -144,11 +144,11 @@ export async function GET(req: NextRequest) {
             return NextResponse.json(
                 {
                     error: 'payment_required',
-                    message: limitCheck.error || 'You have reached your daily AI request limit. Pay $0.20 per request or buy credits.',
+                    message: limitCheck.error || 'You have reached your daily AI request limit. Pay $0.25 per request or buy credits.',
                     limit: limitCheck.limit,
                     used: limitCheck.used,
                     sku: '/api/paid/ai/wheel-insights',
-                    priceUsd: 0.20,
+                    priceUsd: 0.25,
                 },
                 { status: 402 }
             );

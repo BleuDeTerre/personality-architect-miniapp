@@ -114,6 +114,7 @@ export default function AIMotivationMessage() {
                 persistMessage(newMessage);
             } catch (e: any) {
                 // Если ошибка или таймаут - используем fallback
+                // Daily Tip всегда бесплатный, обработка 402 не нужна
                 console.warn('[AI Motivation] Request failed or timed out:', e?.name || e?.message);
                 const fallback = FALLBACK_MESSAGES[Math.floor(Math.random() * FALLBACK_MESSAGES.length)];
                 setMessage(fallback);

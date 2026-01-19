@@ -6,7 +6,9 @@ import MiniAppPage from '@/components/MiniAppPage';
 import { fetchJson } from '@/lib/http';
 import { checkAndShowAILimitWarning, showAILimitReachedModal, type AILimitInfo } from '@/lib/aiLimitWarnings';
 import AILimitReachedModal from '@/components/AILimitReachedModal';
+import { renderMarkdown } from '@/lib/markdown';
 import { toast } from 'sonner';
+import X402PaymentRequiredModal from '@/components/X402PaymentRequiredModal';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,6 +29,10 @@ export default function ChatPage() {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [userPlan, setUserPlan] = useState<string>('free');
     const [showLimitModal, setShowLimitModal] = useState(false);
+    const lastWarningRef = useRef<{ remaining: number; timestamp: number } | null>(null);
+    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>(
+        { open: false }
+    );
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -158,6 +164,25 @@ export default function ChatPage() {
 
             // Обработка ошибок (fetchJson уже обработал HTTP статусы)
             if (data.error) {
+                // Обработка 402 ошибки (payment required)
+                if (data.error === 'payment_required' || data.error === 'payment_required') {
+                    const errorData = (data as any).detail || {};
+                    setPayModal({
+                        open: true,
+                        message: errorData.message || 'Daily AI limit reached.',
+                        sku: errorData.sku || '/api/paid/chat/message',
+                        priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
+                    });
+                    const errorMsg: Message = {
+                        role: 'assistant',
+                        content: errorData.message || 'Payment required. Please buy AI Credits or pay for this request.',
+                        timestamp: new Date(),
+                    };
+                    setMessages(prev => [...prev, errorMsg]);
+                    setLoading(false);
+                    return;
+                }
+                
                 // Обработка лимита запросов (429)
                 if (data.error === 'daily_limit_reached') {
                     const limitInfo: AILimitInfo = {
@@ -204,7 +229,7 @@ export default function ChatPage() {
             // Сохраняем информацию о плане
             if (plan) setUserPlan(plan);
 
-            // Показываем предупреждения о лимите
+            // Показываем предупреждения о лимите (только если значение изменилось)
             if (aiLimit) {
                 const limitInfo: AILimitInfo = {
                     used: aiLimit.used,
@@ -212,7 +237,20 @@ export default function ChatPage() {
                     remaining: aiLimit.remaining,
                     plan: userPlan as 'free' | 'pro' | 'premium',
                 };
-                checkAndShowAILimitWarning(limitInfo);
+                
+                // Показываем предупреждение только если remaining изменилось или прошло больше 5 секунд
+                const now = Date.now();
+                const shouldShow = !lastWarningRef.current || 
+                    lastWarningRef.current.remaining !== limitInfo.remaining ||
+                    (now - lastWarningRef.current.timestamp) > 5000;
+                
+                if (shouldShow) {
+                    checkAndShowAILimitWarning(limitInfo);
+                    lastWarningRef.current = {
+                        remaining: limitInfo.remaining,
+                        timestamp: now,
+                    };
+                }
             }
 
             const assistantMsg: Message = {
@@ -229,8 +267,15 @@ export default function ChatPage() {
             // Обработка таймаута
             if (e?.name === 'AbortError' || e?.code === 'TIMEOUT') {
                 errorMessage = 'Request timed out. The AI is taking too long to respond. Please try again.';
-            } else if (e?.code === 402) {
-                errorMessage = 'Payment required. Please upgrade to Pro for AI Chat access.';
+            } else if (e?.code === 402 || e?.message === 'payment_required') {
+                const errorData = e?.detail || {};
+                setPayModal({
+                    open: true,
+                    message: errorData.message || 'Daily AI limit reached.',
+                    sku: errorData.sku || '/api/paid/chat/message',
+                    priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
+                });
+                errorMessage = errorData.message || 'Payment required. Please buy AI Credits or pay for this request.';
             } else if (e?.code === 429) {
                 errorMessage = 'You have reached your daily limit. Upgrade to Pro for unlimited access!';
             } else if (e?.message) {
@@ -284,7 +329,10 @@ export default function ChatPage() {
                                         : 'bg-[#1a1b2e] border border-white/10'
                                         }`}
                                 >
-                                    <div className="text-sm whitespace-pre-wrap text-white">{msg.content}</div>
+                                    <div 
+                                        className="text-sm whitespace-pre-wrap text-white"
+                                        dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+                                    />
                                     {msg.timestamp && (
                                         <div className="text-xs opacity-70 mt-2 text-white/60">
                                             {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -342,6 +390,15 @@ export default function ChatPage() {
                     onClose={() => setShowLimitModal(false)}
                 />
             )}
+            
+            {/* Payment Required Modal */}
+            <X402PaymentRequiredModal
+                open={payModal.open}
+                onClose={() => setPayModal({ open: false })}
+                message={payModal.message}
+                sku={payModal.sku}
+                priceUsd={payModal.priceUsd}
+            />
         </MiniAppPage>
     );
 }

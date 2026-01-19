@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import CollapsibleCard from './CollapsibleCard';
+import X402PaymentRequiredModal from '@/components/X402PaymentRequiredModal';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,6 +32,9 @@ export default function AIGoalsAssistant({}: Props) {
     const [reviews, setReviews] = useState<Review[]>([]);
     const [loadingReview, setLoadingReview] = useState(false);
     const [hasLoadedReview, setHasLoadedReview] = useState(false);
+    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>(
+        { open: false }
+    );
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -47,6 +51,18 @@ export default function AIGoalsAssistant({}: Props) {
             setLoadingReview(true);
             const headers = await authHeaders();
             const res = await fetch('/api/ai/goal-review', { headers });
+            
+            if (res.status === 402) {
+                const errorData = await res.json().catch(() => ({}));
+                setPayModal({
+                    open: true,
+                    message: errorData.message || 'Daily AI limit reached.',
+                    sku: errorData.sku || '/api/paid/ai/goal-review',
+                    priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
+                });
+                return;
+            }
+            
             if (res.ok) {
                 const data = await res.json();
                 const reviewsData = data.reviews || [];
@@ -182,6 +198,14 @@ export default function AIGoalsAssistant({}: Props) {
                     })}
                 </div>
             )}
+            
+            <X402PaymentRequiredModal
+                open={payModal.open}
+                onClose={() => setPayModal({ open: false })}
+                message={payModal.message}
+                sku={payModal.sku}
+                priceUsd={payModal.priceUsd}
+            />
         </CollapsibleCard>
     );
 }

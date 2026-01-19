@@ -83,7 +83,7 @@ export default function ProfilePage() {
     const [gamificationStats, setGamificationStats] = useState<UserStats | null>(null);
     const [currentPlan, setCurrentPlan] = useState<'free' | 'pro' | 'premium'>('free');
     const [credits, setCredits] = useState<{ balance: number; nextExpiry: string | null }>({ balance: 0, nextExpiry: null });
-    const [aiUsage, setAiUsage] = useState<{ used: number; limit: number; remaining: number }>({ used: 0, limit: 5, remaining: 5 });
+    const [aiUsage, setAiUsage] = useState<{ used: number; limit: number; remaining: number }>({ used: 0, limit: 2, remaining: 2 });
     const [featureLimits, setFeatureLimits] = useState<{
         habits: { current: number; limit: number; unlimited: boolean };
         goals: { current: number; limit: number; unlimited: boolean };
@@ -442,7 +442,7 @@ export default function ProfilePage() {
                 if (limitsRes.ok) {
                     const limitsData = await limitsRes.json();
                     setCredits(limitsData.credits || { balance: 0, nextExpiry: null });
-                    setAiUsage(limitsData.ai || { used: 0, limit: 5, remaining: 5 });
+                    setAiUsage(limitsData.ai || { used: 0, limit: 2, remaining: 2 });
                     setFeatureLimits({
                         habits: limitsData.habits,
                         goals: limitsData.goals,
@@ -473,6 +473,48 @@ export default function ProfilePage() {
             cancelled = true;
         };
     }, [refreshMints, refreshEligibility, loadNeynarProfile, authHeaders, isSDKLoaded, context]);
+
+    // Функция для обновления данных о лимитах и кредитах
+    const refreshLimits = useCallback(async () => {
+        try {
+            const headers = await authHeaders();
+            const limitsRes = await fetch('/api/limits', { headers });
+            if (limitsRes.ok) {
+                const limitsData = await limitsRes.json();
+                setCredits(limitsData.credits || { balance: 0, nextExpiry: null });
+                setAiUsage(limitsData.ai || { used: 0, limit: 2, remaining: 2 });
+                setFeatureLimits({
+                    habits: limitsData.habits,
+                    goals: limitsData.goals,
+                });
+                setUnlocks(limitsData.unlocks || { habits: false, goals: false });
+            }
+        } catch (error) {
+            console.error('[Profile] Failed to refresh limits:', error);
+        }
+    }, [authHeaders]);
+
+    // Обновляем данные при фокусе на странице (когда пользователь возвращается на вкладку)
+    useEffect(() => {
+        const handleFocus = () => {
+            refreshLimits();
+        };
+
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
+    }, [refreshLimits]);
+
+    // Также обновляем при видимости страницы (для мобильных устройств)
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (!document.hidden) {
+                refreshLimits();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [refreshLimits]);
 
     const handleSaveMainFocus = async () => {
         try {
