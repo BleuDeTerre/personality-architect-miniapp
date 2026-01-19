@@ -33,16 +33,13 @@ export async function GET(req: NextRequest) {
         // Get AI usage for today
         const aiUsage = await getAITodayUsage(supa, userId, userPlan);
 
-        // Get bonus credits from user_credits table
+        // Get bonus credits from user_credits table (кредиты не истекают)
         const { data: creditsData } = await supa
             .from('user_credits')
-            .select('amount, expires_at')
-            .eq('user_id', userId)
-            .gt('expires_at', new Date().toISOString())
-            .order('expires_at', { ascending: true });
+            .select('amount')
+            .eq('user_id', userId);
 
         const bonusCredits = creditsData?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
-        const nextExpiry = creditsData?.[0]?.expires_at || null;
 
         return NextResponse.json({
             // Feature limits
@@ -59,10 +56,10 @@ export async function GET(req: NextRequest) {
                 remaining: aiUsage.remaining,
             },
             
-            // Bonus credits (purchased)
+            // Bonus credits (purchased, не истекают)
             credits: {
                 balance: bonusCredits,
-                nextExpiry,
+                nextExpiry: null, // Кредиты больше не имеют срока действия
             },
             
             // Pricing info for UI

@@ -1,14 +1,16 @@
-// src/app/api/ai/wheel-insights/route.ts
+// src/app/api/paid/ai/wheel-insights/route.ts
+// Paid version of ai/wheel-insights - оплата через X402 ($0.20)
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireX402 } from '@/lib/x402Guard';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
 import { WHEEL_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
-import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
+import { logAIRequest, type UserPlan } from '@/lib/aiLimits';
 import { getAICache, setAICache } from '@/lib/aiCacheHelper';
+import { AI_REQUEST_PRICE_USD } from '@/lib/pricing';
 import crypto from 'crypto';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 
@@ -34,6 +36,11 @@ export async function GET(req: NextRequest) {
     }
 
     try {
+        // 1) Проверка оплаты x402
+        const block = await requireX402(req, '/api/paid/ai/wheel-insights');
+        if (block) return block;
+
+        // 2) Авторизация пользователя
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) {
             return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -42,7 +49,7 @@ export async function GET(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        // Получаем план пользователя для проверки лимита
+        // Получаем план пользователя
         const { data: planData } = await supa
             .from('user_plans')
             .select('plan')
@@ -50,7 +57,7 @@ export async function GET(req: NextRequest) {
             .maybeSingle();
         const userPlan = (planData?.plan ?? 'free') as UserPlan;
 
-        // Получаем тренды Wheel of Life напрямую из таблицы wheel_scores (как в /api/wheel/trends)
+        // Получаем тренды Wheel of Life
         const { data: wheelRows, error: trendsErr } = await supa
             .from('wheel_scores')
             .select('area, score, week')
@@ -88,7 +95,6 @@ export async function GET(req: NextRequest) {
             .lte('date', todayStr)
             .order('date', { ascending: false });
 
-        // Вычисляем средние wellness метрики
         const wellnessContext = wellness && wellness.length > 0 ? (() => {
             const validMetrics = wellness.filter((m: any) => 
                 m.stress_level !== null || m.productivity_level !== null || 
@@ -119,7 +125,7 @@ export async function GET(req: NextRequest) {
             return `Wellness (last 30 days): ${parts.join(', ')}. Use this to understand connections between well-being and life areas.`;
         })() : '';
 
-        // Создаем ключ для кеша на основе трендов wheel (если wheel не изменился, инсайты те же)
+        // Создаем ключ для кеша
         const trendsHash = trends.map(t => `${t.area}:${t.score}:${t.week}`).join('|');
         const cacheKey = {
             trends_hash: crypto.createHash('sha256').update(trendsHash).digest('hex').slice(0, 16),
@@ -127,7 +133,7 @@ export async function GET(req: NextRequest) {
             wellness_hash: wellnessContext ? crypto.createHash('sha256').update(wellnessContext).digest('hex').slice(0, 8) : 'none',
         };
 
-        // Проверяем кеш (24 часа - wheel обновляется раз в неделю)
+        // Проверяем кеш (24 часа)
         const cached = await getAICache<{ insights: any[] }>(supa, userId, {
             endpoint: 'ai/wheel-insights',
             input: cacheKey,
@@ -138,33 +144,16 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ insights: cached.insights, cached: true });
         }
 
-        // Проверяем лимит перед генерацией инсайтов
-        const limitCheck = await checkAILimit(supa, userId, userPlan, 'ai/wheel-insights');
-        if (!limitCheck.allowed) {
-            return NextResponse.json(
-                {
-                    error: 'payment_required',
-                    message: limitCheck.error || 'You have reached your daily AI request limit. Pay $0.20 per request or buy credits.',
-                    limit: limitCheck.limit,
-                    used: limitCheck.used,
-                    sku: '/api/paid/ai/wheel-insights',
-                    priceUsd: 0.20,
-                },
-                { status: 402 }
-            );
-        }
-
-        // Генерируем инсайты через AI (используем DeepSeek для сложных задач)
+        // Генерируем инсайты через AI
         const deepseekResult = await getDeepSeekWithLimitCheck(supa);
         if (deepseekResult.error) {
             return deepseekResult.error;
         }
         const { aiClient, model } = deepseekResult;
 
-        // Подготавливаем данные для анализа
         const trendsCount = trends.length;
         const areasWithData = new Set(trends.map(t => t.area)).size;
-        const hasEnoughData = trendsCount >= 4 && areasWithData >= 3; // Минимум для осмысленного анализа
+        const hasEnoughData = trendsCount >= 4 && areasWithData >= 3;
 
         const chat = await aiClient.chat.completions.create({
             model,
@@ -223,11 +212,6 @@ export async function GET(req: NextRequest) {
 
         const response = {
             insights: result.insights || [],
-            aiLimit: {
-                used: limitCheck.used + 1, // +1 потому что мы только что залогировали
-                limit: limitCheck.limit,
-                remaining: Math.max(0, limitCheck.remaining - 1),
-            },
             plan: userPlan,
         };
 
@@ -238,10 +222,24 @@ export async function GET(req: NextRequest) {
             cacheHours: 24,
         }, response);
 
-        // Логируем AI запрос в фоне (помечаем как DeepSeek)
+        // Логируем AI запрос (не считается в лимит, так как оплачено)
         (async () => {
-            await logAIRequest(supa, userId, userPlan, 'ai/wheel-insights', deepseekResult.markAsDeepSeek());
+            await logAIRequest(supa, userId, userPlan, 'ai/wheel-insights', deepseekResult.markAsDeepSeek({
+                paid: true,
+            }));
         })();
+
+        // Логируем платёжное событие
+        await supa.from('paid_events').insert({
+            user_id: userId,
+            endpoint: 'ai/wheel-insights',
+            amount_usd: AI_REQUEST_PRICE_USD,
+            status: 'settled',
+            meta: { 
+                paid_via: 'x402',
+                sku: '/api/paid/ai/wheel-insights',
+            },
+        });
 
         return NextResponse.json(response);
     } catch (error: any) {
@@ -249,4 +247,3 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ insights: [], error: error?.message });
     }
 }
-

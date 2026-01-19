@@ -219,7 +219,7 @@ export default function PricingPage() {
                                                 )}
                                             </div>
                                             <p className="text-xs text-white/50 mt-1">
-                                                ${pricePerCredit}/credit • Valid {pack.ttlDays} days
+                                                ${pricePerCredit}/credit
                                             </p>
                                         </div>
                                         <button
@@ -375,8 +375,8 @@ export default function PricingPage() {
                         then use purchased credits.
                     </p>
                     <p>
-                        <strong className="text-white/70">Do credits expire?</strong> Yes, credits expire 
-                        after the validity period. Use them before they expire!
+                        <strong className="text-white/70">Do credits expire?</strong> No, credits never expire! 
+                        Your purchased credits are yours forever.
                     </p>
                     <p>
                         <strong className="text-white/70">Are unlocks permanent?</strong> Yes! Once you 

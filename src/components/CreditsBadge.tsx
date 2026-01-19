@@ -17,9 +17,6 @@ export default function CreditsBadge() {
         <div className="flex items-center gap-3 text-sm">
             <div className="px-2 py-1 rounded-full border">
                 Pro: {data.credits} кр.
-                {data.expiresAt && (
-                    <span className="opacity-60"> · до {new Date(data.expiresAt).toLocaleDateString()}</span>
-                )}
             </div>
             <div className="text-xs opacity-70">
                 Сэкономлено: ${data.savedUsd.toFixed(2)} ({data.usedCredits})

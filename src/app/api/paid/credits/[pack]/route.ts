@@ -26,11 +26,11 @@ export async function POST(req: Request, ctx: any) {
     const supa = createUserServerClient(token);
 
     // 3) Начисление кредитов через RPC (SECURITY DEFINER)
-    const expiresAt = new Date(Date.now() + cfg.ttlDays * 864e5).toISOString();
+    // Кредиты не имеют срока действия - они не сгорают
     const { error: addErr } = await supa.rpc('add_credits', {
         p_period: 'credits',
         p_amount: cfg.credits,
-        p_expires_at: expiresAt,
+        p_expires_at: null, // Кредиты не истекают
     });
     if (addErr) return NextResponse.json({ error: addErr.message }, { status: 500 });
 
@@ -43,7 +43,6 @@ export async function POST(req: Request, ctx: any) {
         meta: { 
             credits: cfg.credits, 
             pack,
-            expiresAt,
             pricePerCredit: Math.round((cfg.priceUsd / cfg.credits) * 100) / 100,
         },
     });
@@ -54,6 +53,5 @@ export async function POST(req: Request, ctx: any) {
         pack,
         credits: cfg.credits,
         priceUsd: cfg.priceUsd,
-        expiresAt,
     });
 }

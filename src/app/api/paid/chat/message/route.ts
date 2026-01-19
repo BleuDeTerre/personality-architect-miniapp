@@ -1,16 +1,18 @@
+// src/app/api/paid/chat/message/route.ts
+// Paid version of chat/message - оплата через X402 ($0.20)
 export const runtime = 'nodejs';
-// src/app/api/chat/message/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
+import { requireX402 } from '@/lib/x402Guard';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
 import { buildChatPrompt } from '@/lib/aiPrompts';
-import { calculateLevel, xpForNextLevel } from '@/lib/gamification';
-import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
+import { logAIRequest, type UserPlan } from '@/lib/aiLimits';
+import { AI_REQUEST_PRICE_USD } from '@/lib/pricing';
+import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 
 // Утилита для таймаута промисов
-// Принимает любой thenable (PromiseLike), чтобы работать с PostgrestFilterBuilder Supabase
 async function withTimeout<T>(p: PromiseLike<T>, ms: number, fallback: () => T): Promise<T> {
     let timer: NodeJS.Timeout | undefined;
     const timeout = new Promise<T>((resolve) => {
@@ -26,7 +28,6 @@ async function withTimeout<T>(p: PromiseLike<T>, ms: number, fallback: () => T):
     }
 }
 
-// Утилита для безопасного выполнения промиса с обработкой ошибок
 async function safePromise<T>(p: Promise<T>, fallback: T, errorContext: string): Promise<T> {
     try {
         return await p;
@@ -37,8 +38,7 @@ async function safePromise<T>(p: Promise<T>, fallback: T, errorContext: string):
 }
 
 export async function POST(req: NextRequest) {
-    // Rate limiting для AI chat (строгий лимит)
-    const { checkRateLimit, RATE_LIMIT_PRESETS } = await import('@/lib/rate-limit');
+    // Rate limiting для AI chat
     const rateLimit = checkRateLimit(req, RATE_LIMIT_PRESETS.AI);
     if (!rateLimit.allowed) {
         return NextResponse.json(
@@ -59,6 +59,11 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+        // 1) Проверка оплаты x402
+        const block = await requireX402(req, '/api/paid/chat/message');
+        if (block) return block;
+
+        // 2) Авторизация пользователя
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
@@ -71,20 +76,19 @@ export async function POST(req: NextRequest) {
 
         if (!userMessage) return NextResponse.json({ error: 'message_required' }, { status: 400 });
 
-        // Загружаем историю сообщений из базы данных (более надежно, чем полагаться только на клиент)
-        const { data: dbHistory, error: historyError } = await supa
+        // Загружаем историю сообщений из базы данных
+        const { data: dbHistory } = await supa
             .from('chat_messages')
             .select('role, content, created_at')
             .eq('user_id', userId)
             .order('created_at', { ascending: true })
-            .limit(50); // Загружаем последние 50 сообщений
+            .limit(50);
 
-        // Используем историю из БД, если она есть, иначе используем историю с клиента
         const conversationHistory = (dbHistory && dbHistory.length > 0)
             ? dbHistory.map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }))
             : clientHistory;
 
-        // Проверка плана пользователя
+        // Получаем план пользователя
         const { data: planData } = await supa
             .from('user_plans')
             .select('plan, plan_until')
@@ -94,28 +98,10 @@ export async function POST(req: NextRequest) {
         const userPlan = (planData?.plan ?? 'free') as UserPlan;
         const isPro = ['pro', 'premium'].includes(userPlan);
 
-        // Проверка общего лимита AI запросов (для всех функций)
-        const limitCheck = await checkAILimit(supa, userId, userPlan, 'chat/message');
-        if (!limitCheck.allowed) {
-            return NextResponse.json(
-                {
-                    error: 'payment_required',
-                    message: limitCheck.error || `You have reached your daily limit of ${limitCheck.limit} AI requests. Pay $0.20 per request or buy credits.`,
-                    limit: limitCheck.limit,
-                    used: limitCheck.used,
-                    remaining: limitCheck.remaining,
-                    sku: '/api/paid/chat/message',
-                    priceUsd: 0.20,
-                },
-                { status: 402 }
-            );
-        }
-
-        // Получаем контекст пользователя для персональных ответов - using client local date
+        // Получаем контекст пользователя
         const { getClientLocalDate } = await import('@/lib/time');
         const today = getClientLocalDate(req);
 
-        // Для Free - только 7 дней данных, для Pro/Premium - полный контекст (90 дней)
         const daysToFetch = isPro ? 90 : 7;
         const periodStart = new Date();
         periodStart.setDate(periodStart.getDate() - daysToFetch);
@@ -125,7 +111,6 @@ export async function POST(req: NextRequest) {
         threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
         const threeMonthsAgoStr = threeMonthsAgo.toISOString().slice(0, 10);
 
-        // Периоды для сравнения: последние 30 дней vs предыдущие 30 дней (только для Pro)
         const last30DaysStart = new Date();
         last30DaysStart.setDate(last30DaysStart.getDate() - 30);
         const last30DaysStartStr = last30DaysStart.toISOString().slice(0, 10);
@@ -134,19 +119,17 @@ export async function POST(req: NextRequest) {
         previous30DaysStart.setDate(previous30DaysStart.getDate() - 60);
         const previous30DaysStartStr = previous30DaysStart.toISOString().slice(0, 10);
 
-        // Недели для сравнения: эта неделя vs прошлая неделя
         function addDaysISO(isoDate: string, days: number): string {
             const d = new Date(isoDate + 'T00:00:00Z');
             d.setUTCDate(d.getUTCDate() + days);
             return d.toISOString().slice(0, 10);
         }
 
-        const thisWeekStart = addDaysISO(today, -(new Date().getDay() || 7) + 1); // Понедельник = начало недели
+        const thisWeekStart = addDaysISO(today, -(new Date().getDay() || 7) + 1);
         const lastWeekStart = addDaysISO(thisWeekStart, -7);
         const lastWeekEnd = addDaysISO(thisWeekStart, -1);
 
-        // === БАЗОВЫЕ ЗАПРОСЫ (критически важные для быстрого ответа) ===
-        // Выполняются параллельно, но с обработкой ошибок
+        // Базовые запросы
         const basicRequests = await Promise.allSettled([
             supa.from('habits').select('id, title, target_days_per_week, category').eq('user_id', userId).eq('is_active', true),
             supa.from('goals').select('id, title, metric, target, unit, due_date, status, progress, important, urgent').eq('user_id', userId).eq('status', 'active'),
@@ -155,103 +138,85 @@ export async function POST(req: NextRequest) {
             supa.rpc('get_user_total_xp', { p_user_id: userId }).single(),
         ]);
 
-        // Извлекаем результаты базовых запросов с fallback значениями
         const habits = basicRequests[0].status === 'fulfilled' ? basicRequests[0].value : { data: [], error: null };
         const goals = basicRequests[1].status === 'fulfilled' ? basicRequests[1].value : { data: [], error: null };
         const recentLogs = basicRequests[2].status === 'fulfilled' ? basicRequests[2].value : { data: [], error: null };
         const streakStatsRes = basicRequests[3].status === 'fulfilled' ? basicRequests[3].value : { data: [], error: null };
         const xpRes = basicRequests[4].status === 'fulfilled' ? basicRequests[4].value : { data: 0, error: null };
 
-        // === РАСШИРЕННЫЕ ЗАПРОСЫ (необязательные, с таймаутами) ===
-        // Выполняются параллельно с базовыми, но не блокируют ответ
+        // Расширенные запросы
         const extendedRequestsPromise = Promise.allSettled([
-            // Wellness metrics (last 30 days)
             withTimeout<any>(
                 supa.from('daily_wellness_metrics').select('date, stress_level, productivity_level, sleep_hours, work_hours').eq('user_id', userId).gte('date', addDaysISO(today, -30)).order('date', { ascending: false }),
                 3000,
                 () => ({ data: [], error: null })
             ),
-            // Wheel scores за период
             withTimeout<any>(
                 supa.from('wheel_scores').select('day, area, score').eq('user_id', userId).gte('day', periodStartStr).order('day', { ascending: false }),
                 3000,
                 () => ({ data: [], error: null })
             ),
-            // Логи за эту неделю
             withTimeout<any>(
                 supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).eq('value', true).gte('date', thisWeekStart),
                 3000,
                 () => ({ data: [], error: null })
             ),
-            // Квесты (последние 7 дней)
             withTimeout<any>(
                 supa.from('events_log').select('name, created_at').eq('user_id', userId).in('name', ['daily_quest_completed', 'weekly_quest_completed', 'monthly_quest_completed']).gte('created_at', addDaysISO(today, -7)).order('created_at', { ascending: false }).limit(5),
                 2000,
                 () => ({ data: [], error: null })
             ),
-            // Достижения (последние 30 дней)
             withTimeout<any>(
                 supa.from('xp_events').select('event_type, metadata, created_at').eq('user_id', userId).eq('event_type', 'achievement').gte('created_at', addDaysISO(today, -30)).order('created_at', { ascending: false }).limit(5),
                 2000,
                 () => ({ data: [], error: null })
             ),
-            // Для Pro - дополнительные расширенные данные (выполняются параллельно, но не блокируют)
             ...(isPro ? [
-                // Все логи за период (90 дней)
                 withTimeout<any>(
                     supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).eq('value', true).gte('date', periodStartStr),
                     5000,
                     () => ({ data: [], error: null })
                 ),
-                // Логи за последние 30 дней
                 withTimeout<any>(
                     supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).eq('value', true).gte('date', last30DaysStartStr),
                     3000,
                     () => ({ data: [], error: null })
                 ),
-                // Логи за предыдущие 30 дней
                 withTimeout<any>(
                     supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).eq('value', true).gte('date', previous30DaysStartStr).lt('date', last30DaysStartStr),
                     3000,
                     () => ({ data: [], error: null })
                 ),
-                // Логи за прошлую неделю
                 withTimeout<any>(
                     supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).eq('value', true).gte('date', lastWeekStart).lte('date', lastWeekEnd),
                     3000,
                     () => ({ data: [], error: null })
                 ),
-                // Weekly summaries
                 withTimeout<any>(
                     supa.from('weekly_summaries').select('iso_week, summary').eq('user_id', userId).order('iso_week', { ascending: false }).limit(12),
                     3000,
                     () => ({ data: [], error: null })
                 ),
-                // Логи с временем для анализа паттернов
                 withTimeout<any>(
                     supa.from('habit_logs').select('habit_id, date, value, created_at').eq('user_id', userId).eq('value', true).gte('date', last30DaysStartStr).order('date', { ascending: false }),
                     4000,
                     () => ({ data: [], error: null })
                 ),
             ] : []),
-        ]).catch(() => []); // Если все расширенные запросы упадут - продолжаем без них
+        ]).catch(() => []);
 
-        // Дожидаемся расширенных запросов (с максимальным таймаутом 5 секунд)
         const extendedRequests = await withTimeout(
             extendedRequestsPromise,
             5000,
             () => []
         );
 
-        // Извлекаем результаты расширенных запросов с fallback значениями
-        // Индексы: 0=wellnessMetrics, 1=wheelScores, 2=logsThisWeek, 3=questEvents, 4=achievementEvents, [+Pro данные]
         const wellnessMetricsRes = extendedRequests[0]?.status === 'fulfilled' ? extendedRequests[0].value : { data: [], error: null };
         const wheelScores90d = extendedRequests[1]?.status === 'fulfilled' ? extendedRequests[1].value : { data: [], error: null };
         const logsThisWeekRes = extendedRequests[2]?.status === 'fulfilled' ? extendedRequests[2].value : { data: [], error: null };
         const questEventsRes = extendedRequests[3]?.status === 'fulfilled' ? extendedRequests[3].value : { data: [], error: null };
         const achievementEventsRes = extendedRequests[4]?.status === 'fulfilled' ? extendedRequests[4].value : { data: [], error: null };
 
-        // Pro данные (если isPro)
         const allLogs90d = isPro && extendedRequests[5]?.status === 'fulfilled' ? extendedRequests[5].value : { data: [], error: null };
         const logsLast30d = isPro && extendedRequests[6]?.status === 'fulfilled' ? extendedRequests[6].value : { data: [], error: null };
         const logsPrevious30d = isPro && extendedRequests[7]?.status === 'fulfilled' ? extendedRequests[7].value : { data: [], error: null };
@@ -259,42 +224,35 @@ export async function POST(req: NextRequest) {
         const weeklySummaries = isPro && extendedRequests[9]?.status === 'fulfilled' ? extendedRequests[9].value : { data: [], error: null };
         const logsWithTimeRes = isPro && extendedRequests[10]?.status === 'fulfilled' ? extendedRequests[10].value : { data: [], error: null };
 
-        // Формируем wheelTrends из wheelScores90d для совместимости
         const wheelTrends = wheelScores90d?.data ? wheelScores90d.data.map((w: any) => ({
             area: w.area,
             score: Number(w.score) || 0,
             day: w.day,
         })) : [];
 
-        // Streak информация
         const streakData = Array.isArray(streakStatsRes.data) ? streakStatsRes.data[0] : null;
         const currentStreak = streakData?.current_streak || 0;
         const bestStreak = streakData?.best_streak || 0;
 
-        // Level/XP информация
+        const { calculateLevel, xpForNextLevel } = await import('@/lib/gamification');
         const totalXP = typeof xpRes.data === 'number' ? xpRes.data : 0;
         const level = calculateLevel(totalXP);
         const xpForNext = xpForNextLevel(level);
-        // Рассчитываем XP в текущем уровне
         const LEVEL_BASE = 50;
         const LEVEL_POWER = 2.49;
         const xpForCurrentLevel = level > 0 ? Math.floor(LEVEL_BASE * Math.pow(level, LEVEL_POWER)) : 0;
         const xpInCurrentLevel = Math.max(0, totalXP - xpForCurrentLevel);
         const xpRemaining = xpForNext === Infinity ? 0 : Math.max(0, xpForNext - xpInCurrentLevel);
 
-        // Quest/Achievement информация
         const recentQuestEvents = questEventsRes.data || [];
         const recentAchievements = achievementEventsRes.data || [];
 
-        // Извлекаем данные из ответов
         const logs90dData = Array.isArray(allLogs90d?.data) ? allLogs90d.data : [];
         const logs30dData = Array.isArray(logsLast30d?.data) ? logsLast30d.data : [];
         const logsThisWeek = Array.isArray(logsThisWeekRes?.data) ? logsThisWeekRes.data : [];
 
-        // Рассчитываем completion rate для каждой привычки
-        // Для Free - используем данные за эту неделю, для Pro - за последние 30 дней
-        const periodForStats = isPro ? logs30dData : logsThisWeek; // Для Free используем данные за эту неделю
-        const weeksForTarget = isPro ? 4 : 1; // Для Free - 1 неделя, для Pro - 4 недели
+        const periodForStats = isPro ? logs30dData : logsThisWeek;
+        const weeksForTarget = isPro ? 4 : 1;
 
         const habitsWithStats = (habits.data || []).map((habit: any) => {
             const habitLogsPeriod = periodForStats.filter((l: any) => l.habit_id === habit.id);
@@ -310,11 +268,9 @@ export async function POST(req: NextRequest) {
             };
         });
 
-        // Оптимизация: ограничиваем до топ-10 привычек по completion rate (или все, если меньше 10)
         const sortedHabits = [...habitsWithStats].sort((a, b) => b.completionRate - a.completionRate);
         const topHabits = sortedHabits.slice(0, 10);
 
-        // Группируем привычки по категориям (только для топ-10)
         const habitsByCategory: Record<string, string[]> = {};
         topHabits.forEach((h: any) => {
             const category = h.category || 'Uncategorized';
@@ -324,11 +280,9 @@ export async function POST(req: NextRequest) {
             habitsByCategory[category].push(h.title);
         });
 
-        // Подготавливаем детали целей
         const allGoalsWithDetails = (goals.data || []).map((goal: any) => {
             let progressPercent = 0;
             if (goal.target && goal.target > 0) {
-                // Если есть progress поле, используем его, иначе пытаемся вычислить
                 const currentProgress = goal.progress || 0;
                 progressPercent = Math.round((currentProgress / goal.target) * 100);
             }
@@ -351,9 +305,7 @@ export async function POST(req: NextRequest) {
             };
         });
 
-        // Оптимизация: ограничиваем до топ-10 целей по приоритету (ближайшие дедлайны или прогресс)
         const sortedGoals = [...allGoalsWithDetails].sort((a, b) => {
-            // Приоритет: ближайшие дедлайны или высокий прогресс
             if (a.daysUntilDue !== null && b.daysUntilDue !== null) {
                 return a.daysUntilDue - b.daysUntilDue;
             }
@@ -363,7 +315,6 @@ export async function POST(req: NextRequest) {
         });
         const goalsWithDetails = sortedGoals.slice(0, 10);
 
-        // Анализируем паттерны времени выполнения (только для Pro)
         const logsWithTime = Array.isArray(logsWithTimeRes?.data) ? logsWithTimeRes.data : [];
         const timePatternsByHabit: Record<string, { avgHour: number; timeOfDay: string }> = {};
 
@@ -374,7 +325,7 @@ export async function POST(req: NextRequest) {
             logsWithTime.forEach((log: any) => {
                 if (log.created_at) {
                     const date = new Date(log.created_at);
-                    const hours = date.getHours() + date.getMinutes() / 60; // Часы с десятичными
+                    const hours = date.getHours() + date.getMinutes() / 60;
                     if (!logsByHabitId.has(log.habit_id)) {
                         logsByHabitId.set(log.habit_id, []);
                     }
@@ -382,9 +333,8 @@ export async function POST(req: NextRequest) {
                 }
             });
 
-            // Вычисляем среднее время для каждой привычки
             logsByHabitId.forEach((hours, habitId) => {
-                if (hours.length >= 3) { // Минимум 3 выполнения для анализа
+                if (hours.length >= 3) {
                     const avgHour = hours.reduce((a, b) => a + b, 0) / hours.length;
                     let timeOfDay = 'Evening';
                     if (avgHour < 12) timeOfDay = 'Morning';
@@ -401,7 +351,6 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // Получаем корреляции (только для Pro)
         const topCorrelations: Array<{ habit_a: string; habit_b: string; correlation: number }> = [];
 
         if (isPro) {
@@ -417,7 +366,6 @@ export async function POST(req: NextRequest) {
                 logsByDateForCorr.get(log.date)!.add(log.habit_id);
             });
 
-            // Вычисляем корреляции для топ привычек (упрощенно, только самые сильные)
             for (let i = 0; i < Math.min(habitIdsArray.length, 5); i++) {
                 for (let j = i + 1; j < Math.min(habitIdsArray.length, 5); j++) {
                     const a = habitIdsArray[i];
@@ -438,7 +386,7 @@ export async function POST(req: NextRequest) {
                     const daysUnion = daysA + daysB - daysBoth;
                     const correlation = daysUnion > 0 ? Number((daysBoth / daysUnion).toFixed(3)) : 0;
 
-                    if (correlation > 0.3) { // Только сильные корреляции (>30%)
+                    if (correlation > 0.3) {
                         topCorrelations.push({
                             habit_a: habitsMap.get(a) || a,
                             habit_b: habitsMap.get(b) || b,
@@ -448,19 +396,15 @@ export async function POST(req: NextRequest) {
                 }
             }
 
-            // Сортируем по силе корреляции
             topCorrelations.sort((a, b) => b.correlation - a.correlation);
-            topCorrelations.splice(3); // Топ 3
+            topCorrelations.splice(3);
         }
 
-        // Вычисляем статистику для сравнения (только для Pro)
-        const logs90d = logs90dData;
-        // Явно указываем тип any[], чтобы TypeScript не выводил тип never[]
+        const logs90d: any[] = logs90dData;
         const logs30d: any[] = logs30dData;
         const logsPrev30d: any[] = Array.isArray(logsPrevious30d?.data) ? logsPrevious30d.data : [];
         const logsLastWeek: any[] = Array.isArray(logsLastWeekRes?.data) ? logsLastWeekRes.data : [];
 
-        // Статистика за последние 30 дней (только для Pro)
         let completedLast30d = 0;
         let activeDaysLast30d = 0;
         let avgPerDayLast30d = '0';
@@ -470,7 +414,6 @@ export async function POST(req: NextRequest) {
             avgPerDayLast30d = activeDaysLast30d > 0 ? (completedLast30d / activeDaysLast30d).toFixed(1) : '0';
         }
 
-        // Статистика за предыдущие 30 дней (только для Pro)
         let completedPrev30d = 0;
         let activeDaysPrev30d = 0;
         let avgPerDayPrev30d = '0';
@@ -480,17 +423,14 @@ export async function POST(req: NextRequest) {
             avgPerDayPrev30d = activeDaysPrev30d > 0 ? (completedPrev30d / activeDaysPrev30d).toFixed(1) : '0';
         }
 
-        // Изменение в процентах (30 дней, только для Pro)
         const changePercent = isPro && completedPrev30d > 0
             ? Number(((completedLast30d - completedPrev30d) / completedPrev30d * 100).toFixed(1))
             : isPro && completedLast30d > 0 ? 100 : 0;
 
-        // Статистика за эту неделю
         const completedThisWeek = logsThisWeek.length;
         const activeDaysThisWeek = new Set(logsThisWeek.map((l: any) => l.date)).size;
         const avgPerDayThisWeek = activeDaysThisWeek > 0 ? (completedThisWeek / activeDaysThisWeek).toFixed(1) : '0';
 
-        // Статистика за прошлую неделю (только для Pro)
         let completedLastWeek = 0;
         let activeDaysLastWeek = 0;
         let avgPerDayLastWeek = '0';
@@ -500,12 +440,10 @@ export async function POST(req: NextRequest) {
             avgPerDayLastWeek = activeDaysLastWeek > 0 ? (completedLastWeek / activeDaysLastWeek).toFixed(1) : '0';
         }
 
-        // Изменение в процентах (недели, только для Pro)
         const weekChangePercent = isPro && completedLastWeek > 0
             ? Number(((completedThisWeek - completedLastWeek) / completedLastWeek * 100).toFixed(1))
             : isPro && completedThisWeek > 0 ? 100 : 0;
 
-        // Wheel сравнение: средний score сейчас vs 30 дней назад (только для Pro)
         const wheelScores = Array.isArray(wheelScores90d?.data) ? wheelScores90d.data : [];
         let avgWheelRecent = 0;
         let avgWheelPrevious = 0;
@@ -526,17 +464,15 @@ export async function POST(req: NextRequest) {
                 : avgWheelRecent > 0 ? 100 : 0;
         }
 
-        // Формируем контекст для AI (ограниченный для Free, полный для Pro)
         const context = {
             habits: topHabits.map(h => h.title) || [],
-            habitsWithStats: topHabits, // Используем только топ-10
+            habitsWithStats: topHabits,
             habitsByCategory: habitsByCategory,
             activeGoals: goalsWithDetails.map(g => g.title) || [],
-            goalsWithDetails: goalsWithDetails, // Уже ограничено до топ-10
+            goalsWithDetails: goalsWithDetails,
             recentActivity: recentLogs.data?.filter(l => l.value === true).length || 0,
             wheelTrends: wheelTrends || [],
             weeklySummary: (weeklySummaries.data && weeklySummaries.data.length > 0) ? (weeklySummaries.data[0] as any)?.summary || null : null,
-            // Данные для сравнения (только для Pro)
             threeMonthsStats: isPro ? {
                 totalCompleted: logs90d.length,
                 last30Days: {
@@ -562,7 +498,6 @@ export async function POST(req: NextRequest) {
                 week: ws.iso_week,
                 summary: ws.summary,
             })) : [],
-            // Сравнение недель (только для Pro)
             weekComparison: isPro ? {
                 thisWeek: {
                     completed: completedThisWeek,
@@ -577,36 +512,29 @@ export async function POST(req: NextRequest) {
                 changePercent: weekChangePercent,
                 trend: (weekChangePercent > 5 ? 'improving' : weekChangePercent < -5 ? 'declining' : 'stable') as 'improving' | 'stable' | 'declining',
             } : undefined,
-            // Streak информация
             streak: {
                 current: currentStreak,
                 best: bestStreak,
             },
-            // Level/XP информация
             gamification: {
                 level: level,
                 totalXP: totalXP,
                 xpRemaining: xpRemaining,
             },
-            // Quest/Achievement информация
             recentQuests: recentQuestEvents.map((q: any) => q.name).slice(0, 3),
             recentAchievements: recentAchievements.map((a: any) => a.metadata?.achievement_id || 'achievement').slice(0, 3),
-            // Correlation Patterns (только для Pro)
             correlations: isPro ? topCorrelations : [],
-            // Preferred Time Patterns (только для Pro)
             timePatterns: isPro ? timePatternsByHabit : {},
-            // Wellness Metrics (last 30 days)
             wellnessMetrics: Array.isArray(wellnessMetricsRes.data) ? wellnessMetricsRes.data.slice(0, 30) : [],
         };
 
-        // AI ответ (используем DeepSeek для сложных задач)
+        // AI ответ
         const deepseekResult = await getDeepSeekWithLimitCheck(supa);
         if (deepseekResult.error) {
             return deepseekResult.error;
         }
         const { aiClient, model } = deepseekResult;
 
-        // Get user's main focus
         const { data: profileData } = await supa
             .from('user_profile_settings')
             .select('main_focus')
@@ -615,14 +543,12 @@ export async function POST(req: NextRequest) {
 
         const userMainFocus = profileData?.main_focus || null;
 
-        // Get current time in user's timezone
         const tzOffsetMinutesRaw = Number(req.headers.get('x-timezone-offset') ?? '0');
         const timezoneOffsetMinutes = Number.isFinite(tzOffsetMinutesRaw) ? tzOffsetMinutesRaw : 0;
         const timezoneOffsetMs = timezoneOffsetMinutes * 60 * 1000;
         const clientNow = new Date(Date.now() - timezoneOffsetMs);
         const currentDate = clientNow.toString();
 
-        // Используем улучшенный промпт из централизованной библиотеки
         const systemPrompt = buildChatPrompt({
             habits: context.habits,
             habitsWithStats: context.habitsWithStats,
@@ -647,20 +573,16 @@ export async function POST(req: NextRequest) {
             userMainFocus,
         });
 
-        // Собираем историю сообщений для контекста разговора
         const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
             { role: 'system', content: systemPrompt },
         ];
 
-        // Добавляем историю разговора (последние 20 сообщений для Pro/Premium, 10 для Free)
-        // Это позволяет AI лучше понимать контекст предыдущих сообщений
         const historyLimit = isPro ? 20 : 10;
         const recentHistory = conversationHistory.slice(-historyLimit);
         for (const msg of recentHistory) {
             messages.push({ role: msg.role, content: msg.content });
         }
 
-        // Добавляем текущее сообщение
         messages.push({ role: 'user', content: userMessage });
 
         const chat = await aiClient.chat.completions.create({
@@ -671,17 +593,15 @@ export async function POST(req: NextRequest) {
 
         const response = chat.choices[0]?.message?.content || 'I apologize, but I could not generate a response. Please try again.';
 
-        // Сохраняем сообщения в базу данных (в фоне, не блокируем ответ)
+        // Сохраняем сообщения в базу данных
         (async () => {
             try {
-                // Сохраняем сообщение пользователя
                 await supa.from('chat_messages').insert({
                     user_id: userId,
                     role: 'user',
                     content: userMessage,
                 });
 
-                // Сохраняем ответ AI
                 await supa.from('chat_messages').insert({
                     user_id: userId,
                     role: 'assistant',
@@ -689,27 +609,33 @@ export async function POST(req: NextRequest) {
                 });
             } catch (error) {
                 console.error('[Chat] Failed to save messages to database:', error);
-                // Не блокируем ответ из-за ошибки сохранения
             }
         })();
 
-        // Отправляем ответ пользователю сразу
         const responseData = {
             response,
             plan: userPlan,
-            aiLimit: {
-                used: limitCheck.used + 1, // +1 потому что мы еще не залогировали этот запрос
-                limit: limitCheck.limit,
-                remaining: Math.max(0, limitCheck.remaining - 1),
-            },
         };
 
-        // Логируем AI запрос в фоне (не блокируем ответ, помечаем как DeepSeek)
+        // Логируем AI запрос (не считается в лимит, так как оплачено)
         (async () => {
             await logAIRequest(supa, userId, userPlan, 'chat/message', deepseekResult.markAsDeepSeek({
                 message_length: userMessage.length,
+                paid: true,
             }));
         })();
+
+        // Логируем платёжное событие
+        await supa.from('paid_events').insert({
+            user_id: userId,
+            endpoint: 'chat/message',
+            amount_usd: AI_REQUEST_PRICE_USD,
+            status: 'settled',
+            meta: { 
+                paid_via: 'x402',
+                sku: '/api/paid/chat/message',
+            },
+        });
 
         return NextResponse.json(responseData);
     } catch (e: any) {
@@ -717,4 +643,3 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'failed_to_generate_response', detail: e?.message }, { status: 500 });
     }
 }
-

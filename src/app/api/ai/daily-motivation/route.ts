@@ -78,16 +78,7 @@ export async function GET(req: NextRequest) {
             console.warn('[AI Daily Motivation] Cache lookup failed:', cacheError);
         }
 
-        // Если кэша нет - проверяем лимит перед генерацией нового сообщения
-        const limitCheck = await checkAILimit(supa, userId, userPlan);
-        if (!limitCheck.allowed) {
-            // Возвращаем fallback сообщение вместо ошибки (чтобы не ломать UI)
-            return NextResponse.json({
-                message: 'Start your day with intention. Every small step counts! 💪',
-                cached: false,
-                limitReached: true,
-            });
-        }
+        // Daily Tip всегда бесплатный, не проверяем лимит
 
         // Получаем данные за последние 7 дней для динамических инсайтов
         const sevenDaysAgo = new Date(clientNow);
@@ -396,10 +387,8 @@ export async function GET(req: NextRequest) {
 
         const message = chat.choices[0]?.message?.content || 'Start your day with intention. Every small step counts! 💪';
 
-        // Логируем AI запрос в фоне
-        (async () => {
-            await logAIRequest(supa, userId, userPlan, 'ai/daily-motivation');
-        })();
+        // Daily Tip не логируется как ai_request (не считается в лимит)
+        // logAIRequest автоматически пропустит его через EXCLUDED_FROM_LIMIT
 
         // Сохраняем в events_log как кеш
         try {

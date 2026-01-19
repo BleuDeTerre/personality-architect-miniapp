@@ -24,8 +24,7 @@ export default function BuyProButton() {
                 return;
             }
             if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-            const exp = j.expiresAt ? new Date(j.expiresAt).toLocaleDateString() : "";
-            toast.success(`Pack purchased: ${j.credits} credits, valid until ${exp}`);
+            toast.success(`Pack purchased: ${j.credits} credits (never expire)`);
             window.location.reload();
         } catch (e: any) {
             toast.error(`Purchase error: ${e?.message || "unknown"}`);

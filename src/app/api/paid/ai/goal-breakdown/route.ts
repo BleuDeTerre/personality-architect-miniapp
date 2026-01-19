@@ -1,15 +1,16 @@
-// src/app/api/ai/goal-breakdown/route.ts
+// src/app/api/paid/ai/goal-breakdown/route.ts
+// Paid version of ai/goal-breakdown - оплата через X402 ($0.20)
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireX402 } from '@/lib/x402Guard';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
 import { GOAL_BREAKDOWN_PROMPT } from '@/lib/aiPrompts';
-import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
+import { logAIRequest, type UserPlan } from '@/lib/aiLimits';
 import { getAICache, setAICache } from '@/lib/aiCacheHelper';
-import crypto from 'crypto';
+import { AI_REQUEST_PRICE_USD } from '@/lib/pricing';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
@@ -34,6 +35,11 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+        // 1) Проверка оплаты x402
+        const block = await requireX402(req, '/api/paid/ai/goal-breakdown');
+        if (block) return block;
+
+        // 2) Авторизация пользователя
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) {
             return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -53,7 +59,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'goal_title_required' }, { status: 400 });
         }
 
-        // Получаем план пользователя для проверки лимита
+        // Получаем план пользователя
         const { data: planData } = await supa
             .from('user_plans')
             .select('plan')
@@ -61,7 +67,7 @@ export async function POST(req: NextRequest) {
             .maybeSingle();
         const userPlan = (planData?.plan ?? 'free') as UserPlan;
 
-        // Создаем ключ для кеша на основе цели (разбивка не меняется, если цель не изменилась)
+        // Создаем ключ для кеша
         const cacheKey = {
             goal_title: goalTitle,
             goal_description: goalDescription || '',
@@ -70,7 +76,7 @@ export async function POST(req: NextRequest) {
             urgent: urgent,
         };
 
-        // Проверяем кеш (7 дней - разбивка цели не меняется часто)
+        // Проверяем кеш (7 дней)
         const cached = await getAICache<{
             steps: any[];
             milestones: any[];
@@ -78,38 +84,17 @@ export async function POST(req: NextRequest) {
         }>(supa, userId, {
             endpoint: 'ai/goal-breakdown',
             input: cacheKey,
-            cacheHours: 24 * 7, // 7 дней
+            cacheHours: 24 * 7,
         });
 
         if (cached) {
             return NextResponse.json({ ...cached, cached: true });
         }
 
-        // Проверяем лимит перед генерацией плана
-        const limitCheck = await checkAILimit(supa, userId, userPlan, 'ai/goal-breakdown');
-        if (!limitCheck.allowed) {
-            return NextResponse.json(
-                {
-                    error: 'payment_required',
-                    message: limitCheck.error || 'You have reached your daily AI request limit. Pay $0.20 per request or buy credits.',
-                    limit: limitCheck.limit,
-                    used: limitCheck.used,
-                    sku: '/api/paid/ai/goal-breakdown',
-                    priceUsd: 0.20,
-                    limit: limitCheck.limit,
-                    used: limitCheck.used,
-                    sku: '/api/paid/ai/goal-breakdown',
-                    priceUsd: 0.20,
-                },
-                { status: 402 }
-            );
-        }
-
         // Получаем текущую дату для контекста
         const currentDate = new Date();
-        const currentDateStr = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        const currentDateStr = currentDate.toISOString().split('T')[0];
         
-        // Вычисляем количество дней до дедлайна
         let daysUntilDue = null;
         let deadlineContext = '';
         if (dueDate) {
@@ -119,7 +104,7 @@ export async function POST(req: NextRequest) {
             deadlineContext = `IMPORTANT: The goal deadline is in ${daysUntilDue} days (${dueDate}). All steps and milestones MUST fit within this timeframe. Total estimated days for all steps combined must NOT exceed ${daysUntilDue} days.`;
         }
 
-        // Получаем существующие привычки пользователя для контекста
+        // Получаем существующие привычки пользователя
         const { data: habits } = await supa
             .from('habits')
             .select('title')
@@ -128,7 +113,7 @@ export async function POST(req: NextRequest) {
 
         const existingHabits = (habits || []).map(h => h.title).join(', ') || 'None';
 
-        // Получаем wellness метрики за последние 7 дней для понимания capacity
+        // Получаем wellness метрики за последние 7 дней
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
@@ -142,7 +127,6 @@ export async function POST(req: NextRequest) {
             .lte('date', todayStr)
             .order('date', { ascending: false });
 
-        // Вычисляем средние wellness метрики
         const wellnessContext = wellness && wellness.length > 0 ? (() => {
             const validMetrics = wellness.filter((m: any) => 
                 m.stress_level !== null || m.productivity_level !== null || 
@@ -173,7 +157,7 @@ export async function POST(req: NextRequest) {
             return `User's current capacity (last 7 days): ${parts.join(', ')}. Consider this when planning steps - adjust scope if stress is high (>7) or sleep is low (<7h).`;
         })() : '';
 
-        // Генерируем план через AI (используем DeepSeek для сложных задач)
+        // Генерируем план через AI
         const deepseekResult = await getDeepSeekWithLimitCheck(supa);
         if (deepseekResult.error) {
             return deepseekResult.error;
@@ -225,15 +209,28 @@ export async function POST(req: NextRequest) {
         await setAICache(supa, userId, {
             endpoint: 'ai/goal-breakdown',
             input: cacheKey,
-            cacheHours: 24 * 7, // 7 дней
+            cacheHours: 24 * 7,
         }, response);
 
-        // Логируем AI запрос в фоне (помечаем как DeepSeek)
+        // Логируем AI запрос (не считается в лимит, так как оплачено)
         (async () => {
             await logAIRequest(supa, userId, userPlan, 'ai/goal-breakdown', deepseekResult.markAsDeepSeek({
                 goal_title: goalTitle,
+                paid: true,
             }));
         })();
+
+        // Логируем платёжное событие
+        await supa.from('paid_events').insert({
+            user_id: userId,
+            endpoint: 'ai/goal-breakdown',
+            amount_usd: AI_REQUEST_PRICE_USD,
+            status: 'settled',
+            meta: { 
+                paid_via: 'x402',
+                sku: '/api/paid/ai/goal-breakdown',
+            },
+        });
 
         return NextResponse.json(response);
     } catch (error: any) {
@@ -241,4 +238,3 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'failed_to_generate_plan', message: error?.message }, { status: 500 });
     }
 }
-

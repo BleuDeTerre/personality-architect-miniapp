@@ -1,14 +1,16 @@
-// src/app/api/insight/coach/route.ts
+// src/app/api/paid/insight/coach/route.ts
+// Paid version of insight/coach - оплата через X402 ($0.20)
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireX402 } from '@/lib/x402Guard';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { COACH_ADVICE_PROMPT } from '@/lib/aiPrompts';
-import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
+import { logAIRequest, type UserPlan } from '@/lib/aiLimits';
 import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
 import { getAICache, setAICache } from '@/lib/aiCacheHelper';
+import { AI_REQUEST_PRICE_USD } from '@/lib/pricing';
 import crypto from 'crypto';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 
@@ -34,9 +36,13 @@ export async function GET(req: NextRequest) {
     }
 
     try {
+        // 1) Проверка оплаты x402
+        const block = await requireX402(req, '/api/paid/insight/coach');
+        if (block) return block;
+
+        // 2) Авторизация пользователя
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) {
-            console.error('[Coach API] No authorization token');
             return NextResponse.json({ error: 'unauthorized', message: 'No authorization token provided' }, { status: 401 });
         }
 
@@ -44,49 +50,41 @@ export async function GET(req: NextRequest) {
         try {
             const user = await requireUserFromReq(req);
             userId = user.id;
-            console.log('[Coach API] User authenticated:', userId);
         } catch (authError: any) {
-            console.error('[Coach API] Authentication error:', authError?.message);
             return NextResponse.json({ error: 'unauthorized', message: authError?.message || 'Authentication failed' }, { status: 401 });
         }
 
         const supa = createUserServerClient(token);
 
-        // Получаем тренды Wheel напрямую из таблицы wheel_scores (как в /api/wheel/trends), без RPC
+        // Получаем план пользователя
+        const { data: planData } = await supa
+            .from('user_plans')
+            .select('plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+        const userPlan = (planData?.plan ?? 'free') as UserPlan;
+
+        // Получаем тренды Wheel
         const { data: wheelRows, error: wheelErr } = await supa
             .from('wheel_scores')
             .select('area, score, week')
             .eq('user_id', userId)
             .order('week', { ascending: true });
         if (wheelErr) {
-            console.error('[Coach API] Error fetching wheel trends:', wheelErr);
             return NextResponse.json({ error: 'failed_to_fetch_trends', message: wheelErr.message }, { status: 500 });
         }
         const trends = wheelRows ?? [];
-        console.log('[Coach API] Wheel trends fetched:', trends.length, 'items');
 
         // Получаем активные цели
-        const { data: goals, error: goalsErr } = await supa.rpc('get_goals_active', {});
-        if (goalsErr) {
-            console.error('[Coach API] Error fetching goals:', goalsErr);
-            // Не критично, можем продолжить без целей
-            console.warn('[Coach API] Continuing without goals data');
-        }
-        console.log('[Coach API] Goals fetched:', goals?.length || 0, 'items');
+        const { data: goals } = await supa.rpc('get_goals_active', {});
 
         // Получаем последнее еженедельное резюме
-        const { data: ws, error: wsErr } = await supa
+        const { data: ws } = await supa
             .from('weekly_summaries')
             .select('iso_week, summary')
             .eq('user_id', userId)
             .order('iso_week', { ascending: false })
             .limit(1);
-        if (wsErr) {
-            console.error('[Coach API] Error fetching weekly summary:', wsErr);
-            // Не критично, можем продолжить без резюме
-            console.warn('[Coach API] Continuing without weekly summary');
-        }
-        console.log('[Coach API] Weekly summary fetched:', ws?.length ? 'yes' : 'no');
 
         // Получаем wellness метрики за последние 7 дней
         const sevenDaysAgo = new Date();
@@ -133,15 +131,7 @@ export async function GET(req: NextRequest) {
             return `Wellness (last 7 days): ${parts.join(', ')}`;
         })() : '';
 
-        // Получаем план пользователя для проверки лимита
-        const { data: planData } = await supa
-            .from('user_plans')
-            .select('plan')
-            .eq('user_id', userId)
-            .maybeSingle();
-        const userPlan = (planData?.plan ?? 'free') as UserPlan;
-
-        // Создаем ключ для кеша на основе всех данных (если данные не изменились, совет тот же)
+        // Создаем ключ для кеша
         const trendsHash = trends.map(t => `${t.area}:${t.score}:${t.week}`).join('|');
         const goalsHash = (goals || []).map((g: any) => `${g.id}:${g.title}:${g.progress || 0}`).join('|');
         const weeklySummaryHash = ws?.[0]?.summary ? crypto.createHash('sha256').update(ws[0].summary).digest('hex').slice(0, 8) : 'none';
@@ -152,10 +142,9 @@ export async function GET(req: NextRequest) {
             wellness_hash: wellnessContext ? crypto.createHash('sha256').update(wellnessContext).digest('hex').slice(0, 8) : 'none',
         };
 
-        // Проверяем кеш (6 часов - данные могут меняться чаще, чем wheel insights)
+        // Проверяем кеш (6 часов)
         const cached = await getAICache<{
             advice: string;
-            aiLimit: { used: number; limit: number; remaining: number };
             plan: string;
         }>(supa, userId, {
             endpoint: 'insight/coach',
@@ -167,29 +156,12 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ ...cached, cached: true });
         }
 
-        // Проверяем лимит перед генерацией совета (Coach Advice имеет 1 дополнительный бесплатный)
-        const limitCheck = await checkAILimit(supa, userId, userPlan, 'insight/coach');
-        if (!limitCheck.allowed) {
-            return NextResponse.json(
-                {
-                    error: 'payment_required',
-                    message: limitCheck.error || 'You have reached your daily AI request limit. Pay $0.20 per request or buy credits.',
-                    limit: limitCheck.limit,
-                    used: limitCheck.used,
-                    sku: '/api/paid/insight/coach',
-                    priceUsd: 0.20,
-                },
-                { status: 402 }
-            );
-        }
-
-        // Используем DeepSeek для сложных задач (с проверкой лимита)
+        // Используем DeepSeek для сложных задач
         const deepseekResult = await getDeepSeekWithLimitCheck(supa);
         if (deepseekResult.error) {
             return deepseekResult.error;
         }
-        const { aiClient, model, deepseekLimitCheck } = deepseekResult;
-        console.log('[Coach API] Using provider: deepseek, model:', model, `DeepSeek usage: ${deepseekLimitCheck.used}/980`);
+        const { aiClient, model } = deepseekResult;
 
         const sys = COACH_ADVICE_PROMPT;
         const userMsg = [
@@ -202,7 +174,6 @@ export async function GET(req: NextRequest) {
             wellnessContext || '',
         ].filter(Boolean).join('\n');
 
-        console.log('[Coach API] Sending request to AI...');
         const chat = await aiClient.chat.completions.create({
             model,
             temperature: 0.2,
@@ -210,20 +181,13 @@ export async function GET(req: NextRequest) {
         });
 
         const advice = chat.choices[0]?.message?.content ?? '';
-        console.log('[Coach API] DeepSeek response received, length:', advice.length);
 
         if (!advice.trim()) {
-            console.warn('[Coach API] Empty advice received from DeepSeek');
             return NextResponse.json({ error: 'empty_response', message: 'No advice generated. Please try again.' }, { status: 500 });
         }
 
         const response = {
             advice,
-            aiLimit: {
-                used: limitCheck.used + 1, // +1 потому что мы только что залогировали
-                limit: limitCheck.limit,
-                remaining: Math.max(0, limitCheck.remaining - 1),
-            },
             plan: userPlan,
         };
 
@@ -234,17 +198,30 @@ export async function GET(req: NextRequest) {
             cacheHours: 6,
         }, response);
 
-        // Логируем AI запрос в фоне (помечаем как DeepSeek)
+        // Логируем AI запрос (не считается в лимит, так как оплачено)
         (async () => {
             await logAIRequest(supa, userId, userPlan, 'insight/coach', deepseekResult.markAsDeepSeek({
                 provider: 'deepseek',
                 model,
+                paid: true,
             }));
         })();
 
+        // Логируем платёжное событие
+        await supa.from('paid_events').insert({
+            user_id: userId,
+            endpoint: 'insight/coach',
+            amount_usd: AI_REQUEST_PRICE_USD,
+            status: 'settled',
+            meta: { 
+                paid_via: 'x402',
+                sku: '/api/paid/insight/coach',
+            },
+        });
+
         return NextResponse.json(response);
     } catch (e: any) {
-        console.error('[Coach API] Unexpected error:', e);
+        console.error('[Paid Coach API] Unexpected error:', e);
         const status = e?.status || e?.statusCode || 500;
         return NextResponse.json({
             error: e?.message || 'internal_server_error',

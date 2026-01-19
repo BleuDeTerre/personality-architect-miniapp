@@ -1,34 +1,34 @@
-// src/app/api/ai/goal-review/route.ts
+// src/app/api/paid/ai/goal-review/route.ts
+// Paid version of ai/goal-review - оплата через X402 ($0.20)
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireX402 } from '@/lib/x402Guard';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { getAIClient, getAIModel, pickAIProvider } from '@/lib/aiModel';
 import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
 import { GOAL_REVIEW_PROMPT } from '@/lib/aiPrompts';
-import { checkAILimit, logAIRequest, type UserPlan } from '@/lib/aiLimits';
+import { logAIRequest, type UserPlan } from '@/lib/aiLimits';
 import { getAICache, setAICache } from '@/lib/aiCacheHelper';
+import { AI_REQUEST_PRICE_USD } from '@/lib/pricing';
 import crypto from 'crypto';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 
-// Типы для Review
 type ReviewStatus = 'on_track' | 'off_track' | 'overdue';
 
 interface GoalReviewData {
     goalId: string;
     goalTitle: string;
-    progress: number; // 0-120 (clamped)
-    progressRaw: number; // оригинальный прогресс без clamping
+    progress: number;
+    progressRaw: number;
     assessment: string;
     recommendation: string;
     isOnTrack: boolean;
     status: ReviewStatus;
-    daysRemaining: number | null; // положительное число = дней до дедлайна, отрицательное = просрочено на X дней
-    overdueDays?: number; // сколько дней просрочено (если статус overdue)
+    daysRemaining: number | null;
+    overdueDays?: number;
 }
 
-// Генерация вариативных фолбэков на основе прогресса, дедлайна и приоритета
 function generateFallbackReview(
     goalTitle: string,
     progressRaw: number,
@@ -42,7 +42,6 @@ function generateFallbackReview(
     const overdueDays = isOverdue ? Math.abs(daysRemaining) : 0;
     const status: ReviewStatus = isOverdue ? 'overdue' : (progressClamped >= 75 ? 'on_track' : 'off_track');
     
-    // Вариативные assessment тексты
     const assessments: Record<ReviewStatus, string[]> = {
         on_track: [
             `Great progress on "${goalTitle}"! You're ${progressClamped}% through your timeline.`,
@@ -64,7 +63,6 @@ function generateFallbackReview(
         ],
     };
 
-    // Вариативные recommendation тексты
     const getRecommendation = (): string => {
         if (isOverdue) {
             if (important && urgent) {
@@ -94,7 +92,6 @@ function generateFallbackReview(
         return `You're almost there! Maintain your current pace and focus on completing the final steps.`;
     };
 
-    // Выбираем случайный assessment из подходящих
     const statusAssessments = assessments[status];
     const assessment = statusAssessments[Math.floor(Math.random() * statusAssessments.length)];
 
@@ -104,7 +101,6 @@ function generateFallbackReview(
     };
 }
 
-// Функция для расчета прогресса с clamping и статуса
 function calculateGoalProgress(
     createdDate: Date,
     dueDate: Date | null,
@@ -124,19 +120,15 @@ function calculateGoalProgress(
     let daysRemaining: number | null = null;
     
     if (dueDate === null || totalDays === null || totalDays <= 0) {
-        // Нет дедлайна или некорректный дедлайн
-        progressRaw = Math.min(100, (daysSinceStart / 30) * 100); // предполагаем 30 дней по умолчанию
+        progressRaw = Math.min(100, (daysSinceStart / 30) * 100);
         daysRemaining = null;
     } else {
-        // Есть дедлайн
         progressRaw = (daysSinceStart / totalDays) * 100;
         daysRemaining = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     }
     
-    // Clamping прогресса: 0-120%
     const progressClamped = Math.max(0, Math.min(120, Math.round(progressRaw)));
     
-    // Определяем статус
     let status: ReviewStatus;
     if (daysRemaining !== null && daysRemaining < 0) {
         status = 'overdue';
@@ -147,7 +139,7 @@ function calculateGoalProgress(
     }
     
     return {
-        progressRaw: Math.round(progressRaw * 10) / 10, // округляем до 1 знака
+        progressRaw: Math.round(progressRaw * 10) / 10,
         progressClamped,
         status,
         daysRemaining,
@@ -178,6 +170,11 @@ export async function GET(req: NextRequest) {
     }
 
     try {
+        // 1) Проверка оплаты x402
+        const block = await requireX402(req, '/api/paid/ai/goal-review');
+        if (block) return block;
+
+        // 2) Авторизация пользователя
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) {
             return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -186,7 +183,7 @@ export async function GET(req: NextRequest) {
         const { id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
 
-        // Получаем план пользователя для проверки лимита
+        // Получаем план пользователя
         const { data: planData } = await supa
             .from('user_plans')
             .select('plan')
@@ -194,7 +191,7 @@ export async function GET(req: NextRequest) {
             .maybeSingle();
         const userPlan = (planData?.plan ?? 'free') as UserPlan;
 
-        // Получаем активные цели (включая матрицу Эйзенхауэра)
+        // Получаем активные цели
         const { data: goals } = await supa
             .from('goals')
             .select('id, title, metric, target, unit, due_date, created_at, status, important, urgent')
@@ -205,7 +202,7 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ reviews: [] });
         }
 
-        // Получаем wellness метрики за последние 7 дней для контекста
+        // Получаем wellness метрики за последние 7 дней
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
@@ -219,7 +216,6 @@ export async function GET(req: NextRequest) {
             .lte('date', todayStr)
             .order('date', { ascending: false });
 
-        // Вычисляем средние wellness метрики
         const wellnessContext = wellness && wellness.length > 0 ? (() => {
             const validMetrics = wellness.filter((m: any) =>
                 m.stress_level !== null || m.productivity_level !== null ||
@@ -252,7 +248,6 @@ export async function GET(req: NextRequest) {
 
         const today = new Date();
         
-        // Создаем ключ для кеша на основе всех целей (если цели не изменились, результат тот же)
         const goalsHash = goals.map(g => `${g.id}:${g.title}:${g.target || ''}:${g.due_date || ''}`).join('|');
         const cacheKey = {
             goals_hash: goalsHash,
@@ -270,57 +265,7 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ reviews: cached.reviews, cached: true });
         }
 
-        // Проверяем лимит один раз перед AI запросом
-        const limitCheck = await checkAILimit(supa, userId, userPlan, 'ai/goal-review');
-        if (!limitCheck.allowed) {
-            // Если лимит достигнут - возвращаем 402 для оплаты
-            return NextResponse.json(
-                {
-                    error: 'payment_required',
-                    message: limitCheck.error || 'You have reached your daily AI request limit. Pay $0.20 per request or buy credits.',
-                    limit: limitCheck.limit,
-                    used: limitCheck.used,
-                    sku: '/api/paid/ai/goal-review',
-                    priceUsd: 0.20,
-                },
-                { status: 402 }
-            );
-        }
-        
-        // Если лимит достигнут - используем вариативный fallback для всех целей (этот код больше не выполнится, но оставлю для совместимости)
-        if (false) {
-            const fallbackReviews: GoalReviewData[] = goals.map(goal => {
-                const createdDate = new Date(goal.created_at);
-                const dueDate = goal.due_date ? new Date(goal.due_date) : null;
-                
-                const progressData = calculateGoalProgress(createdDate, dueDate, today);
-                const fallback = generateFallbackReview(
-                    goal.title,
-                    progressData.progressRaw,
-                    progressData.progressClamped,
-                    progressData.daysRemaining,
-                    goal.important || false,
-                    goal.urgent || false,
-                    progressData.daysSinceStart
-                );
-
-                return {
-                    goalId: goal.id,
-                    goalTitle: goal.title,
-                    progress: progressData.progressClamped,
-                    progressRaw: progressData.progressRaw,
-                    assessment: fallback.assessment,
-                    recommendation: fallback.recommendation,
-                    isOnTrack: progressData.status === 'on_track',
-                    status: progressData.status,
-                    daysRemaining: progressData.daysRemaining,
-                    overdueDays: progressData.overdueDays,
-                };
-            });
-            return NextResponse.json({ reviews: fallbackReviews });
-        }
-
-        // Подготавливаем данные для всех целей сразу
+        // Подготавливаем данные для всех целей
         const goalsData = goals.map(goal => {
             const createdDate = new Date(goal.created_at);
             const dueDate = goal.due_date ? new Date(goal.due_date) : null;
@@ -345,7 +290,7 @@ export async function GET(req: NextRequest) {
             };
         });
 
-        // Генерируем обзор через AI для ВСЕХ целей одним запросом
+        // Генерируем обзор через AI
         const deepseekResult = await getDeepSeekWithLimitCheck(supa);
         if (deepseekResult.error) {
             return deepseekResult.error;
@@ -355,7 +300,6 @@ export async function GET(req: NextRequest) {
         const reviews: GoalReviewData[] = [];
 
         try {
-            // Формируем один большой запрос для всех целей
             const goalsText = goalsData.map((g, idx) => {
                 const statusText = g.status === 'overdue' 
                     ? `  Status: OVERDUE by ${g.overdueDays || 0} days`
@@ -418,11 +362,9 @@ export async function GET(req: NextRequest) {
 
             const result = JSON.parse(chat.choices[0]?.message?.content || '{}');
 
-            // Создаем reviews из результата AI
             for (const goalData of goalsData) {
                 const goalResult = result[String(goalData.id)] || result[goalData.id] || {};
                 
-                // Если AI не вернул результат, используем вариативный fallback
                 if (!goalResult.assessment || !goalResult.recommendation) {
                     const fallback = generateFallbackReview(
                         goalData.title,
@@ -447,7 +389,6 @@ export async function GET(req: NextRequest) {
                         overdueDays: goalData.overdueDays,
                     });
                 } else {
-                    // AI вернул результат
                     reviews.push({
                         goalId: goalData.id,
                         goalTitle: goalData.title,
@@ -463,14 +404,14 @@ export async function GET(req: NextRequest) {
                 }
             }
 
-            // Логируем AI запрос в фоне (помечаем как DeepSeek)
+            // Логируем AI запрос (не считается в лимит, так как оплачено)
             (async () => {
                 await logAIRequest(supa, userId, userPlan, 'ai/goal-review', deepseekResult.markAsDeepSeek({
                     goals_count: goals.length,
+                    paid: true,
                 }));
             })();
         } catch (_aiError) {
-            // Fallback для всех целей с вариативными текстами
             for (const goalData of goalsData) {
                 const fallback = generateFallbackReview(
                     goalData.title,
@@ -504,10 +445,21 @@ export async function GET(req: NextRequest) {
             cacheHours: 24,
         }, { reviews });
 
+        // Логируем платёжное событие
+        await supa.from('paid_events').insert({
+            user_id: userId,
+            endpoint: 'ai/goal-review',
+            amount_usd: AI_REQUEST_PRICE_USD,
+            status: 'settled',
+            meta: { 
+                paid_via: 'x402',
+                sku: '/api/paid/ai/goal-review',
+            },
+        });
+
         return NextResponse.json({ reviews });
     } catch (error: any) {
         console.error('[AI Goal Review] Error:', error);
         return NextResponse.json({ reviews: [], error: error?.message });
     }
 }
-

@@ -63,12 +63,15 @@ export type UnlockType = keyof typeof UNLOCKS;
 export const FREE_LIMITS = {
     habits: 5,       // Максимум 5 привычек для Free
     goals: 3,        // Максимум 3 цели для Free
-    aiRequestsPerDay: 5, // 5 AI запросов в день
+    aiRequestsPerDay: 2, // 2 AI запросов в день (Daily Tip не считается)
 } as const;
 
 // =============================================================================
 // OTHER PRICES - другие платные функции
 // =============================================================================
+
+// Цена за один AI запрос через X402
+export const AI_REQUEST_PRICE_USD = 0.20;
 
 export const PRICES_USD = {
     "/api/paid/credits/small": CREDIT_PACKS.small.priceUsd,
@@ -78,6 +81,15 @@ export const PRICES_USD = {
     "/api/paid/unlock/goals": UNLOCKS.goals.priceUsd,
     "/api/paid/unlock/bundle": UNLOCKS.bundle.priceUsd,
     "/api/mint": 0.19,
+    // Paid AI endpoints - $0.20 за запрос
+    "/api/paid/insight/weekly": AI_REQUEST_PRICE_USD,
+    "/api/paid/insight/monthly": AI_REQUEST_PRICE_USD,
+    "/api/paid/insight/habit": AI_REQUEST_PRICE_USD,
+    "/api/paid/chat/message": AI_REQUEST_PRICE_USD,
+    "/api/paid/ai/goal-review": AI_REQUEST_PRICE_USD,
+    "/api/paid/ai/goal-breakdown": AI_REQUEST_PRICE_USD,
+    "/api/paid/ai/wheel-insights": AI_REQUEST_PRICE_USD,
+    "/api/paid/insight/coach": AI_REQUEST_PRICE_USD,
 } as const;
 
 export type PaidPath = keyof typeof PRICES_USD;
