@@ -289,7 +289,7 @@ export async function GET(req: NextRequest) {
         
         // Если лимит достигнут - используем вариативный fallback для всех целей (этот код больше не выполнится, но оставлю для совместимости)
         if (false) {
-            const fallbackReviews: GoalReviewData[] = goals.map(goal => {
+            const fallbackReviews: GoalReviewData[] = (goals || []).map(goal => {
                 const createdDate = new Date(goal.created_at);
                 const dueDate = goal.due_date ? new Date(goal.due_date) : null;
                 

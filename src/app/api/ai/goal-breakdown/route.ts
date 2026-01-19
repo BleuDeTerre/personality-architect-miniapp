@@ -96,10 +96,6 @@ export async function POST(req: NextRequest) {
                     used: limitCheck.used,
                     sku: '/api/paid/ai/goal-breakdown',
                     priceUsd: 0.20,
-                    limit: limitCheck.limit,
-                    used: limitCheck.used,
-                    sku: '/api/paid/ai/goal-breakdown',
-                    priceUsd: 0.20,
                 },
                 { status: 402 }
             );
