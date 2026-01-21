@@ -61,9 +61,15 @@ export async function checkAILimit(
     };
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  // Используем UTC для определения дня (согласованно со всеми запросами)
+  // Исправлено: dayEnd должен быть началом следующего дня, а не 23:59:59 текущего дня
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
   const dayStart = new Date(`${today}T00:00:00Z`);
-  const dayEnd = new Date(`${today}T23:59:59Z`);
+  // Следующий день для правильного сравнения (< вместо <=)
+  const nextDay = new Date(dayStart);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  const dayEnd = nextDay;
 
   // Count all AI requests today (excluding Daily Tip)
   const { data: dailyRequests, error } = await supa
@@ -158,9 +164,13 @@ export async function logAIRequest(
   }
 
   // First, check if we need to consume a bonus credit
-  const today = new Date().toISOString().slice(0, 10);
+  // Исправлено: dayEnd должен быть началом следующего дня
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
   const dayStart = new Date(`${today}T00:00:00Z`);
-  const dayEnd = new Date(`${today}T23:59:59Z`);
+  const nextDay = new Date(dayStart);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  const dayEnd = nextDay;
 
   const { data: dailyRequests } = await supa
     .from('events_log')
@@ -239,9 +249,13 @@ export async function getAITodayUsage(
 ): Promise<{ used: number; limit: number; remaining: number; bonusCredits: number }> {
   const limit = AI_LIMITS.DAILY_FREE;
 
-  const today = new Date().toISOString().slice(0, 10);
+  // Исправлено: dayEnd должен быть началом следующего дня
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
   const dayStart = new Date(`${today}T00:00:00Z`);
-  const dayEnd = new Date(`${today}T23:59:59Z`);
+  const nextDay = new Date(dayStart);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  const dayEnd = nextDay;
 
   const { data: dailyRequests, error } = await supa
     .from('events_log')

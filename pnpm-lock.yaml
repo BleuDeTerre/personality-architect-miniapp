@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@coinbase/cdp-sdk':
+        specifier: ^1.43.0
+        version: 1.43.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)
       '@farcaster/miniapp-sdk':
         specifier: ^0.1.8
         version: 0.1.8(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76)
