@@ -33,6 +33,8 @@ export const EMOJI_TO_MATERIAL_ICON: Record<string, string> = {
   '💬': 'chat_bubble',
   '📞': 'phone',
   '🤝': 'handshake',
+  '👋': 'waving_hand',
+  '📅': 'calendar_month',
   '☀️': 'wb_sunny',
   '🌙': 'dark_mode',
   '💸': 'savings',
