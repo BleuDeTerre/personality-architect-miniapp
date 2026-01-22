@@ -541,7 +541,7 @@ export default function ChatPage() {
                 sku={payModal.sku}
                 priceUsd={payModal.priceUsd}
                 requestBody={payModal.requestBody}
-                onSuccess={async (result) => {
+                onSuccess={async (result: unknown) => {
                     // Для quick actions - нужно сделать GET запрос после оплаты
                     if (payModal.sku?.includes('insight/weekly')) {
                         // Закрываем модалку

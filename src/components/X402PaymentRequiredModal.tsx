@@ -6,15 +6,22 @@ import { toast } from 'sonner';
 import { Wallet } from 'lucide-react';
 import { payWithX402 } from '@/lib/x402ClientHelper';
 import { useMiniApp } from '@neynar/react';
+import { createClient } from '@supabase/supabase-js';
 
-type Props = {
+export type X402PaymentRequiredModalProps = {
   open: boolean;
   onClose: () => void;
   title?: string;
   message?: string;
   sku?: string;
   priceUsd?: number;
+  /** Request body to send with the paid request */
+  requestBody?: Record<string, unknown>;
+  /** Callback with successful response data */
+  onSuccess?: (data: unknown) => void;
 };
+
+type Props = X402PaymentRequiredModalProps;
 
 export default function X402PaymentRequiredModal({
   open,
@@ -23,6 +30,8 @@ export default function X402PaymentRequiredModal({
   message,
   sku,
   priceUsd,
+  requestBody,
+  onSuccess,
 }: Props) {
   const router = useRouter();
   const { isSDKLoaded, context } = useMiniApp();
@@ -66,6 +75,22 @@ export default function X402PaymentRequiredModal({
       // x402-fetch сам попытается найти injected wallet provider (window.ethereum или window.farcaster.wallet)
       // В Farcaster Mini App среде кошелек должен быть доступен через injected provider
 
+      // Получаем JWT токен для авторизации
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        toast.error('Not authenticated', { 
+          description: 'Please sign in to make a payment.',
+          duration: 4000,
+        });
+        return;
+      }
+
       // Используем x402-fetch для автоматической обработки платежей
       // Если x402-fetch не доступен (нет injected wallet), будет использован обычный fetch
       // В Farcaster Mini App среде платеж должен обрабатываться автоматически
@@ -73,7 +98,9 @@ export default function X402PaymentRequiredModal({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
+        body: requestBody ? JSON.stringify(requestBody) : undefined,
       });
 
       if (res.status === 402) {
@@ -100,10 +127,10 @@ export default function X402PaymentRequiredModal({
       toast.success('Payment successful', { duration: 2000 });
       onClose();
       
-      // Перезагружаем страницу для обновления данных
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      // Вызываем callback с результатом если передан
+      if (onSuccess) {
+        onSuccess(result);
+      }
     } catch (e: any) {
       console.error('[X402Payment] Error:', e);
       
