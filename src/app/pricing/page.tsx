@@ -360,10 +360,6 @@ export default function PricingPage() {
                             <span className="text-green-400">✓</span>
                             XP, Levels & 10 Achievement Badges
                         </li>
-                        <li className="flex items-center gap-2">
-                            <span className="text-green-400">✓</span>
-                            NFT Badge minting on Base
-                        </li>
                     </ul>
                 </section>
 

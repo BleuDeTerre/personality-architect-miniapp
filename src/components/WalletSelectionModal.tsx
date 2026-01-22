@@ -221,7 +221,7 @@ export default function WalletSelectionModal() {
                     Choose Wallet
                 </h2>
                 <p className="text-sm text-white/60 text-center mb-6">
-                    Select which wallet to use for badge minting and onchain actions
+                    Select which wallet to use for onchain actions
                 </p>
 
                 {/* Wallet Options */}

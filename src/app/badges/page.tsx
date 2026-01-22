@@ -8,6 +8,7 @@ import PayButton from '@/components/PayButton';
 import BadgeImage from '@/components/BadgeImage';
 
 const PAID_PATH = '/api/mint' as const;
+const MINTING_ENABLED = process.env.NEXT_PUBLIC_MINTING_ENABLED === 'true';
 
 function isEthAddress(s: string) { return /^0x[0-9a-fA-F]{40}$/.test(s); }
 
@@ -52,6 +53,38 @@ export default function BadgesPage() {
     }
     return () => t && clearInterval(t);
   }, [txHash]);
+
+  if (!MINTING_ENABLED) {
+    return (
+      <div className="max-w-3xl mx-auto p-4 space-y-6">
+        <h1 className="text-2xl font-semibold">Badges</h1>
+        <div className="relative rounded-2xl border border-white/10 bg-[#1a1b2e] p-12">
+          <div className="absolute inset-0 rounded-2xl backdrop-blur-md bg-black/40 flex items-center justify-center">
+            <div className="text-center space-y-3 p-6">
+              <div className="text-4xl">🔒</div>
+              <div className="text-2xl font-semibold text-white">Coming Soon</div>
+              <div className="text-sm text-white/70">
+                Badge features are being prepared
+              </div>
+            </div>
+          </div>
+          <div className="blur-sm pointer-events-none">
+            <div className="grid sm:grid-cols-2 gap-4">
+              {BADGES.map(b => (
+                <div key={b.slug} className="border rounded-2xl p-4 flex items-center gap-4">
+                  <BadgeImage src={b.image} alt={b.title} className="w-16 h-16 rounded-xl object-cover" />
+                  <div className="flex-1">
+                    <div className="font-semibold">{b.title}</div>
+                    <div className="text-sm text-neutral-500">{b.description}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-6">

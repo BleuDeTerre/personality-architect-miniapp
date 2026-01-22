@@ -255,6 +255,9 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
     const renderBadges = () => {
         if (!badgePanel) return null;
         
+        // Флаг для включения/выключения функционала минта NFT
+        const MINTING_ENABLED = process.env.NEXT_PUBLIC_MINTING_ENABLED === 'true';
+        
         // Логирование для отладки
         console.log('[Achievements] Rendering badges, wallet:', badgePanel.wallet ? badgePanel.wallet.slice(0, 10) + '...' : 'null');
         
@@ -286,7 +289,21 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
         }
 
         return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="relative">
+                {/* Blur overlay когда минт выключен */}
+                {!MINTING_ENABLED && (
+                    <div className="absolute inset-0 z-10 rounded-2xl backdrop-blur-md bg-black/40 flex items-center justify-center">
+                        <div className="text-center space-y-2 p-6">
+                            <div className="text-2xl">🔒</div>
+                            <div className="text-lg font-semibold text-white">Coming Soon</div>
+                            <div className="text-sm text-white/70">
+                                Badge features are being prepared
+                            </div>
+                        </div>
+                    </div>
+                )}
+                
+                <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${!MINTING_ENABLED ? 'blur-sm pointer-events-none' : ''}`}>
                 {BADGES.map(badge => {
                     const st = badgePanel.statusMap[badge.slug] ?? 'none';
                     const elig = badgePanel.eligibility[badge.slug] ?? { eligible: false, reason: '' };
@@ -320,65 +337,70 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
                                     </div>
                                 )}
 
-                                {!badgePanel.wallet ? (
-                                    <div className="text-sm text-white/60">Connect wallet to mint.</div>
-                                ) : elig.eligible ? (
-                                    <div className="text-xs text-green-400 font-semibold mb-2">
-                                        ✓ Eligible to mint
-                                    </div>
-                                ) : null}
+                                {MINTING_ENABLED && (
+                                    <>
+                                        {!badgePanel.wallet ? (
+                                            <div className="text-sm text-white/60">Connect wallet to mint.</div>
+                                        ) : elig.eligible ? (
+                                            <div className="text-xs text-green-400 font-semibold mb-2">
+                                                ✓ Eligible to mint
+                                            </div>
+                                        ) : null}
 
-                                <button
-                                    disabled={disabled || !elig.eligible || st === 'success'}
-                                    onClick={async () => {
-                                        if (disabled || st === 'success') return;
+                                        <button
+                                            disabled={disabled || !elig.eligible || st === 'success'}
+                                            onClick={async () => {
+                                                if (disabled || st === 'success') return;
+                                                
+                                                // Если нет кошелька, обновляем его из базы данных
+                                                if (!badgePanel.wallet) {
+                                                    if (badgePanel.onRefreshWallet) {
+                                                        await badgePanel.onRefreshWallet();
+                                                    }
+                                                    return;
+                                                }
+                                                
+                                                // Если кошелек есть, но бейдж не подходит для минтинга
+                                                if (!elig.eligible) return;
+                                                
+                                                // Минтим бейдж
+                                                await badgePanel.onMint(badge.slug);
+                                            }}
+                                            className={`w-full rounded-2xl px-4 py-2 text-sm font-semibold transition ${st === 'success'
+                                                ? 'bg-white/10 text-white cursor-default'
+                                                : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white hover:opacity-90 disabled:opacity-50'
+                                                }`}
+                                        >
+                                            {badgePanel.busyCode === badge.slug
+                                                ? 'Minting…'
+                                                : !badgePanel.wallet
+                                                    ? 'Add wallet'
+                                                    : st === 'success'
+                                                        ? (
+                                                            <span className="flex items-center gap-1">
+                                                                <IconDisplay emoji="✅" size="text-sm" />
+                                                                <span>Minted</span>
+                                                            </span>
+                                                        )
+                                                        : 'Mint'}
+                                        </button>
                                         
-                                        // Если нет кошелька, обновляем его из базы данных
-                                        if (!badgePanel.wallet) {
-                                            if (badgePanel.onRefreshWallet) {
-                                                await badgePanel.onRefreshWallet();
-                                            }
-                                            return;
-                                        }
-                                        
-                                        // Если кошелек есть, но бейдж не подходит для минтинга
-                                        if (!elig.eligible) return;
-                                        
-                                        // Минтим бейдж
-                                        await badgePanel.onMint(badge.slug);
-                                    }}
-                                    className={`w-full rounded-2xl px-4 py-2 text-sm font-semibold transition ${st === 'success'
-                                        ? 'bg-white/10 text-white cursor-default'
-                                        : 'bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white hover:opacity-90 disabled:opacity-50'
-                                        }`}
-                                >
-                                    {badgePanel.busyCode === badge.slug
-                                        ? 'Minting…'
-                                        : !badgePanel.wallet
-                                            ? 'Add wallet'
-                                            : st === 'success'
-                                                ? (
-                                                    <span className="flex items-center gap-1">
-                                                        <IconDisplay emoji="✅" size="text-sm" />
-                                                        <span>Minted</span>
-                                                    </span>
-                                                )
-                                                : 'Mint'}
-                                </button>
-                                
-                                {/* Share button for minted badges */}
-                                {st === 'success' && (
-                                    <button
-                                        onClick={() => shareBadge(badge)}
-                                        className="w-full rounded-2xl px-4 py-2 text-sm font-semibold bg-gradient-to-r from-[#EC4899] to-[#F97316] text-white hover:opacity-90 transition-opacity"
-                                    >
-                                        🎯 Share on Farcaster
-                                    </button>
+                                        {/* Share button for minted badges */}
+                                        {st === 'success' && (
+                                            <button
+                                                onClick={() => shareBadge(badge)}
+                                                className="w-full rounded-2xl px-4 py-2 text-sm font-semibold bg-gradient-to-r from-[#EC4899] to-[#F97316] text-white hover:opacity-90 transition-opacity"
+                                            >
+                                                🎯 Share on Farcaster
+                                            </button>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </div>
                     );
                 })}
+                </div>
             </div>
         );
     };

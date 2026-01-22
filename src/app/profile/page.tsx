@@ -106,18 +106,23 @@ export default function ProfilePage() {
         };
     }, []);
 
+    // Флаг для включения/выключения функционала минта NFT
+    const MINTING_ENABLED = process.env.NEXT_PUBLIC_MINTING_ENABLED === 'true';
+
     // Already minted badge statuses
     const refreshMints = useCallback(async () => {
+        if (!MINTING_ENABLED) return;
         const r = await fetch('/api/mints/status', { headers: await authHeaders() });
         if (!r.ok) return;
         const rows: Array<{ badge_code: string; status: MintStatus }> = await r.json();
         const map: Record<string, MintStatus> = {};
         rows.forEach(x => { map[x.badge_code] = x.status; });
         setStatusMap(map);
-    }, [authHeaders]);
+    }, [authHeaders, MINTING_ENABLED]);
 
     // Eligibility per badge
     const refreshEligibility = useCallback(async () => {
+        if (!MINTING_ENABLED) return;
         const entries = await Promise.all(
             BADGES.map(async b => {
                 const r = await fetch(`/api/mints/eligibility?code=${b.slug}`, { headers: await authHeaders() });
@@ -127,7 +132,7 @@ export default function ProfilePage() {
             })
         );
         setEligMap(Object.fromEntries(entries));
-    }, [authHeaders]);
+    }, [authHeaders, MINTING_ENABLED]);
 
     // Export data handler - использует SDK openUrl для работы в miniapp
     const handleExport = useCallback((format: 'csv' | 'markdown' | 'json') => {
@@ -1021,7 +1026,7 @@ export default function ProfilePage() {
                 {/* Achievements Section */}
                 <section className="mb-3">
                     <Achievements
-                        badgePanel={{
+                        badgePanel={process.env.NEXT_PUBLIC_MINTING_ENABLED === 'true' ? {
                             loading: badgesLoading,
                             statusMap,
                             eligibility: eligMap,
@@ -1029,7 +1034,7 @@ export default function ProfilePage() {
                             wallet: p.wallet,
                             onMint: mint,
                             onRefreshWallet: refreshWallet,
-                        }}
+                        } : undefined}
                     />
                 </section>
 
