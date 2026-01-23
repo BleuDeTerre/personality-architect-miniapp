@@ -419,17 +419,39 @@ export default function PricingPage() {
                                                 {UNLOCKS.bundle.description}
                                             </p>
                                             {bundleBonus && (
-                                                <p className="text-xs mt-2">
-                                                    {bundleBonus.available ? (
-                                                        <span className="text-green-400">
-                                                            {bundleBonus.message}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-white/60">
-                                                            {bundleBonus.message}
-                                                        </span>
+                                                <div className="mt-3 space-y-2">
+                                                    {!bundleBonus.available && shareCastBonus && (
+                                                        <div className="space-y-1.5">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className="text-xs font-medium text-white/70">
+                                                                    Share casts progress
+                                                                </span>
+                                                                <span className="text-xs font-semibold text-purple-400 whitespace-nowrap">
+                                                                    {shareCastBonus.castCount}/{bundleBonus.requiredCasts}
+                                                                </span>
+                                                            </div>
+                                                            <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                                                                <div
+                                                                    className="h-full rounded-full bg-gradient-to-r from-purple-500 to-purple-700 transition-all duration-300"
+                                                                    style={{
+                                                                        width: `${Math.min(100, (shareCastBonus.castCount / bundleBonus.requiredCasts) * 100)}%`
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        </div>
                                                     )}
-                                                </p>
+                                                    <p className="text-xs">
+                                                        {bundleBonus.available ? (
+                                                            <span className="text-green-400 font-medium">
+                                                                {bundleBonus.message}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-white/60">
+                                                                {bundleBonus.message}
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                </div>
                                             )}
                                         </div>
                                         <div className="flex flex-col items-end gap-1 ml-4">
