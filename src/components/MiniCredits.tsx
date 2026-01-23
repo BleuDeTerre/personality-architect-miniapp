@@ -22,7 +22,7 @@ export default function MiniCredits({ priceUsd }: { priceUsd: number }) {
     return (
         <div className="flex items-center gap-2">
             <span className="px-2 py-1 rounded-full border text-xs">
-                Pro: {data.credits} credits
+                AI: {data.credits} credits
             </span>
             <span className="text-xs opacity-70">
                 {hasCredit ? `You save $${priceUsd.toFixed(2)}` : `No credits`}

@@ -2,7 +2,7 @@
 // Helper функции для работы с бонусами за share casts
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { SHARE_CAST_BONUSES, BUNDLE_DISCOUNTED_PRICE, UNLOCKS, type UnlockType } from './pricing';
+import { SHARE_CAST_BONUSES, BUNDLE_DISCOUNTED_PRICE, UNLOCKS, REFERRAL_DISCOUNT_AMOUNT, type UnlockType } from './pricing';
 
 /**
  * Подсчитывает количество опубликованных кастов пользователя
@@ -39,6 +39,8 @@ export async function getShareCastBonus(
     discountPercent?: number;
     originalPrice: number;
     discountedPrice?: number;
+    referralDiscount?: boolean;
+    referralDiscountAmount?: number;
 }> {
     const castCount = await getShareCastCount(supa, userId);
 
@@ -46,6 +48,16 @@ export async function getShareCastBonus(
     if (unlockType === 'bundle') {
         const bonus = SHARE_CAST_BONUSES.bundleDiscount;
         const available = castCount >= bonus.requiredCasts;
+        
+        // Проверяем реферальную скидку
+        const hasReferral = await hasReferralDiscount(supa, userId);
+        
+        // Рассчитываем финальную цену с учетом всех скидок
+        let discountedPrice = available ? BUNDLE_DISCOUNTED_PRICE : UNLOCKS.bundle.priceUsd;
+        if (hasReferral) {
+            discountedPrice = Math.max(0, discountedPrice - REFERRAL_DISCOUNT_AMOUNT);
+            discountedPrice = Math.round(discountedPrice * 100) / 100;
+        }
 
         return {
             available,
@@ -53,7 +65,9 @@ export async function getShareCastBonus(
             requiredCasts: bonus.requiredCasts,
             discountPercent: available ? bonus.discountPercent : undefined,
             originalPrice: UNLOCKS.bundle.priceUsd,
-            discountedPrice: available ? BUNDLE_DISCOUNTED_PRICE : undefined,
+            discountedPrice: (available || hasReferral) ? discountedPrice : undefined,
+            referralDiscount: hasReferral,
+            referralDiscountAmount: hasReferral ? REFERRAL_DISCOUNT_AMOUNT : undefined,
         };
     }
 
@@ -67,7 +81,33 @@ export async function getShareCastBonus(
 }
 
 /**
- * Получает финальную цену для unlock с учетом бонусов за касты
+ * Проверяет, доступна ли реферальная скидка для пригласившего
+ * (если у пользователя есть приглашенные, которые сделали каст)
+ */
+export async function hasReferralDiscount(
+    supa: SupabaseClient,
+    userId: string
+): Promise<boolean> {
+    try {
+        const { data, error } = await supa.rpc('check_referral_discount_eligible', {
+            p_inviter_id: userId,
+        });
+
+        if (error) {
+            console.error('[Referral Discount] Error checking eligibility:', error);
+            return false;
+        }
+
+        return data === true;
+    } catch (error) {
+        console.error('[Referral Discount] Error:', error);
+        return false;
+    }
+}
+
+/**
+ * Получает финальную цену для unlock с учетом всех бонусов (касты + реферальная скидка)
+ * Реферальная скидка уже учтена в getShareCastBonus, поэтому просто возвращаем discountedPrice
  */
 export async function getUnlockPriceWithBonus(
     supa: SupabaseClient,
@@ -75,5 +115,6 @@ export async function getUnlockPriceWithBonus(
     unlockType: UnlockType
 ): Promise<number> {
     const bonus = await getShareCastBonus(supa, userId, unlockType);
+    // discountedPrice уже учитывает все скидки (касты + реферальная)
     return bonus.discountedPrice ?? bonus.originalPrice;
 }

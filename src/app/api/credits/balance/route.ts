@@ -4,15 +4,11 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/auth';
-import { PRICES_USD } from '@/lib/pricing';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 
-// Карта прайсинга (используем примерные цены для расчета экономии)
-const PRICE_BY_ENDPOINT: Record<string, number> = {
-  'insight/habit': 0.15, // Примерная цена (оплата пока не реализована)
-  'insight/weekly': 0.25, // Примерная цена (оплата пока не реализована)
-  'insight/monthly': 0.35, // Примерная цена (оплата пока не реализована)
-};
+// Для UI: считаем "usedCredits" и "savedUsd" по событиям consume_credit (meta.used_credit=true).
+// savedUsd — оценка (условно $0.25 за 1 кредит), не привязана к x402.
+const ASSUMED_USD_PER_CREDIT = 0.25;
 
 export async function GET(req: NextRequest) {
   // Rate limiting для чтения данных
@@ -43,51 +39,28 @@ export async function GET(req: NextRequest) {
     const { id: userId } = await requireUserFromReq(req);
     const supa = createUserServerClient(token);
 
-    // 2) Основной источник с 2025-10: users.pro_credits
-    let credits = 0;
-    let creditsSource: 'users.pro_credits' | 'user_credits' = 'users.pro_credits';
-    let expiresAt: string | null = null;
+    // 2) Единый источник истины: покупные кредиты = сумма user_credits.amount (не истекают)
+    const { data: creditRows, error: creditsErr } = await supa
+      .from('user_credits')
+      .select('amount')
+      .eq('user_id', userId);
 
-    // читаем pro_credits из users (новая схема)
-    const { data: u, error: uErr } = await supa
-      .from('users')
-      .select('pro_credits')
-      .eq('id', userId)
-      .single();
-
-    if (!uErr && u) {
-      credits = Number(u.pro_credits ?? 0);
-    } else {
-      // 3) Фолбэк на старую схему (user_credits)
-      // Если у проекта пока еще используется user_credits — корректно вернём данные.
-      creditsSource = 'user_credits';
-      const PERIOD = 'pro-monthly';
-      const { data: uc, error: ucErr } = await supa
-        .from('user_credits')
-        .select('credits, expires_at')
-        .eq('user_id', userId)
-        .eq('period', PERIOD)
-        .maybeSingle();
-
-      if (ucErr) {
-        // Если таблицы нет или нет доступа — возвращаем пустой баланс, но не падаем 500
-        credits = 0;
-        expiresAt = null;
-      } else {
-        credits = Number(uc?.credits ?? 0);
-        expiresAt = uc?.expires_at ?? null;
-      }
+    if (creditsErr) {
+      return NextResponse.json({ error: 'credits_unavailable', message: creditsErr.message }, { status: 500 });
     }
 
-    // 4) Посчитать экономию и использованные кредиты по paid_events
+    const credits = creditRows?.reduce((sum, r) => sum + (r.amount || 0), 0) || 0;
+    const expiresAt: string | null = null;
+
+    // 3) Посчитать экономию и использованные кредиты по paid_events (meta.used_credit=true)
     // Требования к схеме paid_events:
     //   - endpoint (nullable ок), meta jsonb (nullable ок)
     //   - reason text not null (мы его точно пишем в consume_credit)
     //   - amount int not null default 1
     //   - created_at timestamptz not null default now()
     //
-    // savedUsd считаем как сумму прайсов по событиям, где meta.used_credit = true.
     // usedCredits — количество таких событий.
+    // savedUsd — оценка: usedCredits * ASSUMED_USD_PER_CREDIT.
     let savedUsd = 0;
     let usedCredits = 0;
 
@@ -101,20 +74,14 @@ export async function GET(req: NextRequest) {
 
     if (!evErr && Array.isArray(evs)) {
       usedCredits = evs.length;
-      savedUsd = Number(
-        evs.reduce((sum, e: any) => {
-          const ep = String(e?.endpoint ?? '');
-          const price = PRICE_BY_ENDPOINT[ep] || 0;
-          return sum + price;
-        }, 0).toFixed(2)
-      );
+      savedUsd = Number((usedCredits * ASSUMED_USD_PER_CREDIT).toFixed(2));
     }
 
-    // 5) Ответ в прежнем формате + пометка источника баланса
+    // 4) Ответ в формате, который ожидает useCredits()
     return NextResponse.json({
-      source: creditsSource, // для отладки: откуда взяли баланс
+      period: 'credits',
       credits,
-      expiresAt,            // только у старой схемы может быть срок
+      expiresAt,
       savedUsd,
       usedCredits,
     });

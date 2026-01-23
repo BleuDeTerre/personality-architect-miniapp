@@ -11,7 +11,7 @@ import { FREE_LIMITS } from './pricing';
 
 export const AI_LIMITS = {
   DAILY_FREE: FREE_LIMITS.aiRequestsPerDay, // общий лимит (не включает AI Chat)
-  CHAT_FREE: FREE_LIMITS.aiChatMessagesPerDay, // отдельный лимит для AI Chat
+  CHAT_FREE: FREE_LIMITS.aiChatMessagesPerDay, // legacy (отдельный лимит чата больше не используем)
 } as const;
 
 // Endpoints которые не считаются в общий лимит и не логируются
@@ -20,9 +20,7 @@ export const EXCLUDED_FROM_LIMIT = [
 ] as const;
 
 // Endpoints, которые НЕ должны попадать в общий дневной лимит (но логируются)
-export const EXCLUDED_FROM_DAILY_FREE = [
-  'chat/message', // AI Chat — отдельный лимит
-] as const;
+export const EXCLUDED_FROM_DAILY_FREE: readonly string[] = [];
 
 // Keep UserPlan for backward compatibility, but premium is deprecated
 export type UserPlan = 'free' | 'pro' | 'premium';
@@ -105,24 +103,7 @@ export async function checkAILimit(
 
   const bonusCredits = creditsData?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
 
-  // === AI Chat: отдельный лимит (не влияет на общий) ===
-  if (endpoint === 'chat/message') {
-    const chatUsed = countedRequests.filter(req => req.props?.endpoint === 'chat/message').length;
-    const chatRemaining = Math.max(0, AI_LIMITS.CHAT_FREE - chatUsed);
-    const allowed = chatRemaining > 0 || bonusCredits > 0;
-    return {
-      allowed,
-      limit: AI_LIMITS.CHAT_FREE,
-      used: chatUsed,
-      remaining: chatRemaining,
-      bonusCredits,
-      error: !allowed
-        ? `You have used all ${AI_LIMITS.CHAT_FREE} free AI Chat messages today. Pay $0.25 per request or buy credits for more!`
-        : undefined,
-    };
-  }
-
-  // === Общий лимит: исключаем AI Chat из подсчета ===
+  // === Общий лимит: AI Chat теперь входит в общий дневной лимит ===
   const countedForDailyFree = countedRequests.filter(req => {
     const endpointName = req.props?.endpoint as string | undefined;
     return !endpointName || !EXCLUDED_FROM_DAILY_FREE.includes(endpointName as any);
@@ -189,16 +170,11 @@ export async function logAIRequest(
   // Определяем, нужно ли списывать кредит (отдельно для AI Chat и общего лимита)
   let usedBonusCredit = false;
 
-  if (endpoint === 'chat/message') {
-    const chatUsed = countedRequests.filter(req => req.props?.endpoint === 'chat/message').length;
-    usedBonusCredit = chatUsed >= AI_LIMITS.CHAT_FREE;
-  } else {
-    const countedForDailyFree = countedRequests.filter(req => {
-      const endpointName = req.props?.endpoint as string | undefined;
-      return !endpointName || !EXCLUDED_FROM_DAILY_FREE.includes(endpointName as any);
-    });
-    usedBonusCredit = countedForDailyFree.length >= AI_LIMITS.DAILY_FREE;
-  }
+  const countedForDailyFree = countedRequests.filter(req => {
+    const endpointName = req.props?.endpoint as string | undefined;
+    return !endpointName || !EXCLUDED_FROM_DAILY_FREE.includes(endpointName as any);
+  });
+  usedBonusCredit = countedForDailyFree.length >= AI_LIMITS.DAILY_FREE;
 
   // If over free limit, try to consume a bonus credit
   if (usedBonusCredit) {

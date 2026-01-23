@@ -22,6 +22,18 @@ export async function GET(req: NextRequest) {
 
         // Проверяем доступные бонусы
         const bundleBonus = await getShareCastBonus(supa, user.id, 'bundle');
+        
+        // Формируем сообщение с учетом всех скидок
+        let message = '';
+        if (bundleBonus.available && bundleBonus.referralDiscount) {
+            message = `🎉 You got ${bundleBonus.discountPercent}% discount + $${bundleBonus.referralDiscountAmount} referral discount on Full Unlock! Both discounts applied!`;
+        } else if (bundleBonus.available) {
+            message = `🎉 You got ${bundleBonus.discountPercent}% discount on Full Unlock! You can also get $${bundleBonus.referralDiscountAmount || 1} referral discount if someone you invited shares a cast.`;
+        } else if (bundleBonus.referralDiscount) {
+            message = `🎉 You got $${bundleBonus.referralDiscountAmount} referral discount on Full Unlock! Share ${SHARE_CAST_BONUSES.bundleDiscount.requiredCasts - castCount} more cast${SHARE_CAST_BONUSES.bundleDiscount.requiredCasts - castCount === 1 ? '' : 's'} to get an additional ${SHARE_CAST_BONUSES.bundleDiscount.discountPercent}% discount!`;
+        } else {
+            message = `Share ${SHARE_CAST_BONUSES.bundleDiscount.requiredCasts - castCount} more cast${SHARE_CAST_BONUSES.bundleDiscount.requiredCasts - castCount === 1 ? '' : 's'} to get ${SHARE_CAST_BONUSES.bundleDiscount.discountPercent}% discount on Full Unlock. You can also get $1 referral discount if someone you invited shares a cast!`;
+        }
 
         return NextResponse.json({
             castCount,
@@ -32,9 +44,9 @@ export async function GET(req: NextRequest) {
                     discountPercent: bundleBonus.discountPercent,
                     originalPrice: bundleBonus.originalPrice,
                     discountedPrice: bundleBonus.discountedPrice,
-                    message: bundleBonus.available
-                        ? `🎉 You got ${bundleBonus.discountPercent}% discount on Full Unlock!`
-                        : `Share ${SHARE_CAST_BONUSES.bundleDiscount.requiredCasts - castCount} more cast${SHARE_CAST_BONUSES.bundleDiscount.requiredCasts - castCount === 1 ? '' : 's'} to get ${SHARE_CAST_BONUSES.bundleDiscount.discountPercent}% discount on Full Unlock`,
+                    referralDiscount: bundleBonus.referralDiscount,
+                    referralDiscountAmount: bundleBonus.referralDiscountAmount,
+                    message,
                 },
             },
         });

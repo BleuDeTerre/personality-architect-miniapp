@@ -6,7 +6,7 @@ import { useMiniApp } from '@neynar/react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import MiniAppPage from '@/components/MiniAppPage';
-import { CREDIT_PACKS, UNLOCKS, FREE_LIMITS } from '@/lib/pricing';
+import { CREDIT_PACKS, UNLOCKS, FREE_LIMITS, REFERRAL_DISCOUNT_AMOUNT } from '@/lib/pricing';
 import { payWithX402 } from '@/lib/x402ClientHelper';
 
 const supabase = createClient(
@@ -31,6 +31,8 @@ type ShareCastBonus = {
             discountPercent?: number;
             originalPrice: number;
             discountedPrice?: number;
+            referralDiscount?: boolean;
+            referralDiscountAmount?: number;
             message: string;
         };
     };
@@ -266,7 +268,7 @@ export default function PricingPage() {
                 <section className="space-y-3">
                     <h2 className="text-lg font-semibold text-white">💎 AI Credit Packs</h2>
                     <p className="text-xs text-white/60">
-                        Get {FREE_LIMITS.aiRequestsPerDay} free AI requests daily. Buy credits for more!
+                        Get {FREE_LIMITS.aiRequestsPerDay} free AI request daily. Buy credits for more!
                     </p>
                     
                     <div className="space-y-3">
@@ -394,9 +396,19 @@ export default function PricingPage() {
                         {/* Bundle */}
                         {(!limits?.unlocks?.habits || !limits?.unlocks?.goals) && (() => {
                             const bundleBonus = shareCastBonus?.bonuses?.bundle;
-                            const hasDiscount = bundleBonus?.available && bundleBonus.discountedPrice;
-                            const finalPrice = hasDiscount ? bundleBonus.discountedPrice! : UNLOCKS.bundle.priceUsd;
+                            const hasShareCastDiscount = bundleBonus?.available;
+                            const hasReferralDiscount = bundleBonus?.referralDiscount;
+                            const hasAnyDiscount = hasShareCastDiscount || hasReferralDiscount;
+                            
+                            // Используем финальную цену из API (уже учитывает все скидки)
+                            const finalPrice = bundleBonus?.discountedPrice ?? UNLOCKS.bundle.priceUsd;
                             const originalPrice = UNLOCKS.bundle.priceUsd;
+                            // Базовая экономия от bundle (от суммы двух отдельных unlock: $2.99 + $2.99 = $5.98)
+                            const baseBundleSavings = (UNLOCKS.habits.priceUsd + UNLOCKS.goals.priceUsd) - originalPrice;
+                            // Дополнительные скидки (касты + реферальная)
+                            const additionalSavings = originalPrice - finalPrice;
+                            // Общая экономия
+                            const totalSavings = baseBundleSavings + additionalSavings;
                             
                             return (
                                 <div className="rounded-2xl border border-purple-500/50 bg-purple-500/10 p-4">
@@ -407,11 +419,16 @@ export default function PricingPage() {
                                                     {UNLOCKS.bundle.name}
                                                 </span>
                                                 <span className="text-xs bg-purple-500 text-white px-2 py-0.5 rounded-full">
-                                                    SAVE $0.99
+                                                    SAVE ${totalSavings.toFixed(2)}
                                                 </span>
-                                                {hasDiscount && (
+                                                {hasShareCastDiscount && bundleBonus && (
                                                     <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">
                                                         🎉 {bundleBonus.discountPercent}% OFF
+                                                    </span>
+                                                )}
+                                                {hasReferralDiscount && bundleBonus && (
+                                                    <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">
+                                                        🎁 $1 Referral
                                                     </span>
                                                 )}
                                             </div>
@@ -441,7 +458,7 @@ export default function PricingPage() {
                                                         </div>
                                                     )}
                                                     <p className="text-xs">
-                                                        {bundleBonus.available ? (
+                                                        {(bundleBonus.available || bundleBonus.referralDiscount) ? (
                                                             <span className="text-green-400 font-medium">
                                                                 {bundleBonus.message}
                                                             </span>
@@ -451,11 +468,20 @@ export default function PricingPage() {
                                                             </span>
                                                         )}
                                                     </p>
+                                                    {bundleBonus.referralDiscount ? (
+                                                        <p className="text-xs text-blue-400 font-medium">
+                                                            🎁 Referral discount: ${bundleBonus.referralDiscountAmount} off (applied!)
+                                                        </p>
+                                                    ) : (
+                                                        <p className="text-xs text-white/50">
+                                                            💡 Referral bonus: Get an additional ${REFERRAL_DISCOUNT_AMOUNT} discount when someone you invited shares a cast! Both discounts can be combined.
+                                                        </p>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
                                         <div className="flex flex-col items-end gap-1 ml-4">
-                                            {hasDiscount ? (
+                                            {hasAnyDiscount ? (
                                                 <>
                                                     <span className="text-xs text-white/50 line-through">
                                                         ${originalPrice.toFixed(2)}
@@ -507,6 +533,10 @@ export default function PricingPage() {
                         </li>
                         <li className="flex items-center gap-2">
                             <span className="text-green-400">✓</span>
+                            All analytics & progress tracking
+                        </li>
+                        <li className="flex items-center gap-2">
+                            <span className="text-green-400">✓</span>
                             XP, Levels & 10 Achievement Badges
                         </li>
                     </ul>
@@ -515,9 +545,9 @@ export default function PricingPage() {
                 {/* FAQ */}
                 <section className="text-xs text-white/50 space-y-2">
                     <p>
-                        <strong className="text-white/70">How do credits work?</strong> Each AI request 
-                        (chat, insights, reviews) uses 1 credit. You get {FREE_LIMITS.aiRequestsPerDay} free daily, 
-                        then use purchased credits.
+                        <strong className="text-white/70">How do credits work?</strong> Each AI request
+                        (chat, insights, reviews) uses 1 credit. You get {FREE_LIMITS.aiRequestsPerDay} free per day,
+                        then use purchased credits (or pay $0.25 via x402).
                     </p>
                     <p>
                         <strong className="text-white/70">Do credits expire?</strong> No, credits never expire! 

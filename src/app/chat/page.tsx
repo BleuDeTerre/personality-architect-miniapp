@@ -411,19 +411,46 @@ export default function ChatPage() {
                 {/* Chat Area */}
                 <div className="flex-1 min-h-[260px] overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2 space-y-1.5">
                     {messages.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full pt-4 space-y-4">
-                            <div className="text-center space-y-1.5">
-                                <div className="text-lg text-white/90 leading-tight flex items-center justify-center gap-2">
-                                    <IconDisplay emoji="👋" size="text-xl" className="text-purple-400" />
-                                    <span>Hi! I&apos;m your AI coach</span>
-                                </div>
-                                <div className="text-xs text-white/70 leading-tight max-w-[220px] mx-auto">
-                                    Ask me about your habits, goals, or progress
+                        <>
+                            {/* Welcome Message from AI */}
+                            <div className="flex justify-start">
+                                <div className="max-w-[85%] rounded-2xl bg-[#1a1b2e] border border-purple-500/30 p-4 space-y-3">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <IconDisplay emoji="👋" size="text-lg" className="text-purple-400" />
+                                        <span className="text-base font-semibold text-white">Hi! I&apos;m your AI Coach</span>
+                                    </div>
+                                    
+                                    <div className="text-sm text-white/90 space-y-2.5 leading-relaxed">
+                                        <p>
+                                            I can help you with <strong className="text-purple-300">habits, goals, progress analysis</strong>, and personalized advice based on your data.
+                                        </p>
+                                        
+                                        <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                                            <p className="text-xs font-semibold text-white/80 mb-2">💡 What you can ask:</p>
+                                            <ul className="text-xs text-white/70 space-y-1.5 list-disc list-inside">
+                                                <li>How can I improve my habit consistency?</li>
+                                                <li>What&apos;s my progress on [goal name]?</li>
+                                                <li>Analyze my weekly performance</li>
+                                                <li>Give me tips for better productivity</li>
+                                            </ul>
+                                        </div>
+                                        
+                                        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3">
+                                            <p className="text-xs font-semibold text-yellow-300 mb-1">⚡ Daily Limit</p>
+                                            <p className="text-xs text-white/80">
+                                                You get <strong className="text-yellow-300">1 free AI request per day</strong>. After that, use AI Credits (buy packs) or pay <strong className="text-yellow-300">$0.25 per request</strong> via x402.
+                                            </p>
+                                        </div>
+                                        
+                                        <p className="text-xs text-white/60 italic">
+                                            💬 <strong>Tip:</strong> Be specific! Instead of &quot;hi&quot;, ask &quot;How can I improve my morning routine?&quot; to get actionable insights.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                             
                             {/* Quick Action Buttons */}
-                            <div className="flex flex-col gap-2.5 w-full max-w-[280px]">
+                            <div className="flex flex-col gap-2.5 w-full max-w-[280px] mx-auto">
                                 <button
                                     onClick={() => handleQuickAction('weekly')}
                                     disabled={loading}
@@ -458,7 +485,7 @@ export default function ChatPage() {
                                     </div>
                                 </button>
                             </div>
-                        </div>
+                        </>
                     ) : (
                         messages.map((msg, idx) => (
                             <div
@@ -510,7 +537,7 @@ export default function ChatPage() {
                                 sendMessage();
                             }
                         }}
-                        placeholder="Ask me anything about your habits..."
+                        placeholder="Ask about habits, goals, or progress (e.g., 'How can I improve my morning routine?')"
                         className="flex-1 rounded-2xl border border-white/10 bg-[#1a1b2e] text-white px-4 py-3 placeholder:text-white/40 focus:border-[#8B5CF6] focus:outline-none disabled:opacity-50"
                         disabled={loading}
                     />

@@ -38,17 +38,17 @@ export type CreditPack = keyof typeof CREDIT_PACKS;
 
 export const UNLOCKS = {
     habits: {
-        priceUsd: 2.99,
+        priceUsd: 4.99,
         name: 'Unlimited Habits',
         description: 'Remove the 5 habit limit forever + Data export (CSV, JSON, Markdown)',
     },
     goals: {
-        priceUsd: 2.99,
+        priceUsd: 4.99,
         name: 'Unlimited Goals',
         description: 'Remove the 3 goal limit forever + Data export (CSV, JSON, Markdown)',
     },
     bundle: {
-        priceUsd: 4.99,
+        priceUsd: 6.99,
         name: 'Full Unlock',
         description: 'Unlimited habits & goals forever + Data export (CSV, JSON, Markdown)',
     },
@@ -78,14 +78,21 @@ export const BUNDLE_DISCOUNTED_PRICE = Math.round(
 ) / 100; // $3.99 вместо $4.99
 
 // =============================================================================
+// REFERRAL DISCOUNT - реферальная скидка для пригласившего
+// =============================================================================
+
+// Скидка $1 на bundle для пригласившего, если его приглашенный сделал каст
+export const REFERRAL_DISCOUNT_AMOUNT = 1.00; // $1 скидка
+
+// =============================================================================
 // FEATURE LIMITS - лимиты для бесплатных пользователей
 // =============================================================================
 
 export const FREE_LIMITS = {
     habits: 5,       // Максимум 5 привычек для Free
     goals: 3,        // Максимум 3 цели для Free
-    aiRequestsPerDay: 2, // 2 AI запросов в день (Daily Tip и AI Chat не считаются)
-    aiChatMessagesPerDay: 1, // 1 бесплатное сообщение в AI Chat в день (отдельно от общего лимита)
+    aiRequestsPerDay: 1, // 1 AI запрос в день (включая AI Chat; Daily Tip не считается)
+    aiChatMessagesPerDay: 0, // legacy: отдельный лимит чата отключен (используем общий aiRequestsPerDay)
 } as const;
 
 // =============================================================================

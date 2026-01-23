@@ -38,11 +38,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ typ
         return NextResponse.json({ error: 'already_unlocked', message: 'You already have full unlock!' }, { status: 400 });
     }
 
-    // 3) Получаем цену с учетом бонусов за касты
+    // 3) Получаем цену с учетом всех бонусов (касты + реферальная скидка)
     const finalPrice = await getUnlockPriceWithBonus(supa, userId, type);
     const bonus = await getShareCastBonus(supa, userId, type);
     const originalPrice = UNLOCKS[type].priceUsd;
-    const hasDiscount = bonus.available && finalPrice < originalPrice;
+    const hasDiscount = (bonus.available || bonus.referralDiscount) && finalPrice < originalPrice;
 
     // 4) Проверка оплаты x402 (с динамической ценой)
     const block = await requireX402(
@@ -71,7 +71,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ typ
             final_price: finalPrice,
             discount_applied: hasDiscount,
             discount_percent: hasDiscount ? bonus.discountPercent : undefined,
-            share_cast_bonus: hasDiscount,
+            share_cast_bonus: bonus.available,
+            referral_discount: bonus.referralDiscount,
+            referral_discount_amount: bonus.referralDiscountAmount,
         },
     });
 
@@ -86,6 +88,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ typ
         discount: hasDiscount ? {
             percent: bonus.discountPercent,
             amount: originalPrice - finalPrice,
+            referralDiscount: bonus.referralDiscount,
+            referralDiscountAmount: bonus.referralDiscountAmount,
         } : undefined,
     });
 }
@@ -117,10 +121,12 @@ export async function GET(req: NextRequest) {
                 acc[type] = {
                     originalPrice: UNLOCKS[type].priceUsd,
                     finalPrice,
-                    hasDiscount: bonus.available,
+                    hasDiscount: bonus.available || bonus.referralDiscount,
                     discountPercent: bonus.discountPercent,
                     castCount: bonus.castCount,
                     requiredCasts: bonus.requiredCasts,
+                    referralDiscount: bonus.referralDiscount,
+                    referralDiscountAmount: bonus.referralDiscountAmount,
                 };
                 return acc;
             }, {} as Record<string, any>),

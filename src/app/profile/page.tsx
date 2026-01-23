@@ -83,7 +83,7 @@ export default function ProfilePage() {
     const [gamificationStats, setGamificationStats] = useState<UserStats | null>(null);
     const [currentPlan, setCurrentPlan] = useState<'free' | 'pro' | 'premium'>('free');
     const [credits, setCredits] = useState<{ balance: number; nextExpiry: string | null }>({ balance: 0, nextExpiry: null });
-    const [aiUsage, setAiUsage] = useState<{ used: number; limit: number; remaining: number }>({ used: 0, limit: 2, remaining: 2 });
+    const [aiUsage, setAiUsage] = useState<{ used: number; limit: number; remaining: number }>({ used: 0, limit: 1, remaining: 1 });
     const [featureLimits, setFeatureLimits] = useState<{
         habits: { current: number; limit: number; unlimited: boolean };
         goals: { current: number; limit: number; unlimited: boolean };
@@ -447,7 +447,7 @@ export default function ProfilePage() {
                 if (limitsRes.ok) {
                     const limitsData = await limitsRes.json();
                     setCredits(limitsData.credits || { balance: 0, nextExpiry: null });
-                    setAiUsage(limitsData.ai || { used: 0, limit: 2, remaining: 2 });
+                    setAiUsage(limitsData.ai || { used: 0, limit: 1, remaining: 1 });
                     setFeatureLimits({
                         habits: limitsData.habits,
                         goals: limitsData.goals,
@@ -487,7 +487,7 @@ export default function ProfilePage() {
             if (limitsRes.ok) {
                 const limitsData = await limitsRes.json();
                 setCredits(limitsData.credits || { balance: 0, nextExpiry: null });
-                setAiUsage(limitsData.ai || { used: 0, limit: 2, remaining: 2 });
+                setAiUsage(limitsData.ai || { used: 0, limit: 1, remaining: 1 });
                 setFeatureLimits({
                     habits: limitsData.habits,
                     goals: limitsData.goals,
@@ -929,9 +929,9 @@ export default function ProfilePage() {
                             />
                         </div>
                         <p className="text-xs text-white/50 mt-1">
-                            {aiUsage.remaining > 0 
-                                ? `${aiUsage.remaining} free requests left today`
-                                : 'Use AI Credits for more AI requests'}
+                            {aiUsage.remaining > 0
+                                ? `${aiUsage.remaining} free request left today`
+                                : 'No free requests left today — use AI Credits or pay $0.25 via x402'}
                         </p>
                     </div>
 
