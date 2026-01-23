@@ -21,7 +21,7 @@ function xErr(status: number, error: string, extra: Record<string, any> = {}) {
  * Создаёт заголовок PAYMENT-REQUIRED для ответа 402
  */
 function createPaymentRequiredResponse(sku: string, customPriceUsd?: number): NextResponse {
-  const priceUsd = customPriceUsd ?? PRICES_USD[sku as PaidPath] || 0.25;
+  const priceUsd = customPriceUsd ?? (PRICES_USD[sku as PaidPath] || 0.25);
   const networkId = getNetworkId();
   const payTo = getPayTo();
   
@@ -127,7 +127,7 @@ export async function requireX402(
     const xPaymentHeader = paymentSignatureHeader;
     try {
       const server = getX402Server();
-      const priceUsd = customPriceUsd ?? PRICES_USD[sku as PaidPath] || 0.25;
+      const priceUsd = customPriceUsd ?? (PRICES_USD[sku as PaidPath] || 0.25);
       const networkId = getNetworkId();
       const payTo = getPayTo();
       
