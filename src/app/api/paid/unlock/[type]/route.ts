@@ -11,8 +11,10 @@ import { UNLOCKS, type UnlockType } from '@/lib/pricing';
 import { grantUnlock, getUserUnlocks } from '@/lib/featureLimits';
 import { getUnlockPriceWithBonus, getShareCastBonus } from '@/lib/shareCastBonuses';
 
-export async function POST(req: Request, ctx: any) {
-    const type = ctx?.params?.type as UnlockType | undefined;
+export async function POST(req: NextRequest, { params }: { params: Promise<{ type: string }> | { type: string } }) {
+    // Handle both Promise and direct params (for Next.js 13/14/15 compatibility)
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const type = resolvedParams?.type as UnlockType | undefined;
     if (!type) return NextResponse.json({ error: 'unknown_type' }, { status: 400 });
 
     // Validate unlock type exists
@@ -20,7 +22,7 @@ export async function POST(req: Request, ctx: any) {
     if (!unlockInfo) return NextResponse.json({ error: 'unknown_type' }, { status: 400 });
 
     // 1) Авторизация пользователя
-    const { token, id: userId } = await requireUserFromReq(req as unknown as NextRequest);
+    const { token, id: userId } = await requireUserFromReq(req);
     const supa = createUserServerClient(token);
 
     // 2) Проверка, не куплено ли уже
@@ -44,8 +46,8 @@ export async function POST(req: Request, ctx: any) {
 
     // 4) Проверка оплаты x402 (с динамической ценой)
     const block = await requireX402(
-        req as unknown as NextRequest, 
-        `unlock_${type}`,
+        req, 
+        `/api/paid/unlock/${type}`,
         finalPrice // Передаем финальную цену со скидкой
     );
     if (block) return block;
@@ -88,9 +90,9 @@ export async function POST(req: Request, ctx: any) {
     });
 }
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
     try {
-        const { token, id: userId } = await requireUserFromReq(req as unknown as NextRequest);
+        const { token, id: userId } = await requireUserFromReq(req);
         const supa = createUserServerClient(token);
         
         const unlocks = await getUserUnlocks(supa, userId);
