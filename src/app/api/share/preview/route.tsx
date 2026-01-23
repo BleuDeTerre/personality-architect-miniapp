@@ -313,9 +313,9 @@ export async function GET(req: NextRequest) {
         const previewUrl = url.toString();
 
         // Получаем target URL для кнопки "Open in app"
-        const targetPath = searchParams.get('targetPath');
+        // Всегда используем главную страницу мини-приложения, чтобы открывалось как обычное приложение
         const appHomeUrl = process.env.NEXT_PUBLIC_APP_HOME_URL ?? origin;
-        const targetUrl = targetPath ? `${appHomeUrl}${targetPath}` : appHomeUrl;
+        const targetUrl = appHomeUrl; // Всегда главная страница
 
         // Логируем для отладки
         console.log('[Preview] Generated URLs:', {
@@ -326,6 +326,10 @@ export async function GET(req: NextRequest) {
             description,
             params: Object.fromEntries(searchParams.entries()),
             imageParams: Object.fromEntries(imageUrl.searchParams.entries()),
+            hasFrameTags: true,
+            frameButton: 'Open App',
+            frameButtonAction: 'link',
+            frameButtonTarget: targetUrl,
         });
 
         // HTML-страница с OG-тегами
@@ -348,11 +352,11 @@ export async function GET(req: NextRequest) {
     <meta property="og:image:type" content="image/png">
     <meta property="og:site_name" content="Personality Architect">
     
-    <!-- Farcaster Frame для кнопки "Open in app" -->
+    <!-- Farcaster Frame для кнопки "Open App" -->
     <meta property="fc:frame" content="vNext" />
     <meta property="fc:frame:image" content="${imageUrl.toString()}" />
-    <meta property="fc:frame:button:1" content="Open in app" />
-    <meta property="fc:frame:button:1:action" content="visit" />
+    <meta property="fc:frame:button:1" content="Open App" />
+    <meta property="fc:frame:button:1:action" content="link" />
     <meta property="fc:frame:button:1:target" content="${escapeAttr(targetUrl)}" />
     
     <!-- Twitter -->

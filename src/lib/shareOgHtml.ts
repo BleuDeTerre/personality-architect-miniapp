@@ -270,6 +270,13 @@ export function generateCastOgHtml(
     <meta property="og:image:type" content="image/png">
     <meta property="og:site_name" content="Personality Architect">
     
+    <!-- Farcaster Frame для кнопки "Open App" -->
+    <meta property="fc:frame" content="vNext" />
+    <meta property="fc:frame:image" content="${imageUrl.toString()}" />
+    <meta property="fc:frame:button:1" content="Open App" />
+    <meta property="fc:frame:button:1:action" content="link" />
+    <meta property="fc:frame:button:1:target" content="${escapeAttr(targetUrl)}" />
+    
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="${escapeAttr(targetUrl)}">

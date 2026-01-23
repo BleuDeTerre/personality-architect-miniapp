@@ -75,8 +75,8 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
                 badge.description
             ));
 
-            // Build preview URL
-            const previewUrl = new URL('/api/share/og', origin);
+            // Build preview URL - используем /api/share/preview для Frame кнопки
+            const previewUrl = new URL('/api/share/preview', origin);
             previewUrl.searchParams.set('kind', 'badges');
             previewUrl.searchParams.set('variant', 'badges:earned');
             previewUrl.searchParams.set('title', badge.title);

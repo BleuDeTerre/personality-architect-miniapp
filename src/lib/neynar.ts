@@ -74,6 +74,39 @@ export async function getUserProfile(fid: number, viewerFid?: number) {
 }
 
 /**
+ * Получает User Managed Signer для пользователя из базы данных
+ * 
+ * @param supa - Supabase клиент
+ * @param userId - ID пользователя
+ * @returns UUID signer'а или null если не найден
+ */
+export async function getUserSigner(
+    supa: any,
+    userId: string
+): Promise<string | null> {
+    try {
+        const { data: signer, error } = await supa
+            .from('user_signers')
+            .select('signer_uuid')
+            .eq('user_id', userId)
+            .eq('status', 'approved')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            console.error('[Neynar] Failed to get user signer:', error);
+            return null;
+        }
+
+        return signer?.signer_uuid || null;
+    } catch (error: any) {
+        console.error('[Neynar] Exception getting user signer:', error);
+        return null;
+    }
+}
+
+/**
  * Публикация каста (требует signer)
  * 
  * @param signerUuid - UUID signer'а для подписи каста
@@ -86,40 +119,59 @@ export async function publishCast(
     text: string,
     embeds?: Array<{ url: string }>
 ) {
-    if (!neynarClient) {
-        throw new Error("Neynar client is not configured");
+    if (!process.env.NEYNAR_API_KEY) {
+        throw new Error("NEYNAR_API_KEY is not set - credits will not be deducted!");
     }
 
     try {
         console.log('[Neynar] Publishing cast:', {
             textLength: text.length,
             embedsCount: embeds?.length || 0,
-            embeds: embeds,
+            signerUuid: signerUuid ? `${signerUuid.substring(0, 8)}...` : 'missing',
+            apiKeyConfigured: !!process.env.NEYNAR_API_KEY,
         });
-        
-        const result = await neynarClient.publishCast({
-            signerUuid,
-            text,
-            embeds: embeds || [],
+
+        // Используем прямой fetch запрос с правильным заголовком api_key
+        // Endpoint: POST /v2/farcaster/cast (правильная версия для списания кредитов)
+        const response = await fetch('https://api.neynar.com/v2/farcaster/cast', {
+            method: 'POST',
+            headers: {
+                'api_key': process.env.NEYNAR_API_KEY, // ← ВАЖНО: api_key, не x-api-key!
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                signer_uuid: signerUuid, // ← ВАЖНО: signer_uuid (snake_case)
+                text: text,
+                embeds: embeds || [],
+            }),
         });
-        
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[Neynar] API error:', response.status, errorText);
+            throw new Error(`Neynar API error: ${response.status} - ${errorText}`);
+        }
+
+        const result = await response.json();
+        const castHash = result.cast?.hash || result.hash;
+
+        if (!castHash) {
+            throw new Error('Invalid response from Neynar API: no cast hash');
+        }
+
         console.log('[Neynar] Cast published successfully:', {
-            hash: result.cast.hash,
-            text: result.cast.text,
+            hash: castHash,
+            text: result.cast?.text || text.substring(0, 50) + '...',
         });
-        
-        return result.cast.hash;
+
+        return castHash;
     } catch (error: any) {
         console.error("[Neynar] Failed to publish cast:", {
             error: error?.message,
-            statusCode: error?.statusCode,
-            statusText: error?.statusText,
-            response: error?.response?.data,
-            responseText: error?.response?.data ? JSON.stringify(error.response.data, null, 2) : undefined,
             textLength: text.length,
             embedsCount: embeds?.length || 0,
-            embeds: embeds,
-            signerUuid: signerUuid ? 'provided' : 'missing',
+            signerUuid: signerUuid ? `${signerUuid.substring(0, 8)}...` : 'missing',
+            apiKeyConfigured: !!process.env.NEYNAR_API_KEY,
         });
         throw error;
     }

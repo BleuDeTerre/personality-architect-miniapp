@@ -413,20 +413,20 @@ export default function ChatPage() {
                     {messages.length === 0 ? (
                         <>
                             {/* Welcome Message from AI */}
-                            <div className="flex justify-start">
-                                <div className="max-w-[85%] rounded-2xl bg-[#1a1b2e] border border-purple-500/30 p-4 space-y-3">
-                                    <div className="flex items-center gap-2 mb-2">
+                            <div className="flex justify-center">
+                                <div className="max-w-[85%] rounded-2xl bg-[#1a1b2e] border border-purple-500/30 p-4 space-y-3 text-center">
+                                    <div className="flex items-center justify-center gap-2 mb-2">
                                         <IconDisplay emoji="👋" size="text-lg" className="text-purple-400" />
                                         <span className="text-base font-semibold text-white">Hi! I&apos;m your AI Coach</span>
                                     </div>
                                     
-                                    <div className="text-sm text-white/90 space-y-2.5 leading-relaxed">
+                                    <div className="text-sm text-white/90 space-y-2.5 leading-relaxed text-center">
                                         <p>
                                             I can help you with <strong className="text-purple-300">habits, goals, progress analysis</strong>, and personalized advice based on your data.
                                         </p>
                                         
-                                        <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-                                            <p className="text-xs font-semibold text-white/80 mb-2">💡 What you can ask:</p>
+                                        <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-left">
+                                            <p className="text-xs font-semibold text-white/80 mb-2 text-center">💡 What you can ask:</p>
                                             <ul className="text-xs text-white/70 space-y-1.5 list-disc list-inside">
                                                 <li>How can I improve my habit consistency?</li>
                                                 <li>What&apos;s my progress on [goal name]?</li>
@@ -435,8 +435,8 @@ export default function ChatPage() {
                                             </ul>
                                         </div>
                                         
-                                        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3">
-                                            <p className="text-xs font-semibold text-yellow-300 mb-1">⚡ Daily Limit</p>
+                                        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 text-left">
+                                            <p className="text-xs font-semibold text-yellow-300 mb-1 text-center">⚡ Daily Limit</p>
                                             <p className="text-xs text-white/80">
                                                 You get <strong className="text-yellow-300">1 free AI request per day</strong>. After that, use AI Credits (buy packs) or pay <strong className="text-yellow-300">$0.25 per request</strong> via x402.
                                             </p>

@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     // Единая схема: передаем kind для всех категорий (для правильного определения цвета)
     if (kind) {
-    preview.searchParams.set('kind', kind);
+        preview.searchParams.set('kind', kind);
     }
 
     if (previewParams.variant) {
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     try {
         const previewUrlString = preview.toString();
         const previewUrlLength = previewUrlString.length;
-        
+
         console.log('[Share Cast] Publishing cast with preview URL:', previewUrlString);
         console.log('[Share Cast] Preview params:', previewParams);
         console.log('[Share Cast] Target URL:', targetUrl);
@@ -97,37 +97,53 @@ export async function POST(req: NextRequest) {
                 url: previewUrlString.substring(0, 200) + '...',
                 previewParams,
             });
-            
+
             // Попытка оптимизировать URL - удаляем длинные параметры
             // Для Wheel кастов можно убрать ws параметр, если он слишком длинный
-            if (previewParams.ws && typeof previewParams.ws === 'string' && previewParams.ws.length > 500) {
-                console.warn('[Share Cast] Removing long ws parameter to reduce URL length');
+            // Для Goals кастов можно сократить длинные списки целей
+            const needsOptimization = (previewParams.ws && typeof previewParams.ws === 'string' && previewParams.ws.length > 500) ||
+                previewUrlLength > MAX_URL_LENGTH;
+
+            if (needsOptimization) {
+                console.warn('[Share Cast] Optimizing URL to reduce length');
                 const optimizedPreview = new URL(previewPageUrl);
                 optimizedPreview.searchParams.set('rev', String(previewParams.rev ?? process.env.SHARE_PREVIEW_VERSION ?? '1'));
                 if (kind) optimizedPreview.searchParams.set('kind', kind);
                 if (previewParams.variant) optimizedPreview.searchParams.set('variant', String(previewParams.variant));
-                
+
                 // Добавляем только короткие параметры
                 Object.entries(previewParams).forEach(([key, value]) => {
                     if (value === undefined || value === null || key === 'variant' || key === 'rev' || key === 'kind' || key === 'ws') return;
                     const valueStr = String(value);
-                    // Пропускаем параметры длиннее 100 символов
-                    if (valueStr.length > 100) {
+
+                    // Для goals кастов сокращаем длинные списки целей (q1_goals, q2_goals, etc.)
+                    if (key.endsWith('_goals') && valueStr.length > 150) {
+                        // Берем только первые 2 цели из списка
+                        const goals = valueStr.split('|').slice(0, 2);
+                        const shortened = goals.join('|');
+                        console.warn(`[Share Cast] Shortening ${key} from ${valueStr.length} to ${shortened.length} chars`);
+                        optimizedPreview.searchParams.set(key, shortened);
+                        return;
+                    }
+
+                    // Пропускаем параметры длиннее 100 символов (кроме важных)
+                    if (valueStr.length > 100 && !['goal', 'summary', 'status'].includes(key)) {
                         console.warn(`[Share Cast] Skipping long parameter ${key} (${valueStr.length} chars)`);
                         return;
                     }
+
                     optimizedPreview.searchParams.set(key, valueStr);
                 });
-                
+
                 if (targetUrl) {
                     const targetPath = new URL(targetUrl).pathname;
                     optimizedPreview.searchParams.set('targetPath', targetPath);
                 }
-                
+
                 preview = optimizedPreview;
                 console.log('[Share Cast] Optimized preview URL length:', preview.toString().length);
             }
-            
+
             // Если URL все еще слишком длинный, возвращаем ошибку
             if (preview.toString().length > MAX_URL_LENGTH) {
                 return NextResponse.json({
@@ -139,13 +155,42 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // Используем только preview URL - он содержит OG-теги с изображением
-        // og:url указывает на URL мини-приложения, Farcaster должен автоматически показать кнопку "Open in app"
+        // Формируем эмбеды для Farcaster
+        // Используем preview URL в эмбеде - он содержит правильные OG-теги для изображения
+        // Preview URL имеет og:url, указывающий на прямой URL приложения
+        // Когда пользователь нажимает на фото в касте, Farcaster должен открыть мини-приложение через og:url
+        const appHomeUrl = process.env.NEXT_PUBLIC_APP_HOME_URL ?? origin;
+        const finalTargetUrl = appHomeUrl; // Всегда главная страница мини-приложения
+        
+        // Убеждаемся, что targetPath передан в preview URL для правильного og:url
+        if (!preview.searchParams.has('targetPath')) {
+            preview.searchParams.set('targetPath', '/');
+        }
+        
+        // Используем preview URL в эмбеде - он содержит:
+        // 1. OG-теги с og:url, указывающим на прямой URL приложения (finalTargetUrl)
+        // 2. OG-изображение для отображения в касте
+        // 3. Frame meta-теги для кнопки "Open App"
+        // Farcaster должен распознать og:url и открыть мини-приложение при нажатии на фото
         const embeds: Array<{ url: string }> = [
             { url: preview.toString() },
         ];
+        
+        console.log('[Share Cast] Embed configuration:', {
+            embedUrl: preview.toString(),
+            targetUrl: finalTargetUrl,
+            targetPath: preview.searchParams.get('targetPath'),
+            note: 'Using preview URL in embed with og:url pointing to app URL - Farcaster should open miniapp via og:url',
+        });
 
-        const hash = await publishCast(NEYNAR_SIGNER_UUID, rawText, embeds);
+        // Используем Developer Managed Signer (как было раньше)
+        const signerUuid = NEYNAR_SIGNER_UUID;
+
+        if (!signerUuid) {
+            return NextResponse.json({ error: 'signer_not_configured' }, { status: 503 });
+        }
+
+        const hash = await publishCast(signerUuid, rawText, embeds);
         const castUrl = `https://warpcast.com/~/casts/${hash}`;
 
         console.log('[Share Cast] Cast published successfully:', { hash, castUrl });

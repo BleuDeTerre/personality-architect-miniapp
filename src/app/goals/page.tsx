@@ -65,15 +65,46 @@ export default function GoalsPage() {
     } | null>(null);
 
     const authHeaders = useCallback(async () => {
-        const { data: { session } } = await supabase.auth.getSession();
+        let { data: { session } } = await supabase.auth.getSession();
+        
+        // Если нет сессии, пробуем восстановить
         if (!session?.access_token) {
-            console.warn('[GoalsPage] No access token in session');
-            // Попробуем получить через getUser
+            console.warn('[GoalsPage] No access token in session, attempting to restore...');
+            
+            // Пробуем получить через getUser
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                console.warn('[GoalsPage] No user found');
+            if (user?.user_metadata?.fid) {
+                const fid = Number(user.user_metadata.fid);
+                try {
+                    const res = await fetch('/api/auth/farcaster-login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fid }),
+                    });
+                    
+                    if (res.ok) {
+                        const loginData = await res.json();
+                        if (loginData.access_token) {
+                            await supabase.auth.setSession({
+                                access_token: loginData.access_token,
+                                refresh_token: loginData.refresh_token || loginData.access_token,
+                            });
+                            // Получаем обновленную сессию
+                            const { data: { session: newSession } } = await supabase.auth.getSession();
+                            session = newSession;
+                            console.log('[GoalsPage] Session restored successfully');
+                        }
+                    }
+                } catch (error) {
+                    console.error('[GoalsPage] Failed to restore session:', error);
+                }
             }
         }
+        
+        if (!session?.access_token) {
+            console.error('[GoalsPage] Still no access token after restore attempt');
+        }
+        
         const tzOffset = typeof window !== 'undefined' ? new Date().getTimezoneOffset() : 0;
         return {
             'Content-Type': 'application/json',

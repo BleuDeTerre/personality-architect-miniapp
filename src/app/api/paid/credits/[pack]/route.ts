@@ -9,8 +9,10 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { CREDIT_PACKS, type CreditPack } from '@/lib/pricing';
 
-export async function POST(req: Request, ctx: any) {
-    const pack = ctx?.params?.pack as CreditPack | undefined;
+export async function POST(req: NextRequest, { params }: { params: Promise<{ pack: string }> | { pack: string } }) {
+    // Handle both Promise and direct params (for Next.js 13/14/15 compatibility)
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const pack = resolvedParams?.pack as CreditPack | undefined;
     if (!pack) return NextResponse.json({ error: 'unknown_pack' }, { status: 400 });
 
     // Validate pack exists
@@ -20,11 +22,11 @@ export async function POST(req: Request, ctx: any) {
     // 1) Проверка оплаты x402
     // Используем формат SKU соответствующий PRICES_USD: /api/paid/credits/{pack}
     const sku = `/api/paid/credits/${pack}`;
-    const block = await requireX402(req as unknown as NextRequest, sku);
+    const block = await requireX402(req, sku);
     if (block) return block;
 
     // 2) Авторизация пользователя
-    const { token, id: userId } = await requireUserFromReq(req as unknown as NextRequest);
+    const { token, id: userId } = await requireUserFromReq(req);
     const supa = createUserServerClient(token);
 
     // 3) Начисление кредитов через RPC (SECURITY DEFINER)
