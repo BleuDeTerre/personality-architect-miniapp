@@ -1,8 +1,10 @@
 // scripts/pay-monthly.mjs
+// Обновлен для использования x402 SDK v2
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' }); // <-- грузим именно .env.local
 
-import { wrapFetchWithPayment } from 'x402-fetch';
+import { x402Client, wrapFetchWithPayment } from '@x402/fetch';
+import { registerExactEvmScheme } from '@x402/evm/exact/client';
 import { privateKeyToAccount } from 'viem/accounts';
 
 const MONTH = process.env.MONTH || '2025-10';
@@ -25,10 +27,19 @@ assertPk(PK);
 
 if (!JWT) throw new Error('SUPABASE_JWT is missing (put it to .env.local)');
 
+// Создаем аккаунт из приватного ключа
 const buyer = privateKeyToAccount(PK);
-const LIMIT_USDC_6DP = 5_000_000n; // 5.00 USDC лимит
 
-const fetchWithPay = wrapFetchWithPayment(fetch, buyer, LIMIT_USDC_6DP);
+// Создаем x402Client v2
+const client = new x402Client();
+
+// Регистрируем EVM схему
+registerExactEvmScheme(client, {
+  signer: buyer,
+});
+
+// Обертываем fetch для автоматической обработки платежей
+const fetchWithPay = wrapFetchWithPayment(fetch, client);
 
 const res = await fetchWithPay(URL, {
     method: 'GET',

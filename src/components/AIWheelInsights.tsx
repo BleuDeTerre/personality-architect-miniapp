@@ -40,9 +40,21 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
     const [loading, setLoading] = useState(true);
     const [showLimitModal, setShowLimitModal] = useState(false);
     const [userPlan, setUserPlan] = useState<'free' | 'pro' | 'premium'>('free');
-    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>(
-        { open: false }
-    );
+    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>({ open: false });
+
+    // Handler для успешной оплаты
+    const handlePaymentSuccess = useCallback((result: unknown) => {
+        const data = result as { insights?: Insight[] };
+        if (data && data.insights) {
+            setInsights(data.insights);
+            // Кешируем результат
+            const cacheKey = week ? `wheel-insights-${week}` : 'wheel-insights-current';
+            if (data.insights.length > 0) {
+                const ttl = getWeekTTL(week);
+                setCachedData(cacheKey, data.insights, ttl);
+            }
+        }
+    }, [week]);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -200,6 +212,7 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
                 message={payModal.message}
                 sku={payModal.sku}
                 priceUsd={payModal.priceUsd}
+                onSuccess={handlePaymentSuccess}
             />
         </div>
     );

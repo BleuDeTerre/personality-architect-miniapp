@@ -9,6 +9,7 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { UNLOCKS, type UnlockType } from '@/lib/pricing';
 import { grantUnlock, getUserUnlocks } from '@/lib/featureLimits';
+import { getUnlockPriceWithBonus, getShareCastBonus } from '@/lib/shareCastBonuses';
 
 export async function POST(req: Request, ctx: any) {
     const type = ctx?.params?.type as UnlockType | undefined;
@@ -35,34 +36,55 @@ export async function POST(req: Request, ctx: any) {
         return NextResponse.json({ error: 'already_unlocked', message: 'You already have full unlock!' }, { status: 400 });
     }
 
-    // 3) Проверка оплаты x402
-    const block = await requireX402(req as unknown as NextRequest, `unlock_${type}`);
+    // 3) Получаем цену с учетом бонусов за касты
+    const finalPrice = await getUnlockPriceWithBonus(supa, userId, type);
+    const bonus = await getShareCastBonus(supa, userId, type);
+    const originalPrice = UNLOCKS[type].priceUsd;
+    const hasDiscount = bonus.available && finalPrice < originalPrice;
+
+    // 4) Проверка оплаты x402 (с динамической ценой)
+    const block = await requireX402(
+        req as unknown as NextRequest, 
+        `unlock_${type}`,
+        finalPrice // Передаем финальную цену со скидкой
+    );
     if (block) return block;
 
-    // 4) Предоставление разблокировки
+    // 5) Предоставление разблокировки
     const result = await grantUnlock(supa, userId, type);
     if (!result.success) {
         return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
-    // 5) Лог платёжного события
+    // 6) Лог платёжного события
     await supa.from('paid_events').insert({
         user_id: userId,
         endpoint: `unlock_${type}`,
-        amount_usd: unlockInfo.priceUsd,
+        amount_usd: finalPrice, // Используем финальную цену со скидкой
         status: 'settled',
         meta: { 
             unlock_type: type,
             name: unlockInfo.name,
+            original_price: originalPrice,
+            final_price: finalPrice,
+            discount_applied: hasDiscount,
+            discount_percent: hasDiscount ? bonus.discountPercent : undefined,
+            share_cast_bonus: hasDiscount,
         },
     });
 
-    // 6) Ответ
+    // 7) Ответ
     return NextResponse.json({
         ok: true,
         unlock: type,
         name: unlockInfo.name,
         description: unlockInfo.description,
+        price: finalPrice,
+        originalPrice: hasDiscount ? originalPrice : undefined,
+        discount: hasDiscount ? {
+            percent: bonus.discountPercent,
+            amount: originalPrice - finalPrice,
+        } : undefined,
     });
 }
 
@@ -73,9 +95,33 @@ export async function GET(req: Request) {
         
         const unlocks = await getUserUnlocks(supa, userId);
         
+        // Получаем информацию о бонусах для каждого unlock типа
+        const bonuses = await Promise.all(
+            (['habits', 'goals', 'bundle'] as UnlockType[]).map(async (type) => {
+                const bonus = await getShareCastBonus(supa, userId, type);
+                const finalPrice = await getUnlockPriceWithBonus(supa, userId, type);
+                return {
+                    type,
+                    bonus,
+                    finalPrice,
+                };
+            })
+        );
+        
         return NextResponse.json({
             unlocks,
             available: UNLOCKS,
+            bonuses: bonuses.reduce((acc, { type, bonus, finalPrice }) => {
+                acc[type] = {
+                    originalPrice: UNLOCKS[type].priceUsd,
+                    finalPrice,
+                    hasDiscount: bonus.available,
+                    discountPercent: bonus.discountPercent,
+                    castCount: bonus.castCount,
+                    requiredCasts: bonus.requiredCasts,
+                };
+                return acc;
+            }, {} as Record<string, any>),
         });
     } catch {
         return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

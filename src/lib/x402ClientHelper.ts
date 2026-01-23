@@ -122,6 +122,54 @@ interface X402Signer {
 }
 
 /**
+ * Переключает кошелек на нужную сеть
+ */
+async function switchToChain(provider: any, targetChain: typeof base | typeof baseSepolia): Promise<boolean> {
+  const targetChainIdHex = `0x${targetChain.id.toString(16)}`;
+  
+  try {
+    // Проверяем текущую сеть
+    const currentChainId = await provider.request({ method: 'eth_chainId' });
+    if (currentChainId === targetChainIdHex) {
+      return true; // Уже на нужной сети
+    }
+
+    console.log(`[x402] Switching from chain ${currentChainId} to ${targetChainIdHex} (${targetChain.name})`);
+
+    // Пробуем переключить
+    await provider.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: targetChainIdHex }],
+    });
+    
+    return true;
+  } catch (switchError: any) {
+    // Если сеть не добавлена - добавляем её
+    if (switchError.code === 4902) {
+      try {
+        await provider.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: targetChainIdHex,
+            chainName: targetChain.name,
+            nativeCurrency: targetChain.nativeCurrency,
+            rpcUrls: [targetChain.rpcUrls.default.http[0]],
+            blockExplorerUrls: targetChain.blockExplorers ? [targetChain.blockExplorers.default.url] : [],
+          }],
+        });
+        return true;
+      } catch (addError) {
+        console.error('[x402] Failed to add chain:', addError);
+        return false;
+      }
+    }
+    
+    console.error('[x402] Failed to switch chain:', switchError);
+    return false;
+  }
+}
+
+/**
  * Создает WalletClient и signer из injected provider
  */
 async function createViemWalletClient(): Promise<{ walletClient: WalletClient; signer: X402Signer } | null> {
@@ -129,8 +177,15 @@ async function createViemWalletClient(): Promise<{ walletClient: WalletClient; s
   if (!provider) return null;
 
   try {
-    // Определяем chain (base или base-sepolia)
-    const chain = await getChain();
+    // Определяем целевой chain (base или base-sepolia) из сервера
+    const targetChain = await getChain();
+    
+    // Переключаем кошелек на нужную сеть
+    const switched = await switchToChain(provider, targetChain);
+    if (!switched) {
+      console.error('[x402] Could not switch to required chain:', targetChain.name);
+      // Продолжаем, но предупреждаем
+    }
     
     // Запрашиваем аккаунты
     const accounts = await provider.request({ method: 'eth_requestAccounts' });
@@ -141,10 +196,10 @@ async function createViemWalletClient(): Promise<{ walletClient: WalletClient; s
 
     const account = accounts[0] as `0x${string}`;
 
-    // Создаем WalletClient
+    // Создаем WalletClient с целевой сетью
     const walletClient = createWalletClient({
       account,
-      chain,
+      chain: targetChain,
       transport: custom(provider),
     });
 
@@ -171,6 +226,7 @@ async function createViemWalletClient(): Promise<{ walletClient: WalletClient; s
  * Кешированный x402 client
  */
 let cachedX402Fetch: typeof fetch | null = null;
+let cachedChainId: number | null = null;
 
 /**
  * Создает Solana signer для x402
@@ -217,6 +273,22 @@ async function createSolanaSigner(): Promise<any | null> {
  * Поддерживает как EVM (Base) так и Solana сети
  */
 export async function createX402Fetch(): Promise<typeof fetch | null> {
+  // Проверяем не изменился ли chainId
+  const provider = getInjectedProvider();
+  if (provider && cachedX402Fetch) {
+    try {
+      const currentChainId = await provider.request({ method: 'eth_chainId' });
+      const chainIdNum = parseInt(currentChainId, 16);
+      if (cachedChainId && cachedChainId !== chainIdNum) {
+        console.log('[x402] Chain changed, resetting cache');
+        cachedX402Fetch = null;
+        cachedChainId = null;
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
   // Возвращаем кеш если есть
   if (cachedX402Fetch) return cachedX402Fetch;
 
@@ -260,6 +332,16 @@ export async function createX402Fetch(): Promise<typeof fetch | null> {
     // Обертываем fetch
     cachedX402Fetch = wrapFetchWithPayment(fetch, client);
     
+    // Сохраняем chainId для проверки на изменение
+    if (provider) {
+      try {
+        const chainId = await provider.request({ method: 'eth_chainId' });
+        cachedChainId = parseInt(chainId, 16);
+      } catch {
+        // Ignore
+      }
+    }
+    
     console.log('[x402] x402 fetch client created successfully for', networkType);
     return cachedX402Fetch;
   } catch (error) {
@@ -287,6 +369,37 @@ export async function payWithX402(
     const x402Fetch = await createX402Fetch();
 
     if (!x402Fetch) {
+      // Проверяем почему не создался x402 клиент
+      const evmProvider = getInjectedProvider();
+      const solanaProvider = getSolanaProvider();
+      
+      if (!evmProvider && !solanaProvider) {
+        console.error('[x402] No wallet provider found! Check if wallet is connected.');
+        // Возвращаем 402 с понятным сообщением
+        return new Response(JSON.stringify({
+          error: 'PAYMENT_REQUIRED',
+          code: 'NO_WALLET',
+          message: 'Wallet not found. Please connect your wallet (MetaMask, Coinbase Wallet, or Phantom) and try again.',
+        }), {
+          status: 402,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Есть провайдер, но не удалось создать клиент - значит проблема с подключением аккаунтов
+      console.warn('[x402] Wallet provider found but cannot create x402 client. Trying to connect...');
+      
+      // Пробуем подключить кошелек
+      try {
+        if (evmProvider) {
+          await evmProvider.request({ method: 'eth_requestAccounts' });
+        } else if (solanaProvider) {
+          await solanaProvider.connect();
+        }
+      } catch (connectError) {
+        console.error('[x402] Failed to connect wallet:', connectError);
+      }
+      
       // Fallback: обычный fetch (будет возвращать 402)
       console.warn('[x402] Using regular fetch (x402 wrapper not available)');
       return fetch(url, options);

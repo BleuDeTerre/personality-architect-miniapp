@@ -57,6 +57,27 @@ export const UNLOCKS = {
 export type UnlockType = keyof typeof UNLOCKS;
 
 // =============================================================================
+// SHARE CAST BONUSES - бонусы за публикацию кастов
+// =============================================================================
+
+export const SHARE_CAST_BONUSES = {
+    // После 3 кастов - скидка 20% на Full Unlock bundle
+    bundleDiscount: {
+        requiredCasts: 3,
+        discountPercent: 20, // 20% скидка
+        unlockType: 'bundle' as UnlockType,
+    },
+} as const;
+
+// Базовая цена bundle без скидки
+const BUNDLE_BASE_PRICE = UNLOCKS.bundle.priceUsd;
+
+// Цена bundle со скидкой за 3+ каста
+export const BUNDLE_DISCOUNTED_PRICE = Math.round(
+    BUNDLE_BASE_PRICE * (1 - SHARE_CAST_BONUSES.bundleDiscount.discountPercent / 100) * 100
+) / 100; // $3.99 вместо $4.99
+
+// =============================================================================
 // FEATURE LIMITS - лимиты для бесплатных пользователей
 // =============================================================================
 

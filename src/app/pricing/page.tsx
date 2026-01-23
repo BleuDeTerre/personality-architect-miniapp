@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useMiniApp } from '@neynar/react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import MiniAppPage from '@/components/MiniAppPage';
 import { CREDIT_PACKS, UNLOCKS, FREE_LIMITS } from '@/lib/pricing';
+import { payWithX402 } from '@/lib/x402ClientHelper';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,10 +22,25 @@ type LimitsData = {
     unlocks: { habits: boolean; goals: boolean };
 };
 
+type ShareCastBonus = {
+    castCount: number;
+    bonuses: {
+        bundle: {
+            available: boolean;
+            requiredCasts: number;
+            discountPercent?: number;
+            originalPrice: number;
+            discountedPrice?: number;
+            message: string;
+        };
+    };
+};
+
 export default function PricingPage() {
     const router = useRouter();
     const [limits, setLimits] = useState<LimitsData | null>(null);
     const [loading, setLoading] = useState<string | null>(null);
+    const [shareCastBonus, setShareCastBonus] = useState<ShareCastBonus | null>(null);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -43,6 +60,19 @@ export default function PricingPage() {
             }
         } catch (e) {
             console.error('Failed to load limits:', e);
+        }
+    }, [authHeaders]);
+
+    const loadShareCastBonus = useCallback(async () => {
+        try {
+            const hdrs = await authHeaders();
+            const res = await fetch('/api/share/bonus', { headers: hdrs });
+            if (res.ok) {
+                const data = await res.json();
+                setShareCastBonus(data);
+            }
+        } catch (e) {
+            console.error('Failed to load share cast bonus:', e);
         }
     }, [authHeaders]);
 
@@ -67,29 +97,50 @@ export default function PricingPage() {
             }
 
             await loadLimits();
+            await loadShareCastBonus();
         })();
-    }, [loadLimits, authHeaders, isSDKLoaded, userFid]);
+    }, [loadLimits, loadShareCastBonus, authHeaders, isSDKLoaded, userFid]);
 
     const handleBuyCredits = async (pack: keyof typeof CREDIT_PACKS) => {
         setLoading(`credits_${pack}`);
         try {
             const hdrs = await authHeaders();
-            const res = await fetch(`/api/paid/credits/${pack}`, {
+            
+            // Используем payWithX402 для автоматической обработки платежей
+            const res = await payWithX402(`/api/paid/credits/${pack}`, {
                 method: 'POST',
                 headers: hdrs,
             });
 
             if (res.status === 402) {
-                // x402 payment required - handle payment flow
-                alert('Payment required. x402 payment flow will be triggered.');
-                // TODO: Integrate x402 payment
-            } else if (res.ok) {
-                await loadLimits();
-                alert('Credits purchased successfully!');
-            } else {
-                const err = await res.json();
-                alert(`Error: ${err.error || 'Failed to purchase'}`);
+                // Платеж требуется - возможно нужно подтверждение в кошельке
+                const errorData = await res.json().catch(() => ({}));
+                toast.info('Payment required (x402)', {
+                    description: errorData.message || 'Please complete the payment through your wallet. Make sure your wallet is connected and has sufficient balance.',
+                    duration: 5000,
+                });
+                return;
             }
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                toast.error('Payment failed', { 
+                    description: err?.message || err?.error || `HTTP ${res.status}`,
+                    duration: 4000,
+                });
+                return;
+            }
+
+            // Успешная оплата
+            const result = await res.json().catch(() => ({}));
+            toast.success('Credits purchased successfully!', { duration: 2000 });
+            await loadLimits();
+        } catch (e: any) {
+            console.error('[BuyCredits] Error:', e);
+            toast.error('Purchase error', { 
+                description: e?.message || 'Unknown error occurred',
+                duration: 4000,
+            });
         } finally {
             setLoading(null);
         }
@@ -99,20 +150,46 @@ export default function PricingPage() {
         setLoading(`unlock_${type}`);
         try {
             const hdrs = await authHeaders();
-            const res = await fetch(`/api/paid/unlock/${type}`, {
+            
+            // Используем payWithX402 для автоматической обработки платежей
+            const res = await payWithX402(`/api/paid/unlock/${type}`, {
                 method: 'POST',
                 headers: hdrs,
             });
 
             if (res.status === 402) {
-                alert('Payment required. x402 payment flow will be triggered.');
-            } else if (res.ok) {
-                await loadLimits();
-                alert('Feature unlocked successfully!');
-            } else {
-                const err = await res.json();
-                alert(`Error: ${err.error || err.message || 'Failed to unlock'}`);
+                // Платеж требуется - возможно нужно подтверждение в кошельке
+                const errorData = await res.json().catch(() => ({}));
+                toast.info('Payment required (x402)', {
+                    description: errorData.message || 'Please complete the payment through your wallet. Make sure your wallet is connected and has sufficient balance.',
+                    duration: 5000,
+                });
+                return;
             }
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                toast.error('Payment failed', { 
+                    description: err?.message || err?.error || `HTTP ${res.status}`,
+                    duration: 4000,
+                });
+                return;
+            }
+
+            // Успешная оплата
+            const result = await res.json().catch(() => ({}));
+            const discountMessage = result.discount 
+                ? ` (${result.discount.percent}% discount applied!)` 
+                : '';
+            toast.success(`Feature unlocked successfully!${discountMessage}`, { duration: 3000 });
+            await loadLimits();
+            await loadShareCastBonus();
+        } catch (e: any) {
+            console.error('[BuyUnlock] Error:', e);
+            toast.error('Purchase error', { 
+                description: e?.message || 'Unknown error occurred',
+                duration: 4000,
+            });
         } finally {
             setLoading(null);
         }
@@ -195,7 +272,15 @@ export default function PricingPage() {
                     <div className="space-y-3">
                         {(Object.entries(CREDIT_PACKS) as [keyof typeof CREDIT_PACKS, typeof CREDIT_PACKS[keyof typeof CREDIT_PACKS]][]).map(([key, pack]) => {
                             const pricePerCredit = (pack.priceUsd / pack.credits).toFixed(2);
-                            const isPopular = key === 'medium';
+                            // Находим пакет с минимальной ценой за кредит (самый выгодный)
+                            const allPacks = Object.entries(CREDIT_PACKS).map(([k, p]) => ({
+                                key: k,
+                                pricePerCredit: p.priceUsd / p.credits,
+                            }));
+                            const bestValuePack = allPacks.reduce((best, current) => 
+                                current.pricePerCredit < best.pricePerCredit ? current : best
+                            );
+                            const isPopular = key === bestValuePack.key;
                             
                             return (
                                 <div
@@ -307,32 +392,74 @@ export default function PricingPage() {
                         </div>
 
                         {/* Bundle */}
-                        {(!limits?.unlocks?.habits || !limits?.unlocks?.goals) && (
-                            <div className="rounded-2xl border border-purple-500/50 bg-purple-500/10 p-4">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-lg font-bold text-white">
-                                                {UNLOCKS.bundle.name}
-                                            </span>
-                                            <span className="text-xs bg-purple-500 text-white px-2 py-0.5 rounded-full">
-                                                SAVE $0.99
-                                            </span>
+                        {(!limits?.unlocks?.habits || !limits?.unlocks?.goals) && (() => {
+                            const bundleBonus = shareCastBonus?.bonuses?.bundle;
+                            const hasDiscount = bundleBonus?.available && bundleBonus.discountedPrice;
+                            const finalPrice = hasDiscount ? bundleBonus.discountedPrice! : UNLOCKS.bundle.priceUsd;
+                            const originalPrice = UNLOCKS.bundle.priceUsd;
+                            
+                            return (
+                                <div className="rounded-2xl border border-purple-500/50 bg-purple-500/10 p-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="text-lg font-bold text-white">
+                                                    {UNLOCKS.bundle.name}
+                                                </span>
+                                                <span className="text-xs bg-purple-500 text-white px-2 py-0.5 rounded-full">
+                                                    SAVE $0.99
+                                                </span>
+                                                {hasDiscount && (
+                                                    <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">
+                                                        🎉 {bundleBonus.discountPercent}% OFF
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-white/50 mt-1">
+                                                {UNLOCKS.bundle.description}
+                                            </p>
+                                            {bundleBonus && (
+                                                <p className="text-xs mt-2">
+                                                    {bundleBonus.available ? (
+                                                        <span className="text-green-400">
+                                                            {bundleBonus.message}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-white/60">
+                                                            {bundleBonus.message}
+                                                        </span>
+                                                    )}
+                                                </p>
+                                            )}
                                         </div>
-                                        <p className="text-xs text-white/50 mt-1">
-                                            {UNLOCKS.bundle.description}
-                                        </p>
+                                        <div className="flex flex-col items-end gap-1 ml-4">
+                                            {hasDiscount ? (
+                                                <>
+                                                    <span className="text-xs text-white/50 line-through">
+                                                        ${originalPrice.toFixed(2)}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => handleBuyUnlock('bundle')}
+                                                        disabled={!!loading}
+                                                        className="rounded-xl bg-gradient-to-r from-green-500 to-green-600 px-4 py-2 font-semibold text-white shadow-lg shadow-green-500/30 hover:opacity-90 transition disabled:opacity-50"
+                                                    >
+                                                        {loading === 'unlock_bundle' ? '...' : `$${finalPrice.toFixed(2)}`}
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleBuyUnlock('bundle')}
+                                                    disabled={!!loading}
+                                                    className="rounded-xl bg-gradient-to-r from-purple-500 to-purple-700 px-4 py-2 font-semibold text-white shadow-lg shadow-purple-500/30 hover:opacity-90 transition disabled:opacity-50"
+                                                >
+                                                    {loading === 'unlock_bundle' ? '...' : `$${finalPrice.toFixed(2)}`}
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                    <button
-                                        onClick={() => handleBuyUnlock('bundle')}
-                                        disabled={!!loading}
-                                        className="rounded-xl bg-gradient-to-r from-purple-500 to-purple-700 px-4 py-2 font-semibold text-white shadow-lg shadow-purple-500/30 hover:opacity-90 transition disabled:opacity-50"
-                                    >
-                                        {loading === 'unlock_bundle' ? '...' : `$${UNLOCKS.bundle.priceUsd}`}
-                                    </button>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
                     </div>
                 </section>
 

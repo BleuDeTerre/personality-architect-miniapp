@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchJson } from '@/lib/http';
 import { getCachedData, setCachedData, CACHE_TTL } from '@/lib/clientCache';
@@ -16,7 +16,7 @@ const FALLBACK_MESSAGES = [
 const CACHE_KEY = 'ai_motivation_message';
 const CACHE_DATE_KEY = 'ai_motivation_message_date';
 
-export default function AIMotivationMessage() {
+const AIMotivationMessage = memo(function AIMotivationMessage() {
     // Проверяем, изменился ли день - если да, очищаем кеш
     const getTodayDate = () => {
         const now = new Date();
@@ -133,22 +133,18 @@ export default function AIMotivationMessage() {
     }, [authHeaders, persistMessage]);
 
     useEffect(() => {
-        // Debounce: ждем немного перед первым запросом, чтобы избежать дублирования при Strict Mode
-        const timeoutId = setTimeout(() => {
-            loadMotivation();
-        }, 100);
+        // Убрали debounce - React 19 Strict Mode уже не дублирует эффекты
+        loadMotivation();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (!session?.access_token) return;
             // Только для SIGNED_IN, не для INITIAL_SESSION (чтобы избежать дублирования)
             if (event === 'SIGNED_IN') {
-                // Debounce для auth change тоже
-                setTimeout(() => loadMotivation(true), 200);
+                loadMotivation(true);
             }
         });
 
         return () => {
-            clearTimeout(timeoutId);
             subscription.unsubscribe();
         };
     }, [loadMotivation]);
@@ -190,5 +186,7 @@ export default function AIMotivationMessage() {
             )}
         </div>
     );
-}
+});
+
+export default AIMotivationMessage;
 

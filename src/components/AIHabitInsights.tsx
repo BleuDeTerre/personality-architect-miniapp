@@ -39,9 +39,16 @@ export default function AIHabitInsights() {
     const [loading, setLoading] = useState(false);
     const [hasLoadedTime, setHasLoadedTime] = useState(false);
     const [hasLoadedDifficulty, setHasLoadedDifficulty] = useState(false);
-    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>(
-        { open: false }
-    );
+    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number; requestBody?: Record<string, unknown> }>({ open: false });
+
+    // Handler для успешной оплаты
+    const handlePaymentSuccess = useCallback((result: unknown) => {
+        const data = result as { suggestions?: Suggestion[] };
+        if (data && data.suggestions) {
+            setSuggestions(data.suggestions);
+            setHasLoadedTime(true);
+        }
+    }, []);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -115,6 +122,7 @@ export default function AIHabitInsights() {
                             message: errorData.message || 'Daily AI limit reached.',
                             sku: errorData.sku || '/api/paid/ai/habit-difficulty',
                             priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
+                            requestBody: { habitId: habit.id },
                         });
                         return null;
                     }
@@ -218,6 +226,8 @@ export default function AIHabitInsights() {
                 message={payModal.message}
                 sku={payModal.sku}
                 priceUsd={payModal.priceUsd}
+                requestBody={payModal.requestBody}
+                onSuccess={handlePaymentSuccess}
             />
         </CollapsibleCard>
     );

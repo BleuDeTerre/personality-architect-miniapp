@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
         const userPlan = (planData?.plan ?? 'free') as UserPlan;
 
         const cacheKey = { date };
-        const cached = await getAICache<any>(supa, userId, { endpoint: 'insight/habit', input: cacheKey, cacheHours: 24 * 7 });
+        const cached = await getAICache<any>(supa, userId, { endpoint: 'insight/habit', input: cacheKey, cacheHours: 24 }); // Уменьшено с 7 дней до 24 часов
         if (cached) return NextResponse.json({ ...cached, cached: true });
 
         const [habitsRes, logsRes, wellnessRes] = await Promise.all([
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
             plan: userPlan,
         };
 
-        await setAICache(supa, userId, { endpoint: 'insight/habit', input: cacheKey, cacheHours: 24 * 7 }, response);
+        await setAICache(supa, userId, { endpoint: 'insight/habit', input: cacheKey, cacheHours: 24 }, response); // Уменьшено с 7 дней до 24 часов
 
         (async () => {
             await logAIRequest(supa, userId, userPlan, 'insight/habit', deepseekResult.markAsDeepSeek({ paid: true }));

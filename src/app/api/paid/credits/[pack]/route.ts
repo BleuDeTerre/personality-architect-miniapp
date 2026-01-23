@@ -18,7 +18,9 @@ export async function POST(req: Request, ctx: any) {
     if (!cfg) return NextResponse.json({ error: 'unknown_pack' }, { status: 400 });
 
     // 1) Проверка оплаты x402
-    const block = await requireX402(req as unknown as NextRequest, `credits_${pack}`);
+    // Используем формат SKU соответствующий PRICES_USD: /api/paid/credits/{pack}
+    const sku = `/api/paid/credits/${pack}`;
+    const block = await requireX402(req as unknown as NextRequest, sku);
     if (block) return block;
 
     // 2) Авторизация пользователя
@@ -37,7 +39,7 @@ export async function POST(req: Request, ctx: any) {
     // 4) Лог платёжного события
     await supa.from('paid_events').insert({
         user_id: userId,
-        endpoint: `credits_${pack}`,
+        endpoint: sku,
         amount_usd: cfg.priceUsd,
         status: 'settled',
         meta: { 

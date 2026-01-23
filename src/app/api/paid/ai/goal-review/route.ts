@@ -258,7 +258,7 @@ export async function GET(req: NextRequest) {
         const cached = await getAICache<{ reviews: GoalReviewData[] }>(supa, userId, {
             endpoint: 'ai/goal-review',
             input: cacheKey,
-            cacheHours: 24,
+            cacheHours: 6, // Уменьшено с 24 до 6 часов - чтобы пользователи платили чаще
         });
 
         if (cached?.reviews) {
@@ -442,7 +442,7 @@ export async function GET(req: NextRequest) {
         await setAICache(supa, userId, {
             endpoint: 'ai/goal-review',
             input: cacheKey,
-            cacheHours: 24,
+            cacheHours: 6, // Уменьшено с 24 до 6 часов - чтобы пользователи платили чаще
         }, { reviews });
 
         // Логируем платёжное событие

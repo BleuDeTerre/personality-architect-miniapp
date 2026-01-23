@@ -32,9 +32,19 @@ export default function AIGoalsAssistant({}: Props) {
     const [reviews, setReviews] = useState<Review[]>([]);
     const [loadingReview, setLoadingReview] = useState(false);
     const [hasLoadedReview, setHasLoadedReview] = useState(false);
-    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>(
-        { open: false }
-    );
+    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>({ open: false });
+
+    // Handler для успешной оплаты
+    const handlePaymentSuccess = useCallback((result: unknown) => {
+        const data = result as { reviews?: Review[] };
+        if (data && data.reviews) {
+            setReviews(data.reviews.map((r: any) => ({
+                ...r,
+                goalId: String(r.goalId || r.goal_id || ''),
+            })));
+            setHasLoadedReview(true);
+        }
+    }, []);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -205,6 +215,7 @@ export default function AIGoalsAssistant({}: Props) {
                 message={payModal.message}
                 sku={payModal.sku}
                 priceUsd={payModal.priceUsd}
+                onSuccess={handlePaymentSuccess}
             />
         </CollapsibleCard>
     );

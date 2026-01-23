@@ -1557,6 +1557,7 @@ export default function AnalyticsPage() {
                     </CollapsibleCard>
                 )}
 
+
                 {/* Metrics Section */}
                 <section className="rounded-3xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4 space-y-4">
                     {loading ? (
@@ -1881,7 +1882,7 @@ export default function AnalyticsPage() {
                                                                 <div key={trend.metric} className="flex flex-col gap-0.5">
                                                                     <div className="flex items-center justify-between">
                                                                         <span className="text-white/70">{metricLabel}:</span>
-                                                                        <div className="flex items-center gap-1.5">
+                                                                        <div className="flex items-center.5">
                                                                             <span className={`font-semibold ${valueColor}`}>{displayValue}</span>
                                                                             {displayIcon && (
                                                                                 <span className={`text-xs ${trendColor}`}>{displayIcon}</span>
@@ -1995,9 +1996,8 @@ export default function AnalyticsPage() {
                                         ? 'bg-red-400/20 border border-red-400/50'
                                         : 'border border-white/10 bg-[#1a1b2e]'
                                     }`}>
-                                    <p className="text-sm font-semibold text-white mb-0.5 flex items-center gap-1">
+                                    <p className="text-sm font-semibold text-white mb-0.5 flex items-center">
                                         <span>{comparative.comparison.message}</span>
-                                        {comparative.comparison.trend === 'up' && <IconDisplay emoji="🔥" size="text-sm" color="text-orange-400" />}
                                     </p>
                                     <p className="text-xs text-white/70">
                                         {comparative.comparison.percent_change > 0 ? '+' : ''}{comparative.comparison.percent_change}% change

@@ -34,9 +34,17 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
     const [loading, setLoading] = useState(false);
     const [expanded, setExpanded] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>(
-        { open: false }
-    );
+    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number; requestBody?: Record<string, unknown> }>({ open: false });
+
+    // Обработчик успешной оплаты - показываем результат
+    const handlePaymentSuccess = useCallback((result: unknown) => {
+        const data = result as DifficultyData;
+        if (data && data.suggestion) {
+            setData(data);
+            setExpanded(true);
+            setError(null);
+        }
+    }, []);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -65,6 +73,7 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
                     message: errorData.message || 'Daily AI limit reached.',
                     sku: errorData.sku || '/api/paid/ai/habit-difficulty',
                     priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
+                    requestBody: { habitId },
                 });
                 return;
             }
@@ -77,6 +86,7 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
                     message: errorData.message || 'Daily AI limit reached.',
                     sku: '/api/paid/ai/habit-difficulty',
                     priceUsd: 0.25,
+                    requestBody: { habitId },
                 });
                 setError(errorData.message || 'AI request limit reached. Try again tomorrow or buy credits.');
                 return;
@@ -114,6 +124,8 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
                     message={payModal.message}
                     sku={payModal.sku}
                     priceUsd={payModal.priceUsd}
+                    requestBody={payModal.requestBody}
+                    onSuccess={handlePaymentSuccess}
                 />
             </>
         );
@@ -143,7 +155,7 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
                     </div>
                     <div className="flex gap-2">
                         <button
-                            onClick={() => setPayModal({ open: true, message: error, sku: '/api/paid/ai/habit-difficulty', priceUsd: 0.25 })}
+                            onClick={() => setPayModal({ open: true, message: error, sku: '/api/paid/ai/habit-difficulty', priceUsd: 0.25, requestBody: { habitId } })}
                             className="flex-1 text-xs rounded-lg bg-purple-500/20 text-purple-300 px-3 py-1.5 hover:bg-purple-500/30 transition text-center font-semibold"
                         >
                             Pay for 1 request · 0.25 USDC
@@ -164,6 +176,8 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
                     message={payModal.message}
                     sku={payModal.sku}
                     priceUsd={payModal.priceUsd}
+                    requestBody={payModal.requestBody}
+                    onSuccess={handlePaymentSuccess}
                 />
             </>
         );
@@ -178,9 +192,10 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
     return (
         <div className="rounded-xl border border-white/10 bg-[#1a1b2e] p-3 space-y-2.5">
             <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 space-y-2">
+                <div className="flex-1 space-y-2 min-w-0">
                     <p 
-                        className="text-xs text-white/90 leading-relaxed break-words"
+                        className="text-xs text-white/90 leading-relaxed break-words break-all"
+                        style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                         dangerouslySetInnerHTML={{ __html: renderMarkdown(data.suggestion) }}
                     />
                     <div className="flex flex-wrap items-center gap-2 text-xs text-white/70">

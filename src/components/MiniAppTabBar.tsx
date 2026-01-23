@@ -81,7 +81,7 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
                 .join(" ")
                 .trim()}
         >
-            <nav className="flex items-center gap-1.5 px-3 py-1 min-w-max">
+            <nav className="flex items-center gap-1.5 px-3 py-0.5 min-w-max">
                 {NAV_ITEMS.map((item, index) => {
                     const isActive = index === activeIndex;
                     return (
@@ -91,7 +91,7 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
                             ref={isActive ? activeLinkRef : null}
                             onClick={handleLinkClick}
                             className={[
-                                "flex flex-col items-center gap-1 rounded-lg px-3 py-1 text-xs transition-all whitespace-nowrap",
+                                "flex flex-col items-center gap-1 rounded-lg px-3 py-0.5 text-xs transition-all whitespace-nowrap",
                                 "flex-shrink-0 w-20",
                                 isActive
                                     ? "text-white"

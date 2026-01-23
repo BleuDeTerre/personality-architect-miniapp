@@ -1150,9 +1150,9 @@ export async function GET(req: NextRequest) {
                             fontWeight: 600,
                           }}
                         >
-                          <span style={{ display: 'flex' }}>XP progress</span>
+                          <span style={{ display: 'flex' }}>XP progress </span>
                           <span style={{ display: 'flex' }}>
-                            {nextXp > 0 ? `${nextXp} XP left` : levelXp > 0 ? `${levelXp}/${levelXpMax} XP` : currentXp > 0 ? `${currentXp} XP` : 'Level up!'}
+                            {nextXp > 0 ? ` ${nextXp} XP left` : levelXp > 0 ? ` ${levelXp} / ${levelXpMax} XP` : currentXp > 0 ? ` ${currentXp} XP` : ' Level up!'}
                           </span>
                         </div>
                         <div

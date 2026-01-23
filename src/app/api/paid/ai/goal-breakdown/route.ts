@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
         }>(supa, userId, {
             endpoint: 'ai/goal-breakdown',
             input: cacheKey,
-            cacheHours: 24 * 7,
+            cacheHours: 24, // Уменьшено с 7 дней до 24 часов - чтобы пользователи платили чаще
         });
 
         if (cached) {
@@ -209,7 +209,7 @@ export async function POST(req: NextRequest) {
         await setAICache(supa, userId, {
             endpoint: 'ai/goal-breakdown',
             input: cacheKey,
-            cacheHours: 24 * 7,
+            cacheHours: 24, // Уменьшено с 7 дней до 24 часов - чтобы пользователи платили чаще
         }, response);
 
         // Логируем AI запрос (не считается в лимит, так как оплачено)

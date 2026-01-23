@@ -137,7 +137,7 @@ export async function GET(req: NextRequest) {
         const cached = await getAICache<{ insights: any[] }>(supa, userId, {
             endpoint: 'ai/wheel-insights',
             input: cacheKey,
-            cacheHours: 24,
+            cacheHours: 6, // Уменьшено с 24 до 6 часов - чтобы пользователи платили чаще
         });
 
         if (cached?.insights) {
@@ -219,7 +219,7 @@ export async function GET(req: NextRequest) {
         await setAICache(supa, userId, {
             endpoint: 'ai/wheel-insights',
             input: cacheKey,
-            cacheHours: 24,
+            cacheHours: 6, // Уменьшено с 24 до 6 часов - чтобы пользователи платили чаще
         }, response);
 
         // Логируем AI запрос (не считается в лимит, так как оплачено)

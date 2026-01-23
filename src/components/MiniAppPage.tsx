@@ -19,7 +19,7 @@ export default function MiniAppPage({ children, className, footerSlot }: MiniApp
                 </div>
             )}
             <div className="fixed bottom-0 left-0 right-0 w-full z-50">
-                <div className="w-full max-w-3xl mx-auto px-3 pb-2 pt-3">
+                <div className="w-full max-w-3xl mx-auto px-3 pb-2 pt-2">
                     <MiniAppTabBar />
                 </div>
             </div>

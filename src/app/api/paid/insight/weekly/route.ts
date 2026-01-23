@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
         const weekISO = isoWeek(new Date(weekStart));
 
         const cacheKey = { week: weekISO, deep };
-        const cached = await getAICache<any>(supa, userId, { endpoint: 'insight/weekly', input: cacheKey, cacheHours: 24 * 7 });
+        const cached = await getAICache<any>(supa, userId, { endpoint: 'insight/weekly', input: cacheKey, cacheHours: 24 }); // Уменьшено с 7 дней до 24 часов
         if (cached) return NextResponse.json({ ...cached, cached: true });
 
         const [logsRes, habitsRes, wheelRes, wellnessRes] = await Promise.all([
@@ -137,7 +137,7 @@ export async function GET(req: NextRequest) {
             plan: userPlan,
         };
 
-        await setAICache(supa, userId, { endpoint: 'insight/weekly', input: cacheKey, cacheHours: 24 * 7 }, response);
+        await setAICache(supa, userId, { endpoint: 'insight/weekly', input: cacheKey, cacheHours: 24 }, response); // Уменьшено с 7 дней до 24 часов
 
         (async () => {
             await logAIRequest(supa, userId, userPlan, 'insight/weekly', deepseekResult.markAsDeepSeek({ paid: true }));

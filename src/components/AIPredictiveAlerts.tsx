@@ -56,9 +56,20 @@ export default function AIPredictiveAlerts({ onAlertsCountChange }: Props = {}) 
     const [loading, setLoading] = useState(!cachedData?.alerts || cachedData.alerts.length === 0);
     const [isExpanded, setIsExpanded] = useState(false);
     const isLoadingRef = useRef(false); // Защита от одновременных запросов
-    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>(
-        { open: false }
-    );
+    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>({ open: false });
+
+    // Handler для успешной оплаты
+    const handlePaymentSuccess = useCallback((result: unknown) => {
+        const data = result as PredictiveAlertsResponse;
+        if (data) {
+            const alertsData = data.alerts || [];
+            setAlerts(alertsData);
+            setFatigue(data.fatigue || null);
+            onAlertsCountChange?.(alertsData.length);
+            // Кешируем результат
+            setCachedData(CACHE_KEY, { alerts: alertsData, fatigue: data.fatigue }, CACHE_TTL.HOURLY);
+        }
+    }, [onAlertsCountChange]);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -188,10 +199,12 @@ export default function AIPredictiveAlerts({ onAlertsCountChange }: Props = {}) 
         };
     }, [authHeaders]);
 
-    // Показываем компонент, если есть alerts или fatigue (даже если loading, потому что кешированные данные уже есть)
-    if (alerts.length === 0 && !fatigue) return null;
-
+    // Проверяем, есть ли данные для отображения
     const hasFatigueInfo = fatigue && fatigue.riskLevel !== 'low' && fatigue.totalAtRisk > 0;
+    const hasDataToShow = alerts.length > 0 || hasFatigueInfo;
+
+    // Показываем компонент только если есть данные для отображения
+    if (!hasDataToShow) return null;
 
     return (
         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 sm:p-4">
@@ -223,7 +236,7 @@ export default function AIPredictiveAlerts({ onAlertsCountChange }: Props = {}) 
             {isExpanded && (
                 <div className="mt-3 space-y-3">
                     {/* Fatigue Overview */}
-                    {hasFatigueInfo && (
+                    {hasFatigueInfo && fatigue && (
                         <div className={`rounded-xl border p-3 ${
                             fatigue.riskLevel === 'high' 
                                 ? 'border-red-400/50 bg-red-400/5'
@@ -267,6 +280,15 @@ export default function AIPredictiveAlerts({ onAlertsCountChange }: Props = {}) 
                             ))}
                         </div>
                     )}
+
+                    {/* Сообщение, если нет данных для отображения */}
+                    {!hasFatigueInfo && alerts.length === 0 && (
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                            <p className="text-sm text-white/70 text-center">
+                                Все ваши привычки в порядке! Продолжайте в том же духе. 🎉
+                            </p>
+                        </div>
+                    )}
                 </div>
             )}
             
@@ -276,6 +298,7 @@ export default function AIPredictiveAlerts({ onAlertsCountChange }: Props = {}) 
                 message={payModal.message}
                 sku={payModal.sku}
                 priceUsd={payModal.priceUsd}
+                onSuccess={handlePaymentSuccess}
             />
         </div>
     );

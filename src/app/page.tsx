@@ -42,6 +42,7 @@ export default function DashboardPage() {
       }
 
       // Ждем немного, чтобы Supabase успел восстановить сессию из localStorage
+      // Это важно для корректной работы аутентификации
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Проверяем сессию
@@ -175,6 +176,7 @@ export default function DashboardPage() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={true}
               className={`group flex flex-col items-center p-3 rounded-2xl bg-[#1a1b2e] transition-all text-center ${item.glowClass}`}
             >
               <div className="mb-2">

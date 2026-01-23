@@ -44,9 +44,20 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
     const [creatingSubtasks, setCreatingSubtasks] = useState(false);
     const [expanded, setExpanded] = useState(false);
     const [selectedSteps, setSelectedSteps] = useState<Set<number>>(new Set());
-    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>(
-        { open: false }
-    );
+    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number; requestBody?: Record<string, unknown> }>({ open: false });
+
+    // Handler для успешной оплаты
+    const handlePaymentSuccess = useCallback((result: unknown) => {
+        const data = result as BreakdownData;
+        if (data && data.steps) {
+            setBreakdown(data);
+            setExpanded(true);
+            setSelectedSteps(new Set(data.steps.map((_, idx) => idx)));
+            if (onBreakdownGenerated) {
+                onBreakdownGenerated(data);
+            }
+        }
+    }, [onBreakdownGenerated]);
 
     const authHeaders = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -89,6 +100,7 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
                         message: errorData.message || 'Daily AI limit reached.',
                         sku: errorData.sku || '/api/paid/ai/goal-breakdown',
                         priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
+                        requestBody: { goalTitle, goalDescription, dueDate, important, urgent },
                     });
                     return;
                 }
@@ -327,6 +339,8 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
                 message={payModal.message}
                 sku={payModal.sku}
                 priceUsd={payModal.priceUsd}
+                requestBody={payModal.requestBody}
+                onSuccess={handlePaymentSuccess}
             />
         </div>
     );

@@ -149,7 +149,7 @@ async function handleCoach(req: NextRequest) {
         }>(supa, userId, {
             endpoint: 'insight/coach',
             input: cacheKey,
-            cacheHours: 6,
+            cacheHours: 6, // Уже оптимально
         });
 
         if (cached) {
@@ -195,7 +195,7 @@ async function handleCoach(req: NextRequest) {
         await setAICache(supa, userId, {
             endpoint: 'insight/coach',
             input: cacheKey,
-            cacheHours: 6,
+            cacheHours: 6, // Уже оптимально
         }, response);
 
         // Логируем AI запрос (не считается в лимит, так как оплачено)

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import dynamic from 'next/dynamic';
 import AIPredictiveAlerts from '@/components/AIPredictiveAlerts';
 import AIMotivationMessage from '@/components/AIMotivationMessage';
@@ -16,7 +16,7 @@ const DailyWellness = dynamic(() => import('@/components/DailyWellness'), {
   ),
 });
 
-export default function TodaysOverview() {
+const TodaysOverview = memo(function TodaysOverview() {
   const [insightModalOpen, setInsightModalOpen] = useState(false);
 
   return (
@@ -68,5 +68,7 @@ export default function TodaysOverview() {
       )}
     </>
   );
-}
+});
+
+export default TodaysOverview;
 

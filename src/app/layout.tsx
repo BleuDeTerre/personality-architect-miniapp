@@ -83,6 +83,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* Preconnect для ускорения загрузки внешних ресурсов */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://api.neynar.com" />
+        <link rel="dns-prefetch" href="https://supabase.co" />
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet" />
       </head>
       <body

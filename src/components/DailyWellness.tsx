@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useMiniApp } from '@neynar/react';
 
@@ -11,7 +11,7 @@ type WellnessData = {
     work_hours?: number | null;
 };
 
-export default function DailyWellness() {
+const DailyWellness = memo(function DailyWellness() {
     const { isSDKLoaded } = useMiniApp();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -71,6 +71,7 @@ export default function DailyWellness() {
         }
     }, [isSDKLoaded]);
 
+    // Объединили два useEffect в один для оптимизации
     useEffect(() => {
         const checkDayChange = () => {
             const currentDate = getLocalDateString();
@@ -84,22 +85,26 @@ export default function DailyWellness() {
                     work_hours: null,
                 });
                 fetchTodayMetrics(currentDate);
+            } else {
+                // Если день не изменился, просто загружаем данные
+                fetchTodayMetrics(today);
             }
         };
 
+        // Загружаем данные сразу при монтировании
+        if (isSDKLoaded) {
+            fetchTodayMetrics(today);
+        }
+
+        // Слушаем изменения видимости страницы
         window.addEventListener('focus', checkDayChange);
         document.addEventListener('visibilitychange', checkDayChange);
-        checkDayChange();
 
         return () => {
             window.removeEventListener('focus', checkDayChange);
             document.removeEventListener('visibilitychange', checkDayChange);
         };
-    }, [today, fetchTodayMetrics]);
-
-    useEffect(() => {
-        fetchTodayMetrics(today);
-    }, [fetchTodayMetrics, today]);
+    }, [today, fetchTodayMetrics, isSDKLoaded]);
 
     const saveMetric = async (field: keyof WellnessData, value: number | null, skipStateUpdate = false) => {
         if (!isSDKLoaded || saving) return;
@@ -301,4 +306,6 @@ export default function DailyWellness() {
             </div>
         </div>
     );
-}
+});
+
+export default DailyWellness;

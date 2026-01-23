@@ -479,7 +479,15 @@ If wellness metrics are provided (stress, productivity, sleep, work), use them t
 - Productivity levels can indicate energy management issues.
 - Work hours vs productivity can reveal burnout risk or overwork patterns.
 - Connect wellness patterns to habit performance and suggest holistic improvements.
-IMPORTANT: Detect the language of habit names and goal titles provided. Respond in the same language as the data.`;
+
+IMPORTANT LANGUAGE RULES:
+- Detect the language of habit names and goal titles provided.
+- Respond in the same language as the data.
+- If data is in English, respond in English.
+- If data is in Russian, respond in Russian.
+- Use markdown formatting for bold text: **text** not **text**.
+- Format your response with proper markdown: use **bold** for section headers, - for bullet points.
+- Do NOT include raw asterisks (**) in the text - use proper markdown that will be rendered as HTML.`;
 
 // ============================================================================
 // MONTHLY INSIGHTS
@@ -488,7 +496,15 @@ IMPORTANT: Detect the language of habit names and goal titles provided. Respond 
 export const MONTHLY_INSIGHTS_PROMPT = `You are a habit analyst (Sensei).
 ${BASE_OUTPUT_RULES_DATA_LANGUAGE}
 Review the month. Point out long-term trends.
-IMPORTANT: Detect the language of habit names and goal titles provided. Respond in the same language as the data.`;
+
+IMPORTANT LANGUAGE RULES:
+- Detect the language of habit names and goal titles provided.
+- Respond in the same language as the data.
+- If data is in English, respond in English.
+- If data is in Russian, respond in Russian.
+- Use markdown formatting for bold text: **text** not **text**.
+- Format your response with proper markdown: use **bold** for section headers, - for bullet points.
+- Do NOT include raw asterisks (**) in the text - use proper markdown that will be rendered as HTML.`;
 
 // ============================================================================
 // HABIT REVIEW
