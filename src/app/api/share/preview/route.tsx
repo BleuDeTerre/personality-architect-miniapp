@@ -312,59 +312,66 @@ export async function GET(req: NextRequest) {
         const description = escapeAttr(buildDescription(searchParams));
         const previewUrl = url.toString();
 
-        // Получаем target URL для кнопки "Open in app"
-        // Всегда используем главную страницу мини-приложения, чтобы открывалось как обычное приложение
+        // Target URL для кнопки "Open App" — всегда главная мини-приложения
         const appHomeUrl = process.env.NEXT_PUBLIC_APP_HOME_URL ?? origin;
-        const targetUrl = appHomeUrl; // Всегда главная страница
+        const targetUrl = appHomeUrl;
+        const imageUrlStr = imageUrl.toString();
+        const splashUrl = `${appHomeUrl}/miniapp/splash.png`;
 
-        // Логируем для отладки
-        console.log('[Preview] Generated URLs:', {
-            previewUrl: previewUrl,
-            imageUrl: imageUrl.toString(),
-            targetUrl: targetUrl,
-            title,
-            description,
-            params: Object.fromEntries(searchParams.entries()),
-            imageParams: Object.fromEntries(imageUrl.searchParams.entries()),
-            hasFrameTags: true,
-            frameButton: 'Open App',
-            frameButtonAction: 'link',
-            frameButtonTarget: targetUrl,
+        // Mini App Embed (fc:miniapp): картинка 3:2 + кнопка «Open App» под ней.
+        // https://miniapps.farcaster.xyz/docs/specification — imageUrl ≤1024, button.action.name обязателен.
+        const embed = {
+            version: '1',
+            imageUrl: imageUrlStr,
+            button: {
+                title: 'Open App',
+                action: {
+                    type: 'launch_frame',
+                    name: 'Personality Architect',
+                    url: targetUrl,
+                    splashImageUrl: splashUrl,
+                    splashBackgroundColor: '#7C5CF6',
+                },
+            },
+        };
+        const embedJson = JSON.stringify(embed);
+
+        console.log('[Preview] Mini App Embed:', {
+            previewUrl,
+            imageUrlLen: imageUrlStr.length,
+            targetUrl,
+            embedJsonLen: embedJson.length,
         });
 
-        // HTML-страница с OG-тегами
-        // Используем URL мини-приложения в og:url для автоматической кнопки "Open in app"
+        // OG fallback + Mini App Embed (fc:miniapp). Без fc:miniapp — только OG, кнопки нет.
         const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${title}</title>
     
-    <!-- Open Graph / Facebook / Farcaster -->
+    <!-- Open Graph fallback -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="${escapeAttr(targetUrl)}">
     <meta property="og:title" content="${title}">
     <meta property="og:description" content="${description}">
-    <meta property="og:image" content="${imageUrl.toString()}">
+    <meta property="og:image" content="${imageUrlStr}">
     <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
+    <meta property="og:image:height" content="800">
     <meta property="og:image:type" content="image/png">
     <meta property="og:site_name" content="Personality Architect">
     
-    <!-- Farcaster Frame для кнопки "Open App" -->
-    <meta property="fc:frame" content="vNext" />
-    <meta property="fc:frame:image" content="${imageUrl.toString()}" />
-    <meta property="fc:frame:button:1" content="Open App" />
-    <meta property="fc:frame:button:1:action" content="link" />
-    <meta property="fc:frame:button:1:target" content="${escapeAttr(targetUrl)}" />
+    <!-- Mini App Embed: картинка + кнопка «Open App» (spec: miniapps.farcaster.xyz) -->
+    <meta name="fc:miniapp" content="${escapeAttr(embedJson)}" />
+    <meta name="fc:frame" content="${escapeAttr(embedJson)}" />
     
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="${escapeAttr(targetUrl)}">
     <meta name="twitter:title" content="${title}">
     <meta name="twitter:description" content="${description}">
-    <meta name="twitter:image" content="${imageUrl.toString()}">
+    <meta name="twitter:image" content="${imageUrlStr}">
     <meta name="twitter:site" content="@PersonalityArch">
     
     <style>
@@ -386,7 +393,7 @@ export async function GET(req: NextRequest) {
     </style>
 </head>
 <body>
-    <img src="${imageUrl.toString()}" alt="${escapeAttr(title)}" />
+    <img src="${imageUrlStr}" alt="${escapeAttr(title)}" />
 </body>
 </html>`;
 

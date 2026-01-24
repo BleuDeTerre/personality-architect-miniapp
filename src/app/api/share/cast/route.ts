@@ -87,22 +87,21 @@ export async function POST(req: NextRequest) {
         console.log('[Share Cast] Target URL:', targetUrl);
         console.log('[Share Cast] Preview URL length:', previewUrlLength, 'characters');
 
-        // HTTP стандарт ограничивает URL длиной 2048 символов, но многие серверы имеют более строгие ограничения
-        // Farcaster/Neynar может иметь ограничение ~2000 символов для embed URLs
+        // Farcaster/Neynar ~2000 символов для embed URLs. Резервируем ~20 символов под _cb (cache-busting).
         const MAX_URL_LENGTH = 2000;
-        if (previewUrlLength > MAX_URL_LENGTH) {
+        const CB_RESERVE = 25;
+        const maxBeforeCb = MAX_URL_LENGTH - CB_RESERVE;
+        if (previewUrlLength > maxBeforeCb) {
             console.error('[Share Cast] Preview URL is too long:', {
                 length: previewUrlLength,
-                maxLength: MAX_URL_LENGTH,
+                maxLength: maxBeforeCb,
                 url: previewUrlString.substring(0, 200) + '...',
                 previewParams,
             });
 
             // Попытка оптимизировать URL - удаляем длинные параметры
-            // Для Wheel кастов можно убрать ws параметр, если он слишком длинный
-            // Для Goals кастов можно сократить длинные списки целей
             const needsOptimization = (previewParams.ws && typeof previewParams.ws === 'string' && previewParams.ws.length > 500) ||
-                previewUrlLength > MAX_URL_LENGTH;
+                previewUrlLength > maxBeforeCb;
 
             if (needsOptimization) {
                 console.warn('[Share Cast] Optimizing URL to reduce length');
@@ -144,16 +143,18 @@ export async function POST(req: NextRequest) {
                 console.log('[Share Cast] Optimized preview URL length:', preview.toString().length);
             }
 
-            // Если URL все еще слишком длинный, возвращаем ошибку
-            if (preview.toString().length > MAX_URL_LENGTH) {
+            if (preview.toString().length > maxBeforeCb) {
                 return NextResponse.json({
                     error: 'url_too_long',
-                    message: `Preview URL is too long (${preview.toString().length} chars, max ${MAX_URL_LENGTH}). Please reduce the number of parameters.`,
+                    message: `Preview URL is too long (${preview.toString().length} chars, max ${maxBeforeCb}). Please reduce the number of parameters.`,
                     urlLength: preview.toString().length,
                     fallback: compose.toString(),
                 }, { status: 400 });
             }
         }
+
+        // Cache-busting: уникальный URL на каст, чтобы Farcaster не отдавал старый кэш (без Frame).
+        preview.searchParams.set('_cb', String(Date.now()));
 
         // Формируем эмбеды для Farcaster
         // Используем preview URL в эмбеде - он содержит правильные OG-теги для изображения

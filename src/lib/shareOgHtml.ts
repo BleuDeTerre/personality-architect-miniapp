@@ -250,39 +250,53 @@ export function generateCastOgHtml(
     
     const title = buildTitle(params);
     const description = buildDescription(params);
-    
-    // HTML-страница с OG-тегами
+    const imageUrlStr = imageUrl.toString();
+    const splashUrl = `${origin}/miniapp/splash.png`;
+
+    const embed = {
+        version: '1',
+        imageUrl: imageUrlStr,
+        button: {
+            title: 'Open App',
+            action: {
+                type: 'launch_frame',
+                name: 'Personality Architect',
+                url: targetUrl,
+                splashImageUrl: splashUrl,
+                splashBackgroundColor: '#7C5CF6',
+            },
+        },
+    };
+    const embedJson = JSON.stringify(embed);
+
+    // OG fallback + Mini App Embed (fc:miniapp)
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${escapeAttr(title)}</title>
     
-    <!-- Open Graph / Facebook / Farcaster -->
+    <!-- Open Graph fallback -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="${escapeAttr(targetUrl)}">
     <meta property="og:title" content="${escapeAttr(title)}">
     <meta property="og:description" content="${escapeAttr(description)}">
-    <meta property="og:image" content="${imageUrl.toString()}">
+    <meta property="og:image" content="${imageUrlStr}">
     <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
+    <meta property="og:image:height" content="800">
     <meta property="og:image:type" content="image/png">
     <meta property="og:site_name" content="Personality Architect">
     
-    <!-- Farcaster Frame для кнопки "Open App" -->
-    <meta property="fc:frame" content="vNext" />
-    <meta property="fc:frame:image" content="${imageUrl.toString()}" />
-    <meta property="fc:frame:button:1" content="Open App" />
-    <meta property="fc:frame:button:1:action" content="link" />
-    <meta property="fc:frame:button:1:target" content="${escapeAttr(targetUrl)}" />
+    <meta name="fc:miniapp" content="${escapeAttr(embedJson)}" />
+    <meta name="fc:frame" content="${escapeAttr(embedJson)}" />
     
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="${escapeAttr(targetUrl)}">
     <meta name="twitter:title" content="${escapeAttr(title)}">
     <meta name="twitter:description" content="${escapeAttr(description)}">
-    <meta name="twitter:image" content="${imageUrl.toString()}">
+    <meta name="twitter:image" content="${imageUrlStr}">
     <meta name="twitter:site" content="@PersonalityArch">
     
     <style>
@@ -304,7 +318,7 @@ export function generateCastOgHtml(
     </style>
 </head>
 <body>
-    <img src="${imageUrl.toString()}" alt="${escapeAttr(title)}" />
+    <img src="${imageUrlStr}" alt="${escapeAttr(title)}" />
 </body>
 </html>`;
     
