@@ -1,8 +1,9 @@
 "use client";
 
+import { memo } from "react";
 import { useCredits } from "@/hooks/useCredits";
 
-export default function CreditsBadge() {
+const CreditsBadge = memo(function CreditsBadge() {
     const { data, loading, err, refresh } = useCredits();
 
     if (err) return (
@@ -24,4 +25,6 @@ export default function CreditsBadge() {
             <button onClick={refresh} className="text-xs underline opacity-70">обновить</button>
         </div>
     );
-}
+});
+
+export default CreditsBadge;

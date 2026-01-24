@@ -36,10 +36,10 @@ export async function GET(req: NextRequest) {
         // Get bonus credits from user_credits table (кредиты не истекают)
         const { data: creditsData } = await supa
             .from('user_credits')
-            .select('amount')
+            .select('credits')
             .eq('user_id', userId);
 
-        const bonusCredits = creditsData?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
+        const bonusCredits = creditsData?.reduce((sum, c) => sum + (c.credits || 0), 0) || 0;
 
         return NextResponse.json({
             // Feature limits

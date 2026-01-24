@@ -7,6 +7,7 @@ import { parsePaginationParams, getPaginationMeta } from '@/lib/pagination';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 import { canAddGoal } from '@/lib/featureLimits';
 import { UNLOCKS } from '@/lib/pricing';
+import { getCacheHeaders, CACHE_PRESETS } from '@/lib/serverCache';
 
 export async function GET(req: NextRequest) {
     // Rate limiting для чтения данных
@@ -79,14 +80,20 @@ export async function GET(req: NextRequest) {
         // Если используется пагинация - возвращаем с метаданными
         if (usePagination) {
             const meta = getPaginationMeta(total, pagination.page, pagination.limit);
-            return NextResponse.json({
+            const res = NextResponse.json({
                 items: data ?? [],
                 ...meta,
             });
+            // Кэшируем цели на 5 минут
+            res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.PRIVATE_SHORT).['Cache-Control']);
+            return res;
         }
 
         // Обратная совместимость: без пагинации возвращаем просто items
-        return NextResponse.json({ items: data ?? [] });
+        const res = NextResponse.json({ items: data ?? [] });
+        // Кэшируем цели на 5 минут
+        res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.PRIVATE_SHORT).['Cache-Control']);
+        return res;
     } catch (error: any) {
         console.error('[Goals GET] Unexpected error:', error);
         return NextResponse.json({ error: 'Failed to fetch goals', message: error?.message || 'Unknown error' }, { status: 500 });

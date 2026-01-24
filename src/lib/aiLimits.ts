@@ -98,10 +98,10 @@ export async function checkAILimit(
   // Get bonus credits (кредиты не истекают, фильтрация по expires_at убрана)
   const { data: creditsData } = await supa
     .from('user_credits')
-    .select('amount')
+    .select('credits')
     .eq('user_id', userId);
 
-  const bonusCredits = creditsData?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
+  const bonusCredits = creditsData?.reduce((sum, c) => sum + (c.credits || 0), 0) || 0;
 
   // === Общий лимит: AI Chat теперь входит в общий дневной лимит ===
   const countedForDailyFree = countedRequests.filter(req => {
@@ -255,10 +255,10 @@ export async function getAITodayUsage(
   // Get bonus credits (кредиты не истекают, фильтрация по expires_at убрана)
   const { data: creditsData } = await supa
     .from('user_credits')
-    .select('amount')
+    .select('credits')
     .eq('user_id', userId);
 
-  const bonusCredits = creditsData?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
+  const bonusCredits = creditsData?.reduce((sum, c) => sum + (c.credits || 0), 0) || 0;
 
   // Общий лимит: исключаем AI Chat из подсчета
   const countedForDailyFree = countedRequests.filter(req => {

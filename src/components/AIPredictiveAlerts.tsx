@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { AlertCircle, ChevronDown, Sparkles } from 'lucide-react';
 import { fetchJson } from '@/lib/http';
@@ -38,7 +38,7 @@ type Props = {
   onAlertsCountChange?: (count: number) => void;
 };
 
-export default function AIPredictiveAlerts({ onAlertsCountChange }: Props = {}) {
+const AIPredictiveAlerts = memo(function AIPredictiveAlerts({ onAlertsCountChange }: Props = {}) {
             // Initialize from cache if available
     const cachedData = typeof window !== 'undefined' 
         ? getCachedData<PredictiveAlertsResponse>(CACHE_KEY)
@@ -302,4 +302,6 @@ export default function AIPredictiveAlerts({ onAlertsCountChange }: Props = {}) 
             />
         </div>
     );
-}
+});
+
+export default AIPredictiveAlerts;

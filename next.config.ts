@@ -1,5 +1,17 @@
 import type { NextConfig } from "next";
 
+// Bundle analyzer (опционально, запускается через ANALYZE=true pnpm build)
+// Для использования: pnpm add -D @next/bundle-analyzer
+let withBundleAnalyzer = (config: NextConfig) => config;
+try {
+  if (process.env.ANALYZE === 'true') {
+    withBundleAnalyzer = require('@next/bundle-analyzer')({ enabled: true });
+  }
+} catch (e) {
+  // Пакет не установлен, пропускаем
+  console.warn('@next/bundle-analyzer not installed. Run: pnpm add -D @next/bundle-analyzer');
+}
+
 const nextConfig: NextConfig = {
   // Оптимизация производительности
   compress: true, // Включить gzip компрессию
@@ -46,4 +58,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

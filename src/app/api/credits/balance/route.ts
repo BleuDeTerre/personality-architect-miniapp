@@ -39,17 +39,17 @@ export async function GET(req: NextRequest) {
     const { id: userId } = await requireUserFromReq(req);
     const supa = createUserServerClient(token);
 
-    // 2) Единый источник истины: покупные кредиты = сумма user_credits.amount (не истекают)
+    // 2) Единый источник истины: покупные кредиты = сумма user_credits.credits (не истекают)
     const { data: creditRows, error: creditsErr } = await supa
       .from('user_credits')
-      .select('amount')
+      .select('credits')
       .eq('user_id', userId);
 
     if (creditsErr) {
       return NextResponse.json({ error: 'credits_unavailable', message: creditsErr.message }, { status: 500 });
     }
 
-    const credits = creditRows?.reduce((sum, r) => sum + (r.amount || 0), 0) || 0;
+    const credits = creditRows?.reduce((sum, r) => sum + (r.credits || 0), 0) || 0;
     const expiresAt: string | null = null;
 
     // 3) Посчитать экономию и использованные кредиты по paid_events (meta.used_credit=true)

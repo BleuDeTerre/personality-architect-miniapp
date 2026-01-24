@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
+import { getCacheHeaders, CACHE_PRESETS } from '@/lib/serverCache';
 
 export async function GET(req: NextRequest) {
     // Rate limiting для чтения данных
@@ -40,7 +41,11 @@ export async function GET(req: NextRequest) {
             .order('created_at', { ascending: true });
 
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-        return NextResponse.json({ items: data ?? [] });
+        
+        const res = NextResponse.json({ items: data ?? [] });
+        // Кэшируем список привычек на 5 минут
+        res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.PRIVATE_SHORT).['Cache-Control']);
+        return res;
     } catch {
         return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     }

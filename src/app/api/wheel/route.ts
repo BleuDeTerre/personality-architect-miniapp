@@ -5,6 +5,7 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { getClientLocalDate, weekToLocalSunday } from '@/lib/time';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
+import { getCacheHeaders, CACHE_PRESETS } from '@/lib/serverCache';
 
 // POST /api/wheel { week:'YYYY-Www', area:'Health', score:0..10 }
 export async function POST(req: NextRequest) {
@@ -156,7 +157,10 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch wheel scores', details: error.message }, { status: 500 });
         }
 
-        return NextResponse.json({ items: data ?? [] });
+        const res = NextResponse.json({ items: data ?? [] });
+        // Кэшируем wheel scores на 5 минут (данные обновляются редко)
+        res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.PRIVATE_SHORT).['Cache-Control']);
+        return res;
     } catch (error: any) {
         console.error('[Wheel GET] Unexpected error:', error);
         return NextResponse.json({ error: 'Failed to fetch wheel scores', message: error?.message || 'Unknown error' }, { status: 500 });

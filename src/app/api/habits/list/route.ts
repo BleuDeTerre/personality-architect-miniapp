@@ -5,6 +5,7 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
 import { getClientLocalDate } from '@/lib/time';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
+import { getCacheHeaders, CACHE_PRESETS } from '@/lib/serverCache';
 
 export async function GET(req: NextRequest) {
     // Rate limiting для чтения данных
@@ -78,7 +79,11 @@ export async function GET(req: NextRequest) {
         }));
 
         console.log(`[Habits List] Found ${response.length} unique habits (out of ${(data ?? []).length} total) for user ${userId}`);
-        return NextResponse.json(response);
+        
+        const res = NextResponse.json(response);
+        // Кэшируем список привычек на 5 минут (данные могут измениться при создании/удалении)
+        res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.PRIVATE_SHORT).['Cache-Control']);
+        return res;
     } catch {
         return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     }

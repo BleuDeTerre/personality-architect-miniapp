@@ -8,13 +8,15 @@ interface BadgeImageProps {
     src: string;
     alt: string;
     className?: string;
+    priority?: boolean; // Для изображений выше fold
 }
 
 /**
  * Компонент для отображения изображения бейджа с автоматическим fallback на placeholder
  * Если реальное изображение не загрузилось, автоматически показывается placeholder
+ * Оптимизирован для использования Next.js Image оптимизации (WebP/AVIF)
  */
-export default function BadgeImage({ src, alt, className = '' }: BadgeImageProps) {
+export default function BadgeImage({ src, alt, className = '', priority = false }: BadgeImageProps) {
     const [imgSrc, setImgSrc] = useState(src);
     const [hasError, setHasError] = useState(false);
 
@@ -34,7 +36,9 @@ export default function BadgeImage({ src, alt, className = '' }: BadgeImageProps
             width={256}
             height={256}
             onError={handleError}
-            unoptimized
+            loading={priority ? 'eager' : 'lazy'}
+            priority={priority}
+            quality={85}
         />
     );
 }

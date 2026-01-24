@@ -6,6 +6,7 @@
     "dev": "next dev --turbopack",
     "typecheck": "tsc --noEmit",
     "build": "pnpm typecheck && next build",
+    "build:analyze": "ANALYZE=true pnpm build",
     "start": "next start",
     "lint": "next lint",
     "pay:ping": "node scripts/pay-ping.mjs",
