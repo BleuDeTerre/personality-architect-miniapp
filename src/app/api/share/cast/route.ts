@@ -115,17 +115,21 @@ export async function POST(req: NextRequest) {
                     if (value === undefined || value === null || key === 'variant' || key === 'rev' || key === 'kind' || key === 'ws') return;
                     const valueStr = String(value);
 
-                    // Для goals кастов сокращаем длинные списки целей (q1_goals, q2_goals, etc.)
-                    if (key.endsWith('_goals') && valueStr.length > 150) {
-                        // Берем только первые 2 цели из списка
-                        const goals = valueStr.split('|').slice(0, 2);
-                        const shortened = goals.join('|');
-                        console.warn(`[Share Cast] Shortening ${key} from ${valueStr.length} to ${shortened.length} chars`);
-                        optimizedPreview.searchParams.set(key, shortened);
+                    // Для goals Eisenhower сокращаем списки целей (q1_goals … q4_goals)
+                    if (key.endsWith('_goals')) {
+                        const maxLen = 80;
+                        const maxGoals = 1;
+                        const maxGoalChars = 20;
+                        let out = valueStr;
+                        if (valueStr.length > maxLen) {
+                            const goals = valueStr.split('|').slice(0, maxGoals);
+                            out = goals.map((g) => g.slice(0, maxGoalChars)).join('|');
+                            console.warn(`[Share Cast] Shortening ${key} from ${valueStr.length} to ${out.length} chars`);
+                        }
+                        optimizedPreview.searchParams.set(key, out);
                         return;
                     }
 
-                    // Пропускаем параметры длиннее 100 символов (кроме важных)
                     if (valueStr.length > 100 && !['goal', 'summary', 'status'].includes(key)) {
                         console.warn(`[Share Cast] Skipping long parameter ${key} (${valueStr.length} chars)`);
                         return;
@@ -176,17 +180,15 @@ export async function POST(req: NextRequest) {
         const embeds: Array<{ url: string }> = [
             { url: preview.toString() },
         ];
-        
+        const embedUrlFinal = preview.toString();
         console.log('[Share Cast] Embed configuration:', {
-            embedUrl: preview.toString(),
-            targetUrl: finalTargetUrl,
+            kind,
+            variant: previewParams.variant,
+            embedUrlLength: embedUrlFinal.length,
             targetPath: preview.searchParams.get('targetPath'),
-            note: 'Using preview URL in embed with og:url pointing to app URL - Farcaster should open miniapp via og:url',
         });
 
-        // Используем Developer Managed Signer (как было раньше)
         const signerUuid = NEYNAR_SIGNER_UUID;
-
         if (!signerUuid) {
             return NextResponse.json({ error: 'signer_not_configured' }, { status: 503 });
         }
@@ -226,21 +228,23 @@ export async function POST(req: NextRequest) {
             xpEarned: XP_REWARD,
         });
     } catch (error: any) {
+        const errMsg = error?.message ?? 'failed_to_publish';
+        const neynarStatus = error?.status ?? error?.statusCode;
+        const neynarBody = error?.body ?? (error?.response?.data != null ? JSON.stringify(error.response.data) : undefined);
         console.error('[Share Cast] Failed to publish cast:', {
-            error: error?.message,
-            statusCode: error?.statusCode,
-            statusText: error?.statusText,
-            response: error?.response?.data,
-            responseText: error?.response?.data ? JSON.stringify(error.response.data) : undefined,
-            previewUrl: preview.toString(),
+            kind,
+            variant: previewParams?.variant,
+            error: errMsg,
+            stack: error?.stack,
+            neynarStatus,
+            neynarBody,
             previewUrlLength: preview.toString().length,
-            text: rawText,
             textLength: rawText.length,
-            embeds: [{ url: preview.toString() }],
             signerUuid: NEYNAR_SIGNER_UUID ? 'configured' : 'missing',
         });
         return NextResponse.json({
-            error: error?.message ?? 'failed_to_publish',
+            error: errMsg,
+            message: neynarBody || errMsg,
             fallback: compose.toString(),
         }, { status: 500 });
     }

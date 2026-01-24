@@ -8,6 +8,7 @@ import { BADGES, type Badge } from '@/lib/badges';
 import BadgeImage from '@/components/BadgeImage';
 import { IconDisplay } from '@/lib/iconMapper';
 import { getRandomVariant, badgeEarnedTexts } from '@/lib/castTextVariants';
+import { useShareToFarcaster } from '@/hooks/useShareToFarcaster';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,57 +65,21 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
         };
     }, []);
 
-    // Function to share badge
-    const shareBadge = useCallback(async (badge: Badge) => {
-        try {
-            const headers = await authHeaders();
-            const origin = typeof window !== 'undefined' ? window.location.origin : '';
-            
-            const castText = getRandomVariant(badgeEarnedTexts(
-                badge.title,
-                badge.description
-            ));
+    const { openComposer } = useShareToFarcaster();
 
-            // Build preview URL - используем /api/share/preview для Frame кнопки
-            const previewUrl = new URL('/api/share/preview', origin);
-            previewUrl.searchParams.set('kind', 'badges');
-            previewUrl.searchParams.set('variant', 'badges:earned');
-            previewUrl.searchParams.set('title', badge.title);
-            previewUrl.searchParams.set('description', badge.description);
-            previewUrl.searchParams.set('targetPath', '/profile');
-
-            // Publish cast
-            const res = await fetch('/api/share/cast', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                    kind: 'badges',
-                    title: `Badge: ${badge.title}`,
-                    text: castText,
-                    previewParams: {
-                        variant: 'badges:earned',
-                        title: badge.title,
-                        description: badge.description,
-                    },
-                    embedUrl: previewUrl.toString(),
-                    targetUrl: `${origin}/profile`,
-                }),
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
-                console.error('[Share Badge] Failed to publish cast:', errorData);
-                alert(errorData.message || 'Failed to share badge. Please try again.');
-                return;
-            }
-
-            const data = await res.json();
-            console.log('[Share Badge] Cast published successfully:', data);
-        } catch (error: any) {
-            console.error('[Share Badge] Error:', error);
-            alert('Failed to share badge. Please try again.');
-        }
-    }, [authHeaders]);
+    const shareBadge = useCallback((badge: Badge) => {
+        const castText = getRandomVariant(badgeEarnedTexts(badge.title, badge.description));
+        openComposer({
+            text: castText,
+            kind: 'badges',
+            previewParams: {
+                variant: 'badges:earned',
+                title: badge.title,
+                description: badge.description,
+            },
+            targetPath: '/profile',
+        });
+    }, [openComposer]);
 
     useEffect(() => {
         async function loadAchievements() {

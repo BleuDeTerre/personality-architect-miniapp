@@ -148,8 +148,11 @@ export async function publishCast(
 
         if (!response.ok) {
             const errorText = await response.text();
+            const err = new Error(`Neynar API error: ${response.status} - ${errorText}`) as Error & { status?: number; body?: string };
+            err.status = response.status;
+            err.body = errorText;
             console.error('[Neynar] API error:', response.status, errorText);
-            throw new Error(`Neynar API error: ${response.status} - ${errorText}`);
+            throw err;
         }
 
         const result = await response.json();

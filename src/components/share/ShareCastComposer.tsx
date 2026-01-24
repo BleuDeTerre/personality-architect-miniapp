@@ -237,11 +237,20 @@ export default function ShareCastComposer({
 
     const ogImageUrl = useMemo(() => buildPreviewUrl(selected), [buildPreviewUrl, selected]);
 
-    async function publishCastDirectly(template: CastTemplate) {
+    async function publishCastDirectly(
+        template: CastTemplate,
+        opts?: { textOverride?: string; onSuccess?: () => void }
+    ) {
         if (!origin || !prepareHeaders) {
             toast.error("Unable to publish cast", {
                 description: "Origin or headers not available",
             });
+            return;
+        }
+
+        const textToPublish = (opts?.textOverride ?? template.text).trim();
+        if (!textToPublish) {
+            toast.error("Unable to publish cast", { description: "Cast text cannot be empty." });
             return;
         }
 
@@ -276,7 +285,7 @@ export default function ShareCastComposer({
                 body: JSON.stringify({
                     kind: template.kind,
                     title: template.title,
-                    text: template.text,
+                    text: textToPublish,
                     previewParams: template.previewParams,
                     embedUrl,
                     targetUrl: template.targetPath ? `${origin}${template.targetPath}` : undefined,
@@ -285,7 +294,9 @@ export default function ShareCastComposer({
 
             if (!res.ok) {
                 const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
-                throw new Error(errorData.error || 'Failed to publish cast');
+                const err = new Error(errorData.error || 'Failed to publish cast') as Error & { details?: string };
+                err.details = typeof errorData.message === 'string' ? errorData.message : undefined;
+                throw err;
             }
 
             const data = await res.json();
@@ -299,21 +310,30 @@ export default function ShareCastComposer({
             toast.success("Cast published successfully!", {
                 description: `+${data.xpEarned || 0} XP earned`,
             });
+
+            opts?.onSuccess?.();
         } catch (error: any) {
             console.error('[ShareCastComposer] Failed to publish cast:', error);
+            const description = error?.details ?? error?.message ?? "Unknown error";
             toast.error("Failed to publish cast", {
-                description: error?.message ?? "Unknown error",
+                description: description.length > 200 ? description.slice(0, 197) + "…" : description,
             });
         } finally {
             setLoading(false);
         }
     }
 
-    function openComposer(template: CastTemplate) {
+    function openComposer(template: CastTemplate, textOverride?: string) {
         if (!origin) {
             toast.error("Unable to open composer", {
                 description: "Origin not available",
             });
+            return;
+        }
+
+        const text = (textOverride ?? template.text).trim();
+        if (!text) {
+            toast.error("Cast text cannot be empty", { description: "Write something to share." });
             return;
         }
 
@@ -365,16 +385,16 @@ export default function ShareCastComposer({
                     embedUrl = embedUrlObj.toString();
                 }
 
-                // Строим URL композера Warpcast
+                // Строим URL композера Warpcast (текст может быть отредактирован в предкасте)
                 const compose = new URL('https://warpcast.com/~/compose');
-                compose.searchParams.set('text', template.text);
+                compose.searchParams.set('text', text);
                 compose.searchParams.append('embeds[]', embedUrl);
 
                 const composeUrl = compose.toString();
 
                 console.log('[ShareCastComposer] Opening Farcaster composer:', {
                     composeUrl,
-                    text: template.text,
+                    text,
                     embedUrl,
                 });
 
@@ -389,13 +409,13 @@ export default function ShareCastComposer({
                     sessionStorage.setItem('cast_composer_opening', 'true');
                 }
 
-                // Открываем композер Farcaster через нативный SDK метод
+                // Открываем композер Farcaster через нативный SDK метод (каст публикует пользователь сам)
                 // Это не открывает новое окно и не вызывает logout
                 if (actions?.composeCast) {
                     console.log('[ShareCastComposer] Using native composeCast');
                     try {
                         await actions.composeCast({
-                            text: template.text,
+                            text,
                             embeds: [embedUrl],
                         });
                     } catch (sdkError) {
@@ -458,14 +478,7 @@ export default function ShareCastComposer({
 
     function handleShareRequest() {
         if (!selected) return;
-
-        // Если publishMode === 'auto', публикуем напрямую через API
-        // Иначе открываем композер Warpcast
-        if (selected.publishMode === 'auto') {
-            publishCastDirectly(selected);
-        } else {
-            openComposer(selected);
-        }
+        openComposer(selected);
     }
 
     if (templates.length === 0 || !selected) {

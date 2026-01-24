@@ -14,6 +14,7 @@ import AIHabitInsights from '@/components/AIHabitInsights';
 import AIHabitDifficulty from '@/components/AIHabitDifficulty';
 import { getRandomVariant, topStreakHabitTexts, habitsSummaryTexts, achievementUnlockedTexts } from '@/lib/castTextVariants';
 import type { Achievement } from '@/lib/achievements';
+import { useShareToFarcaster } from '@/hooks/useShareToFarcaster';
 
 // Используем централизованный клиент из lib/supabase с правильными настройками
 
@@ -934,6 +935,7 @@ export default function HabitsPage() {
                     statLabel: 'Total habits',
                     statValue: String(habits.length),
                     total: String(habits.length),
+                    completed: String(completedCount),
                     tag: 'HABIT TRACKER',
                 },
                 targetPath: '/habits',
@@ -943,77 +945,29 @@ export default function HabitsPage() {
         return templates;
     }, [habits]);
 
-    // Function to share achievement
-    const shareAchievement = useCallback(async (achievement: Achievement) => {
-        try {
-            const headers = await authHeaders();
-            const origin = typeof window !== 'undefined' ? window.location.origin : '';
-            
-            const castText = getRandomVariant(achievementUnlockedTexts(
-                achievement.title,
-                achievement.xpReward,
-                achievement.rarity
-            ));
+    const { openComposer } = useShareToFarcaster();
 
-            const template: CastTemplate = {
-                key: `achievement-${achievement.id}`,
-                title: `Achievement: ${achievement.title}`,
-                label: `Achievement unlocked`,
-                text: castText,
-                kind: 'achievements',
-                previewParams: {
-                    variant: 'achievements:unlocked',
-                    icon: achievement.icon,
-                    title: achievement.title,
-                    description: achievement.description,
-                    xp: String(achievement.xpReward),
-                    rarity: achievement.rarity,
-                },
-                targetPath: '/profile',
-            };
-
-            // Build preview URL - используем /api/share/preview для Frame кнопки
-            const previewUrl = new URL('/api/share/preview', origin);
-            previewUrl.searchParams.set('kind', 'achievements');
-            previewUrl.searchParams.set('variant', 'achievements:unlocked');
-            previewUrl.searchParams.set('icon', achievement.icon);
-            previewUrl.searchParams.set('title', achievement.title);
-            previewUrl.searchParams.set('description', achievement.description);
-            previewUrl.searchParams.set('xp', String(achievement.xpReward));
-            previewUrl.searchParams.set('rarity', achievement.rarity);
-            previewUrl.searchParams.set('targetPath', '/profile');
-
-            // Publish cast
-            const res = await fetch('/api/share/cast', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                    kind: template.kind,
-                    title: template.title,
-                    text: template.text,
-                    previewParams: template.previewParams,
-                    embedUrl: previewUrl.toString(),
-                    targetUrl: template.targetPath ? `${origin}${template.targetPath}` : undefined,
-                }),
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
-                console.error('[Share Achievement] Failed to publish cast:', errorData);
-                alert(errorData.message || 'Failed to share achievement. Please try again.');
-                return;
-            }
-
-            const data = await res.json();
-            console.log('[Share Achievement] Cast published successfully:', data);
-            
-            // Close achievement animation
-            setAchievementState(null);
-        } catch (error: any) {
-            console.error('[Share Achievement] Error:', error);
-            alert('Failed to share achievement. Please try again.');
-        }
-    }, [authHeaders]);
+    const shareAchievement = useCallback((achievement: Achievement) => {
+        const castText = getRandomVariant(achievementUnlockedTexts(
+            achievement.title,
+            achievement.xpReward,
+            achievement.rarity
+        ));
+        openComposer({
+            text: castText,
+            kind: 'achievements',
+            previewParams: {
+                variant: 'achievements:unlocked',
+                icon: achievement.icon,
+                title: achievement.title,
+                description: achievement.description,
+                xp: String(achievement.xpReward),
+                rarity: achievement.rarity,
+            },
+            targetPath: '/profile',
+        });
+        setAchievementState(null);
+    }, [openComposer]);
 
     return (
         <>

@@ -6,11 +6,8 @@ import { createClient, type PostgrestError } from '@supabase/supabase-js';
 import { useMiniApp } from '@neynar/react';
 import { BADGES } from '@/lib/badges';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
-import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import Achievements from '@/components/Achievements';
 import MiniAppPage from '@/components/MiniAppPage';
-import CollapsibleCard from '@/components/CollapsibleCard';
-import { getRandomVariant, levelUpTexts } from '@/lib/castTextVariants';
 
 // Supabase client
 const supabase = createClient(
@@ -703,31 +700,6 @@ export default function ProfilePage() {
         ? (neynarDisplayName.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || 'FC')
         : 'FC';
 
-    const levelShareTemplates = useMemo<CastTemplate[]>(() => {
-        const templates: CastTemplate[] = [];
-        if (gamificationStats) {
-            templates.push({
-                key: 'level',
-                label: `Level ${level} ${levelName}`,
-                title: 'Level Up',
-                kind: 'level',
-                text: getRandomVariant(levelUpTexts(levelName, level, xp)),
-                previewParams: {
-                    variant: 'level:up',
-                    level: String(level),
-                    xp: String(xp),
-                    gap: String(Math.max(xpRemaining, 0)),
-                    name: levelName,
-                    color: levelAccentHex,
-                    badge: `${levelName} tier`,
-                    percent: String(progressPercent),
-                },
-                targetPath: '/profile',
-            });
-        }
-        return templates;
-    }, [gamificationStats, level, levelName, xp, xpRemaining, levelAccentHex, progressPercent]);
-
     // Parse bio into attributes/tags
     const bioAttributes = useMemo(() => {
         if (!neynarProfile?.bio) return [];
@@ -1009,18 +981,6 @@ export default function ProfilePage() {
                             </div>
                         </div>
                     </section>
-                )}
-
-                {/* Share your level */}
-                {levelShareTemplates.length > 0 && (
-                    <div className="mb-3">
-                        <CollapsibleCard title="Share your level" defaultOpen={false}>
-                            <ShareCastComposer
-                                templates={levelShareTemplates}
-                                prepareHeaders={authHeaders}
-                            />
-                        </CollapsibleCard>
-                    </div>
                 )}
 
                 {/* Achievements Section */}

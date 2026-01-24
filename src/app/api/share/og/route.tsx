@@ -906,23 +906,24 @@ export async function GET(req: NextRequest) {
           )}
         </div>
 
-        {/* Основной блок с данными */}
+        {/* Основной блок с данными — по центру по вертикали, контейнер занимает больше места */}
         <div
           style={{
             flex: 1,
             display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'flex-start',
+            alignItems: 'center',
+            justifyContent: 'center',
             paddingLeft: 80,
             paddingRight: 80,
-            paddingTop: isStreaksGoal || isWheelSnapshot || isGoalsEisenhower || isAchievementsUnlocked || isBadgesEarned ? 8 : 24,
+            paddingTop: isStreaksGoal || isWheelSnapshot || isGoalsEisenhower || isAchievementsUnlocked || isBadgesEarned ? 8 : 16,
+            paddingBottom: isStreaksGoal || isWheelSnapshot || isGoalsEisenhower || isAchievementsUnlocked || isBadgesEarned ? 8 : 16,
           }}
         >
           <div
             style={{
               display: 'flex',
               flexDirection: 'column',
-              padding: isStreaksGoal || isWheelSnapshot || isGoalsEisenhower || isAchievementsUnlocked || isBadgesEarned ? 20 : 32,
+              padding: isStreaksGoal || isWheelSnapshot || isGoalsEisenhower || isAchievementsUnlocked || isBadgesEarned ? 28 : 36,
               paddingRight: isGoalsEisenhower || isAchievementsUnlocked || isBadgesEarned ? 80 : 120,
               borderRadius: 36,
               width: '100%',
@@ -935,12 +936,12 @@ export async function GET(req: NextRequest) {
             {(card as any).label && !isGoalsEisenhower && !isAchievementsUnlocked && !isBadgesEarned ? (
               <div
                 style={{
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: 'bold',
                   color: '#94a3b8',
                   textTransform: 'uppercase',
                   letterSpacing: 1.5,
-                  marginBottom: 12,
+                  marginBottom: 14,
                   display: 'flex',
                 }}
               >
@@ -949,7 +950,7 @@ export async function GET(req: NextRequest) {
             ) : null}
             <div
               style={{
-                fontSize: isWheelSnapshot ? 60 : isGoalsEisenhower || isAchievementsUnlocked || isBadgesEarned ? 42 : 72,
+                fontSize: isWheelSnapshot ? 64 : isGoalsEisenhower || isAchievementsUnlocked || isBadgesEarned ? 44 : 72,
                 fontWeight: 'bold',
                 color: PRIMARY_COLOR,
                 lineHeight: 1.05,
@@ -1214,91 +1215,47 @@ export async function GET(req: NextRequest) {
                 >
                   {(() => {
                     const total = formatNumber(params.get('statValue')) || formatNumber(params.get('total')) || 0;
-                    const active = formatNumber(params.get('active')) || total;
                     const completed = formatNumber(params.get('completed')) || 0;
-                    const completionRate = total > 0 ? completed / total : 0;
 
                     return (
-                      <>
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 4,
+                        }}
+                      >
                         <div
                           style={{
                             display: 'flex',
-                            flexDirection: 'column',
-                            gap: 4,
+                            justifyContent: 'space-between',
+                            fontSize: 14,
+                            color: '#f1f5f9',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <span style={{ display: 'flex' }}>Completed today{' '}{completed}</span>
+                        </div>
+                        <div
+                          style={{
+                            height: 10,
+                            borderRadius: 999,
+                            background: 'rgba(15,23,42,0.9)',
+                            overflow: 'hidden',
+                            display: 'flex',
                           }}
                         >
                           <div
                             style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              fontSize: 14,
-                              color: '#f1f5f9',
-                              fontWeight: 600,
-                            }}
-                          >
-                            <span style={{ display: 'flex' }}>Completed today</span>
-                            <span style={{ display: 'flex' }}>{completed}</span>
-                          </div>
-                          <div
-                            style={{
-                              height: 10,
+                              width: `${Math.max(4, total > 0 ? (completed / total) * 100 : 0)}%`,
+                              height: '100%',
                               borderRadius: 999,
-                              background: 'rgba(15,23,42,0.9)',
-                              overflow: 'hidden',
-                              display: 'flex',
+                              background: PRIMARY_COLOR,
+                              boxShadow: `0 0 8px ${PRIMARY_COLOR}40`,
                             }}
-                          >
-                            <div
-                              style={{
-                                width: `${Math.max(4, total > 0 ? (completed / total) * 100 : 0)}%`,
-                                height: '100%',
-                                borderRadius: 999,
-                                background: PRIMARY_COLOR,
-                                boxShadow: `0 0 8px ${PRIMARY_COLOR}40`,
-                              }}
-                            />
-                          </div>
+                          />
                         </div>
-                        {completed > 0 && (
-                          <div
-                            style={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 4,
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                fontSize: 14,
-                                color: '#9ca3af',
-                              }}
-                            >
-                              <span style={{ display: 'flex' }}>Completion rate</span>
-                              <span style={{ display: 'flex' }}>{Math.round(completionRate * 100)}%</span>
-                            </div>
-                            <div
-                              style={{
-                                height: 8,
-                                borderRadius: 999,
-                                background: 'rgba(15,23,42,0.9)',
-                                overflow: 'hidden',
-                                display: 'flex',
-                              }}
-                            >
-                              <div
-                                style={{
-                                  width: `${Math.max(4, completionRate * 100)}%`,
-                                  height: '100%',
-                                  borderRadius: 999,
-                                  background: 'linear-gradient(to right, #22c55e, #10b981)',
-                                }}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </>
+                      </div>
                     );
                   })()}
                 </div>
@@ -1321,7 +1278,7 @@ export async function GET(req: NextRequest) {
                 <div
                   style={{
                     display: 'flex',
-                    gap: 20,
+                    gap: 24,
                   }}
                 >
                   {/* Левая колонка - первые 5 областей */}
@@ -1329,7 +1286,7 @@ export async function GET(req: NextRequest) {
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 6,
+                      gap: 8,
                       flex: 1,
                     }}
                   >
@@ -1339,7 +1296,7 @@ export async function GET(req: NextRequest) {
                         style={{
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: 2,
+                          gap: 3,
                         }}
                       >
                         <div
@@ -1347,28 +1304,28 @@ export async function GET(req: NextRequest) {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            gap: 4,
+                            gap: 6,
                           }}
                         >
                           <div
                             style={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 5,
-                              fontSize: 14,
+                              gap: 6,
+                              fontSize: 16,
                               color: 'white',
                             }}
                           >
                             <span style={{ display: 'flex' }}>{WHEEL_AREAS_ICONS[area.name] || '•'}</span>
                             <span style={{ display: 'flex' }}>{area.name}</span>
                           </div>
-                          <span style={{ display: 'flex', fontSize: 14, color: area.color }}>
+                          <span style={{ display: 'flex', fontSize: 16, color: area.color }}>
                             {area.score}
                           </span>
                         </div>
                         <div
                           style={{
-                            height: 5,
+                            height: 6,
                             borderRadius: 999,
                             background: 'rgba(15,23,42,0.9)',
                             overflow: 'hidden',
@@ -1392,7 +1349,7 @@ export async function GET(req: NextRequest) {
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 6,
+                      gap: 8,
                       flex: 1,
                     }}
                   >
@@ -1402,7 +1359,7 @@ export async function GET(req: NextRequest) {
                         style={{
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: 2,
+                          gap: 3,
                         }}
                       >
                         <div
@@ -1410,28 +1367,28 @@ export async function GET(req: NextRequest) {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            gap: 4,
+                            gap: 6,
                           }}
                         >
                           <div
                             style={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 5,
-                              fontSize: 14,
+                              gap: 6,
+                              fontSize: 16,
                               color: 'white',
                             }}
                           >
                             <span style={{ display: 'flex' }}>{WHEEL_AREAS_ICONS[area.name] || '•'}</span>
                             <span style={{ display: 'flex' }}>{area.name}</span>
                           </div>
-                          <span style={{ display: 'flex', fontSize: 14, color: area.color }}>
+                          <span style={{ display: 'flex', fontSize: 16, color: area.color }}>
                             {area.score}
                           </span>
                         </div>
                         <div
                           style={{
-                            height: 5,
+                            height: 6,
                             borderRadius: 999,
                             background: 'rgba(15,23,42,0.9)',
                             overflow: 'hidden',
