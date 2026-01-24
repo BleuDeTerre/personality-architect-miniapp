@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ insights: cached.insights, cached: true });
         }
 
-        // Проверяем лимит перед генерацией инсайтов
+        // Проверяем лимит перед генерацией инсайтов (1 free/день, потом кредиты, иначе 402 → x402)
         const limitCheck = await checkAILimit(supa, userId, userPlan, 'ai/wheel-insights');
         if (!limitCheck.allowed) {
             return NextResponse.json(
@@ -147,6 +147,7 @@ export async function GET(req: NextRequest) {
                     message: limitCheck.error || 'You have reached your daily AI request limit. Pay $0.25 per request or buy credits.',
                     limit: limitCheck.limit,
                     used: limitCheck.used,
+                    remaining: limitCheck.remaining,
                     sku: '/api/paid/ai/wheel-insights',
                     priceUsd: 0.25,
                 },
@@ -224,7 +225,7 @@ export async function GET(req: NextRequest) {
         const response = {
             insights: result.insights || [],
             aiLimit: {
-                used: limitCheck.used + 1, // +1 потому что мы только что залогировали
+                used: Math.min(limitCheck.used + 1, limitCheck.limit),
                 limit: limitCheck.limit,
                 remaining: Math.max(0, limitCheck.remaining - 1),
             },
@@ -238,10 +239,8 @@ export async function GET(req: NextRequest) {
             cacheHours: 24,
         }, response);
 
-        // Логируем AI запрос в фоне (помечаем как DeepSeek)
-        (async () => {
-            await logAIRequest(supa, userId, userPlan, 'ai/wheel-insights', deepseekResult.markAsDeepSeek());
-        })();
+        // Логируем AI запрос и списываем кредит при необходимости (как chat и остальные)
+        await logAIRequest(supa, userId, userPlan, 'ai/wheel-insights', deepseekResult.markAsDeepSeek());
 
         return NextResponse.json(response);
     } catch (error: any) {

@@ -15,8 +15,10 @@ export type X402PaymentRequiredModalProps = {
   message?: string;
   sku?: string;
   priceUsd?: number;
-  /** Request body to send with the paid request */
+  /** Request body to send with the paid request (POST only) */
   requestBody?: Record<string, unknown>;
+  /** HTTP method for paid request. GET used for insight weekly/monthly. */
+  method?: 'GET' | 'POST';
   /** Callback with successful response data */
   onSuccess?: (data: unknown) => void;
 };
@@ -31,6 +33,7 @@ export default function X402PaymentRequiredModal({
   sku,
   priceUsd,
   requestBody,
+  method = 'POST',
   onSuccess,
 }: Props) {
   const router = useRouter();
@@ -95,12 +98,12 @@ export default function X402PaymentRequiredModal({
       // Если x402-fetch не доступен (нет injected wallet), будет использован обычный fetch
       // В Farcaster Mini App среде платеж должен обрабатываться автоматически
       const res = await payWithX402(sku, {
-        method: 'POST',
+        method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: requestBody ? JSON.stringify(requestBody) : undefined,
+        ...(method === 'POST' && requestBody ? { body: JSON.stringify(requestBody) } : {}),
       });
 
       if (res.status === 402) {

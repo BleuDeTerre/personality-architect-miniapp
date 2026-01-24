@@ -7,7 +7,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { FREE_LIMITS } from './pricing';
+import { FREE_LIMITS, AI_REQUEST_PRICE_USD } from './pricing';
 
 export const AI_LIMITS = {
   DAILY_FREE: FREE_LIMITS.aiRequestsPerDay, // общий лимит (не включает AI Chat)
@@ -109,7 +109,8 @@ export async function checkAILimit(
     return !endpointName || !EXCLUDED_FROM_DAILY_FREE.includes(endpointName as any);
   });
 
-  const used = countedForDailyFree.length;
+  // used = только бесплатные запросы (кап на limit); запросы за кредиты не увеличивают "дневной" счётчик
+  const used = Math.min(countedForDailyFree.length, limit);
   const freeRemaining = Math.max(0, limit - used);
 
   // User can make request if they have free requests OR bonus credits
@@ -125,6 +126,47 @@ export async function checkAILimit(
       ? `You have used all ${limit} free AI requests today. Pay $0.25 per request or buy credits for more!`
       : undefined,
   };
+}
+
+/** Сумма кредитов пользователя (user_credits.credits). */
+export async function getCreditsBalance(supa: SupabaseClient, userId: string): Promise<number> {
+  const { data } = await supa.from('user_credits').select('credits').eq('user_id', userId);
+  return (data ?? []).reduce((sum, c) => sum + (c.credits || 0), 0);
+}
+
+/** Списать 1 кредит. Возвращает true если успешно. userId опционален — при передаче вызываем consume_credit(p_user_id, p_period). */
+export async function consumeOneCredit(supa: SupabaseClient, userId?: string): Promise<boolean> {
+  const params = userId
+    ? { p_user_id: userId, p_period: 'credits' as const }
+    : { p_period: 'credits' as const };
+  const { data: ok, error } = await supa.rpc('consume_credit', params);
+  if (error) {
+    console.warn('[AI Limits] consumeOneCredit failed:', error);
+    return false;
+  }
+  return !!ok;
+}
+
+/**
+ * Записать в paid_events факт использования кредита (для UI: usedCredits, savedUsd в профиле).
+ * Вызывать после успешного consumeOneCredit.
+ */
+export async function recordCreditUsage(
+  supa: SupabaseClient,
+  userId: string,
+  endpoint: string
+): Promise<void> {
+  try {
+    await supa.from('paid_events').insert({
+      user_id: userId,
+      endpoint,
+      amount_usd: AI_REQUEST_PRICE_USD,
+      status: 'settled',
+      meta: { used_credit: true },
+    });
+  } catch (e) {
+    console.warn('[AI Limits] recordCreditUsage failed:', e);
+  }
 }
 
 /**
@@ -176,16 +218,23 @@ export async function logAIRequest(
   });
   usedBonusCredit = countedForDailyFree.length >= AI_LIMITS.DAILY_FREE;
 
-  // If over free limit, try to consume a bonus credit
-  if (usedBonusCredit) {
-    const { error: consumeErr } = await supa.rpc('consume_credit', {
-      reason: endpoint,
-    });
-    
-    if (consumeErr) {
-      console.warn('[AI Limits] Failed to consume credit:', consumeErr);
+  // Paid-роуты (/api/paid/*): пользователь уже платит x402 — кредит не списываем
+  const isPaidRoute = !!(metadata as { paid?: boolean } | undefined)?.paid;
+  // skipConsume: кредит уже списан (например insight weekly/monthly — only-credits)
+  const skipConsume = !!(metadata as { skipConsume?: boolean } | undefined)?.skipConsume;
+  const usedCredit = !!(metadata as { usedBonusCredit?: boolean } | undefined)?.usedBonusCredit;
+
+  // If over free limit, consume a bonus credit (всегда передаём userId в RPC для надёжного списания)
+  if (!skipConsume && usedBonusCredit && !isPaidRoute) {
+    const ok = await consumeOneCredit(supa, userId);
+    if (!ok) {
+      console.warn('[AI Limits] Failed to consume credit (RPC returned false)');
+    } else {
+      await recordCreditUsage(supa, userId, endpoint);
     }
   }
+
+  const logUsedCredit = skipConsume ? usedCredit : usedBonusCredit;
 
   // Log the request using RPC function to bypass RLS
   try {
@@ -197,21 +246,21 @@ export async function logAIRequest(
       p_props: {
         plan: userPlan,
         endpoint,
-        usedBonusCredit,
         ...metadata,
+        usedBonusCredit: logUsedCredit,
       },
     });
-    
+
     if (logError) {
       console.error('[AI Limits] Failed to log AI request:', logError);
     } else {
-      console.log('[AI Limits] Successfully logged AI request:', { userId, endpoint, usedBonusCredit });
+      console.log('[AI Limits] Successfully logged AI request:', { userId, endpoint, usedBonusCredit: logUsedCredit });
     }
   } catch (error) {
     console.error('[AI Limits] Exception while logging AI request:', error);
   }
 
-  return { usedBonusCredit };
+  return { usedBonusCredit: logUsedCredit };
 }
 
 /**
@@ -266,7 +315,8 @@ export async function getAITodayUsage(
     return !endpointName || !EXCLUDED_FROM_DAILY_FREE.includes(endpointName as any);
   });
 
-  const used = countedForDailyFree.length;
+  // used = только бесплатные (кап на limit); запросы за кредиты не показываем в X/limit
+  const used = Math.min(countedForDailyFree.length, limit);
   const remaining = Math.max(0, limit - used);
 
   return {

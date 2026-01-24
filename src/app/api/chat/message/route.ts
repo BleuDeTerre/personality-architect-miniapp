@@ -698,7 +698,7 @@ export async function POST(req: NextRequest) {
             response,
             plan: userPlan,
             aiLimit: {
-                used: limitCheck.used + 1, // +1 потому что мы еще не залогировали этот запрос
+                used: Math.min(limitCheck.used + 1, limitCheck.limit),
                 limit: limitCheck.limit,
                 remaining: Math.max(0, limitCheck.remaining - 1),
             },

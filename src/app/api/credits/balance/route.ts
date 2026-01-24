@@ -6,8 +6,8 @@ import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/auth';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 
-// Для UI: считаем "usedCredits" и "savedUsd" по событиям consume_credit (meta.used_credit=true).
-// savedUsd — оценка (условно $0.25 за 1 кредит), не привязана к x402.
+// Для UI: usedCredits и savedUsd — по paid_events с meta.used_credit=true (пишут recordCreditUsage / logAIRequest при списании кредита).
+// savedUsd = usedCredits * $0.25 (оценка экономии).
 const ASSUMED_USD_PER_CREDIT = 0.25;
 
 export async function GET(req: NextRequest) {
@@ -52,15 +52,7 @@ export async function GET(req: NextRequest) {
     const credits = creditRows?.reduce((sum, r) => sum + (r.credits || 0), 0) || 0;
     const expiresAt: string | null = null;
 
-    // 3) Посчитать экономию и использованные кредиты по paid_events (meta.used_credit=true)
-    // Требования к схеме paid_events:
-    //   - endpoint (nullable ок), meta jsonb (nullable ок)
-    //   - reason text not null (мы его точно пишем в consume_credit)
-    //   - amount int not null default 1
-    //   - created_at timestamptz not null default now()
-    //
-    // usedCredits — количество таких событий.
-    // savedUsd — оценка: usedCredits * ASSUMED_USD_PER_CREDIT.
+    // 3) usedCredits = число записей paid_events с meta.used_credit: true; savedUsd = usedCredits * 0.25
     let savedUsd = 0;
     let usedCredits = 0;
 

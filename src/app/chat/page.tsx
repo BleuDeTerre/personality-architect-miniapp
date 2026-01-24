@@ -4,12 +4,11 @@ import { useMiniApp } from '@neynar/react';
 import { createClient } from '@supabase/supabase-js';
 import MiniAppPage from '@/components/MiniAppPage';
 import { fetchJson } from '@/lib/http';
-import { checkAndShowAILimitWarning, showAILimitReachedModal, type AILimitInfo } from '@/lib/aiLimitWarnings';
-import AILimitReachedModal from '@/components/AILimitReachedModal';
 import { renderMarkdown } from '@/lib/markdown';
 import { toast } from 'sonner';
 import X402PaymentRequiredModal from '@/components/X402PaymentRequiredModal';
 import { IconDisplay } from '@/lib/iconMapper';
+import { Sparkles } from 'lucide-react';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,9 +28,7 @@ export default function ChatPage() {
     const [_ctx, setCtx] = useState<any>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [userPlan, setUserPlan] = useState<string>('free');
-    const [showLimitModal, setShowLimitModal] = useState(false);
-    const lastWarningRef = useRef<{ remaining: number; timestamp: number } | null>(null);
-    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number; requestBody?: Record<string, unknown> }>({ open: false });
+    const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number; requestBody?: Record<string, unknown>; method?: 'GET' | 'POST'; actionType?: 'weekly' | 'monthly' }>({ open: false });
 
     // Handler для успешной оплаты в чате
     const handlePaymentSuccess = useCallback((result: unknown) => {
@@ -144,7 +141,8 @@ export default function ChatPage() {
     async function handleQuickAction(type: 'weekly' | 'monthly') {
         if (loading) return;
 
-        const endpoint = type === 'weekly' ? '/api/paid/insight/weekly' : '/api/paid/insight/monthly';
+        const creditsEndpoint = type === 'weekly' ? '/api/insight/weekly' : '/api/insight/monthly';
+        const paidSku = type === 'weekly' ? '/api/paid/insight/weekly' : '/api/paid/insight/monthly';
         const actionName = type === 'weekly' ? 'Weekly AI Summary' : 'Monthly AI Summary';
 
         const userMsg: Message = {
@@ -163,7 +161,7 @@ export default function ChatPage() {
                 totals?: { completed: number; habits_total: number; rate_pct: number };
                 week_start?: string;
                 month_start?: string;
-            }>(endpoint, {
+            }>(creditsEndpoint, {
                 method: 'GET',
                 headers: hdrs,
                 timeoutMs: 60000,
@@ -184,16 +182,19 @@ export default function ChatPage() {
             console.error(`Failed to get ${actionName}:`, e);
             let errorMessage = `Sorry, I couldn't get ${actionName}. Please try again.`;
 
-            // Обработка 402 ошибки (payment required)
             if (e?.code === 402 || e?.message === 'payment_required') {
                 const errorData = e?.detail || {};
                 setPayModal({
                     open: true,
-                    message: errorData.message || `Payment required for ${actionName}.`,
-                    sku: errorData.sku || endpoint,
+                    message: errorData.message || `No credits. Buy credits or pay $0.25 for ${actionName}.`,
+                    sku: errorData.sku || paidSku,
                     priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
+                    method: 'GET',
+                    actionType: type,
                 });
-                errorMessage = errorData.message || `Payment required. Please pay $0.25 for ${actionName}.`;
+                errorMessage = errorData.message || `No AI credits. Buy credits or pay $0.25 for this request.`;
+            } else if (e?.code === 500 && e?.detail?.message) {
+                errorMessage = e.detail.message;
             } else if (e?.message) {
                 errorMessage = `Error: ${e.message}`;
             }
@@ -267,20 +268,13 @@ export default function ChatPage() {
                     return;
                 }
                 
-                // Обработка лимита запросов (429)
+                // Обработка лимита запросов (429) — без всплывающего окна, только сообщение в чате
                 if (data.error === 'daily_limit_reached') {
-                    const limitInfo: AILimitInfo = {
-                        used: data.used || 0,
-                        limit: data.limit || (userPlan === 'free' ? 5 : 20),
-                        remaining: 0,
-                        plan: userPlan as 'free' | 'pro' | 'premium',
-                    };
-                    showAILimitReachedModal(limitInfo);
-                    setShowLimitModal(true);
-
                     const errorMsg: Message = {
                         role: 'assistant',
-                        content: `${data.message || 'You have reached your daily AI request limit'}\n\n${userPlan === 'free' ? 'Upgrade to Pro for 20 AI requests per day!' : 'Please try again tomorrow.'}`,
+                        content: data.message || (userPlan === 'free'
+                            ? 'You have reached your daily AI request limit. Upgrade to Pro or buy credits for more.'
+                            : 'You have reached your daily limit. Please try again tomorrow.'),
                         timestamp: new Date(),
                     };
                     setMessages(prev => [...prev, errorMsg]);
@@ -308,34 +302,10 @@ export default function ChatPage() {
                 throw new Error(data.error);
             }
 
-            const { response, plan, aiLimit } = data;
+            const { response, plan } = data;
 
             // Сохраняем информацию о плане
             if (plan) setUserPlan(plan);
-
-            // Показываем предупреждения о лимите (только если значение изменилось)
-            if (aiLimit) {
-                const limitInfo: AILimitInfo = {
-                    used: aiLimit.used,
-                    limit: aiLimit.limit,
-                    remaining: aiLimit.remaining,
-                    plan: userPlan as 'free' | 'pro' | 'premium',
-                };
-                
-                // Показываем предупреждение только если remaining изменилось или прошло больше 5 секунд
-                const now = Date.now();
-                const shouldShow = !lastWarningRef.current || 
-                    lastWarningRef.current.remaining !== limitInfo.remaining ||
-                    (now - lastWarningRef.current.timestamp) > 5000;
-                
-                if (shouldShow) {
-                    checkAndShowAILimitWarning(limitInfo);
-                    lastWarningRef.current = {
-                        remaining: limitInfo.remaining,
-                        timestamp: now,
-                    };
-                }
-            }
 
             const assistantMsg: Message = {
                 role: 'assistant',
@@ -435,13 +405,6 @@ export default function ChatPage() {
                                             </ul>
                                         </div>
                                         
-                                        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 text-left">
-                                            <p className="text-xs font-semibold text-yellow-300 mb-1 text-center">⚡ Daily Limit</p>
-                                            <p className="text-xs text-white/80">
-                                                You get <strong className="text-yellow-300">1 free AI request per day</strong>. After that, use AI Credits (buy packs) or pay <strong className="text-yellow-300">$0.25 per request</strong> via x402.
-                                            </p>
-                                        </div>
-                                        
                                         <p className="text-xs text-white/60 italic">
                                             💬 <strong>Tip:</strong> Be specific! Instead of &quot;hi&quot;, ask &quot;How can I improve my morning routine?&quot; to get actionable insights.
                                         </p>
@@ -458,16 +421,15 @@ export default function ChatPage() {
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
+                                            <Sparkles className="h-5 w-5 text-purple-400 flex-shrink-0" />
                                             <IconDisplay emoji="📊" size="text-2xl" className="text-purple-400" />
                                             <div className="text-left">
                                                 <div className="text-sm font-semibold text-white group-hover:text-purple-300 transition">Weekly AI Summary</div>
                                                 <div className="text-xs text-white/60">Get insights for this week</div>
                                             </div>
                                         </div>
-                                        <div className="text-xs font-semibold text-purple-400">$0.25</div>
                                     </div>
                                 </button>
-                                
                                 <button
                                     onClick={() => handleQuickAction('monthly')}
                                     disabled={loading}
@@ -475,13 +437,13 @@ export default function ChatPage() {
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
+                                            <Sparkles className="h-5 w-5 text-blue-400 flex-shrink-0" />
                                             <IconDisplay emoji="📅" size="text-2xl" className="text-blue-400" />
                                             <div className="text-left">
                                                 <div className="text-sm font-semibold text-white group-hover:text-blue-300 transition">Monthly AI Summary</div>
                                                 <div className="text-xs text-white/60">Review your month trends</div>
                                             </div>
                                         </div>
-                                        <div className="text-xs font-semibold text-blue-400">$0.25</div>
                                     </div>
                                 </button>
                             </div>
@@ -551,15 +513,6 @@ export default function ChatPage() {
                 </div>
             </div>
 
-            {/* Limit Reached Modal */}
-            {showLimitModal && (
-                <AILimitReachedModal
-                    limit={userPlan === 'free' ? 5 : 20}
-                    plan={userPlan as 'free' | 'pro' | 'premium'}
-                    onClose={() => setShowLimitModal(false)}
-                />
-            )}
-            
             {/* Payment Required Modal */}
             <X402PaymentRequiredModal
                 open={payModal.open}
@@ -568,20 +521,18 @@ export default function ChatPage() {
                 sku={payModal.sku}
                 priceUsd={payModal.priceUsd}
                 requestBody={payModal.requestBody}
+                method={payModal.method}
                 onSuccess={async (result: unknown) => {
-                    // Для quick actions - нужно сделать GET запрос после оплаты
-                    if (payModal.sku?.includes('insight/weekly')) {
-                        // Закрываем модалку
+                    if (payModal.actionType === 'weekly' || payModal.actionType === 'monthly') {
                         setPayModal({ open: false });
-                        // Повторяем запрос (теперь с оплатой)
-                        handleQuickAction('weekly');
-                    } else if (payModal.sku?.includes('insight/monthly')) {
-                        // Закрываем модалку
-                        setPayModal({ open: false });
-                        // Повторяем запрос (теперь с оплатой)
-                        handleQuickAction('monthly');
+                        const summary = (result as { summary?: string })?.summary;
+                        if (summary) {
+                            setMessages(prev => {
+                                const next = prev.slice(0, -1);
+                                return [...next, { role: 'assistant' as const, content: summary, timestamp: new Date() }];
+                            });
+                        }
                     } else {
-                        // Для обычного Chat - используем стандартный handler
                         handlePaymentSuccess(result);
                     }
                 }}

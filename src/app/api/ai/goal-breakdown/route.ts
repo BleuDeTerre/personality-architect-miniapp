@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ ...cached, cached: true });
         }
 
-        // Проверяем лимит перед генерацией плана
+        // Проверяем лимит перед генерацией (1 free/день, потом кредиты, иначе 402 → x402)
         const limitCheck = await checkAILimit(supa, userId, userPlan, 'ai/goal-breakdown');
         if (!limitCheck.allowed) {
             return NextResponse.json(
@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
                     message: limitCheck.error || 'You have reached your daily AI request limit. Pay $0.25 per request or buy credits.',
                     limit: limitCheck.limit,
                     used: limitCheck.used,
+                    remaining: limitCheck.remaining,
                     sku: '/api/paid/ai/goal-breakdown',
                     priceUsd: 0.25,
                 },
@@ -224,12 +225,10 @@ export async function POST(req: NextRequest) {
             cacheHours: 24 * 7, // 7 дней
         }, response);
 
-        // Логируем AI запрос в фоне (помечаем как DeepSeek)
-        (async () => {
-            await logAIRequest(supa, userId, userPlan, 'ai/goal-breakdown', deepseekResult.markAsDeepSeek({
-                goal_title: goalTitle,
-            }));
-        })();
+        // Логируем AI запрос и списываем кредит при необходимости (как chat и остальные)
+        await logAIRequest(supa, userId, userPlan, 'ai/goal-breakdown', deepseekResult.markAsDeepSeek({
+            goal_title: goalTitle,
+        }));
 
         return NextResponse.json(response);
     } catch (error: any) {

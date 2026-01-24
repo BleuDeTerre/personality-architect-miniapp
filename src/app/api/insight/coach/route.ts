@@ -220,7 +220,7 @@ export async function GET(req: NextRequest) {
         const response = {
             advice,
             aiLimit: {
-                used: limitCheck.used + 1, // +1 потому что мы только что залогировали
+                used: Math.min(limitCheck.used + 1, limitCheck.limit),
                 limit: limitCheck.limit,
                 remaining: Math.max(0, limitCheck.remaining - 1),
             },
