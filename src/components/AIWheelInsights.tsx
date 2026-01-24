@@ -212,6 +212,7 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
                 message={payModal.message}
                 sku={payModal.sku}
                 priceUsd={payModal.priceUsd}
+                method="GET"
                 onSuccess={handlePaymentSuccess}
             />
         </div>

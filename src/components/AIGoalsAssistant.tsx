@@ -215,6 +215,7 @@ export default function AIGoalsAssistant({}: Props) {
                 message={payModal.message}
                 sku={payModal.sku}
                 priceUsd={payModal.priceUsd}
+                method="GET"
                 onSuccess={handlePaymentSuccess}
             />
         </CollapsibleCard>
