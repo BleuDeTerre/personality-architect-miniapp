@@ -159,7 +159,7 @@ export async function GET(req: NextRequest) {
 
         const res = NextResponse.json({ items: data ?? [] });
         // Кэшируем wheel scores на 5 минут (данные обновляются редко)
-        res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.PRIVATE_SHORT).['Cache-Control']);
+        res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.PRIVATE_SHORT)['Cache-Control']);
         return res;
     } catch (error: any) {
         console.error('[Wheel GET] Unexpected error:', error);

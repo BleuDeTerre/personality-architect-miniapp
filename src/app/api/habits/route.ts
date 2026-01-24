@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
         
         const res = NextResponse.json({ items: data ?? [] });
         // Кэшируем список привычек на 5 минут
-        res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.PRIVATE_SHORT).['Cache-Control']);
+        res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.PRIVATE_SHORT)['Cache-Control']);
         return res;
     } catch {
         return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

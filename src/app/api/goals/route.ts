@@ -85,14 +85,14 @@ export async function GET(req: NextRequest) {
                 ...meta,
             });
             // Кэшируем цели на 5 минут
-            res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.PRIVATE_SHORT).['Cache-Control']);
+            res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.PRIVATE_SHORT)['Cache-Control']);
             return res;
         }
 
         // Обратная совместимость: без пагинации возвращаем просто items
         const res = NextResponse.json({ items: data ?? [] });
         // Кэшируем цели на 5 минут
-        res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.PRIVATE_SHORT).['Cache-Control']);
+        res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.PRIVATE_SHORT)['Cache-Control']);
         return res;
     } catch (error: any) {
         console.error('[Goals GET] Unexpected error:', error);
