@@ -12,6 +12,10 @@ export default function ErrorLogger() {
         'analyticsMiniAppRollup', // Ошибка аналитики Neynar (не критична)
         'analytics', // Общие ошибки аналитики
         'Failed to fetch', // Сетевые ошибки аналитики
+        'MetaMask', // OnchainKit пытается найти MetaMask (не критично в Farcaster)
+        'ethereum', // Wallet provider ошибки
+        'wallet', // Общие ошибки кошелька при инициализации
+        'connect', // Ошибки подключения кошельков
       ];
       return ignorablePatterns.some(pattern => 
         message.toLowerCase().includes(pattern.toLowerCase())
