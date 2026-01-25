@@ -46,7 +46,7 @@ export async function GET() {
                 tags: ['habits', 'productivity', 'self-improvement', 'goals'],
                 tagline: 'Personalized habit analytics',
                 // Изображения для embed/preview
-                heroImageUrl: process.env.NEXT_PUBLIC_APP_HERO_IMAGE_URL ?? `${origin}/share/image/miniapp-og.png`,
+                heroImageUrl: process.env.NEXT_PUBLIC_APP_HERO_IMAGE_URL ?? `${origin}/share/image/hero.png`,
                 ogTitle: 'Personality Architect',
                 ogDescription: 'Build better habits every day. Track habits, streaks, goals and AI insights.',
                 ogImageUrl: process.env.NEXT_PUBLIC_APP_OG_IMAGE_URL ?? `${origin}/share/image/miniapp-og.png`,

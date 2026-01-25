@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     // version: "next" для Base, imageUrl должен быть 3:2 aspect ratio
     "fc:miniapp": escapeAttr(JSON.stringify({
       version: "next",
-      imageUrl: "https://personality-architect-miniapp.vercel.app/share/image/miniapp-og.png",
+      imageUrl: "https://personality-architect-miniapp.vercel.app/share/image/hero.png",
       button: {
         title: "Open App",
         action: {
