@@ -5,7 +5,7 @@ import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import ClientToaster from "@/components/ClientToaster";
 import UniversalProvider from "@/components/UniversalProvider";
 import ErrorLogger from "@/components/ErrorLogger";
-import { escapeAttr } from "@/lib/shareOgHtml";
+// escapeAttr removed - fc:miniapp needs raw JSON.stringify per Base docs
 import SessionRestore from "@/components/SessionRestore";
 
 const geistSans = Geist({
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
   other: {
     // fc:miniapp metadata для embed preview
     // version: "next" для Base, imageUrl должен быть 3:2 aspect ratio
-    "fc:miniapp": escapeAttr(JSON.stringify({
+    "fc:miniapp": JSON.stringify({
       version: "next",
       imageUrl: "https://personality-architect-miniapp.vercel.app/share/image/hero.png",
       button: {
@@ -63,7 +63,7 @@ export const metadata: Metadata = {
           splashBackgroundColor: "#7C5CFC",
         },
       },
-    })),
+    }),
     "base:app_id": "696d0122c0ab25addaaaf448",
   },
 };
