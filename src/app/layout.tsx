@@ -56,7 +56,7 @@ export const metadata: Metadata = {
       button: {
         title: "Open App",
         action: {
-          type: "launch_miniapp",
+          type: "launch_frame",
           name: "Personality Architect",
           url: "https://personality-architect-miniapp.vercel.app",
           splashImageUrl: "https://personality-architect-miniapp.vercel.app/miniapp/splash.png",
