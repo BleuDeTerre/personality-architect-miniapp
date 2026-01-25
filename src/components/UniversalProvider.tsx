@@ -1,10 +1,39 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { MiniAppProvider } from '@neynar/react';
+import { MiniAppProvider, useMiniApp as useNeynarMiniApp } from '@neynar/react';
 import { OnchainKitProvider } from '@coinbase/onchainkit';
 import { base } from 'viem/chains';
 import { detectClient, type ClientType } from '@/lib/clientDetector';
+import { MiniAppContextProvider } from '@/hooks/useMiniAppContext';
+
+/**
+ * Внутренний компонент, который извлекает данные из Neynar SDK
+ * и передаёт их в наш универсальный контекст
+ */
+function NeynarDataExtractor({ children }: { children: ReactNode }) {
+    const neynarData = useNeynarMiniApp();
+    
+    return (
+        <MiniAppContextProvider neynarData={neynarData}>
+            {children}
+        </MiniAppContextProvider>
+    );
+}
+
+/**
+ * Обёртка для Base (OnchainKit) - пока без данных SDK
+ * TODO: Добавить useMiniKit когда будет доступен
+ */
+function BaseDataExtractor({ children }: { children: ReactNode }) {
+    // Для Base пока передаём null, данные будут добавлены позже
+    // когда интегрируем useMiniKit
+    return (
+        <MiniAppContextProvider neynarData={null}>
+            {children}
+        </MiniAppContextProvider>
+    );
+}
 
 /**
  * Универсальный провайдер для мини-приложений
@@ -22,9 +51,13 @@ export default function UniversalProvider({ children }: { children: ReactNode })
         console.log('[UniversalProvider] Detected client:', detected);
     }, []);
 
-    // Пока не определили клиент - рендерим без провайдера (fallback)
+    // Пока не определили клиент - рендерим с дефолтным контекстом
     if (!mounted) {
-        return <>{children}</>;
+        return (
+            <MiniAppContextProvider neynarData={null}>
+                {children}
+            </MiniAppContextProvider>
+        );
     }
 
     // Для Base используем OnchainKitProvider
@@ -35,27 +68,32 @@ export default function UniversalProvider({ children }: { children: ReactNode })
                 chain={base}
                 miniKit={{ enabled: true }}
             >
-                {children}
+                <BaseDataExtractor>
+                    {children}
+                </BaseDataExtractor>
             </OnchainKitProvider>
         );
     }
 
     // Для Farcaster используем MiniAppProvider (Neynar)
-    // Это сохраняет обратную совместимость
+    // NeynarDataExtractor извлекает данные и передаёт в наш контекст
     if (clientType === 'farcaster') {
         return (
             <MiniAppProvider analyticsEnabled={true}>
-                {children}
+                <NeynarDataExtractor>
+                    {children}
+                </NeynarDataExtractor>
             </MiniAppProvider>
         );
     }
 
     // Если клиент не определен - используем Farcaster по умолчанию
-    // Это сохраняет работоспособность существующего кода
     console.warn('[UniversalProvider] Client type unknown, using Farcaster as fallback');
     return (
         <MiniAppProvider analyticsEnabled={true}>
-            {children}
+            <NeynarDataExtractor>
+                {children}
+            </NeynarDataExtractor>
         </MiniAppProvider>
     );
 }

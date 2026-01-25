@@ -1,44 +1,92 @@
 'use client';
 
-import { useMemo } from 'react';
-import { useMiniApp as useNeynarMiniApp } from '@neynar/react';
+import { createContext, useContext, useMemo, useState, useEffect, type ReactNode } from 'react';
 import { detectClient, getWalletFromContext, getFidFromContext, type ClientType } from '@/lib/clientDetector';
 import { normalizeFarcasterContext, type UseMiniAppContextReturn, type UniversalContext, type UniversalActions } from '@/lib/miniappContext';
 
 /**
+ * Контекст для универсального доступа к данным мини-приложения
+ * Позволяет избежать ошибок при SSR/статической генерации
+ */
+const MiniAppContextInternal = createContext<UseMiniAppContextReturn | null>(null);
+
+/**
+ * Значения по умолчанию для случаев, когда провайдер недоступен
+ */
+const defaultContextValue: UseMiniAppContextReturn = {
+    isSDKLoaded: false,
+    context: null,
+    actions: null,
+    clientType: 'unknown',
+    user: null,
+    fid: null,
+    wallet: null,
+};
+
+/**
+ * Провайдер контекста - используется внутри UniversalProvider
+ */
+export function MiniAppContextProvider({ 
+    children, 
+    neynarData 
+}: { 
+    children: ReactNode; 
+    neynarData: { isSDKLoaded: boolean; context: any; actions: any } | null;
+}) {
+    const [mounted, setMounted] = useState(false);
+    
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    const value = useMemo(() => {
+        if (!mounted || !neynarData) {
+            return defaultContextValue;
+        }
+
+        const clientType = detectClient();
+        const normalizedContext: UniversalContext | null = normalizeFarcasterContext(neynarData.context);
+        const isSDKLoaded = neynarData.isSDKLoaded || false;
+        const actions: UniversalActions | null = neynarData.actions || null;
+        const user = normalizedContext?.user || null;
+        const fid = getFidFromContext(normalizedContext);
+        const wallet = getWalletFromContext(normalizedContext);
+
+        return {
+            isSDKLoaded,
+            context: normalizedContext,
+            actions,
+            clientType,
+            user,
+            fid,
+            wallet,
+        };
+    }, [mounted, neynarData]);
+
+    return (
+        <MiniAppContextInternal.Provider value={value}>
+            {children}
+        </MiniAppContextInternal.Provider>
+    );
+}
+
+/**
  * Универсальный хук для работы с мини-приложением
  * 
- * ВАЖНО: На данный момент использует только Farcaster SDK (Neynar) для обратной совместимости.
- * Base SDK поддержка будет добавлена позже через условный рендеринг провайдеров.
+ * Безопасен для SSR/статической генерации - возвращает значения по умолчанию
+ * если провайдер недоступен.
  * 
  * @returns UseMiniAppContextReturn - универсальный интерфейс с контекстом и действиями
  */
 export function useMiniAppContext(): UseMiniAppContextReturn {
-    const clientType = useMemo(() => detectClient(), []);
+    const context = useContext(MiniAppContextInternal);
     
-    // Получаем данные из Farcaster SDK (Neynar)
-    // Используем его по умолчанию для обратной совместимости
-    const farcasterData = useNeynarMiniApp();
-
-    // Нормализуем контекст Farcaster
-    const normalizedContext: UniversalContext | null = normalizeFarcasterContext(farcasterData.context);
-    const isSDKLoaded = farcasterData.isSDKLoaded || false;
-    const actions: UniversalActions | null = farcasterData.actions || null;
-
-    // Извлекаем удобные геттеры
-    const user = normalizedContext?.user || null;
-    const fid = getFidFromContext(normalizedContext);
-    const wallet = getWalletFromContext(normalizedContext);
-
-    return {
-        isSDKLoaded,
-        context: normalizedContext,
-        actions,
-        clientType,
-        user,
-        fid,
-        wallet,
-    };
+    // Если контекст недоступен (SSR или вне провайдера) - возвращаем дефолтные значения
+    if (!context) {
+        return defaultContextValue;
+    }
+    
+    return context;
 }
 
 /**
