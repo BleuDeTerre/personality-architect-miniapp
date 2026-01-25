@@ -32,7 +32,7 @@ const NAVIGATION = [
 ];
 
 export default function DashboardPage() {
-  const { isSDKLoaded, context } = useMiniApp();
+  const { isSDKLoaded, context, clientType, wallet: contextWalletFromHook, fid: fidFromHook } = useMiniApp();
 
   useEffect(() => {
     (async () => {
@@ -62,56 +62,109 @@ export default function DashboardPage() {
         return;
       }
 
-      // Получаем FID любым способом
+      // Определяем как логиниться в зависимости от платформы
+      console.log('[Dashboard] Client type:', clientType);
+      
       let fid: number | null = null;
+      let wallet: string | null = null;
 
-      // 1. Из Neynar context (приоритет)
-      if (context?.user?.fid) {
-        fid = Number(context.user.fid);
-        console.log('[Dashboard] Got FID from Neynar context:', fid);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('user_fid', String(fid));
+      // === BASE: логин через wallet ===
+      if (clientType === 'base') {
+        // 1. Из контекста хука
+        wallet = contextWalletFromHook || null;
+        
+        // 2. Из context напрямую (OnchainKit может предоставить)
+        if (!wallet) {
+          wallet = (context?.user as any)?.address 
+            || (context?.user as any)?.wallet 
+            || (context?.user as any)?.walletAddress 
+            || null;
+        }
+        
+        // 3. Из localStorage
+        if (!wallet && typeof window !== 'undefined') {
+          wallet = localStorage.getItem('user_wallet') || localStorage.getItem('selected_wallet');
+        }
+        
+        // 4. Из URL параметров (для теста)
+        if (!wallet && typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search);
+          wallet = urlParams.get('wallet');
+        }
+        
+        if (wallet) {
+          console.log('[Dashboard] Got wallet for Base:', wallet.slice(0, 10) + '...');
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('user_wallet', wallet);
+          }
         }
       }
 
-      // 2. Из localStorage (если не получили из Neynar)
-      if (!fid && typeof window !== 'undefined') {
-        const savedFid = localStorage.getItem('user_fid');
-        if (savedFid) {
-          fid = Number(savedFid);
-          console.log('[Dashboard] Got FID from localStorage:', fid);
+      // === FARCASTER: логин через FID ===
+      if (clientType === 'farcaster' || clientType === 'unknown') {
+        // 1. Из контекста хука
+        fid = fidFromHook || null;
+        
+        // 2. Из Neynar context напрямую
+        if (!fid && context?.user?.fid) {
+          fid = Number(context.user.fid);
+        }
+
+        // 3. Из localStorage
+        if (!fid && typeof window !== 'undefined') {
+          const savedFid = localStorage.getItem('user_fid');
+          if (savedFid) {
+            fid = Number(savedFid);
+            console.log('[Dashboard] Got FID from localStorage:', fid);
+          }
+        }
+
+        // 4. Из URL параметров (для теста)
+        if (!fid && typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search);
+          const fidFromUrl = urlParams.get('fid');
+          if (fidFromUrl) {
+            fid = Number(fidFromUrl);
+            console.log('[Dashboard] Got FID from URL:', fid);
+          }
+        }
+
+        if (fid) {
+          console.log('[Dashboard] Got FID for Farcaster:', fid);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('user_fid', String(fid));
+          }
+          
+          // Также получаем wallet из контекста Farcaster
+          wallet = (context?.user as any)?.custodyAddress || (context?.user as any)?.walletAddress || null;
         }
       }
 
-      // 3. Из URL параметров (для теста/fallback)
-      if (!fid && typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search);
-        const fidFromUrl = urlParams.get('fid');
-        if (fidFromUrl) {
-          fid = Number(fidFromUrl);
-          console.log('[Dashboard] Got FID from URL:', fid);
-          localStorage.setItem('user_fid', String(fid));
-        }
-      }
-
-      if (!fid) {
-        console.error('[Dashboard] Cannot login without FID. Neynar SDK not loaded and no FID in localStorage or URL.');
+      // Проверяем что есть хотя бы один способ идентификации
+      if (!fid && !wallet) {
+        console.error('[Dashboard] Cannot login: no FID (Farcaster) or wallet (Base) available');
         return;
       }
 
       // Логинимся
-      console.log('[Dashboard] Logging in with FID:', fid);
+      console.log('[Dashboard] Logging in:', { fid, wallet: wallet?.slice(0, 10), clientType });
       try {
         const selectedWallet = typeof window !== 'undefined' ? localStorage.getItem('selected_wallet') : null;
         const walletType = typeof window !== 'undefined' ? (localStorage.getItem('wallet_type') || 'app') : 'app';
-
-        const contextWallet = (context?.user as any)?.custodyAddress || (context?.user as any)?.walletAddress || null;
-        const wallet = walletType === 'external' && selectedWallet ? selectedWallet : contextWallet;
+        
+        // Для Base: используем wallet как основной идентификатор
+        // Для Farcaster: используем fid как основной идентификатор
+        const finalWallet = walletType === 'external' && selectedWallet ? selectedWallet : wallet;
 
         const res = await fetch('/api/auth/miniapp-login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fid, wallet, walletType }),
+          body: JSON.stringify({ 
+            fid: fid || undefined,  // undefined если нет (для Base)
+            wallet: finalWallet || undefined,  // undefined если нет
+            walletType,
+            clientType,
+          }),
         });
 
         if (!res.ok) {

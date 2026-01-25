@@ -48,15 +48,15 @@ export const metadata: Metadata = {
   },
   keywords: ["habits", "productivity", "personal development", "habit tracker", "streaks", "goals"],
   other: {
-    // Используем escapeAttr для безопасного экранирования JSON перед вставкой в HTML атрибут
-    // Это предотвращает XSS через двойные кавычки в JSON
+    // fc:miniapp metadata для embed preview
+    // version: "next" для Base, imageUrl должен быть 3:2 aspect ratio
     "fc:miniapp": escapeAttr(JSON.stringify({
-      version: "1",
+      version: "next",
       imageUrl: "https://personality-architect-miniapp.vercel.app/share/image/miniapp-og.png",
       button: {
-        title: "Personality Architect",
+        title: "Open App",
         action: {
-          type: "launch_frame",
+          type: "launch_miniapp",
           name: "Personality Architect",
           url: "https://personality-architect-miniapp.vercel.app",
           splashImageUrl: "https://personality-architect-miniapp.vercel.app/miniapp/splash.png",
