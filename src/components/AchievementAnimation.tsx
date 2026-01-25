@@ -154,7 +154,7 @@ export default function AchievementAnimation({ achievement, onComplete, onShare,
                                 }}
                                 className="px-6 py-3 rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-lg pointer-events-auto"
                             >
-                                🎯 Share on Farcaster
+                                🎯 Share
                             </button>
                         </div>
                     )}

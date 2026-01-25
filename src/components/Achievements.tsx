@@ -356,7 +356,7 @@ export default function Achievements({ badgePanel }: AchievementsProps) {
                                                 onClick={() => shareBadge(badge)}
                                                 className="w-full rounded-2xl px-4 py-2 text-sm font-semibold bg-gradient-to-r from-[#EC4899] to-[#F97316] text-white hover:opacity-90 transition-opacity"
                                             >
-                                                🎯 Share on Farcaster
+                                                🎯 Share
                                             </button>
                                         )}
                                     </>

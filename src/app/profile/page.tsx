@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import { createClient, type PostgrestError } from '@supabase/supabase-js';
-import { useMiniApp } from '@neynar/react';
+import { useMiniApp } from '@/hooks/useMiniAppContext';
 import { BADGES } from '@/lib/badges';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
 import Achievements from '@/components/Achievements';
 import MiniAppPage from '@/components/MiniAppPage';
+import ThemeToggle from '@/components/ThemeToggle';
 
 // Supabase client
 const supabase = createClient(
@@ -344,7 +345,7 @@ export default function ProfilePage() {
                 let { data } = await supabase.auth.getUser();
                 if (!data.user && fid) {
                     // Передаем wallet при логине, чтобы сохранить его в базу
-                    const res = await fetch('/api/auth/farcaster-login', {
+                    const res = await fetch('/api/auth/miniapp-login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ fid, wallet }),
@@ -719,8 +720,11 @@ export default function ProfilePage() {
     return (
         <MiniAppPage>
             <div>
-                {/* Profile Section */}
+                {/* Profile Section with Theme Toggle */}
                 <section className="space-y-1 mb-2">
+                    <div className="flex justify-end mb-2">
+                        <ThemeToggle />
+                    </div>
                     {neynarLoading ? (
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2 animate-pulse">
                             <div className="flex items-center gap-3">
@@ -739,7 +743,7 @@ export default function ProfilePage() {
                                     {neynarProfile.pfpUrl ? (
                                         <Image
                                             src={neynarProfile.pfpUrl}
-                                            alt={neynarDisplayName ?? 'Farcaster user'}
+                                            alt={neynarDisplayName ?? 'User'}
                                             className="object-cover"
                                             fill
                                             sizes="64px"
@@ -753,7 +757,7 @@ export default function ProfilePage() {
                                 {/* User Info */}
                                 <div className="flex-1 min-w-0">
                                     <div className="text-xl font-bold text-white mb-1">
-                                        {neynarProfile.displayName ?? neynarProfile.username ?? 'Farcaster User'}
+                                        {neynarProfile.displayName ?? neynarProfile.username ?? 'User'}
                                     </div>
                                     {neynarProfile.username && (
                                         <div className="text-sm text-white/60 mb-1">@{neynarProfile.username}</div>
@@ -784,10 +788,10 @@ export default function ProfilePage() {
                                     🧑‍🚀
                                 </div>
                                 <div className="flex-1">
-                                    <div className="text-xl font-bold text-white mb-1">Farcaster user</div>
-                                    <div className="text-sm text-white/60 mb-2">Connect your Farcaster profile to unlock personalized insights.</div>
+                                    <div className="text-xl font-bold text-white mb-1">User Profile</div>
+                                    <div className="text-sm text-white/60 mb-2">Connect your profile to unlock personalized insights.</div>
                                     <p className="text-xs text-white/50">
-                                        Open the app from Farcaster to automatically link your profile.
+                                        Open the app from your client to automatically link your profile.
                                     </p>
                                 </div>
                             </div>

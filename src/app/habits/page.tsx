@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useMiniApp } from '@neynar/react';
+import { useMiniApp } from '@/hooks/useMiniAppContext';
 import { X, Loader2, Pencil } from 'lucide-react';
 import LevelUpAnimation from '@/components/LevelUpAnimation';
 import AchievementAnimation from '@/components/AchievementAnimation';
@@ -346,7 +346,7 @@ export default function HabitsPage() {
             if (!user && fid) {
                 console.log('[HabitsPage] No user, attempting login with FID:', fid);
                 try {
-                    const res = await fetch('/api/auth/farcaster-login', {
+                    const res = await fetch('/api/auth/miniapp-login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ fid }),
@@ -522,7 +522,7 @@ export default function HabitsPage() {
                 }
 
                 if (fid) {
-                    const res = await fetch('/api/auth/farcaster-login', {
+                    const res = await fetch('/api/auth/miniapp-login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ fid }),

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { useMiniApp } from '@neynar/react';
+import { useMiniApp } from '@/hooks/useMiniAppContext';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import CollapsibleCard from '@/components/CollapsibleCard';
@@ -878,7 +878,7 @@ export default function AnalyticsPage() {
 
             const { data } = await supabase.auth.getUser();
             if (!data.user) {
-                const res = await fetch('/api/auth/farcaster-login', {
+                const res = await fetch('/api/auth/miniapp-login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ fid }),

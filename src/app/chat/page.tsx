@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useMiniApp } from '@neynar/react';
+import { useMiniApp } from '@/hooks/useMiniAppContext';
 import { createClient } from '@supabase/supabase-js';
 import MiniAppPage from '@/components/MiniAppPage';
 import { fetchJson } from '@/lib/http';
@@ -94,7 +94,7 @@ export default function ChatPage() {
 
             const { data } = await supabase.auth.getUser();
             if (!data.user) {
-                const res = await fetch('/api/auth/farcaster-login', {
+                const res = await fetch('/api/auth/miniapp-login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ fid }),

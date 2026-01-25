@@ -9,7 +9,7 @@ import {
     PolarRadiusAxis,
     ResponsiveContainer,
 } from 'recharts';
-import { useMiniApp } from '@neynar/react';
+import { useMiniApp } from '@/hooks/useMiniAppContext';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import AIWheelInsights from '@/components/AIWheelInsights';
@@ -373,7 +373,7 @@ export default function WheelPage() {
             if (!user && fid) {
                 console.log('[WheelPage] No user, attempting login with FID:', fid);
                 try {
-                    const res = await fetch('/api/auth/farcaster-login', {
+                    const res = await fetch('/api/auth/miniapp-login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ fid }),
@@ -619,7 +619,7 @@ export default function WheelPage() {
                 }
 
                 if (fid) {
-                    const res = await fetch('/api/auth/farcaster-login', {
+                    const res = await fetch('/api/auth/miniapp-login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ fid }),

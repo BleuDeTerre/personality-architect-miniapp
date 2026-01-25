@@ -91,8 +91,8 @@ const MiniAppTabBar = memo(function MiniAppTabBar({ className }: MiniAppTabBarPr
                             ref={isActive ? activeLinkRef : null}
                             onClick={handleLinkClick}
                             className={[
-                                "flex flex-col items-center gap-1 rounded-lg px-3 py-0.5 text-xs transition-all whitespace-nowrap",
-                                "flex-shrink-0 w-20",
+                                "flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-xs transition-all whitespace-nowrap",
+                                "flex-shrink-0 w-20 min-h-[44px] min-w-[44px]",
                                 isActive
                                     ? "text-white"
                                     : "text-white/70 hover:text-white hover:bg-white/5",

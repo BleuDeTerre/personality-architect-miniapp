@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useMiniApp } from '@neynar/react';
+import { useMiniApp } from '@/hooks/useMiniAppContext';
 import { supabase } from '@/lib/supabase';
 import { SHARE_PREVIEW_VERSION } from '@/lib/sharePreviewVersion';
 import { toast } from 'sonner';

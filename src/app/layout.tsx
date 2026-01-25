@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import ClientToaster from "@/components/ClientToaster";
-import NeynarProvider from "@/components/NeynarProvider";
+import UniversalProvider from "@/components/UniversalProvider";
 import ErrorLogger from "@/components/ErrorLogger";
 import { escapeAttr } from "@/lib/shareOgHtml";
 import SessionRestore from "@/components/SessionRestore";
@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Personality Architect",
-  description: "Track habits, streaks, goals and AI insights in one place. Share progress to Farcaster, receive personalized nudges, and stay consistent with gamified analytics.",
+  description: "Track habits, streaks, goals and AI insights in one place. Share your progress, receive personalized nudges, and stay consistent with gamified analytics.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     description: "Build better habits every day. Track habits, streaks, goals and AI insights in one place.",
     images: ["/share/image/miniapp-og.png"],
   },
-  keywords: ["habits", "productivity", "personal development", "habit tracker", "streaks", "goals", "farcaster"],
+  keywords: ["habits", "productivity", "personal development", "habit tracker", "streaks", "goals"],
   other: {
     // Используем escapeAttr для безопасного экранирования JSON перед вставкой в HTML атрибут
     // Это предотвращает XSS через двойные кавычки в JSON
@@ -98,13 +98,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <NeynarProvider>
+        <UniversalProvider>
           <ServiceWorkerRegistration />
           <ClientToaster />
           <ErrorLogger />
           <SessionRestore />
           {children}
-        </NeynarProvider>
+        </UniversalProvider>
       </body>
     </html>
   );

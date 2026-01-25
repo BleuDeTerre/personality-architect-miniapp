@@ -77,7 +77,7 @@ export default function PushNotificationSettings() {
             <div className="mb-4 p-4 rounded-2xl border border-yellow-500/50 bg-yellow-500/10 text-sm text-yellow-300">
                 <p className="font-semibold mb-1">Функционал временно отключен</p>
                 <p className="text-xs text-yellow-200/80">
-                    Web Push уведомления отключены. В будущем будут реализованы уведомления через Farcaster.
+                    Web Push уведомления отключены. В будущем будут реализованы нативные уведомления.
                 </p>
             </div>
 
@@ -86,7 +86,7 @@ export default function PushNotificationSettings() {
                     Статус: <span className="font-semibold text-white">Недоступно</span>
                 </div>
                 <div className="text-xs text-white/60">
-                    Все кнопки отключены до реализации Farcaster уведомлений
+                    Все кнопки отключены до реализации нативных уведомлений
                 </div>
             </div>
 

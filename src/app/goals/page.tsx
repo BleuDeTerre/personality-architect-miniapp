@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useMiniApp } from '@neynar/react';
+import { useMiniApp } from '@/hooks/useMiniAppContext';
 import ShareCastComposer, { type CastTemplate } from '@/components/share/ShareCastComposer';
 import MiniAppPage from '@/components/MiniAppPage';
 import CollapsibleCard from '@/components/CollapsibleCard';
@@ -76,7 +76,7 @@ export default function GoalsPage() {
             if (user?.user_metadata?.fid) {
                 const fid = Number(user.user_metadata.fid);
                 try {
-                    const res = await fetch('/api/auth/farcaster-login', {
+                    const res = await fetch('/api/auth/miniapp-login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ fid }),
@@ -204,7 +204,7 @@ export default function GoalsPage() {
             if (!user && fid) {
                 console.log('[GoalsPage] No user, attempting login with FID:', fid);
                 try {
-                    const res = await fetch('/api/auth/farcaster-login', {
+                    const res = await fetch('/api/auth/miniapp-login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ fid }),
@@ -353,7 +353,7 @@ export default function GoalsPage() {
                 }
 
                 if (fid) {
-                    const res = await fetch('/api/auth/farcaster-login', {
+                    const res = await fetch('/api/auth/miniapp-login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ fid }),

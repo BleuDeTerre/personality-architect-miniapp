@@ -1,35 +1,21 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useMiniApp } from '@neynar/react';
 import { createClient } from '@supabase/supabase-js';
-import { X, Wallet, Smartphone } from 'lucide-react';
+import { X, Wallet } from 'lucide-react';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-type WalletOption = 'farcaster' | 'external' | null;
-
 export default function WalletSelectionModal() {
-    const { isSDKLoaded, context } = useMiniApp();
     const [show, setShow] = useState(false);
-    const [selectedWallet, setSelectedWallet] = useState<WalletOption>(null);
     const [externalWallet, setExternalWallet] = useState('');
-    const [farcasterWallet, setFarcasterWallet] = useState<string | null>(null);
     const [connecting, setConnecting] = useState(false);
 
     useEffect(() => {
-        if (!isSDKLoaded) return;
-
         const hasSeenWalletPrompt = typeof window !== 'undefined' && localStorage.getItem('wallet_selection_seen') === 'true';
-
-        // Загружаем wallet из контекста, если доступен
-        if (context?.user) {
-            const wallet = (context.user as any)?.custodyAddress || (context.user as any)?.walletAddress || null;
-            setFarcasterWallet(wallet);
-        }
 
         // Подписываемся на изменения сессии
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -104,7 +90,7 @@ export default function WalletSelectionModal() {
         return () => {
             subscription.unsubscribe();
         };
-    }, [isSDKLoaded, context]);
+    }, []);
 
     const getAuthHeaders = async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -115,84 +101,42 @@ export default function WalletSelectionModal() {
         };
     };
 
-    const handleSelectWallet = (option: WalletOption) => {
-        setSelectedWallet(option);
-    };
-
     const handleConnect = async () => {
-        if (selectedWallet === 'farcaster') {
-            // Используем Farcaster wallet - просто продолжаем
-            setConnecting(true);
-            try {
-                // Кошелек уже доступен из контекста, просто закрываем окно
-                // Пользователь может использовать его после регистрации
-                if (farcasterWallet) {
-                    console.log('[WalletSelectionModal] Saving Farcaster wallet:', farcasterWallet.slice(0, 10) + '...');
-                    localStorage.setItem('selected_wallet', farcasterWallet);
-                    localStorage.setItem('wallet_type', 'farcaster');
-                    const headers = await getAuthHeaders();
-                    if (headers) {
-                        const res = await fetch('/api/profile/wallet', {
-                            method: 'POST',
-                            headers,
-                            body: JSON.stringify({ wallet: farcasterWallet }),
-                        }).catch(() => undefined);
-                        if (res?.ok) {
-                            console.log('[WalletSelectionModal] Wallet saved successfully');
-                            // Dispatch event to notify ProfilePage
-                            window.dispatchEvent(new Event('wallet-updated'));
-                        } else {
-                            const errorData = await res?.json().catch(() => ({}));
-                            console.error('[WalletSelectionModal] Failed to save wallet:', errorData);
-                        }
-                    } else {
-                        console.warn('[WalletSelectionModal] No auth headers available');
-                    }
-                }
-                localStorage.setItem('wallet_selection_seen', 'true');
-                setShow(false);
-            } catch (error) {
-                console.error('[WalletSelectionModal] Failed to use Farcaster wallet:', error);
-            } finally {
-                setConnecting(false);
-            }
-        } else if (selectedWallet === 'external') {
-            // Валидация внешнего кошелька
-            if (!externalWallet || !/^0x[0-9a-fA-F]{40}$/.test(externalWallet)) {
-                alert('Please enter a valid Ethereum address (0x...)');
-                return;
-            }
-            setConnecting(true);
-            try {
-                // Сохраняем выбор в localStorage для использования после регистрации
-                console.log('[WalletSelectionModal] Saving external wallet:', externalWallet.slice(0, 10) + '...');
-                localStorage.setItem('selected_wallet', externalWallet);
-                localStorage.setItem('wallet_type', 'external');
-                localStorage.setItem('wallet_selection_seen', 'true');
-                const headers = await getAuthHeaders();
-                if (headers) {
-                    const res = await fetch('/api/profile/wallet', {
-                        method: 'POST',
-                        headers,
-                        body: JSON.stringify({ wallet: externalWallet }),
-                    }).catch(() => undefined);
-                    if (res?.ok) {
-                        console.log('[WalletSelectionModal] External wallet saved successfully');
-                        // Dispatch event to notify ProfilePage
-                        window.dispatchEvent(new Event('wallet-updated'));
-                    } else {
-                        const errorData = await res?.json().catch(() => ({}));
-                        console.error('[WalletSelectionModal] Failed to save external wallet:', errorData);
-                    }
+        // Валидация внешнего кошелька
+        if (!externalWallet || !/^0x[0-9a-fA-F]{40}$/.test(externalWallet)) {
+            alert('Please enter a valid Ethereum address (0x...)');
+            return;
+        }
+        setConnecting(true);
+        try {
+            // Сохраняем выбор в localStorage для использования после регистрации
+            console.log('[WalletSelectionModal] Saving external wallet:', externalWallet.slice(0, 10) + '...');
+            localStorage.setItem('selected_wallet', externalWallet);
+            localStorage.setItem('wallet_type', 'external');
+            localStorage.setItem('wallet_selection_seen', 'true');
+            const headers = await getAuthHeaders();
+            if (headers) {
+                const res = await fetch('/api/profile/wallet', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ wallet: externalWallet }),
+                }).catch(() => undefined);
+                if (res?.ok) {
+                    console.log('[WalletSelectionModal] External wallet saved successfully');
+                    // Dispatch event to notify ProfilePage
+                    window.dispatchEvent(new Event('wallet-updated'));
                 } else {
-                    console.warn('[WalletSelectionModal] No auth headers available');
+                    const errorData = await res?.json().catch(() => ({}));
+                    console.error('[WalletSelectionModal] Failed to save external wallet:', errorData);
                 }
-                setShow(false);
-            } catch (error) {
-                console.error('[WalletSelectionModal] Failed to set external wallet:', error);
-            } finally {
-                setConnecting(false);
+            } else {
+                console.warn('[WalletSelectionModal] No auth headers available');
             }
+            setShow(false);
+        } catch (error) {
+            console.error('[WalletSelectionModal] Failed to set external wallet:', error);
+        } finally {
+            setConnecting(false);
         }
     };
 
@@ -218,112 +162,47 @@ export default function WalletSelectionModal() {
 
                 {/* Title */}
                 <h2 className="text-2xl font-bold text-white text-center mb-2">
-                    Choose Wallet
+                    Connect Wallet
                 </h2>
                 <p className="text-sm text-white/60 text-center mb-6">
-                    Select which wallet to use for onchain actions
+                    Enter your Ethereum wallet address for onchain actions
                 </p>
 
-                {/* Wallet Options */}
-                <div className="space-y-3 mb-6">
-                    {/* Farcaster Wallet */}
-                    <button
-                        onClick={() => handleSelectWallet('farcaster')}
-                        className={`w-full flex items-center gap-3 rounded-2xl border ${selectedWallet === 'farcaster'
-                            ? 'border-[#8B5CF6] bg-[#8B5CF6]/10'
-                            : 'border-white/10 bg-[#1a1b2e]'
-                            } p-4 text-left hover:bg-white/5 transition`}
-                    >
-                        <div
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${selectedWallet === 'farcaster' ? 'bg-[#8B5CF6]/20' : 'bg-white/10'
-                                }`}
-                        >
-                            <Smartphone className={`h-5 w-5 ${selectedWallet === 'farcaster' ? 'text-[#8B5CF6]' : 'text-white'}`} />
+                {/* Wallet Input */}
+                <div className="mb-6">
+                    <label className="text-sm text-white/70 mb-2 block">Ethereum Address</label>
+                    <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 mb-2">
+                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                            <Wallet className="h-5 w-5 text-white" />
                         </div>
-                        <div className="flex-1">
-                            <div className="text-base font-semibold text-white">Farcaster Wallet</div>
-                            <div className="text-sm text-white/60">
-                                {farcasterWallet
-                                    ? `${farcasterWallet.slice(0, 6)}...${farcasterWallet.slice(-4)}`
-                                    : 'Use your Farcaster wallet'}
-                            </div>
-                        </div>
-                        {selectedWallet === 'farcaster' && (
-                            <div className="w-5 h-5 rounded-full bg-[#8B5CF6] flex items-center justify-center">
-                                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path
-                                        fillRule="evenodd"
-                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                        clipRule="evenodd"
-                                    />
-                                </svg>
-                            </div>
-                        )}
-                    </button>
-
-                    {/* External Wallet */}
-                    <button
-                        onClick={() => handleSelectWallet('external')}
-                        className={`w-full flex items-center gap-3 rounded-2xl border ${selectedWallet === 'external'
-                            ? 'border-[#8B5CF6] bg-[#8B5CF6]/10'
-                            : 'border-white/10 bg-[#1a1b2e]'
-                            } p-4 text-left hover:bg-white/5 transition`}
-                    >
-                        <div
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${selectedWallet === 'external' ? 'bg-[#8B5CF6]/20' : 'bg-white/10'
-                                }`}
-                        >
-                            <Wallet className={`h-5 w-5 ${selectedWallet === 'external' ? 'text-[#8B5CF6]' : 'text-white'}`} />
-                        </div>
-                        <div className="flex-1">
-                            <div className="text-base font-semibold text-white">External Wallet</div>
-                            <div className="text-sm text-white/60">Connect any EVM wallet</div>
-                        </div>
-                        {selectedWallet === 'external' && (
-                            <div className="w-5 h-5 rounded-full bg-[#8B5CF6] flex items-center justify-center">
-                                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path
-                                        fillRule="evenodd"
-                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                        clipRule="evenodd"
-                                    />
-                                </svg>
-                            </div>
-                        )}
-                    </button>
-                </div>
-
-                {/* External Wallet Input */}
-                {selectedWallet === 'external' && (
-                    <div className="mb-6">
-                        <label className="text-sm text-white/70 mb-2 block">Ethereum Address</label>
                         <input
                             type="text"
                             value={externalWallet}
                             onChange={(e) => setExternalWallet(e.target.value)}
                             placeholder="0x..."
-                            className="w-full rounded-2xl border border-white/10 bg-[#1a1b2e] px-4 py-3 text-white placeholder:text-white/40 focus:border-[#8B5CF6] focus:outline-none"
+                            className="flex-1 bg-transparent text-white placeholder:text-white/40 focus:outline-none"
+                            autoFocus
                         />
-                        <p className="text-xs text-white/50 mt-2">
-                            Enter your Ethereum wallet address (0x...)
-                        </p>
                     </div>
-                )}
+                    <p className="text-xs text-white/50">
+                        Enter your Ethereum wallet address (0x...)
+                    </p>
+                </div>
 
                 {/* Buttons */}
                 <div className="flex gap-3 sticky bottom-0 bg-[#1a1b2e] pt-2">
                     <button
                         onClick={handleCancel}
-                        className="flex-1 rounded-2xl border border-white/10 bg-[#1a1b2e] px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10"
+                        className="flex-1 rounded-2xl border border-white/10 bg-[#1a1b2e] px-6 py-3 min-h-[44px] text-base font-semibold text-white transition hover:bg-white/10 flex items-center justify-center"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={handleConnect}
-                        disabled={!selectedWallet || connecting || (selectedWallet === 'external' && !externalWallet)}
-                        className="flex-1 rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#8B5CF6]/40"
+                        disabled={!externalWallet || connecting}
+                        className="flex-1 rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 min-h-[44px] text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#8B5CF6]/40 flex items-center justify-center"
                     >
-                        {connecting ? 'Connecting...' : 'Confirm'}
+                        {connecting ? 'Connecting...' : 'Connect'}
                     </button>
                 </div>
             </div>

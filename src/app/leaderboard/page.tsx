@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useMiniApp } from '@neynar/react';
+import { useMiniApp } from '@/hooks/useMiniAppContext';
 import { createClient } from '@supabase/supabase-js';
 import Image from 'next/image';
 import MiniAppPage from '@/components/MiniAppPage';
@@ -51,7 +51,7 @@ export default function LeaderboardPage() {
 
             const { data } = await supabase.auth.getUser();
             if (!data.user) {
-                const res = await fetch('/api/auth/farcaster-login', {
+                const res = await fetch('/api/auth/miniapp-login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ fid }),

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Wallet } from 'lucide-react';
 import { payWithX402 } from '@/lib/x402ClientHelper';
-import { useMiniApp } from '@neynar/react';
+import { useMiniApp } from '@/hooks/useMiniAppContext';
 import { createClient } from '@supabase/supabase-js';
 
 export type X402PaymentRequiredModalProps = {

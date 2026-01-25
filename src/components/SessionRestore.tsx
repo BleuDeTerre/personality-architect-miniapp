@@ -49,7 +49,7 @@ export default function SessionRestore() {
                 console.log('[SessionRestore] Attempting to restore session from FID:', fid);
 
                 // Пробуем залогиниться через API
-                const res = await fetch('/api/auth/farcaster-login', {
+                const res = await fetch('/api/auth/miniapp-login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ fid }),

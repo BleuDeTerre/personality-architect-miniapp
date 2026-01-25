@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { SHARE_PREVIEW_VERSION } from "@/lib/sharePreviewVersion";
-import { useMiniApp } from '@neynar/react';
+import { useMiniApp } from '@/hooks/useMiniAppContext';
 import { supabase } from '@/lib/supabase';
 import CastSuccessModal from '@/components/CastSuccessModal';
 
@@ -98,7 +98,7 @@ export default function ShareCastComposer({
                             const fid = Number(savedFid);
                             if (fid && !isNaN(fid)) {
                                 // Восстанавливаем сессию через API
-                                const res = await fetch('/api/auth/farcaster-login', {
+                                const res = await fetch('/api/auth/miniapp-login', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ fid }),
@@ -530,7 +530,7 @@ export default function ShareCastComposer({
                         disabled={loading}
                         className="rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-center text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40"
                     >
-                        {loading ? "Opening…" : "Share to Farcaster"}
+                        {loading ? "Opening…" : "Share"}
                     </button>
                 </div>
 

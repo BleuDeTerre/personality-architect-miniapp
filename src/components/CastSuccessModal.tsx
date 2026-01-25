@@ -33,7 +33,7 @@ export default function CastSuccessModal({ xpEarned, onClose }: CastSuccessModal
                     Success
                 </h2>
                 <p className="text-lg text-white/80 mb-4 animate-slide-up-delay-2">
-                    Your cast has been shared to Farcaster
+                    Your post has been shared successfully
                 </p>
                 <div className="text-xl font-semibold text-[#8B5CF6] animate-slide-up-delay-2">
                     +{xpEarned} XP

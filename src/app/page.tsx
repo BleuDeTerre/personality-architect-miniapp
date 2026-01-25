@@ -2,11 +2,12 @@
 import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useMiniApp } from '@neynar/react';
+import { useMiniApp } from '@/hooks/useMiniAppContext';
 import { supabase } from '@/lib/supabase';
 import MiniAppPage from '@/components/MiniAppPage';
 import AddMiniAppModal from '@/components/AddMiniAppModal';
 import WalletSelectionModal from '@/components/WalletSelectionModal';
+import OnboardingModal from '@/components/OnboardingModal';
 
 // Lazy load heavy components to improve initial page load
 const TodaysOverview = dynamic(() => import('@/components/TodaysOverview'), {
@@ -102,12 +103,12 @@ export default function DashboardPage() {
       console.log('[Dashboard] Logging in with FID:', fid);
       try {
         const selectedWallet = typeof window !== 'undefined' ? localStorage.getItem('selected_wallet') : null;
-        const walletType = typeof window !== 'undefined' ? (localStorage.getItem('wallet_type') || 'farcaster') : 'farcaster';
+        const walletType = typeof window !== 'undefined' ? (localStorage.getItem('wallet_type') || 'app') : 'app';
 
-        const farcasterWallet = (context?.user as any)?.custodyAddress || (context?.user as any)?.walletAddress || null;
-        const wallet = walletType === 'external' && selectedWallet ? selectedWallet : farcasterWallet;
+        const contextWallet = (context?.user as any)?.custodyAddress || (context?.user as any)?.walletAddress || null;
+        const wallet = walletType === 'external' && selectedWallet ? selectedWallet : contextWallet;
 
-        const res = await fetch('/api/auth/farcaster-login', {
+        const res = await fetch('/api/auth/miniapp-login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fid, wallet, walletType }),
@@ -191,6 +192,7 @@ export default function DashboardPage() {
       
       <AddMiniAppModal />
       <WalletSelectionModal />
+      <OnboardingModal />
     </MiniAppPage>
   );
 }

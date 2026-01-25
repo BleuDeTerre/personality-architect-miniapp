@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { useMiniApp } from '@neynar/react';
+import { useMiniAppContext } from '@/hooks/useMiniAppContext';
 import { createClient } from '@supabase/supabase-js';
 import { X, Bell, Smartphone } from 'lucide-react';
 
@@ -12,7 +12,7 @@ const supabase = createClient(
 );
 
 export default function AddMiniAppModal() {
-    const { isSDKLoaded, actions } = useMiniApp();
+    const { isSDKLoaded, actions, clientType } = useMiniAppContext();
     const [show, setShow] = useState(false);
     const [adding, setAdding] = useState(false);
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -26,6 +26,12 @@ export default function AddMiniAppModal() {
 
     useEffect(() => {
         if (!mounted) return;
+
+        // В Base не показываем это модальное окно (кошелек подключается автоматически)
+        if (clientType === 'base') {
+            setShow(false);
+            return;
+        }
 
         // Если уже в MiniApp - не показываем окно
         if (isMiniAppEnv) {
@@ -90,9 +96,9 @@ export default function AddMiniAppModal() {
         return () => {
             subscription.unsubscribe();
         };
-    }, [mounted, isMiniAppEnv]);
+    }, [mounted, isMiniAppEnv, clientType]);
 
-    const handleAddToFarcaster = async () => {
+    const handleAddToApp = async () => {
         setAdding(true);
         try {
             // Вызываем addMiniApp только если в Mini App
@@ -130,11 +136,12 @@ export default function AddMiniAppModal() {
         if (notificationsEnabled) {
             handleEnableNotifications();
         }
-        await handleAddToFarcaster();
+        await handleAddToApp();
         markSeen();
     };
 
-    if (!show || isMiniAppEnv) return null;
+    // Не показываем в Base или если уже в MiniApp
+    if (!show || isMiniAppEnv || clientType === 'base') return null;
 
     return (
         <div
@@ -178,9 +185,9 @@ export default function AddMiniAppModal() {
 
                 {/* Options */}
                 <div className="space-y-3 mb-6">
-                    {/* Add to Farcaster */}
+                    {/* Add to App */}
                     <button
-                        onClick={handleAddToFarcaster}
+                        onClick={handleAddToApp}
                         disabled={adding}
                         className="w-full flex items-center gap-3 rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 text-left hover:bg-white/5 transition disabled:opacity-50"
                     >
@@ -188,7 +195,7 @@ export default function AddMiniAppModal() {
                             <Smartphone className="h-5 w-5 text-white" />
                         </div>
                         <div className="flex-1">
-                            <div className="text-base font-semibold text-white">Add to Farcaster</div>
+                            <div className="text-base font-semibold text-white">Add to App</div>
                             <div className="text-sm text-white/60">Save for quick access</div>
                         </div>
                         {adding && (
@@ -232,14 +239,14 @@ export default function AddMiniAppModal() {
                 <div className="flex gap-3">
                     <button
                         onClick={handleCancel}
-                        className="flex-1 rounded-2xl border border-white/10 bg-[#1a1b2e] px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10"
+                        className="flex-1 rounded-2xl border border-white/10 bg-[#1a1b2e] px-6 py-3 min-h-[44px] text-base font-semibold text-white transition hover:bg-white/10 flex items-center justify-center"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={handleConfirm}
                         disabled={adding}
-                        className="flex-1 rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40"
+                        className="flex-1 rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] px-6 py-3 min-h-[44px] text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/40 flex items-center justify-center"
                     >
                         {adding ? 'Adding...' : 'Confirm'}
                     </button>
