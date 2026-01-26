@@ -57,7 +57,7 @@ type FrameContextUser = {
 
 
 export default function ProfilePage() {
-    const { isSDKLoaded, context, actions } = useMiniApp();
+    const { isSDKLoaded, context, actions, clientType } = useMiniApp();
 
     // Profile
     const [p, setP] = useState<Profile>({
@@ -92,6 +92,11 @@ export default function ProfilePage() {
     const [mainFocusInput, setMainFocusInput] = useState('');
     const [exporting, setExporting] = useState<string | null>(null);
     const [copySuccess, setCopySuccess] = useState<string | null>(null);
+    
+    // Wallet editing
+    const [walletEditing, setWalletEditing] = useState(false);
+    const [walletInput, setWalletInput] = useState('');
+    const [walletSaving, setWalletSaving] = useState(false);
 
     // Headers with Bearer
     const authHeaders = useCallback(async () => {
@@ -543,6 +548,48 @@ export default function ProfilePage() {
         }
     };
 
+    // Get wallet from SDK context
+    const sdkWallet = (context?.user as any)?.custodyAddress ?? (context?.user as any)?.walletAddress ?? null;
+
+    // Save wallet
+    const handleSaveWallet = async (useSDK: boolean) => {
+        const walletToSave = useSDK ? sdkWallet : walletInput.trim();
+        
+        if (!walletToSave || !/^0x[0-9a-fA-F]{40}$/.test(walletToSave)) {
+            const { toast } = await import('sonner');
+            toast.error('Invalid wallet address');
+            return;
+        }
+
+        setWalletSaving(true);
+        try {
+            const headers = await authHeaders();
+            const res = await fetch('/api/profile/wallet', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ wallet: walletToSave }),
+            });
+
+            if (res.ok) {
+                setP(prev => ({ ...prev, wallet: walletToSave }));
+                setWalletEditing(false);
+                setWalletInput('');
+                window.dispatchEvent(new Event('wallet-updated'));
+                const { toast } = await import('sonner');
+                toast.success('Wallet saved');
+            } else {
+                const { toast } = await import('sonner');
+                toast.error('Failed to save wallet');
+            }
+        } catch (error) {
+            console.error('Failed to save wallet:', error);
+            const { toast } = await import('sonner');
+            toast.error('Failed to save wallet');
+        } finally {
+            setWalletSaving(false);
+        }
+    };
+
     // Refresh wallet from database and context
     const refreshWallet = useCallback(async () => {
         try {
@@ -762,7 +809,8 @@ export default function ProfilePage() {
                                     {neynarProfile.username && (
                                         <div className="text-sm text-white/60 mb-1">@{neynarProfile.username}</div>
                                     )}
-                                    {neynarProfile.fid && (
+                                    {/* FID показываем только в Farcaster клиенте */}
+                                    {clientType === 'farcaster' && neynarProfile.fid && (
                                         <div className="text-sm text-white/60 mb-3">FID {neynarProfile.fid}</div>
                                     )}
 
@@ -859,6 +907,98 @@ export default function ProfilePage() {
                                     className="w-full px-4 py-3 rounded-lg border border-dashed border-white/20 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80 transition-colors text-sm"
                                 >
                                     + Set your main focus
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </section>
+
+                {/* Wallet Section */}
+                <section className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-2 sm:p-3 mb-3">
+                    <h2 className="text-base font-semibold text-white mb-2">Wallet</h2>
+                    <p className="text-xs text-white/60 mb-3">
+                        Used for x402 payments and onchain actions.
+                    </p>
+                    
+                    {walletEditing ? (
+                        <div className="space-y-3">
+                            {/* Option 1: Use SDK wallet */}
+                            {sdkWallet && (
+                                <button
+                                    onClick={() => handleSaveWallet(true)}
+                                    disabled={walletSaving}
+                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 transition-colors disabled:opacity-50"
+                                >
+                                    <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center text-lg">
+                                        {clientType === 'base' ? '🔵' : '🟣'}
+                                    </div>
+                                    <div className="flex-1 text-left">
+                                        <p className="text-sm font-medium text-white">
+                                            {clientType === 'base' ? 'Base App Wallet' : 'Farcaster Wallet'}
+                                        </p>
+                                        <p className="text-xs text-white/60 font-mono">
+                                            {sdkWallet.slice(0, 6)}...{sdkWallet.slice(-4)}
+                                        </p>
+                                    </div>
+                                    <span className="text-xs text-purple-400 font-medium">Recommended</span>
+                                </button>
+                            )}
+                            
+                            {/* Option 2: Custom wallet */}
+                            <div className="space-y-2">
+                                <p className="text-xs text-white/50">Or enter a different address:</p>
+                                <input
+                                    type="text"
+                                    value={walletInput}
+                                    onChange={(e) => setWalletInput(e.target.value)}
+                                    placeholder="0x..."
+                                    className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:border-[#8B5CF6] font-mono text-sm"
+                                />
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => handleSaveWallet(false)}
+                                        disabled={!walletInput || walletSaving}
+                                        className="flex-1 px-4 py-2 rounded-lg bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors text-sm font-semibold disabled:opacity-50"
+                                    >
+                                        {walletSaving ? 'Saving...' : 'Save'}
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setWalletEditing(false);
+                                            setWalletInput('');
+                                        }}
+                                        className="px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 transition-colors text-sm"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div>
+                            {p.wallet ? (
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-lg">
+                                            💼
+                                        </div>
+                                        <p className="text-white/90 font-mono text-sm">
+                                            {p.wallet.slice(0, 6)}...{p.wallet.slice(-4)}
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => setWalletEditing(true)}
+                                        className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
+                                    >
+                                        Change
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setWalletEditing(true)}
+                                    className="w-full px-4 py-3 rounded-lg border border-dashed border-white/20 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80 transition-colors text-sm"
+                                >
+                                    + Set wallet for onchain actions
                                 </button>
                             )}
                         </div>

@@ -6,7 +6,8 @@ import { useMiniApp } from '@/hooks/useMiniAppContext';
 import { supabase } from '@/lib/supabase';
 import MiniAppPage from '@/components/MiniAppPage';
 import AddMiniAppModal from '@/components/AddMiniAppModal';
-import WalletSelectionModal from '@/components/WalletSelectionModal';
+// WalletSelectionModal убран - кошелёк берётся из SDK автоматически
+// Смена кошелька доступна в профиле
 import OnboardingModal from '@/components/OnboardingModal';
 
 // Lazy load heavy components to improve initial page load
@@ -244,7 +245,6 @@ export default function DashboardPage() {
       </section>
       
       <AddMiniAppModal />
-      <WalletSelectionModal />
       <OnboardingModal />
     </MiniAppPage>
   );
