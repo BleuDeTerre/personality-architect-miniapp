@@ -8,7 +8,6 @@ import { BADGES } from '@/lib/badges';
 import { calculateXP, calculateLevel, getLevelProgress, xpForNextLevel, getLevelName, getLevelColor, type UserStats } from '@/lib/gamification';
 import Achievements from '@/components/Achievements';
 import MiniAppPage from '@/components/MiniAppPage';
-import ThemeToggle from '@/components/ThemeToggle';
 
 // Supabase client
 const supabase = createClient(
@@ -767,11 +766,8 @@ export default function ProfilePage() {
     return (
         <MiniAppPage>
             <div>
-                {/* Profile Section with Theme Toggle */}
+                {/* Profile Section */}
                 <section className="space-y-1 mb-2">
-                    <div className="flex justify-end mb-2">
-                        <ThemeToggle />
-                    </div>
                     {neynarLoading ? (
                         <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-1.5 sm:p-2 animate-pulse">
                             <div className="flex items-center gap-3">
