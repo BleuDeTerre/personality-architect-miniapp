@@ -166,7 +166,6 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
                     </div>
                 );
             })}
-            )}
             <X402PaymentRequiredModal
                 open={payModal.open}
                 onClose={() => setPayModal({ open: false })}
