@@ -109,7 +109,7 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
                         setPayModal({
                             open: true,
                             message: errorData.message || 'Daily AI limit reached.',
-                            sku: errorData.sku || '/ap/paid/ai/wheel-insights',
+                            sku: errorData.sku || '/api/paid/ai/wheel-insights',
                             priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
                         });
                     }
