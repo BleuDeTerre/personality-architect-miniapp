@@ -139,14 +139,44 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
 
     if (loading) {
         return (
-            <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
-                <div className="h-4 w-1/2 rounded bg-white/10 mb-2" />
-                <div className="h-3 w-full rounded bg-white/10" />
-            </div>
+            <>
+                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 animate-pulse">
+                    <div className="h-4 w-1/2 rounded bg-white/10 mb-2" />
+                    <div className="h-3 w-full rounded bg-white/10" />
+                </div>
+                <X402PaymentRequiredModal
+                    open={payModal.open}
+                    onClose={() => setPayModal({ open: false })}
+                    title="AI Limit Reached"
+                    message={payModal.message}
+                    sku={payModal.sku}
+                    priceUsd={payModal.priceUsd}
+                    method="GET"
+                    onSuccess={handlePaymentSuccess}
+                />
+            </>
         );
     }
 
-    if (insights.length === 0) return null;
+    if (insights.length === 0) {
+        return (
+            <>
+                <div className="rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 text-center text-white/60 text-sm">
+                    No insights yet. Update your Wheel of Life scores to get AI coach recommendations.
+                </div>
+                <X402PaymentRequiredModal
+                    open={payModal.open}
+                    onClose={() => setPayModal({ open: false })}
+                    title="AI Limit Reached"
+                    message={payModal.message}
+                    sku={payModal.sku}
+                    priceUsd={payModal.priceUsd}
+                    method="GET"
+                    onSuccess={handlePaymentSuccess}
+                />
+            </>
+        );
+    }
 
     return (
         <div className="space-y-3">
