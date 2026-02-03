@@ -68,11 +68,11 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
         async function loadInsights() {
             try {
                 setLoading(true);
-                
+
                 // Проверяем клиентский кеш по неделе (кеш на всю неделю)
                 const cacheKey = week ? `wheel-insights-${week}` : 'wheel-insights-current';
                 const cached = getCachedData<Insight[]>(cacheKey);
-                
+
                 // Кеш действителен на всю неделю (7 дней) или до изменения данных
                 if (cached && cached.length > 0) {
                     console.log('[AI Wheel Insights] Using cached data for week:', week);
@@ -80,9 +80,9 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
                     setLoading(false);
                     return;
                 }
-                
+
                 const headers = await authHeaders();
-                
+
                 // Сначала получаем план пользователя
                 try {
                     const planRes = await fetch('/api/plan', { headers });
@@ -94,9 +94,9 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
                 } catch (e) {
                     console.warn('[AI Wheel Insights] Failed to load plan:', e);
                 }
-                
+
                 const res = await fetch('/api/ai/wheel-insights', { headers });
-                
+
                 if (!res.ok) {
                     if (res.status === 402) {
                         const errorData = await res.json().catch(() => ({}));
@@ -111,7 +111,7 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
                     if (res.status === 429) {
                         // Лимит достигнут
                         const errorData = await res.json().catch(() => ({}));
-                        
+
                         // Глобальный лимит DeepSeek
                         if (errorData.error === 'deepseek_limit_reached') {
                             toast.error('AI service temporarily unavailable', {
@@ -120,7 +120,7 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
                             });
                             return;
                         }
-                        
+
                         // Личный лимит пользователя
                         const currentPlan = userPlan || 'free';
                         const limitInfo: AILimitInfo = {
@@ -134,24 +134,24 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
                     }
                     return;
                 }
-                
+
                 const data = await res.json();
                 const insightsData = data.insights || [];
                 setInsights(insightsData);
-                
+
                 // Сохраняем в клиентский кеш до конца недели (динамический TTL)
                 if (insightsData.length > 0) {
                     const ttl = getWeekTTL(week);
                     setCachedData(cacheKey, insightsData, ttl);
                     console.log('[AI Wheel Insights] Cached insights for week:', week, 'ttl(ms):', ttl);
                 }
-                
+
                 // Получаем план из ответа или используем уже загруженный
                 const currentPlan = (data.plan || userPlan || 'free') as 'free' | 'pro' | 'premium';
                 if (data.plan) {
                     setUserPlan(currentPlan);
                 }
-                
+
                 // Показываем предупреждения о лимите
                 if (data.aiLimit) {
                     const limitInfo: AILimitInfo = {
@@ -208,7 +208,7 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
             <X402PaymentRequiredModal
                 open={payModal.open}
                 onClose={() => setPayModal({ open: false })}
-                title="Лимит AI исчерпан"
+                title="AI Limit Reached"
                 message={payModal.message}
                 sku={payModal.sku}
                 priceUsd={payModal.priceUsd}

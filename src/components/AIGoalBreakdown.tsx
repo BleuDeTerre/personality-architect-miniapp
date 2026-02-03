@@ -72,11 +72,11 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
         try {
             setLoading(true);
             const headers = await authHeaders();
-            
+
             // Создаем AbortController для таймаута
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 секунд таймаут
-            
+
             try {
                 const res = await fetch('/api/ai/goal-breakdown', {
                     method: 'POST',
@@ -90,9 +90,9 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
                     }),
                     signal: controller.signal,
                 });
-                
+
                 clearTimeout(timeoutId);
-                
+
                 if (res.status === 402) {
                     const errorData = await res.json().catch(() => ({}));
                     setPayModal({
@@ -104,11 +104,11 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
                     });
                     return;
                 }
-                
+
                 if (res.ok) {
                     const result = await res.json();
                     console.log('[AI Goal Breakdown] Success:', result);
-                    
+
                     // Проверяем, что результат валидный
                     if (result && (result.steps || result.milestones || result.suggestedHabits)) {
                         // Проверяем, что steps - это массив и не пустой
@@ -222,7 +222,7 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
                 setBreakdown(null);
                 setSelectedSteps(new Set());
                 setExpanded(false);
-                
+
                 // Обновляем список целей (это покажет новые подзадачи)
                 onSubtasksCreated?.();
             }
@@ -236,23 +236,45 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
 
     if (loading) {
         return (
-            <div className="text-xs text-white/60 animate-pulse flex items-center gap-1">
-                <Sparkles className="h-3 w-3" />
-                Generating plan...
-            </div>
+            <>
+                <div className="text-xs text-white/60 animate-pulse flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" />
+                    Generating plan...
+                </div>
+                <X402PaymentRequiredModal
+                    open={payModal.open}
+                    onClose={() => setPayModal({ open: false })}
+                    message={payModal.message}
+                    sku={payModal.sku}
+                    priceUsd={payModal.priceUsd}
+                    requestBody={payModal.requestBody}
+                    onSuccess={handlePaymentSuccess}
+                />
+            </>
         );
     }
 
     if (!breakdown) {
         return (
-            <button
-                onClick={generateBreakdown}
-                disabled={loading}
-                className="text-xs text-white/60 hover:text-white/80 transition flex items-center gap-1"
-            >
-                <Sparkles className="h-3 w-3" />
-                🔨 Break down goal
-            </button>
+            <>
+                <button
+                    onClick={generateBreakdown}
+                    disabled={loading}
+                    className="text-xs text-white/60 hover:text-white/80 transition flex items-center gap-1"
+                >
+                    <Sparkles className="h-3 w-3" />
+                    🔨 Break down goal
+                </button>
+                <X402PaymentRequiredModal
+                    open={payModal.open}
+                    onClose={() => setPayModal({ open: false })}
+                    message={payModal.message}
+                    sku={payModal.sku}
+                    priceUsd={payModal.priceUsd}
+                    requestBody={payModal.requestBody}
+                    onSuccess={handlePaymentSuccess}
+                />
+            </>
         );
     }
 
@@ -332,7 +354,7 @@ export default function AIGoalBreakdown({ goalTitle, goalDescription, dueDate, g
                     <p className="text-xs text-white/70">{breakdown.suggestedHabits.join(', ')}</p>
                 </div>
             )}
-            
+
             <X402PaymentRequiredModal
                 open={payModal.open}
                 onClose={() => setPayModal({ open: false })}
