@@ -87,7 +87,7 @@ export default function X402PaymentRequiredModal({
       const token = session?.access_token;
 
       if (!token) {
-        toast.error('Not authenticated', { 
+        toast.error('Not authenticated', {
           description: 'Please sign in to make a payment.',
           duration: 4000,
         });
@@ -118,7 +118,7 @@ export default function X402PaymentRequiredModal({
 
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        toast.error('Payment failed', { 
+        toast.error('Payment failed', {
           description: j?.message || j?.error || `HTTP ${res.status}`,
           duration: 4000,
         });
@@ -129,17 +129,17 @@ export default function X402PaymentRequiredModal({
       const result = await res.json().catch(() => ({}));
       toast.success('Payment successful', { duration: 2000 });
       onClose();
-      
+
       // Вызываем callback с результатом если передан
       if (onSuccess) {
         onSuccess(result);
       }
     } catch (e: any) {
       console.error('[X402Payment] Error:', e);
-      
+
       // Обрабатываем специфичные ошибки x402-fetch
       let errorMessage = 'Unknown error. Please check your wallet connection and try again.';
-      
+
       if (e?.message) {
         if (e.message.includes('map')) {
           // Ошибка с .map() - значит x402-fetch не может обработать ответ
@@ -151,8 +151,8 @@ export default function X402PaymentRequiredModal({
           errorMessage = e.message;
         }
       }
-      
-      toast.error('Payment error', { 
+
+      toast.error('Payment error', {
         description: errorMessage,
         duration: 5000,
       });
@@ -173,44 +173,44 @@ export default function X402PaymentRequiredModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1b2e] p-4 shadow-2xl">
-        <div className="text-center mb-3">
-          <div className="flex justify-center mb-2">
+      <div className="w-full max-w-xs rounded-2xl border border-white/10 bg-[#1a1b2e] p-3 shadow-2xl">
+        <div className="text-center mb-2">
+          <div className="flex justify-center mb-1.5">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] rounded-xl blur-md opacity-40"></div>
-              <div className="relative bg-gradient-to-br from-[#8B5CF6]/20 to-[#6D28D9]/20 border border-[#8B5CF6]/30 rounded-xl p-3">
-                <Wallet className="h-6 w-6 text-[#8B5CF6]" strokeWidth={2} />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] rounded-lg blur-sm opacity-40"></div>
+              <div className="relative bg-gradient-to-br from-[#8B5CF6]/20 to-[#6D28D9]/20 border border-[#8B5CF6]/30 rounded-lg p-2">
+                <Wallet className="h-5 w-5 text-[#8B5CF6]" strokeWidth={2} />
               </div>
             </div>
           </div>
-          <h2 className="text-lg font-bold text-white mb-1.5">{title}</h2>
-          <p className="text-xs text-white/70 leading-relaxed">
+          <h2 className="text-base font-bold text-white mb-1">{title}</h2>
+          <p className="text-[11px] text-white/70 leading-snug px-1">
             {message || 'To continue, buy AI Credits or pay for a one-time request via x402.'}
           </p>
           {priceLabel && (
-            <div className="mt-2 text-xs text-white/60">
+            <div className="mt-1.5 text-[10px] text-white/60">
               <span className="text-white/80 font-medium">{priceLabel}</span>
             </div>
           )}
         </div>
 
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1">
           <button
             onClick={handleBuyCredits}
-            className="w-full rounded-lg bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white px-3 py-2 text-xs font-semibold hover:opacity-90 transition active:scale-[0.98]"
+            className="w-full rounded-lg bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white px-2.5 py-1.5 text-[11px] font-semibold hover:opacity-90 transition active:scale-[0.98]"
           >
-            Buy AI Credits
+            Buy Credits
           </button>
           <button
             onClick={tryPayNow}
             disabled={busy || !sku}
-            className="w-full rounded-lg border border-white/10 bg-white/5 text-white/90 px-3 py-2 text-xs font-semibold hover:bg-white/10 transition disabled:opacity-50 active:scale-[0.98]"
+            className="w-full rounded-lg border border-white/10 bg-white/5 text-white/90 px-2.5 py-1.5 text-[11px] font-semibold hover:bg-white/10 transition disabled:opacity-50 active:scale-[0.98]"
           >
-            {busy ? 'Processing…' : `Pay for 1 request${priceLabel ? ` · ${priceLabel}` : ''}`}
+            {busy ? 'Processing…' : `Pay ${priceLabel || '$0.25'}`}
           </button>
           <button
             onClick={onClose}
-            className="w-full rounded-lg border border-white/10 bg-transparent text-white/70 px-3 py-2 text-xs font-semibold hover:bg-white/5 transition active:scale-[0.98]"
+            className="w-full rounded-lg border border-white/10 bg-transparent text-white/70 px-2.5 py-1.5 text-[11px] font-semibold hover:bg-white/5 transition active:scale-[0.98]"
           >
             Close
           </button>
