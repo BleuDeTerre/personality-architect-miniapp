@@ -77,7 +77,7 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
                 });
                 return;
             }
-            
+
             if (res.status === 403) {
                 const errorData = await res.json().catch(() => ({}));
                 // При 403 тоже показываем модальное окно оплаты
@@ -91,7 +91,7 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
                 setError(errorData.message || 'AI request limit reached. Try again tomorrow or buy credits.');
                 return;
             }
-            
+
             if (res.ok) {
                 const result = await res.json();
                 setData(result);
@@ -158,7 +158,7 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
                             onClick={() => setPayModal({ open: true, message: error, sku: '/api/paid/ai/habit-difficulty', priceUsd: 0.25, requestBody: { habitId } })}
                             className="flex-1 text-xs rounded-lg bg-purple-500/20 text-purple-300 px-3 py-1.5 hover:bg-purple-500/30 transition text-center font-semibold"
                         >
-                            Pay for 1 request · 0.25 USDC
+                            Pay $0.25
                         </button>
                         <button
                             onClick={() => {
@@ -166,7 +166,7 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
                             }}
                             className="flex-1 text-xs rounded-lg bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white px-3 py-1.5 hover:opacity-90 transition text-center font-semibold"
                         >
-                            Buy AI Credits
+                            Buy Credits
                         </button>
                     </div>
                 </div>
@@ -193,7 +193,7 @@ export default function AIHabitDifficulty({ habitId, currentTarget, onTargetUpda
         <div className="rounded-xl border border-white/10 bg-[#1a1b2e] p-3 space-y-2.5">
             <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 space-y-2 min-w-0">
-                    <p 
+                    <p
                         className="text-xs text-white/90 leading-relaxed break-words break-all"
                         style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                         dangerouslySetInnerHTML={{ __html: renderMarkdown(data.suggestion) }}
