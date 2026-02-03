@@ -3,8 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { TrendingUp, TrendingDown, Sparkles } from 'lucide-react';
-import { checkAndShowAILimitWarning, showAILimitReachedModal, type AILimitInfo } from '@/lib/aiLimitWarnings';
-import AILimitReachedModal from '@/components/AILimitReachedModal';
 import { toast } from 'sonner';
 import { getCachedData, setCachedData, CACHE_TTL } from '@/lib/clientCache';
 import { isoWeek, weekToLocalSunday } from '@/lib/time';
@@ -38,8 +36,6 @@ function getWeekTTL(targetWeek?: string): number {
 export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
     const [insights, setInsights] = useState<Insight[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showLimitModal, setShowLimitModal] = useState(false);
-    const [userPlan, setUserPlan] = useState<'free' | 'pro' | 'premium'>('free');
     const [payModal, setPayModal] = useState<{ open: boolean; message?: string; sku?: string; priceUsd?: number }>({ open: false });
 
     // Handler для успешной оплаты
@@ -83,18 +79,6 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
 
                 const headers = await authHeaders();
 
-                // Сначала получаем план пользователя
-                try {
-                    const planRes = await fetch('/api/plan', { headers });
-                    if (planRes.ok) {
-                        const planData = await planRes.json();
-                        const plan = (planData.plan || 'free') as 'free' | 'pro' | 'premium';
-                        setUserPlan(plan);
-                    }
-                } catch (e) {
-                    console.warn('[AI Wheel Insights] Failed to load plan:', e);
-                }
-
                 const res = await fetch('/api/ai/wheel-insights', { headers });
 
                 if (!res.ok) {
@@ -109,7 +93,7 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
                         return;
                     }
                     if (res.status === 429) {
-                        // Лимит достигнут
+                        // Лимит достигнут - показываем payment modal
                         const errorData = await res.json().catch(() => ({}));
 
                         // Глобальный лимит DeepSeek
@@ -121,16 +105,13 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
                             return;
                         }
 
-                        // Личный лимит пользователя
-                        const currentPlan = userPlan || 'free';
-                        const limitInfo: AILimitInfo = {
-                            used: errorData.used || 0,
-                            limit: errorData.limit || (currentPlan === 'free' ? 5 : 20),
-                            remaining: 0,
-                            plan: currentPlan,
-                        };
-                        showAILimitReachedModal(limitInfo);
-                        setShowLimitModal(true);
+                        // Личный лимит пользователя - показываем payment modal
+                        setPayModal({
+                            open: true,
+                            message: errorData.message || 'Daily AI limit reached.',
+                            sku: errorData.sku || '/ap/paid/ai/wheel-insights',
+                            priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
+                        });
                     }
                     return;
                 }
@@ -146,20 +127,7 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
                     console.log('[AI Wheel Insights] Cached insights for week:', week, 'ttl(ms):', ttl);
                 }
 
-                // Получаем план из ответа или используем уже загруженный
-                const currentPlan = (data.plan || userPlan || 'free') as 'free' | 'pro' | 'premium';
-                if (data.plan) {
-                    setUserPlan(currentPlan);
-                }
 
-                // Показываем предупреждения о лимите
-                if (data.aiLimit) {
-                    const limitInfo: AILimitInfo = {
-                        ...data.aiLimit,
-                        plan: currentPlan,
-                    };
-                    checkAndShowAILimitWarning(limitInfo);
-                }
             } catch (e) {
                 console.error('[AI Wheel Insights] Failed to load:', e);
             } finally {
@@ -198,12 +166,6 @@ export default function AIWheelInsights({ week }: AIWheelInsightsProps = {}) {
                     </div>
                 );
             })}
-            {showLimitModal && (
-                <AILimitReachedModal
-                    limit={userPlan === 'free' ? 5 : 20}
-                    plan={userPlan}
-                    onClose={() => setShowLimitModal(false)}
-                />
             )}
             <X402PaymentRequiredModal
                 open={payModal.open}
