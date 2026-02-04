@@ -22,25 +22,25 @@ export function getLocalDateString(d = new Date()): string {
 export function isoWeek(d = new Date()): string {
     const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const day = dt.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-    
+
     // Move to Sunday of current week
     dt.setDate(dt.getDate() - day);
-    
+
     // Find January 1st of the year
     const jan1 = new Date(dt.getFullYear(), 0, 1);
     const jan1Day = jan1.getDay(); // Day of week for Jan 1
-    
+
     // Find the first Sunday of the year (or Jan 1 if it's Sunday)
     const firstSunday = new Date(jan1);
     if (jan1Day !== 0) {
         firstSunday.setDate(1 + (7 - jan1Day));
     }
-    
+
     // Calculate week number: how many weeks from first Sunday to current Sunday
     const diffMs = dt.getTime() - firstSunday.getTime();
     const diffDays = Math.floor(diffMs / 86400000);
     const weekNo = Math.floor(diffDays / 7) + 1;
-    
+
     // Handle edge case: if current date is before first Sunday, it's week 1 of previous year
     if (weekNo < 1) {
         const prevYear = dt.getFullYear() - 1;
@@ -55,7 +55,7 @@ export function isoWeek(d = new Date()): string {
         const prevWeekNo = Math.floor(prevDiffDays / 7) + 1;
         return `${prevYear}-W${String(prevWeekNo).padStart(2, '0')}`;
     }
-    
+
     return `${dt.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
@@ -96,7 +96,7 @@ export function getClientLocalDate(req: { headers: { get: (name: string) => stri
     const tzOffsetMinutesRaw = Number(req.headers.get('x-timezone-offset') ?? '0');
     const timezoneOffsetMinutes = Number.isFinite(tzOffsetMinutesRaw) ? tzOffsetMinutesRaw : 0;
     const timezoneOffsetMs = timezoneOffsetMinutes * 60 * 1000;
-    const clientNow = new Date(Date.now() - timezoneOffsetMs);
+    const clientNow = new Date(Date.now() + timezoneOffsetMs);
     return clientNow.toISOString().slice(0, 10);
 }
 
