@@ -5,7 +5,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
 import { createUserServerClient } from '@/lib/supabase';
-import { getCreditsBalance, consumeOneCredit, recordCreditUsage, logAIRequest, type UserPlan } from '@/lib/aiLimits';
+import { getCreditsBalance, consumeOneCredit, recordCreditUsage, logAIRequest, checkAILimit, type UserPlan } from '@/lib/aiLimits';
 import { getDeepSeekWithLimitCheck } from '@/lib/deepseekHelper';
 import { MONTHLY_INSIGHTS_PROMPT } from '@/lib/aiPrompts';
 import { getAICache, setAICache } from '@/lib/aiCacheHelper';
@@ -15,14 +15,6 @@ import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 const PAID_SKU = '/api/paid/insight/monthly';
 
 export async function GET(req: NextRequest) {
-    const rateLimit = checkRateLimit(req, RATE_LIMIT_PRESETS.AI);
-    if (!rateLimit.allowed) {
-        return NextResponse.json(
-            { error: 'rate_limit_exceeded', message: 'Too many AI requests. Please try again later.', retry_after: rateLimit.retryAfter },
-            { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter || 60) } }
-        );
-    }
-
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -38,6 +30,24 @@ export async function GET(req: NextRequest) {
             throw authErr;
         }
 
+        // Rate limit по USER ID, а не по IP (чтобы избежать конфликтов между пользователями)
+        const rateLimit = checkRateLimit(req, {
+            ...RATE_LIMIT_PRESETS.AI,
+            keyGenerator: () => `user:${userId}:insight/monthly`
+        });
+        if (!rateLimit.allowed) {
+            console.warn('[Rate Limit] Monthly Summary blocked:', {
+                userId,
+                limit: rateLimit.limit,
+                remaining: rateLimit.remaining,
+                retryAfter: rateLimit.retryAfter,
+            });
+            return NextResponse.json(
+                { error: 'rate_limit_exceeded', message: 'Too many requests. Please wait a moment and try again.', retry_after: rateLimit.retryAfter },
+                { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter || 60) } }
+            );
+        }
+
         const supa = createUserServerClient(token);
 
         let userPlan: UserPlan = 'free';
@@ -48,17 +58,11 @@ export async function GET(req: NextRequest) {
             // игнорируем, используем 'free'
         }
 
-        let credits: number;
-        try {
-            credits = await getCreditsBalance(supa, userId);
-        } catch (credErr: any) {
-            console.error('[Insight Monthly] getCreditsBalance failed:', credErr?.message);
-            return NextResponse.json(
-                { error: 'credits_unavailable', message: 'Could not check credits. Please try again.' },
-                { status: 500 }
-            );
-        }
-        if (credits < 1) {
+        // Проверяем бесплатные дневные запросы СНАЧАЛА
+        const limitCheck = await checkAILimit(supa, userId, userPlan, 'insight/monthly');
+
+        // Если нет бесплатных запросов И нет кредитов - требуем оплату
+        if (limitCheck.remaining < 1 && limitCheck.bonusCredits < 1) {
             return NextResponse.json(
                 {
                     error: 'payment_required',
@@ -69,6 +73,10 @@ export async function GET(req: NextRequest) {
                 { status: 402 }
             );
         }
+
+        // Определяем, будем ли использовать бесплатный запрос или кредит
+        const useFreeRequest = limitCheck.remaining > 0;
+        const useCredit = !useFreeRequest && limitCheck.bonusCredits > 0;
 
         const { searchParams } = new URL(req.url);
         const monthParam = searchParams.get('month');
@@ -96,15 +104,18 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ ...cached, cached: true });
         }
 
-        const consumed = await consumeOneCredit(supa, userId);
-        if (!consumed) {
-            console.error('[Insight Monthly] consumeOneCredit failed (RPC returned false)');
-            return NextResponse.json(
-                { error: 'consume_failed', message: 'Failed to deduct credit. Please try again or contact support.' },
-                { status: 500 }
-            );
+        // Списываем кредит только если используем кредит (не бесплатный запрос)
+        if (useCredit) {
+            const consumed = await consumeOneCredit(supa, userId);
+            if (!consumed) {
+                console.error('[Insight Monthly] consumeOneCredit failed (RPC returned false)');
+                return NextResponse.json(
+                    { error: 'consume_failed', message: 'Failed to deduct credit. Please try again or contact support.' },
+                    { status: 500 }
+                );
+            }
+            await recordCreditUsage(supa, userId, 'insight/monthly');
         }
-        await recordCreditUsage(supa, userId, 'insight/monthly');
 
         const [logsRes, habitsRes, wheelRes, wellnessRes] = await Promise.all([
             supa.from('habit_logs').select('habit_id, date, value').eq('user_id', userId).gte('date', monthStart).lte('date', monthEndStr),
@@ -158,13 +169,15 @@ export async function GET(req: NextRequest) {
             temperature: 0.2,
             messages: [
                 { role: 'system', content: MONTHLY_INSIGHTS_PROMPT },
-                { role: 'user', content: [
-                    `Monthly summary for ${monthStart} to ${monthEndStr}:`,
-                    `Completed ${completed} habit completions across ${logsByDate.size} active days (${rate_pct}% completion rate).`,
-                    wheel.length > 0 ? `Wheel average: ${wheelAvg.toFixed(1)}/10.` : 'No wheel data.',
-                    wellnessContext || '',
-                    deep ? 'Provide deep analysis with long-term trends and patterns.' : 'Review the month and point out long-term trends.',
-                ].filter(Boolean).join('\n') },
+                {
+                    role: 'user', content: [
+                        `Monthly summary for ${monthStart} to ${monthEndStr}:`,
+                        `Completed ${completed} habit completions across ${logsByDate.size} active days (${rate_pct}% completion rate).`,
+                        wheel.length > 0 ? `Wheel average: ${wheelAvg.toFixed(1)}/10.` : 'No wheel data.',
+                        wellnessContext || '',
+                        deep ? 'Provide deep analysis with long-term trends and patterns.' : 'Review the month and point out long-term trends.',
+                    ].filter(Boolean).join('\n')
+                },
             ],
         });
 
@@ -181,7 +194,11 @@ export async function GET(req: NextRequest) {
         await setAICache(supa, userId, { endpoint: 'insight/monthly', input: cacheKey, cacheHours: 24 }, response);
 
         (async () => {
-            await logAIRequest(supa, userId, userPlan, 'insight/monthly', { skipConsume: true, usedBonusCredit: true, ...deepseekResult.markAsDeepSeek() });
+            await logAIRequest(supa, userId, userPlan, 'insight/monthly', {
+                skipConsume: true,
+                usedBonusCredit: useCredit,
+                ...deepseekResult.markAsDeepSeek()
+            });
         })();
 
         return NextResponse.json(response);

@@ -193,6 +193,8 @@ export default function ChatPage() {
                     actionType: type,
                 });
                 errorMessage = errorData.message || `No AI credits. Buy credits or pay $0.25 for this request.`;
+            } else if (e?.code === 429 || e?.message?.includes('429') || e?.message?.includes('rate_limit')) {
+                errorMessage = 'Too many requests. Please wait a moment and try again.';
             } else if (e?.code === 500 && e?.detail?.message) {
                 errorMessage = e.detail.message;
             } else if (e?.message) {
@@ -243,7 +245,7 @@ export default function ChatPage() {
                 timeoutMs: 60000, // 60 секунд таймаут для AI запросов
             });
 
-                // Обработка ошибок (fetchJson уже обработал HTTP статусы)
+            // Обработка ошибок (fetchJson уже обработал HTTP статусы)
             if (data.error) {
                 // Обработка 402 ошибки (payment required)
                 if (data.error === 'payment_required' || data.error === 'payment_required') {
@@ -253,7 +255,7 @@ export default function ChatPage() {
                         message: errorData.message || 'Daily AI limit reached.',
                         sku: errorData.sku || '/api/paid/chat/message',
                         priceUsd: typeof errorData.priceUsd === 'number' ? errorData.priceUsd : 0.25,
-                        requestBody: { 
+                        requestBody: {
                             message: userMsg.content,
                             history: messages.map(m => ({ role: m.role, content: m.content }))
                         },
@@ -267,7 +269,7 @@ export default function ChatPage() {
                     setLoading(false);
                     return;
                 }
-                
+
                 // Обработка лимита запросов (429) — без всплывающего окна, только сообщение в чате
                 if (data.error === 'daily_limit_reached') {
                     const errorMsg: Message = {
@@ -389,12 +391,12 @@ export default function ChatPage() {
                                         <IconDisplay emoji="👋" size="text-lg" className="text-purple-400" />
                                         <span className="text-base font-semibold text-white">Hi! I&apos;m your AI Coach</span>
                                     </div>
-                                    
+
                                     <div className="text-sm text-white/90 space-y-2.5 leading-relaxed text-center">
                                         <p>
                                             I can help you with <strong className="text-purple-300">habits, goals, progress analysis</strong>, and personalized advice based on your data.
                                         </p>
-                                        
+
                                         <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-left">
                                             <p className="text-xs font-semibold text-white/80 mb-2 text-center">💡 What you can ask:</p>
                                             <ul className="text-xs text-white/70 space-y-1.5 list-disc list-inside">
@@ -404,14 +406,14 @@ export default function ChatPage() {
                                                 <li>Give me tips for better productivity</li>
                                             </ul>
                                         </div>
-                                        
+
                                         <p className="text-xs text-white/60 italic">
                                             💬 <strong>Tip:</strong> Be specific! Instead of &quot;hi&quot;, ask &quot;How can I improve my morning routine?&quot; to get actionable insights.
                                         </p>
                                     </div>
                                 </div>
                             </div>
-                            
+
                             {/* Quick Action Buttons */}
                             <div className="flex flex-col gap-2.5 w-full max-w-[280px] mx-auto">
                                 <button
@@ -460,7 +462,7 @@ export default function ChatPage() {
                                         : 'bg-[#1a1b2e] border border-white/10'
                                         }`}
                                 >
-                                    <div 
+                                    <div
                                         className="text-sm whitespace-pre-wrap text-white"
                                         dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
                                     />
