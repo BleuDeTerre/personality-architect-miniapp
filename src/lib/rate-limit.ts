@@ -143,6 +143,82 @@ export function checkRateLimit(
 }
 
 /**
+ * Check rate limit based on user ID instead of IP
+ * Used for authenticated endpoints where we want per-user rate limiting
+ * @param userId - User ID to rate limit
+ * @param config - Rate limit configuration (optional)
+ * @returns Rate limit check result
+ */
+export function checkUserRateLimit(
+    userId: string,
+    config?: Partial<RateLimitConfig>
+): { allowed: boolean; retryAfter?: number; remaining?: number; limit?: number } {
+    const finalConfig = { ...DEFAULT_CONFIG, ...config };
+    const now = Date.now();
+
+    // Use user ID as key instead of IP
+    const key = `user:${userId}`;
+
+    const entry = rateLimitStore.get(key);
+
+    // If user is blocked
+    if (entry?.blocked && entry.resetAt > now) {
+        const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
+        return {
+            allowed: false,
+            retryAfter,
+            limit: finalConfig.maxRequests,
+            remaining: 0,
+        };
+    }
+
+    // If block expired, clear it
+    if (entry?.blocked && entry.resetAt <= now) {
+        rateLimitStore.delete(key);
+    }
+
+    // Create or update entry
+    if (!entry || entry.resetAt < now) {
+        rateLimitStore.set(key, {
+            count: 1,
+            resetAt: now + finalConfig.windowMs,
+            blocked: false,
+        });
+        return {
+            allowed: true,
+            limit: finalConfig.maxRequests,
+            remaining: finalConfig.maxRequests - 1,
+        };
+    }
+
+    // Increment counter
+    entry.count++;
+
+    const remaining = Math.max(0, finalConfig.maxRequests - entry.count);
+
+    // If limit exceeded - block user
+    if (entry.count > finalConfig.maxRequests) {
+        entry.blocked = true;
+        entry.resetAt = now + (finalConfig.blockDurationMs || 0);
+        const retryAfter = finalConfig.blockDurationMs
+            ? Math.ceil(finalConfig.blockDurationMs / 1000)
+            : undefined;
+        return {
+            allowed: false,
+            retryAfter,
+            limit: finalConfig.maxRequests,
+            remaining: 0,
+        };
+    }
+
+    return {
+        allowed: true,
+        limit: finalConfig.maxRequests,
+        remaining,
+    };
+}
+
+/**
  * Middleware функция для rate limiting
  * Используйте в API routes:
  * 

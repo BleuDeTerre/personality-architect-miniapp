@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     const fromDate = (searchParams.get('from') || '').slice(0, 10);
     const toDate = (searchParams.get('to') || '').slice(0, 10);
     const habitId = searchParams.get('habit_id');
-    
+
     // Пагинация: по умолчанию без пагинации (для обратной совместимости)
     // Если параметров пагинации нет - возвращаем все данные
     const pagination = parsePaginationParams(searchParams);
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
         .from('habit_logs')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId);
-      
+
       if (date) {
         countQuery = countQuery.eq('date', date);
       } else if (fromDate && toDate) {
@@ -65,9 +65,9 @@ export async function GET(req: NextRequest) {
       if (habitId) {
         countQuery = countQuery.eq('habit_id', habitId);
       }
-      
+
       const { count, error: countError } = await countQuery;
-      
+
       if (countError) {
         console.error('[Habits Logs] Count error:', countError);
       } else {
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
       .from('habit_logs')
       .select('id, habit_id, date, value, is_completed, created_at')
       .eq('user_id', userId);
-    
+
     if (date) {
       dataQuery = dataQuery.eq('date', date);
     } else if (fromDate && toDate) {
@@ -89,9 +89,9 @@ export async function GET(req: NextRequest) {
     if (habitId) {
       dataQuery = dataQuery.eq('habit_id', habitId);
     }
-    
+
     dataQuery = dataQuery.order('date', { ascending: false });
-    
+
     if (usePagination) {
       const offset = (pagination.page - 1) * pagination.limit;
       dataQuery = dataQuery.range(offset, offset + pagination.limit - 1);
@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await dataQuery;
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    
+
     // Нормализуем данные: считаем выполненным, если value === true ИЛИ is_completed === true
     const normalized = (data ?? []).map((log: any) => {
       const isCompleted = log.value === true || log.is_completed === true;
@@ -128,31 +128,33 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  // Rate limiting для создания/изменения данных
-  const rateLimit = checkRateLimit(req, RATE_LIMIT_PRESETS.API);
-  if (!rateLimit.allowed) {
-    return NextResponse.json(
-      {
-        error: 'rate_limit_exceeded',
-        message: 'Too many requests. Please try again later.',
-        retry_after: rateLimit.retryAfter,
-      },
-      {
-        status: 429,
-        headers: {
-          'Retry-After': String(rateLimit.retryAfter || 60),
-          'X-RateLimit-Limit': String(rateLimit.limit || 0),
-          'X-RateLimit-Remaining': String(rateLimit.remaining || 0),
-        },
-      }
-    );
-  }
-
   try {
     const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
     if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
     const { id: userId } = await requireUserFromReq(req);
+
+    // Rate limiting для создания/изменения данных - PER USER, not per IP
+    const { checkUserRateLimit } = await import('@/lib/rate-limit');
+    const rateLimit = checkUserRateLimit(userId, RATE_LIMIT_PRESETS.API);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: 'rate_limit_exceeded',
+          message: 'Too many requests. Please try again later.',
+          retry_after: rateLimit.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimit.retryAfter || 60),
+            'X-RateLimit-Limit': String(rateLimit.limit || 0),
+            'X-RateLimit-Remaining': String(rateLimit.remaining || 0),
+          },
+        }
+      );
+    }
+
     const supa = createUserServerClient(token);
 
     const body = await req.json().catch(() => null);
@@ -269,10 +271,10 @@ export async function POST(req: NextRequest) {
         );
 
         // Получаем статистику для проверки достижений
-                // Учитываем и value и is_completed для консистентности
+        // Учитываем и value и is_completed для консистентности
         const [habitsCheck, logsCheck, statsCheck] = await Promise.all([
           supa.from('habits').select('id').eq('user_id', userId),
-                  supa.from('habit_logs').select('id').eq('user_id', userId).or('value.eq.true,is_completed.eq.true'),
+          supa.from('habit_logs').select('id').eq('user_id', userId).or('value.eq.true,is_completed.eq.true'),
           supa.rpc('get_habit_streak', { p_user: userId }),
         ]);
 
