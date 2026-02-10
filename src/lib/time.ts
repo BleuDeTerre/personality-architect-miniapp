@@ -92,12 +92,18 @@ export function isoWeekUTC(d = utcNow()): string {
 
 
 // Server-side: Get local date string from request headers (timezone offset)
+// JS getTimezoneOffset() returns minutes: positive = west of UTC, negative = east of UTC
+// e.g. UTC+2 → -120, UTC-5 → 300
+// To get client local time from UTC: subtract the offset (UTC - (-120min) = UTC + 2h)
 export function getClientLocalDate(req: { headers: { get: (name: string) => string | null } }): string {
     const tzOffsetMinutesRaw = Number(req.headers.get('x-timezone-offset') ?? '0');
     const timezoneOffsetMinutes = Number.isFinite(tzOffsetMinutesRaw) ? tzOffsetMinutesRaw : 0;
     const timezoneOffsetMs = timezoneOffsetMinutes * 60 * 1000;
-    const clientNow = new Date(Date.now() + timezoneOffsetMs);
-    return clientNow.toISOString().slice(0, 10);
+    const clientNow = new Date(Date.now() - timezoneOffsetMs);
+    const year = clientNow.getUTCFullYear();
+    const month = String(clientNow.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(clientNow.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 // Get timezone offset in minutes (for client-side headers)

@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
         }
 
         const completedSet = new Set<string>((todayLogs ?? []).map(log => log.habit_id));
-        
+
         // Убираем дубликаты по ID на уровне API (на случай, если база данных вернула дубликаты)
         const seenIds = new Set<string>();
         const uniqueHabits = (data ?? []).filter((habit: any) => {
@@ -72,17 +72,17 @@ export async function GET(req: NextRequest) {
             seenIds.add(habit.id);
             return true;
         });
-        
+
         const response = uniqueHabits.map((habit: any) => ({
             ...habit,
             is_completed: completedSet.has(habit.id),
         }));
 
         console.log(`[Habits List] Found ${response.length} unique habits (out of ${(data ?? []).length} total) for user ${userId}`);
-        
+
         const res = NextResponse.json(response);
-        // Кэшируем список привычек на 5 минут (данные могут измениться при создании/удалении)
-        res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.PRIVATE_SHORT)['Cache-Control']);
+        // Не кэшируем список привычек — статус is_completed меняется при каждом mark done
+        res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.NO_CACHE)['Cache-Control']);
         return res;
     } catch {
         return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

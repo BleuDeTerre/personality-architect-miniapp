@@ -41,10 +41,10 @@ export async function GET(req: NextRequest) {
             .order('created_at', { ascending: true });
 
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-        
+
         const res = NextResponse.json({ items: data ?? [] });
-        // Кэшируем список привычек на 5 минут
-        res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.PRIVATE_SHORT)['Cache-Control']);
+        // Не кэшируем — данные привычек могут изменяться часто
+        res.headers.set('Cache-Control', getCacheHeaders(CACHE_PRESETS.NO_CACHE)['Cache-Control']);
         return res;
     } catch {
         return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
