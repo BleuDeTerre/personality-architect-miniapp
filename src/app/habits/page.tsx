@@ -932,11 +932,8 @@ export default function HabitsPage() {
                 previewParams: {
                     variant: 'habits:summary',
                     description: `${habits.length} habits tracked`,
-                    statLabel: 'Total habits',
-                    statValue: String(habits.length),
                     total: String(habits.length),
                     completed: String(completedCount),
-                    tag: 'HABIT TRACKER',
                 },
                 targetPath: '/habits',
             });

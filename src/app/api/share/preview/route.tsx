@@ -47,10 +47,15 @@ function buildTitle(params: URLSearchParams): string {
     // Затем проверяем variant (новая система)
     const variant = getString(params, 'variant', '');
     if (variant) {
+        if (variant.startsWith('habits:')) {
+            if (variant === 'habits:summary') return 'Habits Summary';
+            return 'Habit Tracker';
+        }
         if (variant.startsWith('goals:')) {
             if (variant === 'goals:progress') return 'Goal Progress Summary';
             if (variant === 'goals:completed') return 'Goal Completed';
             if (variant === 'goals:upcoming') return 'Upcoming Goal';
+            if (variant === 'goals:eisenhower') return 'Eisenhower Matrix';
             return 'Goal Progress';
         }
         if (variant.startsWith('streaks:')) {
@@ -73,6 +78,7 @@ function buildTitle(params: URLSearchParams): string {
 
     // Затем проверяем kind (старая система для обратной совместимости)
     const kind = getString(params, 'kind', '');
+    if (kind === 'habits') return 'Habits Summary';
     if (kind === 'goals') return 'Goal Progress Summary';
     if (kind === 'streaks') return 'Habit Streak';
     if (kind === 'quests') return 'Quest Summary';
@@ -96,10 +102,20 @@ function buildDescription(params: URLSearchParams): string {
     // Затем проверяем variant (новая система)
     const variant = getString(params, 'variant', '');
     if (variant) {
+        if (variant === 'habits:summary') {
+            const total = getNumber(params, 'total', getNumber(params, 'statValue', 0));
+            const completed = getNumber(params, 'completed', 0);
+            if (completed > 0) return `${total} habits tracked, ${completed} completed today`;
+            return `${total} habits tracked`;
+        }
         if (variant === 'goals:progress') {
             const active = getNumber(params, 'active', 0);
             const completed = getNumber(params, 'completed', 0);
             return `${active} active • ${completed} completed`;
+        }
+        if (variant === 'goals:eisenhower') {
+            const total = getNumber(params, 'q1_count', 0) + getNumber(params, 'q2_count', 0) + getNumber(params, 'q3_count', 0) + getNumber(params, 'q4_count', 0);
+            return `${total} goals organized by priority`;
         }
         if (variant === 'goals:completed') {
             const goal = getString(params, 'goal', '');
@@ -287,25 +303,50 @@ export async function GET(req: NextRequest) {
             imageUrl.searchParams.set('kind', kind);
         }
 
-        // Передаем ВСЕ параметры в OG генератор (кроме старых которые уже обработаны)
+        // Передаем параметры в OG генератор, исключая те, которые не нужны для генерации изображения.
+        // Лишние параметры увеличивают длину imageUrl, что может привести к ошибке в Warpcast (imageUrl ≤ 1024).
+        const OG_SKIP_PARAMS = new Set(['statLabel', 'tag', 'targetPath', 'summary', 'status']);
         searchParams.forEach((value, key) => {
-            // Пропускаем только старые параметры, которые мы уже конвертировали
-            // НО НЕ пропускаем kind - он нужен для определения цвета!
-            if (key === 'statLabel') return;
-            if (key === 'statValue' && kind === 'goals') return; // Для goals мы уже извлекли active/completed
-            if (key === 'description' && kind === 'goals') return; // Для goals мы уже извлекли active/completed
+            // Пропускаем параметры, не используемые OG-генератором
+            if (OG_SKIP_PARAMS.has(key)) return;
+            if (key === 'statValue' && kind === 'goals') return;
+            if (key === 'description' && kind === 'goals') return;
             if (key === 'highlight' && kind === 'streaks') return;
             if (key === 'remaining' && kind === 'streaks') return;
             if (key === 'streak' && kind === 'streaks') return;
 
-            // Все остальное передаем: kind, variant, active, completed, current, best, next, chips, goal, title, scores и т.д.
-            // ВАЖНО: scores должен передаваться для wheel:snapshot!
+            // Передаем: kind, variant, active, completed, current, best, next, chips, goal, title, scores, q*_count, q*_goals и т.д.
             imageUrl.searchParams.set(key, value);
         });
+
+        // CRITICAL: Ensure we don't pass duplicate params that might bloat the URL
+        if (kind) imageUrl.searchParams.set('kind', kind);
+        if (imageUrl.searchParams.has('variant')) {
+            // Ensure variant is set correctly
+        }
 
         // Добавляем версию, если её нет
         if (!imageUrl.searchParams.has('rev')) {
             imageUrl.searchParams.set('rev', SHARE_PREVIEW_VERSION);
+        }
+
+        // CRITICAL: Farcaster spec requires imageUrl ≤ 1024 characters
+        // Если imageUrl слишком длинный — удаляем тяжелые параметры постепенно
+        const MAX_IMAGE_URL_LEN = 1024;
+        let imageUrlCheck = imageUrl.toString();
+        if (imageUrlCheck.length > MAX_IMAGE_URL_LEN) {
+            console.warn('[Preview] imageUrl exceeds 1024 chars, trimming heavy params:', {
+                length: imageUrlCheck.length,
+                variant,
+                kind,
+            });
+            // Удаляем тяжелые параметры в порядке приоритета (наименее важные первые)
+            const HEAVY_PARAMS = ['q4_goals', 'q3_goals', 'q2_goals', 'q1_goals', 'description', 'goal', 'msg'];
+            for (const param of HEAVY_PARAMS) {
+                if (imageUrl.toString().length <= MAX_IMAGE_URL_LEN) break;
+                imageUrl.searchParams.delete(param);
+            }
+            console.log('[Preview] imageUrl after trimming:', { length: imageUrl.toString().length });
         }
 
         const title = escapeAttr(buildTitle(searchParams));
@@ -356,7 +397,10 @@ export async function GET(req: NextRequest) {
     <meta property="og:url" content="${escapeAttr(targetUrl)}">
     <meta property="og:title" content="${title}">
     <meta property="og:description" content="${description}">
-    <meta property="og:image" content="${imageUrlStr}">
+    <meta property="og:title" content="${title}">
+    <meta property="og:description" content="${description}">
+    <meta property="og:image" content="${escapeAttr(imageUrlStr)}">
+    <meta property="og:image:width" content="1200">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="800">
     <meta property="og:image:type" content="image/png">

@@ -66,11 +66,11 @@ export default function GoalsPage() {
 
     const authHeaders = useCallback(async () => {
         let { data: { session } } = await supabase.auth.getSession();
-        
+
         // Если нет сессии, пробуем восстановить
         if (!session?.access_token) {
             console.warn('[GoalsPage] No access token in session, attempting to restore...');
-            
+
             // Пробуем получить через getUser
             const { data: { user } } = await supabase.auth.getUser();
             if (user?.user_metadata?.fid) {
@@ -81,7 +81,7 @@ export default function GoalsPage() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ fid }),
                     });
-                    
+
                     if (res.ok) {
                         const loginData = await res.json();
                         if (loginData.access_token) {
@@ -100,11 +100,11 @@ export default function GoalsPage() {
                 }
             }
         }
-        
+
         if (!session?.access_token) {
             console.error('[GoalsPage] Still no access token after restore attempt');
         }
-        
+
         const tzOffset = typeof window !== 'undefined' ? new Date().getTimezoneOffset() : 0;
         return {
             'Content-Type': 'application/json',
@@ -591,16 +591,13 @@ export default function GoalsPage() {
                 active: String(activeGoals.length),
                 completed: String(completedGoals.length),
                 total: String(goals.length),
-                goal: highlightedGoal?.title ?? 'Next milestone',
-                summary: highlightSummary,
-                status: highlightStatus,
             },
             targetPath: '/goals',
         });
 
         // Eisenhower Matrix cast - только цели с установленными приоритетами
-        const matrixGoals = activeGoals.filter(g => 
-            (g.important === true || g.important === false) && 
+        const matrixGoals = activeGoals.filter(g =>
+            (g.important === true || g.important === false) &&
             (g.urgent === true || g.urgent === false)
         );
         if (matrixGoals.length > 0) {
@@ -610,8 +607,9 @@ export default function GoalsPage() {
             const notImportantNotUrgent = matrixGoals.filter(g => g.important === false && g.urgent === false);
 
             // Получаем первые 3 цели из каждого квадранта для отображения
-            const getGoalsTitles = (goalsList: Goal[], max: number = 3) => 
-                goalsList.slice(0, max).map(g => g.title).join('|');
+            // Ограничиваем длину названий чтобы imageUrl не превышал 1024 символа (лимит Warpcast)
+            const getGoalsTitles = (goalsList: Goal[], max: number = 3) =>
+                goalsList.slice(0, max).map(g => g.title.length > 25 ? g.title.slice(0, 22) + '...' : g.title).join('|');
 
             templates.push({
                 key: 'eisenhower',

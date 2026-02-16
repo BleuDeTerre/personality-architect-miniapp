@@ -1,6 +1,7 @@
 // src/app/api/insight/monthly/route.ts
 // Платная фича: при наличии кредитов — списать 1 кр.; иначе 402 → pay /api/paid/insight/monthly.
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic'; // Fix 404: Ensure this route is always treated as an API endpoint
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserFromReq } from '@/lib/auth';
@@ -15,6 +16,7 @@ import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rate-limit';
 const PAID_SKU = '/api/paid/insight/monthly';
 
 export async function GET(req: NextRequest) {
+    console.log('[API] GET /api/insight/monthly called');
     try {
         const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
         if (!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

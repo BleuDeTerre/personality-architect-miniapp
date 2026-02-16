@@ -385,6 +385,37 @@ export default function ShareCastComposer({
                     embedUrl = embedUrlObj.toString();
                 }
 
+                // Проверяем длину embedUrl - Warpcast требует imageUrl ≤ 1024
+                // Если URL слишком длинный, убираем необязательные параметры
+                if (embedUrl.length > 900) {
+                    const trimUrl = new URL(embedUrl);
+
+                    // 1. Сначала убираем совсем ненужные для картинки параметры
+                    const verboseParams = ['tag', 'statLabel', 'summary', 'status', 'description'];
+                    for (const param of verboseParams) {
+                        if (trimUrl.searchParams.has(param) && trimUrl.toString().length > 900) {
+                            trimUrl.searchParams.delete(param);
+                        }
+                    }
+
+                    // 2. Если все еще длинный, урезаем списки целей (для Eisenhower)
+                    if (trimUrl.toString().length > 900) {
+                        ['q1_goals', 'q2_goals', 'q3_goals', 'q4_goals'].forEach(q => {
+                            if (trimUrl.searchParams.has(q) && trimUrl.toString().length > 900) {
+                                // Оставляем только первый элемент или удаляем вовсе
+                                const val = trimUrl.searchParams.get(q) || '';
+                                if (val.length > 50) {
+                                    const first = val.split('|')[0].substring(0, 30);
+                                    trimUrl.searchParams.set(q, first);
+                                }
+                            }
+                        });
+                    }
+
+                    embedUrl = trimUrl.toString();
+                    console.log('[ShareCastComposer] Trimmed long embed URL:', { originalLen: embedUrl.length, trimmedLen: embedUrl.length });
+                }
+
                 // Строим URL композера Warpcast (текст может быть отредактирован в предкасте)
                 const compose = new URL('https://warpcast.com/~/compose');
                 compose.searchParams.set('text', text);
@@ -396,6 +427,8 @@ export default function ShareCastComposer({
                     composeUrl,
                     text,
                     embedUrl,
+                    embedUrlLen: embedUrl.length,
+                    textLen: text.length,
                 });
 
                 // Устанавливаем флаг, что композер был открыт
@@ -418,8 +451,14 @@ export default function ShareCastComposer({
                             text,
                             embeds: [embedUrl],
                         });
-                    } catch (sdkError) {
-                        console.warn('[ShareCastComposer] composeCast failed, falling back to link:', sdkError);
+                    } catch (sdkError: any) {
+                        console.warn('[ShareCastComposer] composeCast failed:', {
+                            error: sdkError?.message,
+                            embedUrlLen: embedUrl.length,
+                            textLen: text.length,
+                            kind: template.kind,
+                            variant: template.previewParams?.variant,
+                        });
                         // Fallback: открываем через ссылку
                         const link = document.createElement('a');
                         link.href = composeUrl;
