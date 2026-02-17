@@ -111,13 +111,15 @@ export async function GET(req: NextRequest) {
             temperature: 0.2,
             messages: [
                 { role: 'system', content: MONTHLY_INSIGHTS_PROMPT },
-                { role: 'user', content: [
-                    `Monthly summary for ${monthStart} to ${monthEndStr}:`,
-                    `Completed ${completed} habit completions across ${logsByDate.size} active days (${rate_pct}% completion rate).`,
-                    wheel.length > 0 ? `Wheel average: ${wheelAvg.toFixed(1)}/10.` : 'No wheel data.',
-                    wellnessContext || '',
-                    deep ? 'Provide deep analysis with long-term trends and patterns.' : 'Review the month and point out long-term trends.',
-                ].filter(Boolean).join('\n') },
+                {
+                    role: 'user', content: [
+                        `Monthly summary for ${monthStart} to ${monthEndStr}:`,
+                        `Completed ${completed} habit completions across ${logsByDate.size} active days (${rate_pct}% completion rate).`,
+                        wheel.length > 0 ? `Wheel average: ${wheelAvg.toFixed(1)}/10.` : 'No wheel data.',
+                        wellnessContext || '',
+                        deep ? 'Provide deep analysis with long-term trends and patterns.' : 'Review the month and point out long-term trends.',
+                    ].filter(Boolean).join('\n')
+                },
             ],
         });
 

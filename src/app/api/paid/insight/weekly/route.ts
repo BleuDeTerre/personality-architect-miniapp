@@ -117,13 +117,15 @@ export async function GET(req: NextRequest) {
             temperature: 0.2,
             messages: [
                 { role: 'system', content: WEEKLY_INSIGHTS_PROMPT },
-                { role: 'user', content: [
-                    `Weekly summary for ${weekStart} to ${endDateStr}:`,
-                    `Completed ${completed} habit completions across ${logsByDate.size} active days (${rate_pct}% completion rate).`,
-                    wheel.length > 0 ? `Wheel average: ${wheelAvg.toFixed(1)}/10.` : 'No wheel data.',
-                    wellnessContext || '',
-                    deep ? 'Provide deep analysis with trends and patterns.' : 'Provide 4-5 bullet insights and 3 actionable recommendations for next week.',
-                ].filter(Boolean).join('\n') },
+                {
+                    role: 'user', content: [
+                        `Weekly summary for ${weekStart} to ${endDateStr}:`,
+                        `Completed ${completed} habit completions across ${logsByDate.size} active days (${rate_pct}% completion rate).`,
+                        wheel.length > 0 ? `Wheel average: ${wheelAvg.toFixed(1)}/10.` : 'No wheel data.',
+                        wellnessContext || '',
+                        deep ? 'Provide deep analysis with trends and patterns.' : 'Provide 4-5 bullet insights and 3 actionable recommendations for next week.',
+                    ].filter(Boolean).join('\n')
+                },
             ],
         });
 
