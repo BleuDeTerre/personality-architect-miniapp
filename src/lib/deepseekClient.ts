@@ -5,7 +5,7 @@
 
 import { OpenAI } from 'openai';
 
-export type DeepSeekModel = 'deepseek/deepseek-chat' | 'deepseek/deepseek-reasoner' | 'tngtech/deepseek-r1t2-chimera:free' | 'meta-llama/llama-3.3-70b-instruct:free';
+export type DeepSeekModel = 'deepseek/deepseek-chat' | 'deepseek/deepseek-reasoner' | 'arcee-ai/trinity-large-preview:free' | 'meta-llama/llama-3.3-70b-instruct:free';
 
 /** DeepSeek клиент через OpenRouter с проверкой ключа. */
 export function deepseekClient() {
@@ -15,7 +15,7 @@ export function deepseekClient() {
         console.error('[DeepSeek Client] OPENROUTER_API_KEY is missing. Available env vars:', Object.keys(process.env).filter(k => k.includes('OPEN') || k.includes('API')));
         throw new Error('OPENROUTER_API_KEY missing');
     }
-    
+
     // DeepSeek через OpenRouter использует OpenAI-совместимый API
     return new OpenAI({
         apiKey: apiKey,
@@ -30,8 +30,7 @@ export function deepseekClient() {
 /** Выбор модели DeepSeek. */
 export function pickDeepSeekModel(): DeepSeekModel {
     const model = process.env.DEEPSEEK_MODEL as DeepSeekModel;
-    // По умолчанию используем DeepSeek R1T2 Chimera (free) через OpenRouter
-    // Правильное название: tngtech/deepseek-r1t2-chimera:free
-    return model || 'tngtech/deepseek-r1t2-chimera:free';
+    // По умолчанию используем Arcee Trinity Large Preview (free) через OpenRouter
+    return model || 'arcee-ai/trinity-large-preview:free';
 }
 
