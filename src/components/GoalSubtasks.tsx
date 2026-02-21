@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useMiniApp } from '@/hooks/useMiniAppContext';
 
 type Subtask = {
     id: number;
@@ -22,7 +21,6 @@ type GoalSubtasksProps = {
 };
 
 export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubtasksChange }: GoalSubtasksProps) {
-    const { isSDKLoaded } = useMiniApp();
     const [subtasks, setSubtasks] = useState<Subtask[]>(initialSubtasks || []);
     const [loading, setLoading] = useState(false);
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
@@ -37,7 +35,6 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
     }, [goalId, initialSubtasks]);
 
     const loadSubtasks = async () => {
-        if (!isSDKLoaded) return;
         setLoading(true);
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -61,13 +58,9 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
     };
 
     const handleToggleComplete = async (subtaskId: number, currentStatus: boolean) => {
-        if (!isSDKLoaded) {
-            console.log('[GoalSubtasks] SDK not loaded');
-            return;
-        }
-        
+
         console.log('[GoalSubtasks] Toggle subtask:', subtaskId, 'current:', currentStatus);
-        
+
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
@@ -77,7 +70,7 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
 
             const newStatus = !currentStatus;
             console.log('[GoalSubtasks] Updating subtask to:', newStatus);
-            
+
             const res = await fetch(`/api/subtasks/${subtaskId}`, {
                 method: 'PUT',
                 headers: {
@@ -89,7 +82,7 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
 
             if (res.ok) {
                 console.log('[GoalSubtasks] Subtask updated successfully');
-                const updated = subtasks.map(s => 
+                const updated = subtasks.map(s =>
                     s.id === subtaskId ? { ...s, is_completed: newStatus } : s
                 );
                 setSubtasks(updated);
@@ -105,7 +98,7 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
     };
 
     const handleAddSubtask = async () => {
-        if (!newSubtaskTitle.trim() || !isSDKLoaded) return;
+        if (!newSubtaskTitle.trim()) return;
         setIsAdding(true);
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -137,7 +130,6 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
     };
 
     const handleDeleteSubtask = async (subtaskId: number) => {
-        if (!isSDKLoaded) return;
 
         try {
             const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -201,11 +193,10 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
                             className="w-4 h-4 rounded border-white/20 bg-white/5 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer flex-shrink-0"
                         />
                         <span
-                            className={`flex-1 text-sm ${
-                                subtask.is_completed
-                                    ? 'line-through text-white/50'
-                                    : 'text-white/80'
-                            }`}
+                            className={`flex-1 text-sm ${subtask.is_completed
+                                ? 'line-through text-white/50'
+                                : 'text-white/80'
+                                }`}
                         >
                             {subtask.title}
                         </span>
