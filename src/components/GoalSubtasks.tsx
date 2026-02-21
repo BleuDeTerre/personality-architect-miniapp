@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 
 type Subtask = {
@@ -25,8 +25,15 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
     const [loading, setLoading] = useState(false);
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [isAdding, setIsAdding] = useState(false);
+    // Track when we're doing an optimistic update to prevent parent props from overwriting
+    const skipNextSyncRef = useRef(false);
 
     useEffect(() => {
+        if (skipNextSyncRef.current) {
+            // Skip this sync — we just did an optimistic update
+            skipNextSyncRef.current = false;
+            return;
+        }
         if (initialSubtasks) {
             setSubtasks(initialSubtasks);
         } else {
@@ -34,10 +41,15 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
         }
     }, [goalId, initialSubtasks]);
 
+    const getSession = useCallback(async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        return session;
+    }, []);
+
     const loadSubtasks = async () => {
         setLoading(true);
         try {
-            const { data: { session } } = await supabase.auth.getSession();
+            const session = await getSession();
             if (!session) return;
 
             const res = await fetch(`/api/subtasks?goal_id=${goalId}`, {
@@ -58,19 +70,25 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
         }
     };
 
-    const handleToggleComplete = async (subtaskId: number, currentStatus: boolean) => {
+    const handleToggleComplete = useCallback(async (subtaskId: number, currentStatus: boolean) => {
+        const newStatus = !currentStatus;
 
-        console.log('[GoalSubtasks] Toggle subtask:', subtaskId, 'current:', currentStatus);
+        // Optimistic update — update UI immediately
+        setSubtasks(prev => prev.map(s =>
+            s.id === subtaskId ? { ...s, is_completed: newStatus } : s
+        ));
+        // Prevent parent re-render from reverting our optimistic update
+        skipNextSyncRef.current = true;
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
+            const session = await getSession();
             if (!session) {
-                console.log('[GoalSubtasks] No session');
+                // Revert optimistic update
+                setSubtasks(prev => prev.map(s =>
+                    s.id === subtaskId ? { ...s, is_completed: currentStatus } : s
+                ));
                 return;
             }
-
-            const newStatus = !currentStatus;
-            console.log('[GoalSubtasks] Updating subtask to:', newStatus);
 
             const res = await fetch(`/api/subtasks/${subtaskId}`, {
                 method: 'PUT',
@@ -82,27 +100,29 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
             });
 
             if (res.ok) {
-                console.log('[GoalSubtasks] Subtask updated successfully');
-                const updated = subtasks.map(s =>
-                    s.id === subtaskId ? { ...s, is_completed: newStatus } : s
-                );
-                setSubtasks(updated);
+                // Notify parent to refresh progress bar, but our local state is already correct
                 onSubtasksChange?.();
             } else {
                 console.error('[GoalSubtasks] Failed to update subtask:', res.status);
-                const errorData = await res.json().catch(() => ({}));
-                console.error('[GoalSubtasks] Error details:', errorData);
+                // Revert optimistic update on error
+                setSubtasks(prev => prev.map(s =>
+                    s.id === subtaskId ? { ...s, is_completed: currentStatus } : s
+                ));
             }
         } catch (error) {
             console.error('[GoalSubtasks] Error updating subtask:', error);
+            // Revert optimistic update on error
+            setSubtasks(prev => prev.map(s =>
+                s.id === subtaskId ? { ...s, is_completed: currentStatus } : s
+            ));
         }
-    };
+    }, [getSession, onSubtasksChange]);
 
-    const handleAddSubtask = async () => {
+    const handleAddSubtask = useCallback(async () => {
         if (!newSubtaskTitle.trim()) return;
         setIsAdding(true);
         try {
-            const { data: { session } } = await supabase.auth.getSession();
+            const session = await getSession();
             if (!session) return;
 
             const res = await fetch('/api/subtasks', {
@@ -119,8 +139,10 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
 
             if (res.ok) {
                 const data = await res.json();
-                setSubtasks([...subtasks, data.item]);
+                // Add to local state immediately
+                setSubtasks(prev => [...prev, data.item]);
                 setNewSubtaskTitle('');
+                skipNextSyncRef.current = true;
                 onSubtasksChange?.();
             }
         } catch (error) {
@@ -128,13 +150,19 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
         } finally {
             setIsAdding(false);
         }
-    };
+    }, [goalId, newSubtaskTitle, getSession, onSubtasksChange]);
 
-    const handleDeleteSubtask = async (subtaskId: number) => {
+    const handleDeleteSubtask = useCallback(async (subtaskId: number) => {
+        // Optimistic delete — remove from UI immediately
+        const previousSubtasks = subtasks;
+        setSubtasks(prev => prev.filter(s => s.id !== subtaskId));
+        skipNextSyncRef.current = true;
 
         try {
-            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-            if (sessionError || !session || !session.access_token) {
+            const session = await getSession();
+            if (!session) {
+                // Revert optimistic delete
+                setSubtasks(previousSubtasks);
                 alert('Session expired. Please refresh the page.');
                 return;
             }
@@ -147,18 +175,20 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
                 },
             });
 
-            const responseData = await res.json().catch(() => ({}));
-
             if (res.ok) {
-                setSubtasks(subtasks.filter(s => s.id !== subtaskId));
                 onSubtasksChange?.();
             } else {
+                const responseData = await res.json().catch(() => ({}));
+                // Revert optimistic delete on error
+                setSubtasks(previousSubtasks);
                 alert(`Failed to delete subtask: ${responseData.error || responseData.details || 'Unknown error'}`);
             }
         } catch (error) {
+            // Revert optimistic delete on error
+            setSubtasks(previousSubtasks);
             alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-    };
+    }, [subtasks, getSession, onSubtasksChange]);
 
     if (loading && subtasks.length === 0) {
         return <div className="text-sm text-white/60">Loading subtasks...</div>;
@@ -187,12 +217,24 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
                         key={subtask.id}
                         className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
                     >
-                        <input
-                            type="checkbox"
-                            checked={subtask.is_completed}
-                            onChange={() => handleToggleComplete(subtask.id, subtask.is_completed)}
-                            className="w-4 h-4 rounded border-white/20 bg-white/5 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer flex-shrink-0"
-                        />
+                        <button
+                            type="button"
+                            onClick={() => handleToggleComplete(subtask.id, subtask.is_completed)}
+                            className="flex items-center justify-center w-6 h-6 flex-shrink-0 cursor-pointer"
+                            aria-label={subtask.is_completed ? 'Mark incomplete' : 'Mark complete'}
+                        >
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                                subtask.is_completed
+                                    ? 'bg-purple-500 border-purple-500'
+                                    : 'border-white/30 bg-transparent'
+                            }`}>
+                                {subtask.is_completed && (
+                                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                )}
+                            </div>
+                        </button>
                         <span
                             className={`flex-1 text-sm ${subtask.is_completed
                                 ? 'line-through text-white/50'
@@ -203,13 +245,9 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
                         </span>
                         <button
                             type="button"
-                            data-subtask-id={subtask.id}
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleDeleteSubtask(subtask.id);
-                            }}
-                            className="text-xs text-red-400 hover:text-red-300 px-2 py-1 cursor-pointer flex-shrink-0"
+                            onClick={() => handleDeleteSubtask(subtask.id)}
+                            className="flex items-center justify-center w-8 h-8 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg cursor-pointer flex-shrink-0 transition-colors"
+                            aria-label="Delete subtask"
                         >
                             ×
                         </button>
@@ -222,7 +260,7 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
                     type="text"
                     value={newSubtaskTitle}
                     onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                    onKeyPress={(e) => {
+                    onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                             handleAddSubtask();
                         }
@@ -242,4 +280,3 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
         </div>
     );
 }
-

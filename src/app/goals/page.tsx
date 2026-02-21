@@ -135,7 +135,7 @@ export default function GoalsPage() {
         } finally {
             setLoadingGoals(false);
         }
-    }, [authHeaders, isSDKLoaded, context]);
+    }, [authHeaders]);
 
     useEffect(() => {
         let mounted = true;
