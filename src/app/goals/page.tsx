@@ -117,7 +117,7 @@ export default function GoalsPage() {
         setLoadingGoals(true);
         try {
             const headers = await authHeaders();
-            const res = await fetch('/api/goals', { headers });
+            const res = await fetch('/api/goals', { headers, cache: 'no-store' });
             if (!res.ok) {
                 console.error('[GoalsPage] Failed to fetch goals:', res.status, res.statusText);
                 const errorData = await res.json().catch(() => ({}));

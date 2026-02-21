@@ -44,6 +44,7 @@ export default function GoalSubtasks({ goalId, subtasks: initialSubtasks, onSubt
                 headers: {
                     'Authorization': `Bearer ${session.access_token}`,
                 },
+                cache: 'no-store',
             });
 
             if (res.ok) {
