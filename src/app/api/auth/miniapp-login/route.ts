@@ -407,41 +407,65 @@ export async function POST(req: NextRequest) {
             const userEmail = verifyResult.data?.user?.email || email;
             const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
-            // Метод 1: generateLink
+            const tempClient = createSupabaseClient(
+                supabaseUrl,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            );
+
+            // Метод 1: magiclink → email_otp → verifyOtp (надёжный выпуск сессии без пароля)
             try {
-                const { data: linkData } = await (admin.auth.admin as any).generateLink({
+                const { data: linkData, error: linkErr } = await (admin.auth.admin as any).generateLink({
                     type: 'magiclink',
                     email: userEmail,
                 });
-                accessToken = (linkData as any)?.properties?.access_token
-                    || (linkData as any)?.access_token
-                    || (linkData as any)?.token
-                    || null;
-            } catch (linkError) {
-                console.warn('[MiniApp Login] generateLink failed:', linkError);
+                if (linkErr) {
+                    console.error('[MiniApp Login] generateLink error:', (linkErr as any)?.message ?? linkErr);
+                }
+                const emailOtp = (linkData as any)?.properties?.email_otp;
+                if (emailOtp) {
+                    const { data: vData, error: vErr } = await tempClient.auth.verifyOtp({
+                        email: userEmail,
+                        token: emailOtp,
+                        type: 'email',
+                    });
+                    if (vErr) {
+                        console.error('[MiniApp Login] verifyOtp error:', vErr.message);
+                    } else if (vData?.session?.access_token) {
+                        accessToken = vData.session.access_token;
+                        signInData = vData;
+                    }
+                } else {
+                    console.error('[MiniApp Login] generateLink returned no email_otp');
+                }
+            } catch (linkError: any) {
+                console.error('[MiniApp Login] generateLink/verifyOtp threw:', linkError?.message ?? linkError);
             }
 
-            // Метод 2: временный пароль
+            // Метод 2 (fallback): временный пароль (усиленный — проходит политику сложности)
             if (!accessToken) {
-                const tempPassword = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-                await admin.auth.admin.updateUserById(userId!, {
-                    password: tempPassword,
-                    email_confirm: true,
-                });
+                try {
+                    const tempPassword = `Tmp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}A1!`;
+                    const { error: updErr } = await admin.auth.admin.updateUserById(userId!, {
+                        password: tempPassword,
+                        email_confirm: true,
+                    });
+                    if (updErr) {
+                        console.error('[MiniApp Login] updateUserById(password) error:', updErr.message);
+                    }
 
-                const tempClient = createSupabaseClient(
-                    supabaseUrl,
-                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-                );
+                    const signInResult = await tempClient.auth.signInWithPassword({
+                        email: userEmail,
+                        password: tempPassword,
+                    });
 
-                const signInResult = await tempClient.auth.signInWithPassword({
-                    email: userEmail,
-                    password: tempPassword,
-                });
-
-                if (!signInResult.error && signInResult.data?.session?.access_token) {
-                    accessToken = signInResult.data.session.access_token;
-                    signInData = signInResult.data;
+                    if (signInResult.error) {
+                        console.error('[MiniApp Login] signInWithPassword error:', signInResult.error.message);
+                    } else if (signInResult.data?.session?.access_token) {
+                        accessToken = signInResult.data.session.access_token;
+                        signInData = signInResult.data;
+                    }
+                } catch (pwError: any) {
+                    console.error('[MiniApp Login] temp-password method threw:', pwError?.message ?? pwError);
                 }
             }
         } catch (tokenError) {

@@ -8,6 +8,8 @@ import ErrorLogger from "@/components/ErrorLogger";
 // escapeAttr removed - fc:miniapp needs raw JSON.stringify per Base docs
 import SessionRestore from "@/components/SessionRestore";
 import WalletSync from "@/components/WalletSync";
+import MiniAppReady from "@/components/MiniAppReady";
+import MiniAppDebug from "@/components/MiniAppDebug";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -99,12 +101,14 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <MiniAppReady />
         <UniversalProvider>
           <ServiceWorkerRegistration />
           <ClientToaster />
           <ErrorLogger />
           <SessionRestore />
           <WalletSync />
+          <MiniAppDebug />
           {children}
         </UniversalProvider>
       </body>
