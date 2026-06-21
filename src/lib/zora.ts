@@ -8,6 +8,7 @@ export const RPC_URL = process.env.BASE_RPC_URL as string;
 export const CONTRACT = process.env.ZORA_1155_CONTRACT as `0x${string}` | undefined;
 export const PK = process.env.MINT_WALLET_PRIVATE_KEY as Hex | undefined;
 export const REFERRAL = (process.env.ZORA_MINT_REFERRAL as `0x${string}`) ?? `0x0000000000000000000000000000000000000000`;
+export const BUILDER_CODE = process.env.BUILDER_CODE as `0x${string}` | undefined;
 
 const walletAccount = PK ? privateKeyToAccount(PK) : undefined;
 
@@ -67,6 +68,7 @@ export async function sendMint({ to, tokenId, quantity = BigInt(1), data, valueE
         data: calldata,
         value: valueEth ? parseEther(valueEth) : 0n,
         chain: CHAIN_ID === 8453 ? base : undefined,
+        dataSuffix: BUILDER_CODE,
     });
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });

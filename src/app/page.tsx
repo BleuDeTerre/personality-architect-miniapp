@@ -101,8 +101,8 @@ export default function DashboardPage() {
         }
       }
 
-      // === FARCASTER: логин через FID ===
-      if (clientType === 'farcaster' || clientType === 'unknown') {
+      // === FID: и Farcaster, и Base App — хосты Farcaster Mini App, fid есть в обоих ===
+      if (clientType === 'farcaster' || clientType === 'unknown' || clientType === 'base') {
         // 1. Из контекста хука
         fid = fidFromHook || null;
         
@@ -136,8 +136,8 @@ export default function DashboardPage() {
             localStorage.setItem('user_fid', String(fid));
           }
           
-          // Также получаем wallet из контекста Farcaster
-          wallet = (context?.user as any)?.custodyAddress || (context?.user as any)?.walletAddress || null;
+          // Также получаем wallet из контекста (не затирая адрес, уже найденный для Base)
+          wallet = wallet || (context?.user as any)?.custodyAddress || (context?.user as any)?.walletAddress || null;
         }
       }
 

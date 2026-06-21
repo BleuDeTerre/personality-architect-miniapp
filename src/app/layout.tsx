@@ -7,6 +7,7 @@ import UniversalProvider from "@/components/UniversalProvider";
 import ErrorLogger from "@/components/ErrorLogger";
 // escapeAttr removed - fc:miniapp needs raw JSON.stringify per Base docs
 import SessionRestore from "@/components/SessionRestore";
+import WalletSync from "@/components/WalletSync";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -103,6 +104,7 @@ export default function RootLayout({
           <ClientToaster />
           <ErrorLogger />
           <SessionRestore />
+          <WalletSync />
           {children}
         </UniversalProvider>
       </body>
